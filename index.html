@@ -1705,6 +1705,16 @@ select option:disabled{background:var(--control-muted-bg);color:var(--control-mu
 #view[data-canonical-live] #pwa-advice-items>*{height:auto!important;min-height:0!important;margin:0!important}
 #view[data-canonical-live] #alForm fieldset.al-g:not(.al-ign){display:grid!important;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 16px;align-content:start;align-items:end}
 #view[data-canonical-live] #alForm fieldset.al-g:not(.al-ign)>legend{grid-column:1/-1}
+#view .gp-tile,#view .gp-kpis{overflow:hidden!important;scrollbar-width:none!important}
+#view[data-canonical-live] .canonical-card[data-live-kind="summary"]{overflow:visible!important}
+#view[data-canonical-live][data-live-fill] .canonical-card .plist:not(.str-list){display:grid!important;grid-auto-rows:minmax(60px,1fr);align-content:stretch}
+/* No visible scrollbars inside cards/lists: wheel and touch still scroll them, the page footer stays the only paging control. */
+#view[data-canonical-live] .canonical-card,#view[data-canonical-live] .canonical-card *{scrollbar-width:none!important;-ms-overflow-style:none}
+#view[data-canonical-live] .canonical-card::-webkit-scrollbar,#view[data-canonical-live] .canonical-card *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+#view[data-canonical-live] .cg-record-list{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(250px,1fr))!important;grid-auto-rows:minmax(72px,1fr)!important;gap:8px!important;align-content:stretch!important}
+#view[data-canonical-live] .cg-record-list>.cg-note{display:flex!important;flex-direction:column!important;justify-content:space-between!important;gap:6px!important;height:auto!important;padding:10px 12px!important;border:1px solid var(--rule)!important;border-radius:10px;background:var(--surface);min-width:0}
+#view[data-canonical-live] .cg-record-list>.cg-note>span{font-size:16px;font-weight:600;line-height:1.5;overflow-wrap:anywhere;flex:1;display:flex;align-items:center}
+#view[data-canonical-live] .cg-record-list>.cg-note .btn{align-self:flex-start;font-size:11px;padding:3px 9px;min-height:0;height:auto}
 /* END_FOOTER_ONLY_PAGING_20261026 */
 /* BEGIN_WEB_MODE_20261026 — the workspace behaves like a normal responsive web page: natural card heights, one vertical page scroll. */
 #view[data-canonical-live][data-web]{display:grid!important;grid-template-columns:repeat(var(--live-cols,2),minmax(0,1fr))!important;grid-template-rows:none!important;grid-auto-rows:max-content!important;align-content:start!important;align-items:start!important;gap:16px!important;overflow-y:auto!important;overflow-x:hidden!important;padding:2px 4px 40px!important;scrollbar-width:thin!important;scrollbar-color:var(--rule) transparent;scroll-behavior:smooth;overscroll-behavior:contain}
