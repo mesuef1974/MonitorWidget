@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-10-25T16:15:13+03:00",
+  "revision": "4ffe1560848b7bd9f3d0123bd4641a9d01a551cbb70eef8c183859fc713a8993",
+  "files": {
+    "appearance.py": "e00852c6b2c7f0e1795c97cb6bda9274fca5a2a8fe949e04dae024d1719d9fe4",
+    "atomic_json.py": "bbf7fbd23a61b44ef1ba3564255d699fa4f77ccf09cbb65f06674f784ed72d5e",
+    "index.html": "3a675a44175400b98fb71497100eed7dc38023c3c98a46726637a9144ad5fe4c",
+    "install_protected_app_20261025.ps1": "0bdcc028dff16118b7de9971c27769e3d2be2e5bf0fb4d15bdc4f22abb0cf91d",
+    "server.py": "200594964ae94a63eb7e5b977264c414aa9737d2f6e15f20c2f62116cf7d88c6",
+    "tests/appearance_regression.py": "73f6dee610afbef6dfba0ece9e62eeed3d99d338037ea0fa78adf3fb25cb5593",
+    "tests/frontend_appearance_check.js": "8cdb088e822c75aae30a6a6cecd60deb5ac6243ce5e9e971c04aec1ea22eb020",
+    "tests/frontend_contract_check.js": "966c3c0a4821c8e61cdc31dcae397be221400a3646d5cfb084bcccec683bfd55",
+    "tests/run_all.py": "ece5f482b7d8b8e8af22fa0f17ad9619af617b5c268f3d6f79ce0ee6d9fa0eee",
+    "tests/widget_appearance_check.ps1": "9b0c73ffefd820a223a8fa2565b14d362fef123d9c907b8fe7a80878fc8207f1",
+    "tests/widget_visual_fixture.ps1": "8e800a06f14cb01e8f3d255a8cbd30a45f3db7432ec953fed684246f4a958cc5",
+    "tests/window_security_check.py": "5c6e19df2e363fd732b14bd653ad6cae86efcce00b738272b48fa46617ec7d46",
+    "widget.ps1": "b3cd0a85a603ac15f4aa697dcadca1aa9fa62d2a2f721586db3cd16b171db51a"
+  }
+}

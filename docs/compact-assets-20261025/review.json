@@ -1,0 +1,104 @@
+{
+  "reviewer": "/root/design_review",
+  "reviewedAtQatar": "2026-10-25T21:00:31.849467+03:00",
+  "verdict": "PASS_COMPACT_OFFSCREEN_ONLY",
+  "source": "C:\\Users\\mesue\\Documents\\Scripts\\MonitorWidget\\widget.ps1",
+  "sourceSha256": "78e1e1790941fd6337a507b9daa98fe30e5157376f7159667ef2d141a6c66114",
+  "evidenceFile": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\measurements.json",
+  "evidenceSha256": "ba42a4c2c7b71331a3eeb5ae8b15c76121860f6ebe05c62bc3f0df88173b187e",
+  "caseCount": 3,
+  "cases": [
+    {
+      "case": "stale",
+      "theme": "light",
+      "palette": "graphite",
+      "renderedFrame": {
+        "width": 340,
+        "height": 248.0,
+        "availableWorkHeight": 600,
+        "unit": "DIP layout; 96-DPI PNG"
+      },
+      "measuredContentUnion": {
+        "left": 14.4,
+        "top": 14.4,
+        "right": 296.8,
+        "bottom": 204.8,
+        "width": 282.4,
+        "height": 190.4,
+        "definition": "Union of the 8 named measured controls, in the root layout coordinate space; not a screen placement measurement"
+      },
+      "namedControlCount": 8,
+      "buttonCount": 3,
+      "scrollViewerCount": 0,
+      "expanderCount": 0,
+      "stateLabel": "قديم",
+      "image": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\stale.png",
+      "result": "PASS"
+    },
+    {
+      "case": "missing",
+      "theme": "dark",
+      "palette": "teal",
+      "renderedFrame": {
+        "width": 340,
+        "height": 248.0,
+        "availableWorkHeight": 600,
+        "unit": "DIP layout; 96-DPI PNG"
+      },
+      "measuredContentUnion": {
+        "left": 14.4,
+        "top": 14.4,
+        "right": 296.8,
+        "bottom": 204.8,
+        "width": 282.4,
+        "height": 190.4,
+        "definition": "Union of the 8 named measured controls, in the root layout coordinate space; not a screen placement measurement"
+      },
+      "namedControlCount": 8,
+      "buttonCount": 3,
+      "scrollViewerCount": 0,
+      "expanderCount": 0,
+      "stateLabel": "ناقص",
+      "image": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\missing.png",
+      "result": "PASS"
+    },
+    {
+      "case": "warning",
+      "theme": "dark",
+      "palette": "blue",
+      "renderedFrame": {
+        "width": 340,
+        "height": 248.0,
+        "availableWorkHeight": 600,
+        "unit": "DIP layout; 96-DPI PNG"
+      },
+      "measuredContentUnion": {
+        "left": 14.4,
+        "top": 14.4,
+        "right": 296.8,
+        "bottom": 204.8,
+        "width": 282.4,
+        "height": 190.4,
+        "definition": "Union of the 8 named measured controls, in the root layout coordinate space; not a screen placement measurement"
+      },
+      "namedControlCount": 8,
+      "buttonCount": 3,
+      "scrollViewerCount": 0,
+      "expanderCount": 0,
+      "stateLabel": "حرج",
+      "image": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\warning.png",
+      "result": "PASS"
+    }
+  ],
+  "scope": [
+    "One compact widget surface only; no acceptance of detail pages",
+    "Real source construction, real metric update and real control theme applied through AST-extracted code",
+    "All named controls inside measured rendered frame; brand and header buttons do not overlap; 3 visible buttons only"
+  ],
+  "limitations": [
+    "No live application or widget operations, network, task changes or production settings writes",
+    "No browser assessment; zero-scroll requirement for the application is not implemented or verified by this review",
+    "Not a full startup/closing lifecycle test, screen placement test, multi-DPI or screen-reader test",
+    "Menu popup interaction is not assessed by this compact-surface probe"
+  ]
+}

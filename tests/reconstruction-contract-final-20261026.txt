@@ -1,0 +1,28 @@
+PASS same GET shares one request and promise
+PASS completed reads release timeout
+PASS mutation transport failure is never retried
+PASS 428 receives one explicit challenge response
+PASS canceled page result is rejected even when transport ignores abort
+PASS old chart range cannot overwrite the selected range
+PASS request deadline is bounded to 20 seconds
+PASS timeout is reported and releases request
+PASS 401 explains reopening the dashboard
+PASS manual mode suppresses background polling
+PASS hidden page suppresses polling
+PASS visible automatic mode permits polling
+PASS dialog has programmatic name and description
+PASS CPU and GPU refresh use stable reconciliation
+PASS missing health measurements are not displayed as zero or perfect health
+PASS partial score never claims excellent overall health
+PASS Defender alone cannot produce a protected/updated security domain
+PASS stale security domain is neutral and explicitly out of date
+PASS failed quarantine item exposes safe error but no restore button
+PASS held quarantine item exposes restore
+PASS notification baseline does not announce old issues
+PASS important notification is deduplicated across metric changes
+PASS muted important issues remain silent
+PASS navigation groups preserve every existing destination
+PASS fresh receipt never makes frozen source CPU measurements current
+PASS missing source timestamp cannot imply a current CPU measurement
+PASS overview freshness requires source timestamp as well as receipt
+RESULT 27 checks passed

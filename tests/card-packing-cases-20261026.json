@@ -1,0 +1,225 @@
+{
+  "sourceSha": "386588bfa9f0ceffd1542e6f47b936fb8c05f68a3ffd880caeb302170828daba",
+  "cases": [
+    {
+      "component": "memory",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 10,
+      "pageCount": 2,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "memory",
+      "viewport": {
+        "width": 700,
+        "height": 540
+      },
+      "visibleCards": 8,
+      "pageCount": 3,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "processes",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 15,
+      "pageCount": 2,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "cpu",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 8,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "gpu",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 11,
+      "pageCount": 2,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "space",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 10,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "io",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 9,
+      "pageCount": 2,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "appearance",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 3,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "home",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 8,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "health",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 3,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "tasks",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 2,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "database",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 2,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "control",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 16,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "alerts",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 5,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "power",
+      "viewport": {
+        "width": 700,
+        "height": 540
+      },
+      "visibleCards": 8,
+      "pageCount": 3,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "wsl",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 9,
+      "pageCount": 2,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "advice",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 2,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "rules",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 2,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "startup",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 2,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "history",
+      "viewport": {
+        "width": 1040,
+        "height": 680
+      },
+      "visibleCards": 4,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "memory",
+      "viewport": {
+        "width": 1700,
+        "height": 1000
+      },
+      "visibleCards": 13,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    },
+    {
+      "component": "cpu",
+      "viewport": {
+        "width": 1700,
+        "height": 1000
+      },
+      "visibleCards": 8,
+      "pageCount": 1,
+      "method": "controlled DOM geometry"
+    }
+  ]
+}

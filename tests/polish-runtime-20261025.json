@@ -1,0 +1,51 @@
+{
+  "startedAt": "2026-10-25T15:09:14.790767+00:00",
+  "steps": [
+    {
+      "name": "preflight_no_maintenance",
+      "value": true
+    },
+    {
+      "name": "background_opacity_restored",
+      "value": {
+        "previous": 0.27,
+        "current": 0.96
+      }
+    },
+    {
+      "name": "updated_widget_running",
+      "value": true
+    },
+    {
+      "name": "saved_opacity_confirmed",
+      "value": 0.96
+    },
+    {
+      "name": "shared_appearance_not_written",
+      "value": {
+        "before": {
+          "schemaVersion": 1,
+          "revision": 38,
+          "mode": "dark",
+          "palette": "teal"
+        },
+        "after": {
+          "schemaVersion": 1,
+          "revision": 38,
+          "mode": "dark",
+          "palette": "teal"
+        }
+      }
+    },
+    {
+      "name": "server_not_restarted",
+      "value": true
+    },
+    {
+      "name": "served_html_and_csp_match",
+      "value": true
+    }
+  ],
+  "status": "pass",
+  "completedAt": "2026-10-25T15:09:17.137384+00:00"
+}

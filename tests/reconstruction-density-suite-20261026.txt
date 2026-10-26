@@ -1,0 +1,695 @@
+تقرير مرصد الجهاز: 2026-10-26 10:56
+المراحل الفاشلة: 0 من 44
+الفحوص المتخطاة: 0 (التغطية غير مكتملة إن تجاوزت صفرًا)
+
+===== الخلفية والإعدادات (معزول) (exit 0) =====
+test_abort_and_replace_failure_preserve_original (__main__.AtomicConfiguration.test_abort_and_replace_failure_preserve_original) ... ok
+test_bom_and_finite_json (__main__.AtomicConfiguration.test_bom_and_finite_json) ... ok
+test_concurrent_processes_do_not_lose_updates (__main__.AtomicConfiguration.test_concurrent_processes_do_not_lose_updates) ... ok
+test_http_concurrency_slot_released_after_thread (__main__.BackendRequests.test_http_concurrency_slot_released_after_thread) ... ok
+test_incomplete_protected_purge_fails_before_task_query (__main__.BackendRequests.test_incomplete_protected_purge_fails_before_task_query) ... ok
+test_incomplete_request (__main__.BackendRequests.test_incomplete_request) ... ok
+test_internal_error_does_not_leak_exception (__main__.BackendRequests.test_internal_error_does_not_leak_exception) ... ok
+test_invalid_json_is_400 (__main__.BackendRequests.test_invalid_json_is_400) ... ok
+test_invalid_lengths (__main__.BackendRequests.test_invalid_lengths) ... ok
+test_large_request_is_rejected_before_read (__main__.BackendRequests.test_large_request_is_rejected_before_read) ... ok
+test_logout_revokes_only_its_cookie (__main__.BackendRequests.test_logout_revokes_only_its_cookie) ... ok
+test_media_type_not_substring (__main__.BackendRequests.test_media_type_not_substring) ... ok
+test_missing_protected_purge_never_falls_back (__main__.BackendRequests.test_missing_protected_purge_never_falls_back) ... ok
+test_partial_protected_engine_fails_closed (__main__.BackendRequests.test_partial_protected_engine_fails_closed) ... ok
+test_seen_rejects_nonfinite_and_huge_values_before_preview (__main__.BackendRequests.test_seen_rejects_nonfinite_and_huge_values_before_preview) ... ok
+test_session_capacity_is_bounded (__main__.BackendRequests.test_session_capacity_is_bounded) ... ok
+test_sessions_independent_expire_and_revoke (__main__.BackendRequests.test_sessions_independent_expire_and_revoke) ... ok
+test_startup_returns_one_response (__main__.BackendRequests.test_startup_returns_one_response) ... ok
+test_transfer_encoding_rejected (__main__.BackendRequests.test_transfer_encoding_rejected) ... ok
+test_widget_token_and_browser_sessions_are_independent (__main__.BackendRequests.test_widget_token_and_browser_sessions_are_independent) ... ok
+test_protected_pin_missing_or_invalid_never_unpins (__main__.ProtectedPin.test_protected_pin_missing_or_invalid_never_unpins) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 1.018s
+
+OK
+
+===== المظهر المشترك والمراجعات (معزول) (exit 0) =====
+test_compatibility_theme_change_preserves_palette_and_extra_fields (__main__.AppearancePreferences.test_compatibility_theme_change_preserves_palette_and_extra_fields) ... ok
+test_failed_atomic_write_does_not_claim_save (__main__.AppearancePreferences.test_failed_atomic_write_does_not_claim_save) ... ok
+test_http_auth_validation_conflict_and_recovery (__main__.AppearancePreferences.test_http_auth_validation_conflict_and_recovery) ... ok
+test_invalid_fields_are_rejected_before_lock_or_write (__main__.AppearancePreferences.test_invalid_fields_are_rejected_before_lock_or_write) ... ok
+test_invalid_or_future_store_not_silently_overwritten (__main__.AppearancePreferences.test_invalid_or_future_store_not_silently_overwritten) ... ok
+test_legacy_import_is_read_only_and_migration_keeps_window_settings (__main__.AppearancePreferences.test_legacy_import_is_read_only_and_migration_keeps_window_settings) ... ok
+test_noop_does_not_increment_revision (__main__.AppearancePreferences.test_noop_does_not_increment_revision) ... ok
+test_parallel_edit_has_exactly_one_winner (__main__.AppearancePreferences.test_parallel_edit_has_exactly_one_winner) ... ok
+test_read_defaults_has_no_filesystem_side_effects (__main__.AppearancePreferences.test_read_defaults_has_no_filesystem_side_effects) ... ok
+test_stale_change_rejected_without_overwriting_newer_selection (__main__.AppearancePreferences.test_stale_change_rejected_without_overwriting_newer_selection) ... ok
+test_unknown_values_fall_back_without_deleting_other_keys (__main__.AppearancePreferences.test_unknown_values_fall_back_without_deleting_other_keys) ... ok
+test_widget_show_waits_for_visible_loaded_window_after_mutex (__main__.AppearancePreferences.test_widget_show_waits_for_visible_loaded_window_after_mutex) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.095s
+
+OK
+
+===== البيانات والتشغيل (معزول) (exit 0) =====
+test_backup_retry_independent_from_local_success (__main__.DbOps.test_backup_retry_independent_from_local_success) ... ok
+test_collector_mutex_has_kernel_lifetime (__main__.DbOps.test_collector_mutex_has_kernel_lifetime) ... ok
+test_external_copy_verified_and_failed_copy_keeps_previous (__main__.DbOps.test_external_copy_verified_and_failed_copy_keeps_previous) ... ok
+test_fresh_bootstrap_and_idempotence (__main__.DbOps.test_fresh_bootstrap_and_idempotence) ... ok
+test_null_only_bucket_retains_real_row (__main__.DbOps.test_null_only_bucket_retains_real_row) ... ok
+test_required_policy_and_engine_missing_fail (__main__.DbOps.test_required_policy_and_engine_missing_fail) ... ok
+test_scheduler_cooperative_deadline_and_no_overlap (__main__.DbOps.test_scheduler_cooperative_deadline_and_no_overlap) ... ok
+test_scheduler_releases_marker_on_bookkeeping_failure (__main__.DbOps.test_scheduler_releases_marker_on_bookkeeping_failure) ... ok
+test_thinning_unaligned_and_pressure_peak (__main__.DbOps.test_thinning_unaligned_and_pressure_peak) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.437s
+
+OK
+
+===== الحجر والتعافي (معزول) (exit 0) =====
+test_concurrent_restore_and_purge_have_one_safe_outcome (__main__.Quarantine.test_concurrent_restore_and_purge_have_one_safe_outcome) ... ok
+test_crash_after_move_before_db_finish_reconciles_without_loss (__main__.Quarantine.test_crash_after_move_before_db_finish_reconciles_without_loss) ... ok
+test_crash_after_restore_reconciles_legacy_identity (__main__.Quarantine.test_crash_after_restore_reconciles_legacy_identity) ... ok
+test_crash_before_move_keeps_original_and_reports_failed (__main__.Quarantine.test_crash_before_move_keeps_original_and_reports_failed) ... ok
+test_cross_volume_move_refused_before_intent (__main__.Quarantine.test_cross_volume_move_refused_before_intent) ... ok
+test_intent_is_durable_before_atomic_move_and_uuid_unique (__main__.Quarantine.test_intent_is_durable_before_atomic_move_and_uuid_unique) ... ok
+test_legacy_held_rows_restore (__main__.Quarantine.test_legacy_held_rows_restore) ... ok
+test_live_process_mutex_blocks_recovery_until_owner_releases (__main__.Quarantine.test_live_process_mutex_blocks_recovery_until_owner_releases) ... ok
+test_outside_quarantine_path_is_never_deleted (__main__.Quarantine.test_outside_quarantine_path_is_never_deleted) ... ok
+test_purge_crash_finishes_tombstone_on_recovery (__main__.Quarantine.test_purge_crash_finishes_tombstone_on_recovery) ... ok
+test_reparse_point_is_refused_without_following_target (__main__.Quarantine.test_reparse_point_is_refused_without_following_target) ... ok
+test_restore_no_replace_even_when_target_appears_after_check (__main__.Quarantine.test_restore_no_replace_even_when_target_appears_after_check) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 1.109s
+
+OK
+
+===== SQLite الخاص (معزول) (exit 0) =====
+test_missing_runtime_refuses_fallback (__main__.PrivateRuntime.test_missing_runtime_refuses_fallback) ... ok
+test_modified_runtime_refuses_fallback (__main__.PrivateRuntime.test_modified_runtime_refuses_fallback) ... ok
+test_pinned_version_idempotent_and_native_path (__main__.PrivateRuntime.test_pinned_version_idempotent_and_native_path) ... ok
+test_preimported_sqlite_is_rejected (__main__.PrivateRuntime.test_preimported_sqlite_is_rejected) ... ok
+test_transactions_wal_backup_and_fresh_restart (__main__.PrivateRuntime.test_transactions_wal_backup_and_fresh_restart) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.557s
+
+OK
+
+===== تغطية مؤشرات الصحة (معزول) (exit 0) =====
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+OK
+
+===== فتح النافذة وسياسة CSP (معزول) (exit 0) =====
+...........
+----------------------------------------------------------------------
+Ran 11 tests in 0.015s
+
+OK
+
+===== جمع النسخة المحمية (معزول) (exit 0) =====
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.024s
+
+OK
+
+===== حد التنفيذ المرتفع (معزول) (exit 0) =====
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.009s
+
+OK
+
+===== ترحيل بيانات الحزمة (معزول) (exit 0) =====
+test_active_quarantine_outside_source_root_blocks_snapshot (__main__.ProtectedInstaller.test_active_quarantine_outside_source_root_blocks_snapshot) ... ok
+test_apply_requires_explicit_token_rotation_and_shortcut_migration (__main__.ProtectedInstaller.test_apply_requires_explicit_token_rotation_and_shortcut_migration) ... ok
+test_qpath_remap_identity_and_held_restore_after_final_move (__main__.ProtectedInstaller.test_qpath_remap_identity_and_held_restore_after_final_move) ... ok
+test_static_no_activation_or_principal_elevation (__main__.ProtectedInstaller.test_static_no_activation_or_principal_elevation) ... ok
+test_unresolved_operation_blocks_snapshot (__main__.ProtectedInstaller.test_unresolved_operation_blocks_snapshot) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.739s
+
+OK
+
+===== عقود مهام التثبيت (معزول) (exit 0) =====
+{
+  "tests": 7,
+  "status": "PASS",
+  "taskSchedulerTouched": false,
+  "scope": "isolated XML, private token fixtures, shortcut COM double, and rollback failure injection"
+}
+
+===== سلوك الواجهة (معزول) (exit 0) =====
+PASS same GET shares one request and promise
+PASS completed reads release timeout
+PASS mutation transport failure is never retried
+PASS 428 receives one explicit challenge response
+PASS canceled page result is rejected even when transport ignores abort
+PASS old chart range cannot overwrite the selected range
+PASS request deadline is bounded to 20 seconds
+PASS timeout is reported and releases request
+PASS 401 explains reopening the dashboard
+PASS manual mode suppresses background polling
+PASS hidden page suppresses polling
+PASS visible automatic mode permits polling
+PASS dialog has programmatic name and description
+PASS CPU and GPU refresh use stable reconciliation
+PASS missing health measurements are not displayed as zero or perfect health
+PASS partial score never claims excellent overall health
+PASS Defender alone cannot produce a protected/updated security domain
+PASS stale security domain is neutral and explicitly out of date
+PASS failed quarantine item exposes safe error but no restore button
+PASS held quarantine item exposes restore
+PASS notification baseline does not announce old issues
+PASS important notification is deduplicated across metric changes
+PASS muted important issues remain silent
+PASS navigation groups preserve every existing destination
+PASS fresh receipt never makes frozen source CPU measurements current
+PASS missing source timestamp cannot imply a current CPU measurement
+PASS overview freshness requires source timestamp as well as receipt
+RESULT 27 checks passed
+
+===== تركيب الصفحات المعاد بناؤه والوصول للإجراءات (DOM معزول) (exit 0) =====
+PASS canonical registry matches all19 approved routes and33 explicit section labels
+PASS canonical uses height-budget sequential pages instead of legacy greedy or fixed-count selection
+PASS density CSS contains valid selector starts and overrides uniform card stretching
+PASS compact summaries toolbar and related content share a single page when their measured rows fit
+PASS shorter work areas paginate complete ordered rows without skipping ahead
+PASS small useful content is not restricted to the earlier uniform two-row card count
+PASS deterministic mixed-width height fixtures retain every item and stay within their row budget
+PASS cpu production data nodes survive canonical composition
+PASS cpu owns one external section bar and one footer
+PASS cpu cards follow their declared logical order
+PASS cpu repeated composition retains action and form ownership
+PASS cpu original action signatures are reachable through canonical sections and pages
+PASS gpu production data nodes survive canonical composition
+PASS gpu owns one external section bar and one footer
+PASS gpu cards follow their declared logical order
+PASS gpu repeated composition retains action and form ownership
+PASS gpu related metrics share one compact summary rather than stretched individual cards
+PASS gpu original action signatures are reachable through canonical sections and pages
+PASS mem production data nodes survive canonical composition
+PASS mem owns one external section bar and one footer
+PASS mem cards follow their declared logical order
+PASS mem repeated composition retains action and form ownership
+PASS mem related metrics share one compact summary rather than stretched individual cards
+PASS mem original action signatures are reachable through canonical sections and pages
+PASS power production data nodes survive canonical composition
+PASS power owns one external section bar and one footer
+PASS power cards follow their declared logical order
+PASS power repeated composition retains action and form ownership
+PASS power related metrics share one compact summary rather than stretched individual cards
+PASS power original action signatures are reachable through canonical sections and pages
+PASS space production data nodes survive canonical composition
+PASS space owns one external section bar and one footer
+PASS space cards follow their declared logical order
+PASS space repeated composition retains action and form ownership
+PASS space related metrics share one compact summary rather than stretched individual cards
+PASS space original action signatures are reachable through canonical sections and pages
+PASS io production data nodes survive canonical composition
+PASS io owns one external section bar and one footer
+PASS io cards follow their declared logical order
+PASS io repeated composition retains action and form ownership
+PASS io related metrics share one compact summary rather than stretched individual cards
+PASS io original action signatures are reachable through canonical sections and pages
+PASS procs production data nodes survive canonical composition
+PASS procs owns one external section bar and one footer
+PASS procs cards follow their declared logical order
+PASS procs repeated composition retains action and form ownership
+PASS procs related metrics share one compact summary rather than stretched individual cards
+PASS procs original action signatures are reachable through canonical sections and pages
+PASS wsl production data nodes survive canonical composition
+PASS wsl owns one external section bar and one footer
+PASS wsl cards follow their declared logical order
+PASS wsl repeated composition retains action and form ownership
+PASS wsl related metrics share one compact summary rather than stretched individual cards
+PASS wsl original action signatures are reachable through canonical sections and pages
+PASS advice production data nodes survive canonical composition
+PASS advice owns one external section bar and one footer
+PASS advice cards follow their declared logical order
+PASS advice repeated composition retains action and form ownership
+PASS advice original action signatures are reachable through canonical sections and pages
+PASS tasks production data nodes survive canonical composition
+PASS tasks owns one external section bar and one footer
+PASS tasks cards follow their declared logical order
+PASS tasks repeated composition retains action and form ownership
+PASS tasks original action signatures are reachable through canonical sections and pages
+PASS rules production data nodes survive canonical composition
+PASS rules owns one external section bar and one footer
+PASS rules cards follow their declared logical order
+PASS rules repeated composition retains action and form ownership
+PASS rules original action signatures are reachable through canonical sections and pages
+PASS ctrl production data nodes survive canonical composition
+PASS ctrl owns one external section bar and one footer
+PASS ctrl cards follow their declared logical order
+PASS ctrl repeated composition retains action and form ownership
+PASS ctrl original action signatures are reachable through canonical sections and pages
+PASS alerts production data nodes survive canonical composition
+PASS alerts owns one external section bar and one footer
+PASS alerts cards follow their declared logical order
+PASS alerts repeated composition retains action and form ownership
+PASS alerts original action signatures are reachable through canonical sections and pages
+PASS appearance production data nodes survive canonical composition
+PASS appearance owns one external section bar and one footer
+PASS appearance cards follow their declared logical order
+PASS appearance repeated composition retains action and form ownership
+PASS appearance original action signatures are reachable through canonical sections and pages
+PASS alerts hidden canonical textarea remains editable through its visible linked editor
+PASS dirty control value focus selection and form owner survive same-route apply
+RESULT 86 independent canonical checks;14 populated original-renderer routes;19 reference routes/33sections. Synthetic controller geometry, no browser paint or real operations.
+
+===== النظرة العامة الجديدة وبياناتها الفعلية البنية (DOM معزول) (exit 0) =====
+PASS populated actual home:4 approved cards, live-source values+refresh, real-memory paths, maintenance, single footer, old hourly layout removed; unknown/stale distinguished, long alert full text and all-alert navigation preserved. Synthetic DOM; no browser paint.
+
+===== بقاء دوال التحميل ومعالجات الإجراءات الأصلية (مصدر) (exit 0) =====
+PASS 211 original named declarations and 36 delegated data-action selectors remain.
+Compatibility/source inventory only; no browser execution, action execution or layout claim.
+
+===== تحميل JavaScript الكامل مع خادم مصطنع منقطع (DOM معزول) (exit 0) =====
+PASS full actual inline script boots all19 page deep links against owned DOM/offline network stubs, without uncaught or unhandled initialization errors.
+PASS original navigation retained in each boot; 72 synthetic GETs; no real HTTP, timers, clipboard or window operations.
+No browser layout, paint or live-data coverage is claimed.
+
+===== المظهر المشترك للواجهة (معزول) (exit 0) =====
+PASS syntax and required fields reject malformed settings
+PASS confirmed settings apply palette and follow-system mode
+PASS older settings cannot overwrite a newer confirmed revision
+PASS identical poll does not repeatedly redraw or reapply the theme
+PASS save uses confirmed revision and applies only confirmed result
+PASS failed save leaves the last confirmed appearance and shows failure
+PASS successful reconnection clears transport error
+PASS CAS conflict reloads once and never replays a mutation
+PASS read started before save cannot overwrite the saved result
+PASS appearance polling is single-flight and independent of metric polling mode
+PASS old-server fallback reads legacy mode without claiming shared save readiness
+PASS corrupt or unsupported stored settings display fallback with saving disabled
+PASS write recovery failure is distinct from a concurrent-window conflict
+PASS all four palettes, native mode label and marked example values are rendered
+PASS final file remains LF and every existing toolbar control remains unique
+PASS actual moon-button handler toggles dark / systemDark=false to light
+PASS actual moon-button handler toggles light / systemDark=true to dark
+PASS actual moon-button handler toggles auto / systemDark=true to light
+PASS actual moon-button handler toggles auto / systemDark=false to dark
+PASS explicit light/dark token rules do not require light-dark() browser support
+PASS system change recomputes explicit colors in auto mode
+PASS system change does not override manual light mode
+RESULT 22 appearance checks passed (no browser rendering verified)
+
+===== انتشار الهوية والتباين في لوحات التطبيق (معزول) (exit 0) =====
+PASS full identity cascade:8 theme/palette combinations,4 distinct canvas/card/navigation/chart palettes,72 text pairs minimum4.60:1,semantic colors stable,19 direct live routes. No rendered CSS geometry claim.
+
+===== هندسة الصفحات والرسوم (معزول) (exit 0) =====
+PASS hidden or unmeasured list defers remote read instead of locking to one row
+PASS visible bounded list derives five rows from actual height and row size
+PASS resizing a paginated list recomputes capacity and offset
+PASS larger viewport clamps obsolete page and keeps records reachable
+PASS detached page cannot repopulate or request its old dataset
+PASS paginated shells retain definite height; overview and appearance use measured groups
+PASS wheel routing is scoped and does not select the last visible paginator
+PASS legacy GPU row helper removes an inert +N marker without discarding rows
+PASS CPU fit delegates record pages and measured sections while retaining its observer declaration
+PASS CPU SVG uses measured 180px width without scaling labels from a 360px floor
+PASS IO chart height overrides its older higher-specificity flex growth rule
+PASS overview charts have explicit measured groups and a guarded compact rendering surface
+RESULT 12 layout-function checks passed; browser rendering remains unverified
+
+===== عجلة الفأرة والتمرير الطبيعي وتقليب الصفحات المقصود (معزول) (exit 0) =====
+PASS wheel down pages only the pointed list, not the last registered list
+PASS wheel up returns the same pointed list to its previous page
+PASS a separate pointed list owns its own upward gesture
+PASS explicit footer routes to its associated list
+PASS at a paging boundary wheel is not canceled and outer scrolling remains available
+PASS page background and ordinary outer scrolling do not change any dataset page
+PASS a nested native scroll region consumes scrolling before list paging
+PASS native scroll boundary remains native scroll chaining, not an unexpected data page
+PASS wrapped rows scroll within the actual list without changing the stable dataset page
+PASS explicit footer still changes the stable page when its rows use native vertical scrolling
+PASS zoom, modifiers, horizontal gestures and already handled events are left alone
+PASS input/select/text editing retains native wheel behavior
+PASS nearest nested registered list wins over its outer page
+PASS hidden/unmeasured list cannot intercept wheel input
+PASS small trackpad deltas accumulate for the pointed list
+PASS line-mode wheel deltas work in both directions
+PASS custom health/space/IO page state supports scoped footer paging
+PASS coordinated space child list pages its declared owner and keeps the global footer consistent
+PASS rapid repeated gesture is bounded and not canceled when no page changed
+PASS rapid reversal works immediately in the opposite direction
+PASS IO section navigation preserves the footer node and its paging association
+RESULT 21 scoped wheel-event checks passed; native browser input remains unverified
+PASS bounded workspace wheel changes only its pointed record page in both directions
+
+===== جميع الصفحات والقراءة (معزول) (exit 0) =====
+PASS all 19 real destinations have individual review evidence and no rendered-pass claim
+PASS page-specific layout selectors are activated by current page and history subsection
+PASS Processes, WSL and Advice use scoped measured regions and one source definition each
+PASS Memory and Power use their scoped measured regions and one original calculation definition
+PASS legacy generic row helper never removes records behind an inert +N marker
+PASS IO uses explicit measured sections and record pagers for every source row
+PASS IO heat map preserves 24 hours and 11px text while adapting to actual container width
+PASS Control and Alerts use measured groups while preserving controls and ignored-program drafts
+PASS settings use two complete semantic cards and preserve all operational controls
+PASS Home and Health retain compact charts and measured pages without native scrolling
+PASS Tasks, Rules and Startup use bounded records with explicit options and full readers
+PASS Processes and History replace wide record matrices with explicit full-field readers
+PASS headers, footers, filters and numeric font share the compact identity
+PASS CPU color identity matches overview and the detail page
+PASS final source is LF and all markup is valid JavaScript
+RESULT 15 all-page source/function checks passed; all 19 rendered states remain pending
+
+===== تباين حالات عناصر التحكم (معزول) (exit 0) =====
+PASS 4304 actual-source control state/palette text pairs >=4.5; minimum 4.672 (graphite/light: rail selected=false normal).
+PASS 32 switch thumb states >=3. Browser/OS rendering unverified.
+PASS baseline reproduces selected-range white-on-white, disabled-pager opacity and ancestor-faded paused names.
+
+===== التحكم والتنبيهات وحفظ المسودات (DOM معزول) (exit 0) =====
+PASS all existing Control actions survive grouping
+PASS all numeric inputs remain present after category navigation
+PASS ignore navigation preserves all original names and updates only selected entry
+PASS multiline paste is retained in canonical full textarea
+PASS server refresh cannot overwrite dirty values after focus leaves form
+PASS global Refresh renderView retains the dirty form instead of mounting a fresh view
+PASS successful save clears dirty state only after accepted response
+PASS rejected save retains dirty state and exposes failure
+PASS edits made during an in-flight save are not marked saved
+PASS reset updates canonical list and visible editor without submitting
+PASS Ignore from log merges into draft without submitting unsaved thresholds
+RESULT 11 isolated DOM behavior checks; no rendering/geometry/browser claim
+
+===== التاريخ وقاعدة البيانات والحقول الكاملة (DOM معزول) (exit 0) =====
+PASS actual paging engine computes 2 records from synthetic 152px budget
+PASS wide tables use complete record reader rather than min-width matrix
+PASS full record preserves every field name, type, null and Unicode value
+PASS last record and explicit numbered page remain reachable
+PASS 100th table is reachable with selected table and record page reset
+PASS 48-column record remains complete without column navigation
+PASS remote failure is shown as a failure rather than empty database success
+PASS history event full detail preserves untruncated source
+PASS severity stays visibly marked on the event row
+PASS cleanup reader includes all eight former columns and extra metadata
+PASS all database-info fields and all table counts are paged
+PASS history chart and daily groups remain explicitly reachable
+PASS complete KPI summary remains readable after removing crowded KPI strip
+PASS real renderStable preserves nav button identity and synthetic focus on repeat
+PASS KPI updates preserve focused reader control while refreshing full body
+PASS 10000-character hostile title is short inert text with complete original in reader body
+PASS stage changes only db/history view functions and no configuration writes
+PASS reader preserves raw CR LF NUL tab and Unicode
+RESULT 18 isolated DOM behavior checks; synthetic dimensions only, not browser geometry.
+
+===== التنقل وإمكانية الوصول (DOM معزول) (exit 0) =====
+PASS all original navigation nodes and pages are retained
+PASS short rail exposes explicit group choice rather than a hidden overflow fix
+PASS every page remains reachable through its named group
+PASS performance subpages keep their parent group visible
+PASS adequate wide height restores all groups without a second page model
+PASS narrow mode is explicitly grouped even when vertical height is sufficient
+PASS select focus survives the temporary measurement visibility change
+PASS focus returns to the active navigation tab when group choice is no longer needed
+PASS navigation and tablist semantics are separate and labelled
+PASS only coalesced window and media/font triggers are used
+RESULT 10 isolated DOM navigation cases; dimensions are injected, not browser geometry.
+
+===== الذاكرة والطاقة: اكتمال المعلومات والإجراءات (DOM معزول) (exit 0) =====
+PASS five original memory metrics and original action hooks remain
+PASS memory chart specifications retain original channels and threshold values
+PASS memory category and program lists expose complete totals and explicit record pagers
+PASS last memory program is reachable
+PASS all memory notes are explicitly paged including leak warning
+PASS long leak list remains complete in reader
+PASS five-second memory refresh retains metric reader node identity
+PASS five power metrics and thermal threshold action survive
+PASS all power plans and detail fields have explicit numbered paging
+PASS active power plan preserves command and confirmation metadata
+PASS power refresh retains focused plan control and selected page
+PASS last power plan remains actionable
+PASS last long power note is preserved without truncating its reader body
+PASS power chart channels remain page-specific and both drawn
+PASS regions and logical leaves expose measured-fit integration boundaries
+PASS chart pointer bindings are registered once per persistent page node
+PASS hostile long power-plan name is inert, summarized and fully readable
+PASS missing sensors and empty plans/notes preserve unknown state without phantom actions
+PASS all region and record IDs are unique and note pager binds the inner list
+PASS reader JSON preserves original title and CR LF NUL tab text before HTML parsing
+PASS no live API or power plan command was executed
+RESULT 21 isolated DOM behavior checks. Synthetic heights only; no browser geometry claim.
+
+===== العمليات وWSL والتوصيات: اكتمال ووصول (DOM معزول) (exit 0) =====
+PASS five process metrics and all original reaper command hooks survive
+PASS wide process matrix becomes bounded records with visible PID
+PASS shell reader preserves every original field and extra record metadata
+PASS last shell and all Claude process records remain reachable
+PASS complete protection and reaper-action lists have explicit totals
+PASS protected last name retains remove action without execution
+PASS protection and age drafts plus actual input node identities survive refresh
+PASS selected tool group and protection page survive refresh
+PASS all WSL metrics and command-copy controls survive
+PASS WSL process distro file and configuration lists retain all records
+PASS virtual-disk reader retains full original path rather than three trailing segments
+PASS last distro retains copy-only stop command
+PASS WSL chart has original series specification and remains independently indexed
+PASS last long WSL note is fully readable
+PASS recommendation total respects original snooze filter and restore hook
+PASS last recommendation retains complete body plus action and snooze metadata
+PASS recommendation action identity and page survive refresh
+PASS all generated IDs are unique and pagers bind true list nodes
+PASS each page uses at most four named functional groups with explicit fit leaves
+PASS advice reader preserves full raw title/body including CR LF NUL and tab
+PASS no live API or reaper action was executed
+RESULT 21 isolated DOM behavior checks; no browser geometry claim.
+
+===== المعالج والرسوميات: القوائم والرسوم المحدودة (DOM معزول) (exit 0) =====
+PASS 20-core CPU calculations and percentages retained
+PASS all functional groups and interval lists reachable
+PASS 50 current PIDs retained with complete row reader
+PASS last CPU process reachable with all extra fields
+PASS CPU poll preserves selected interval, record offset and button identity
+PASS 64-core percentage uses original logical-core denominator
+PASS CPU full JSON preserves coverage and unknown extra fields
+PASS hot GPU original verdict and six metrics preserved
+PASS GPU range buttons and unload command hook preserved
+PASS last GPU PID reachable with full original fields
+PASS GPU poll preserves chart and focused process button nodes
+PASS GPU hover listener is bound only once per persistent node
+PASS long thermal alert remains complete in reader JSON
+PASS all GPU detail selectors remain visible and stats/igpu reachable
+PASS GPU full JSON preserves stale coverage/static/live/stats/igpu
+PASS hostile names are inert and original control characters survive JSON
+PASS missing temperature/load/power stay unknown rather than fabricated readings
+PASS absent GPU keeps original explicit unavailable state
+PASS no real API, GPU command, or process action ran
+PASS synthetic rectangles split overflowing metric leaves into explicit pages
+PASS synthetic focus loss during probe is restored on its containing leaf page
+PASS oversized synthetic singleton rejects certification without hiding content
+PASS synthetic capacity subtracts footer and refuses a partial record
+PASS synthetic resize keeps prior reference record within the new capacity page
+PASS measured scheduling coalesces repeated fit requests to one frame
+RESULT 25 isolated DOM cases; no browser rendering or geometry claim
+
+===== ملكية قائمة السجلات والطلبات المتأخرة (DOM معزول) (exit 0) =====
+PASS superseded remote pager cannot paint into a retained live list
+PASS owner replacement during the second clamping read cannot paint old rows
+PASS a detached list cannot receive an in-flight remote result or onPaint
+RESULT 3 owned DOM/promise race cases; no HTTP/database/browser operation.
+
+===== ثبات الترقيم والمسودات بعد التحديث (DOM معزول) (exit 0) =====
+PASS MP measured pager retains bar button identity and focus through poll
+PASS PWA measured pager retains bar button identity and focus through poll
+PASS POST pending retains the unacknowledged protection draft
+PASS POST rejection retains protection input and draft
+PASS successful unchanged protection submission clears only its acknowledged draft
+PASS typing during protection POST survives acknowledgment of an older value
+PASS typing during rejected POST retains the newer protection value
+PASS acknowledged numeric setting releases dirty state but retains the saved number
+PASS a later backend numeric setting is visible after successful acknowledgment
+PASS new numeric draft survives acknowledgment of an older POST
+PASS MP bounded measured capacity and source offset survive refresh
+PASS PWA bounded measured capacity and source offset survive refresh
+RESULT 12 source-handler/focus/ack/poll regression checks. Owned DOM and mock POSTs only; no browser geometry or real API.
+
+===== ميزانية ارتفاع الرسوم المرنة (معزول) (exit 0) =====
+PASS default chart budget never exceeds 35 percent or 220px on supported heights
+PASS summary budget is 160px and all preferred sizes are capped at 280px
+PASS cpuv plots use the measured cap and cards shrink to their content
+PASS gpv plots use the measured cap and cards shrink to their content
+PASS pg-mem plots use the measured cap and cards shrink to their content
+PASS pg-power plots use the measured cap and cards shrink to their content
+PASS pg-wsl plots use the measured cap and cards shrink to their content
+PASS a visible chart below the supported compact budget is never certified
+RESULT 8 source budget/style cases on owned DOM; no browser rendering claimed.
+
+===== المساحة وحركة القرص والإجراءات المحمية (DOM معزول) (exit 0) =====
+PASS five Space sections separate from record pagers
+PASS C cleanup preview and auto switches retain original attributes
+PASS Windows.old under14 keeps preview workflow and warning
+PASS early cleanup confirmation preserves data-early and cancel
+PASS busy Windows.old cannot expose actual clean action
+PASS cleanup error and original advice are fully readable
+PASS D drive remains read only with no cleanup commands
+PASS bulk cleanup confirms and cancels explicitly with warning retained
+PASS held quarantine alone has restore action
+PASS restoring quarantine has no restore action
+PASS failed quarantine keeps full original path and error
+PASS blocked extra cleanup preserves full blocking name and exposes no preview
+PASS running background cleanup cannot expose duplicate preview or clean
+PASS background job error remains fully readable
+PASS IO context calculations and six metrics survive
+PASS all50 top processes have independent record pager
+PASS last IO process preserves PID and NULL fields
+PASS IO polling retains selected section and reader node
+PASS all50 stalls retain raw top_json and every field
+PASS Unicode control characters and hostile text stay inert and complete
+PASS IO choices still expose range/device hooks and full metadata
+PASS zero live commands APIs or cleanup operations
+PASS synthetic rectangles split overflowing metric leaves into explicit pages
+PASS synthetic focus loss during probe is restored on its containing leaf page
+PASS oversized synthetic singleton rejects certification without hiding content
+PASS fit then IO poll then fit retains exact pager bar buttons and focus
+PASS record capacity and reference offset survive poll after measured height was stored
+PASS fit then Space poll retains exact bar button identity and focus
+PASS synthetic capacity subtracts footer and refuses a partial record
+PASS synthetic resize keeps prior reference record within the new capacity page
+PASS measured scheduling coalesces repeated fit requests to one frame
+RESULT 31 isolated DOM cases; synthetic dimensions only; no browser geometry claim
+
+===== محتوى أقسام المساحة الخمسة والتنقل والصفوف الفعلية (DOM معزول) (exit 0) =====
+PASS actual navigation renders nonempty Space section 0 with matching bottom counter
+PASS actual navigation renders nonempty Space section 1 with matching bottom counter
+PASS actual navigation renders nonempty Space section 2 with matching bottom counter
+PASS actual navigation renders nonempty Space section 3 with matching bottom counter
+PASS actual navigation renders nonempty Space section 4 with matching bottom counter
+PASS last quarantine record remains reachable with its original restore action
+PASS bottom counter wheel owner changes exactly the intended Space section
+PASS actual view resize callback repaints all Space pager contracts without throwing
+PASS actual Space reserves a bounded content area and bottom counter without fast scrolling
+RESULT 9 owned DOM data/route cases; no browser geometry or real operations.
+
+===== بدء التشغيل والجدولة والقواعد (DOM معزول) (exit 0) =====
+PASS tasks preserve missing and administrative control restrictions
+PASS one record pager binds the true list and counts all tasks
+PASS task action metadata retains exact path name label and switch state
+PASS task full reader includes schedule last next result and extra metadata
+PASS stable integration preserves task action identity and page on poll
+PASS display options replace record surface explicitly without nested scrolling
+PASS task group filtering preserves order and returns to records
+PASS rules retain toggle metadata state action and gate details
+PASS last rule and full last-result text remain reachable
+PASS rule tier filters retain all expected records and source order
+PASS startup protected and read-only items never expose toggle command
+PASS writable startup action remains on its own record with enable target
+PASS startup complete command name source state and custom fields are readable
+PASS startup cache refresh retains action identity and pager
+PASS last startup item is reachable without truncating source offsets
+PASS startup source filtering preserves one pager and original item order
+PASS hostile text remains inert and JSON reader preserves raw title/command bytes
+PASS generated IDs are unique and filters keep accessible current-state semantics
+PASS SRT measures option controls, preserves the active choice and adds a pager only when required
+PASS fit-then-poll keeps stable page and pager identities before and after remeasurement
+PASS every filter choice stays reachable with one explicit options pager
+PASS SRT rejects a singleton with overflowing controls without hiding the remaining choices
+PASS SRT clear releases the fit flag and uses header/footer row capacity
+PASS SRT reserves header/footer space and keeps the old anchor visible when capacity changes
+PASS record refresh after fit retains source offset capacity and existing action node
+PASS SRT coalesces repeated fit requests to one animation frame
+PASS no startup registry API scheduler or rule mutation was called
+RESULT 27 isolated DOM behavior checks. No live APIs or browser geometry claims.
+
+===== النظرة العامة والصحة والتغطية (DOM معزول) (exit 0) =====
+PASS health missing score and coverage remain unknown with no false zero-loss claim
+PASS all score parts remain explicitly paged including stale and unknown
+PASS 30-second health refresh preserves original local-LLM control identity
+PASS missing reliability scan remains unavailable rather than claiming no incidents
+PASS old reliability scan labels counters as historical rather than healthy
+PASS last critical event preserves every character beyond original 140-character cut
+PASS hardware storage leak process and reminder lists retain all records
+PASS last maintenance reminder remains reachable with exact raw state
+PASS critical complete health score retains severity and domain navigation
+PASS all generated IDs are unique and health retains original three-page navigation
+PASS measured HH controller paginates only when necessary and restores active leaf focus/selection
+PASS fit-then-health-refresh preserves the existing pager nodes and unlocks verification first
+PASS all HH leaves remain reachable through measured pages
+PASS HH rejects an oversized singleton without concealing any leaves or claiming verification
+PASS HH clearing fit releases suppression and preserves the row-capacity arithmetic
+PASS HH coalesces repeated fit requests to one animation frame
+PASS no API LLM or system scan was executed
+RESULT 17 isolated DOM behavior checks. No browser geometry claim.
+
+===== إعدادات المظهر المشتركة وحفظها (DOM معزول) (exit 0) =====
+PASS all original mode options and every palette action remain intact
+PASS three named groups replace the long one-column appearance stack
+PASS mode, palette and preview remain explicitly reachable
+PASS navigation is view-only and preserves the confirmed shared appearance
+PASS status remains visible outside all content groups
+PASS both illustrative previews remain intact with their home-navigation button
+PASS every measurable leaf and region has a unique id where present
+PASS layout preserves selected group through palette and mode refresh
+PASS in-flight and unavailable appearance controls remain disabled
+PASS raw status error remains inert text after markup shaping
+PASS actual renderStable retains selected navigation and palette button identity
+PASS only a verified view may hide overflow
+PASS measured leaf pagination preserves access to all palette controls
+PASS probe preserves the active control and chooses its measured page
+PASS refresh retains the focused pager until the next measurement can restore it
+PASS larger available height reunites the complete group
+PASS oversized singleton is not hidden or falsely verified
+RESULT 17 isolated appearance-layout cases; no browser layout or API/settings changes.
+
+===== رسائل التأكيد الكاملة وقبولها وإلغاؤها (DOM معزول) (exit 0) =====
+PASS short message stays compact and confirmation remains an explicit original action
+PASS accepted dialog resolves true and removes resize listener
+PASS cancel resolves false without any second approval step
+PASS native Escape/close cancels and cleans up
+PASS long multiline Unicode message remains complete across measured pages
+PASS each displayed full-text page stays inside the owned synthetic text budget
+PASS resize events coalesce to a single measurement
+PASS resize preserves the original text position within its new page
+PASS concurrent call cannot overwrite or accept the already-open operation
+PASS message content remains inert text
+PASS every close path leaves no active resize handler
+RESULT 11 owned DOM confirmation cases; synthetic line geometry, no browser/API/action execution.
+
+===== أزرار نافذة الويدجت (معزول) (exit 0) =====
+PASS exact title + Edge process + visible dashboard matching; one target only, foreground preferred, unrelated windows excluded; widget X still hides
+PASS placement shares exact dashboard selector and moves one target only; widget title is excluded and retries do not block the input dispatcher
+No real window enumeration, message, close or process termination was executed by this test.
+PASS actual compact opener handler with isolated stubs: Activate existing window or ticket-open missing window; Close never invoked
+
+===== الويدجت الكامل المستعاد والمؤشرات ومفاتيح الصيانة (WPF معزول) (exit 0) =====
+
+workHeight width height confirmation
+---------- ----- ------ ------------
+      1232   350    994        False
+      1232   350    994        False
+      1000   660    592        False
+      1000   660    592        False
+       600   660    592        False
+       600   660    592        False
+       600   660    592         True
+
+PASS full original widget features, all tier switches/run buttons, trim/confirm controls, no expander/scroll; approved350DIPportrait and660DIPtwo-column layout with overlaidconfirmation; source 9aa72065cbff1763adea367b6283dcbfbdc66bdd02272f8963f193a0d6e54c9c
+
+===== المظهر المشترك للويدجت الكامل (WPF معزول) (exit 0) =====
+PASS all eight WPF palettes, native brush remapping, independent success state, stale revision, invalid mode and system/manual modes
+PASS common strict startup/live revision validation and 68 DIP reference gauge with unscaled readable text
+PASS asynchronous canonical request revision and failed-save behavior (mocked transport; no network)
+PASS local geometry save preserves legacy appearance and unrelated settings (temporary file only)
+
+===== انتشار الهوية على أسطح ومؤشرات الويدجت (WPF معزول) (exit 0) =====
+PASS eight canonical identity changes repaint main surface, section surfaces, tracks and healthy gauges; danger stays semantic; no network, real settings or live window.
+
+===== تباين أزرار الويدجت الكامل (WPF معزول) (exit 0) =====
+PASS actual source buttons ×4states ×8palettes: minimum text contrast 4.67:1; minimum on/off switch contrast 4.86:1; opaque backgrounds, effective Content text and disabled opacity checked
+No cleanup, API request, click/command, settings write or native window executed.
+
+===== هندسة الرسم الكامل وعناوين المحاور (WPF معزول) (exit 0) =====
+PASS native chart at220/242/264/284 DIP: full percentage labels inside canvas, >=11DIP text, data reserves32DIP axis space; chart and composition width follow available viewport
+
+===== تباين المنيو والقوائم الفرعية (معزول) (exit 0) =====
+PASS actual native submenu text/frame/popup surfaces: 8 palettes ×5 states; minimum contrast 5.10:1; embedded opacity labels and check automation preserved
+No desktop popup opened, command invoked or real settings changed.
+
+التقرير محفوظ في tests\report.txt

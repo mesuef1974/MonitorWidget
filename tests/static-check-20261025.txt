@@ -1,0 +1,112 @@
+PASS compile agent.py
+PASS compile alertcfg.py
+PASS compile atomic_json.py
+PASS compile build_secure_install.py
+PASS compile collector.py
+PASS compile cpuwatch.py
+PASS compile db.py
+PASS compile dbview.py
+PASS compile diskio.py
+PASS compile diskio_api.py
+PASS compile diskio_collect.py
+PASS compile errlog.py
+PASS compile explain.py
+PASS compile extras.py
+PASS compile gpuwatch.py
+PASS compile health.py
+PASS compile health_score.py
+PASS compile homeapi.py
+PASS compile infra.py
+PASS compile insight.py
+PASS compile quarantine_store.py
+PASS compile relia.py
+PASS compile reliab.py
+PASS compile restore_test.py
+PASS compile sched.py
+PASS compile secure.py
+PASS compile server.py
+PASS compile set_backup_dir.py
+PASS compile shotwatch.py
+PASS compile show_rel.py
+PASS compile space.py
+PASS compile sqlite_runtime.py
+PASS compile startup_mgr.py
+PASS style blocks found
+PASS css braces balanced #0
+PASS css braces balanced #1
+PASS css braces balanced #2
+PASS css braces balanced #3
+PASS css braces balanced #4
+PASS css braces balanced #5
+PASS style tags balanced
+PASS js syntax #0
+PASS no duplicate ids
+PASS tab 'advice' has view
+PASS tab 'advice' has title
+PASS tab 'alerts' has view
+PASS tab 'alerts' has title
+PASS tab 'cpu' has view
+PASS tab 'cpu' has title
+PASS tab 'ctrl' has view
+PASS tab 'ctrl' has title
+PASS tab 'dbx' has view
+PASS tab 'dbx' has title
+PASS tab 'gpu' has view
+PASS tab 'gpu' has title
+PASS tab 'health' has view
+PASS tab 'health' has title
+PASS tab 'history' has view
+PASS tab 'history' has title
+PASS tab 'home' has view
+PASS tab 'home' has title
+PASS tab 'mem' has view
+PASS tab 'mem' has title
+PASS tab 'power' has view
+PASS tab 'power' has title
+PASS tab 'procs' has view
+PASS tab 'procs' has title
+PASS tab 'rules' has view
+PASS tab 'rules' has title
+PASS tab 'space' has view
+PASS tab 'space' has title
+PASS tab 'startup' has view
+PASS tab 'startup' has title
+PASS tab 'tasks' has view
+PASS tab 'tasks' has title
+PASS tab 'wsl' has view
+PASS tab 'wsl' has title
+PASS server route /api/advice
+PASS server route /api/alerts
+PASS server route /api/cpu
+PASS server route /api/db
+PASS server route /api/db-info
+PASS server route /api/explain
+PASS server route /api/explain-errors
+PASS server route /api/gpu
+PASS server route /api/health
+PASS server route /api/home
+PASS server route /api/io
+PASS server route /api/llm-unload
+PASS server route /api/maintenance
+PASS server route /api/mini
+PASS server route /api/power-plan
+PASS server route /api/procs
+PASS server route /api/reaper
+PASS server route /api/reaper-protect
+PASS server route /api/reaper-run
+PASS server route /api/reaper-set
+PASS server route /api/rule
+PASS server route /api/run-cleanup
+PASS server route /api/space
+PASS server route /api/startup
+PASS server route /api/state
+PASS server route /api/task
+PASS server route /api/theme
+PASS server route /api/tier-pause
+PASS server route /api/trim-auto
+PASS server route /api/trim-memory
+PASS server route /api/widget
+PASS startup: protected items never writable
+FAIL rule delivery-optimization: description says DISABLED but enabled is true
+
+النتيجة: 1 فحص فشل

@@ -1,0 +1,8 @@
+{
+  "name": "monitor-widget-frontend-test-runtime",
+  "private": true,
+  "version": "1.0.0",
+  "devDependencies": {
+    "linkedom": "0.18.14"
+  }
+}

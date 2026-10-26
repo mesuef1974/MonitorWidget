@@ -1,0 +1,191 @@
+{
+  "sourceSha256": "3594618817cd5d64814bac4a3438cffabc3d0debb271bb5371f5901f06f2b792",
+  "runtime": {
+    "date": "2026-10-25T19:05:13.024825+00:00",
+    "status": "pass",
+    "sourceSha256": "3594618817cd5d64814bac4a3438cffabc3d0debb271bb5371f5901f06f2b792",
+    "servedSourceMatches": true,
+    "lineEndingCRCount": 0,
+    "inlineScripts": 1,
+    "cspHashesMatch": true,
+    "serverPid": 26496,
+    "widgetRunning": true,
+    "browserRendered": false,
+    "note": "Read-only source/CSP/runtime integrity; not browser layout or UI operation."
+  },
+  "tracker": {
+    "date": "2026-10-25T18:35:09.552158+00:00",
+    "specVersion": "2.0.0",
+    "browserInspection": "blocked by saved tool permission; no bypass",
+    "widget": {
+      "status": "implemented, isolated native checks passed, activated",
+      "sourceSha256": "78e1e1790941fd6337a507b9daa98fe30e5157376f7159667ef2d141a6c66114",
+      "frameDIP": [
+        340,
+        248
+      ],
+      "surfaceCount": 1,
+      "scrollContainers": 0,
+      "evidence": [
+        "compact-checks-20261025.txt",
+        "compact-runtime-20261025.json"
+      ]
+    },
+    "application": {
+      "allPagesNoScrollComplete": false,
+      "pages": [
+        {
+          "id": "home",
+          "view": "viewHome",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "health",
+          "view": "viewHealth",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "alerts",
+          "view": "viewAlerts",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "Isolated DOM checks passed. Actual browser no-scroll/geometry acceptance remains unverified.",
+          "sourceSha256": "2d688b14cbfe076a85423cd3c0190c0292088c2dda7aa0f9899f4a91b7789ca3"
+        },
+        {
+          "id": "advice",
+          "view": "viewAdvice",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "27 isolated DOM/controller cases; browser geometry not verified.",
+          "sourceSha256": "3594618817cd5d64814bac4a3438cffabc3d0debb271bb5371f5901f06f2b792"
+        },
+        {
+          "id": "cpu",
+          "view": "viewCpu",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "mem",
+          "view": "viewMem",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "25 isolated DOM cases; browser geometry not verified.",
+          "sourceSha256": "b90074036c3c9a47437cf724f4666502eed14b788aa06dd90a2b18589f7a0967"
+        },
+        {
+          "id": "procs",
+          "view": "viewProcs",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "27 isolated DOM/controller cases; browser geometry not verified.",
+          "sourceSha256": "3594618817cd5d64814bac4a3438cffabc3d0debb271bb5371f5901f06f2b792"
+        },
+        {
+          "id": "wsl",
+          "view": "viewWsl",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "27 isolated DOM/controller cases; browser geometry not verified.",
+          "sourceSha256": "3594618817cd5d64814bac4a3438cffabc3d0debb271bb5371f5901f06f2b792"
+        },
+        {
+          "id": "gpu",
+          "view": "viewGpu",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "power",
+          "view": "viewPower",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "25 isolated DOM cases; browser geometry not verified.",
+          "sourceSha256": "b90074036c3c9a47437cf724f4666502eed14b788aa06dd90a2b18589f7a0967"
+        },
+        {
+          "id": "space",
+          "view": "viewSpace",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "io",
+          "view": "viewIo",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "startup",
+          "view": "loadStartup",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "tasks",
+          "view": "viewTasks",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "rules",
+          "view": "viewRules",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        },
+        {
+          "id": "history",
+          "view": "viewHistory",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "24 isolated DOM cases passed; no browser geometry claim.",
+          "sourceSha256": "c27b97c9b034d57c7a316d50523b601c18d8f9eb25aab6f334ab1f389a90aa2a"
+        },
+        {
+          "id": "dbx",
+          "view": "viewDbx",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "24 isolated DOM cases passed; no browser geometry claim.",
+          "sourceSha256": "c27b97c9b034d57c7a316d50523b601c18d8f9eb25aab6f334ab1f389a90aa2a"
+        },
+        {
+          "id": "ctrl",
+          "view": "viewCtrl",
+          "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+          "rendered": false,
+          "note": "Isolated DOM checks passed. Actual browser no-scroll/geometry acceptance remains unverified.",
+          "sourceSha256": "2d688b14cbfe076a85423cd3c0190c0292088c2dda7aa0f9899f4a91b7789ca3"
+        },
+        {
+          "id": "appearance",
+          "view": "viewAppearance",
+          "status": "stage_ready",
+          "rendered": false,
+          "note": "No-scroll acceptance not yet verified; earlier polish results are not proof of no scrolling."
+        }
+      ]
+    },
+    "globalNavigation": {
+      "status": "implemented; visual_acceptance_pending",
+      "domCases": 12,
+      "sourceSha256": "976cb49b5b39fb491658e63a9e57550e86176ac05714e75be0a235b3920eb67e",
+      "rendered": false
+    }
+  },
+  "applicationImplementedPages": 9,
+  "applicationTotalPages": 19,
+  "visualAcceptance": false
+}

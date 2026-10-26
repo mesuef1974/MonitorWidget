@@ -1,0 +1,2602 @@
+{
+  "sourceSha256": "a16d4524e5837cf7afa5e58bfe5a2e2d531f9704112a5af7a2ca89f50835fa53",
+  "method": "actual source command factories and role application; native Content text/Frame background in owned controls; no real command or settings write",
+  "paletteCount": 8,
+  "controlStateCases": 256,
+  "minimumTextContrast": 4.67179919451374,
+  "minimumSwitchContrast": 4.855706261394536,
+  "rows": [
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FF536970",
+      "background": "#FFDFF1EB",
+      "contrast": 4.946815109995733
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FF536970",
+      "background": "#FFDFF1EB",
+      "contrast": 4.946815109995733
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF086F64",
+      "background": "#FFFFFFFF",
+      "contrast": 6.055152807231851
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FF182E34",
+      "background": "#FFDFF1EB",
+      "contrast": 12.114027948502388
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FF182E34",
+      "background": "#FFDFF1EB",
+      "contrast": 12.114027948502388
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FF182E34",
+      "background": "#FFDFF1EB",
+      "contrast": 12.114027948502388
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FF182E34",
+      "background": "#FFDFF1EB",
+      "contrast": 12.114027948502388
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FF53657D",
+      "background": "#FFE5EEFC",
+      "contrast": 5.096454950182733
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FF53657D",
+      "background": "#FFE5EEFC",
+      "contrast": 5.096454950182733
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF2257AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.972689934810182
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FF202F43",
+      "background": "#FFE5EEFC",
+      "contrast": 11.598612270107822
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FF202F43",
+      "background": "#FFE5EEFC",
+      "contrast": 11.598612270107822
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FF202F43",
+      "background": "#FFE5EEFC",
+      "contrast": 11.598612270107822
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FF202F43",
+      "background": "#FFE5EEFC",
+      "contrast": 11.598612270107822
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FF6B597D",
+      "background": "#FFF0E9FA",
+      "contrast": 5.295446650313465
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FF6B597D",
+      "background": "#FFF0E9FA",
+      "contrast": 5.295446650313465
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF7042AA",
+      "background": "#FFFFFFFF",
+      "contrast": 6.888202874952593
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FF352740",
+      "background": "#FFF0E9FA",
+      "contrast": 11.705488979843283
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FF352740",
+      "background": "#FFF0E9FA",
+      "contrast": 11.705488979843283
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FF352740",
+      "background": "#FFF0E9FA",
+      "contrast": 11.705488979843283
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FF352740",
+      "background": "#FFF0E9FA",
+      "contrast": 11.705488979843283
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FF596B78",
+      "background": "#FFE6EDF1",
+      "contrast": 4.67179919451374
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FFFFFFFF",
+      "background": "#FF865000",
+      "contrast": 6.643192379869533
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FF596B78",
+      "background": "#FFE6EDF1",
+      "contrast": 4.67179919451374
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF445968",
+      "background": "#FFFFFFFF",
+      "contrast": 7.305274388655789
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FF26353F",
+      "background": "#FFE6EDF1",
+      "contrast": 10.669781441832818
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FF26353F",
+      "background": "#FFE6EDF1",
+      "contrast": 10.669781441832818
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FF26353F",
+      "background": "#FFE6EDF1",
+      "contrast": 10.669781441832818
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FF26353F",
+      "background": "#FFE6EDF1",
+      "contrast": 10.669781441832818
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF203D35",
+      "contrast": 6.09073049623894
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF203D35",
+      "contrast": 6.09073049623894
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF65DAC3",
+      "background": "#FF182323",
+      "contrast": 9.489629975092136
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FFE5EEED",
+      "background": "#FF203D35",
+      "contrast": 9.9893798564779
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FFE5EEED",
+      "background": "#FF203D35",
+      "contrast": 9.9893798564779
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FFE5EEED",
+      "background": "#FF203D35",
+      "contrast": 9.9893798564779
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FFE5EEED",
+      "background": "#FF203D35",
+      "contrast": 9.9893798564779
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF24364E",
+      "contrast": 6.629458463187347
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF24364E",
+      "contrast": 6.629458463187347
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FF9EC5FF",
+      "background": "#FF1B2532",
+      "contrast": 8.75593598801428
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF24364E",
+      "contrast": 10.408002795936138
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF24364E",
+      "contrast": 10.408002795936138
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF24364E",
+      "contrast": 10.408002795936138
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF24364E",
+      "contrast": 10.408002795936138
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF382B4B",
+      "contrast": 6.731607426536485
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF382B4B",
+      "contrast": 6.731607426536485
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FFD3B0FF",
+      "background": "#FF25202F",
+      "contrast": 8.61327169765351
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF382B4B",
+      "contrast": 10.95999733593111
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF382B4B",
+      "contrast": 10.95999733593111
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF382B4B",
+      "contrast": 10.95999733593111
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF382B4B",
+      "contrast": 10.95999733593111
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "menuBtn",
+      "state": "normal",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "menuBtn",
+      "state": "hover",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF34414A",
+      "contrast": 5.778580979183156
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "menuBtn",
+      "state": "disabled",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "menuBtn",
+      "state": "focused",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfReal",
+      "state": "normal",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfReal",
+      "state": "hover",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfReal",
+      "state": "disabled",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfReal",
+      "state": "focused",
+      "foreground": "#FF1A1100",
+      "background": "#FFEFC471",
+      "contrast": 11.390930051603588
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfNo",
+      "state": "normal",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfNo",
+      "state": "hover",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfNo",
+      "state": "disabled",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfNo",
+      "state": "focused",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "closeBtn",
+      "state": "normal",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "closeBtn",
+      "state": "hover",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF34414A",
+      "contrast": 5.778580979183156
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "closeBtn",
+      "state": "disabled",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "closeBtn",
+      "state": "focused",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "daily",
+      "state": "normal",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "daily",
+      "state": "hover",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "daily",
+      "state": "disabled",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "daily",
+      "state": "focused",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "open",
+      "state": "normal",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "open",
+      "state": "hover",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "open",
+      "state": "disabled",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "open",
+      "state": "focused",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "normal",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "hover",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "disabled",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FFC0D0DC",
+      "background": "#FF232A30",
+      "contrast": 9.200042777383478
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "trim",
+      "state": "focused",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfDry",
+      "state": "normal",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF34414A",
+      "contrast": 8.983796513649747
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfDry",
+      "state": "hover",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF34414A",
+      "contrast": 8.983796513649747
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfDry",
+      "state": "disabled",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF34414A",
+      "contrast": 8.983796513649747
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "control": "cfDry",
+      "state": "focused",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF34414A",
+      "contrast": 8.983796513649747
+    }
+  ]
+}

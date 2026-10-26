@@ -1,0 +1,22 @@
+PASS finite opacity normalization, saved100% preservation, actual outer/inner alpha and fully opaque text/window controls
+PASS actual two-row WPF header geometry and complete connection text: fresh/stale/missing × admin/standard, no overlap or truncation; privilege information outside header
+PASS native chart at220/242/264/284 DIP: full percentage labels inside canvas, >=11DIP text, data reserves32DIP axis space; chart and composition width follow available viewport
+PASS exact title + Edge process + visible dashboard matching; one target only, foreground preferred, unrelated windows excluded; widget X still hides
+PASS placement shares exact dashboard selector and moves one target only; widget title is excluded and retries do not block the input dispatcher
+No real window enumeration, message, close or process termination was executed by this test.
+PASS actual native WPF ScrollViewer: wheel down/up over content, chart canvas, chart mark, action button and toggle; no commands activated
+Synthetic routed input only; no native window shown, desktop input injected or real operation executed.
+PASS RAM warning and critical levels participate in actual widget summary
+PASS work-area placement at primary, negative-coordinate and secondary-monitor positions; resize handler is wired
+PASS operation feedback survives repeated metric refreshes in a separate wrapping control
+PASS missing RAM/disk remain unknown instead of healthy or zero-space alarm
+PASS expanded stale/missing qualifiers follow the compact freshness decision and clear on fresh reconnection
+PASS sixteen real WPF brush transitions across four palettes, including repeated night/day changes
+PASS recoveryRequired preserves last confirmed appearance, exposes persistent warning and blocks writes
+PASS all eight WPF palettes, native brush remapping, independent success state, stale revision, invalid mode and system/manual modes
+PASS common strict startup/live revision validation and 64 DIP gauge with unscaled readable text
+PASS asynchronous canonical request revision and failed-save behavior (mocked transport; no network)
+PASS local geometry save preserves legacy appearance and unrelated settings (temporary file only)
+PASS PowerShell syntax; native Button/ToggleButton templates, names, Invoke/Toggle patterns and keyboard participation
+PASS compact metric binding, disconnected freshness and stale CPU handling (synthetic controls and data only)
+PASS native notification delegation, important-state deduplication and mute (notification object is a test double; no OS notification sent)

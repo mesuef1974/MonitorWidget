@@ -1,0 +1,45 @@
+{
+  "installedAt": "2026-10-26T05:45:21.237207+00:00",
+  "skills": [
+    {
+      "name": "frontend-design",
+      "path": "C:\\Users\\mesue\\.codex\\skills\\frontend-design",
+      "repository": "https://github.com/anthropics/skills",
+      "commit": "dbd4588f9e1033efb41dad4bef2f7947c8993d44",
+      "source": "https://github.com/anthropics/skills/tree/dbd4588f9e1033efb41dad4bef2f7947c8993d44/skills/frontend-design",
+      "skillSha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "files": 2
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "path": "C:\\Users\\mesue\\.codex\\skills\\ui-ux-pro-max",
+      "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+      "commit": "d14efff8ed1faa4187f004f79926f428c8074ec7",
+      "source": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill/tree/d14efff8ed1faa4187f004f79926f428c8074ec7/.claude/skills/ui-ux-pro-max",
+      "skillSha256": "ea087c341bfb5b23195c7302027268ede86da802554c18a5c4896a6017b439f9",
+      "files": 74
+    }
+  ],
+  "verification": "Both SKILL.md names, required assets, local search and WPF/chart queries checked; no production edits.",
+  "automaticDiscovery": "Available on next user turn",
+  "applicationSource": {
+    "index.html": "1415fabf97f5b33d84f4b79d22538e1238658283f0ab269683be4fcabd381c14",
+    "widget.ps1": "54ded7ad23ec64049f7c4a1be887f4e783c68a41e81c7398d151a7856d286541"
+  },
+  "preview": {
+    "files": {
+      "index.html": "cf3d2a62594f38ee68083916d0f6b53e714ce7b06aa74ba414fa77244faee419",
+      "preview.css": "7d3b526732ab94e2217f299bda432ae718f07d32e54286526edccdfe59f868cf",
+      "preview.js": "7b148e989582c519da8fd4704325a865a36b3248b52d095fd5cead48180543d4"
+    },
+    "rootDomChecks": 10,
+    "designerDomChecks": 15,
+    "browserRendered": false,
+    "browserLimitation": "Tool URL policy denied local file protocol; no alternate-browser/server workaround used.",
+    "workingApplicationUnchanged": true,
+    "minimumDesktopConcept": {
+      "width": 1180,
+      "height": 1050
+    }
+  }
+}

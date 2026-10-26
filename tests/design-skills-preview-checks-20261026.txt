@@ -1,0 +1,11 @@
+PASS separate Arabic RTL prototype declares sample-only state and valid local assets
+PASS overview opens with one visible logical page, compact chart paths and current readings
+PASS footer and keyboard PageUp/PageDown navigate explicit sample pages
+PASS mouse wheel changes a page and retains an uncanceled paging boundary
+PASS Space and its second page remain reachable through the prototype controls
+PASS two modes and four palettes share the same root state for app and widget
+PASS system mode reacts to a simulated theme change while manual mode does not
+PASS full widget keeps four schedule switches, four run controls, rings, graph, distribution and trim
+PASS widget switches and run feedback change preview state without invoking an operation
+PASS unsupported small sizes show a readable boundary instead of claiming responsive acceptance
+RESULT 10 owned-DOM preview checks; no rendered geometry, actual browser, network or working-app modifications.

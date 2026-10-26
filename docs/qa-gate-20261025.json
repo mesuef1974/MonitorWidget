@@ -1,0 +1,18 @@
+{
+  "verdict": "CONDITIONAL",
+  "checked_by": "azkia-qa-gate",
+  "timestamp": "2026-10-25T11:45:07Z",
+  "source_revision": "938831165a20d08fca5aa3e8aaa1983c2cc23288f8eb4b329035e58df0ea3d8a",
+  "scope": "source and preparation only; preview",
+  "production_activation_approved": false,
+  "isolated_test_groups": 12,
+  "failed": 0,
+  "skipped": 0,
+  "limits": [
+    "Final browser retake blocked by denied origin permission",
+    "WPF renders are offscreen source evidence, not desktop/DPI screenshots",
+    "No measured line coverage",
+    "Real Stage/Apply/task changes not executed",
+    "Real Windows notification delivery not tested"
+  ]
+}

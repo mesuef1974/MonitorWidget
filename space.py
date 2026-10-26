@@ -1,0 +1,775 @@
+# -*- coding: utf-8 -*-
+"""Disk-space explainer: periodic folder sizes, growth deltas, free-space drops, SAFE cleanup.
+Safety: cleanup is whitelisted to three disposable caches only (never projects, never user documents),
+always previewable (dry run), and deletes only files not modified for 3+ days or known cache folders."""
+import ctypes, json, os, re, shutil, subprocess, threading, time
+import errlog
+from ctypes import wintypes
+
+import db
+
+H = os.path.expanduser("~")
+LA = os.environ.get("LOCALAPPDATA", os.path.join(H, "AppData", "Local"))
+TEMP = os.environ.get("TEMP", os.path.join(LA, "Temp"))
+MIN_AGE_DAYS = 3
+
+# key -> (label, path, advice, cleanable-key or None)
+DOCKER = r"C:\Program Files\Docker\Docker\resources\bin\docker.exe"
+TARGETS = {
+    "docker":   ("Docker (قرص الحاويات)", os.path.join(LA, "Docker"), "يكبر مع الاستخدام ولا يصغر وحده. تنظيف ذاكرة البناء يحرّر داخله، وعودة المساحة للقرص تحتاج ضغطاً لاحقاً.", "dockercache"),
+    "temp":     ("الملفات المؤقتة", TEMP, "الحجم هو كل المجلد؛ يُحذف منه ما لم يتغيّر منذ 3 أيام فقط، والباقي قيد الاستخدام.", "temp"),
+    "edge":     ("ذاكرة المتصفح Edge", os.path.join(LA, "Microsoft", "Edge"), "الحجم هو كل Edge (ملفات شخصية ونموذج ذكاء محلي)؛ يُمسح منه الكاشف المؤقت فقط.", "edgecache"),
+    "claude":   ("أرشيف Claude", os.path.join(H, ".claude"), "جلساتك وإعداداتك؛ لا يُلمس من هنا.", None),
+    "packages": ("حزم التطبيقات", os.path.join(LA, "Packages"), "بيانات تطبيقات المتجر؛ لا يُلمس.", None),
+    "installer": ("مثبّت ويندوز", r"C:\Windows\Installer", "لا يُحذف يدوياً أبداً.", None),
+    "winlogs":  ("سجلات ويندوز", r"C:\Windows\Logs", "صغير.", None),
+    "swdist":   ("تنزيلات التحديث", r"C:\Windows\SoftwareDistribution\Download", "كاش تنزيلات التحديثات؛ يعيد ويندوز بناءه. تُترك الملفات قيد الاستخدام.", "swdist"),
+    "npm":      ("ذاكرة npm", os.path.join(LA, "npm-cache"), "آمن: تُعاد عند الحاجة، ولا تمسّ مجلدات المشاريع.", "npmcache"),
+    "downloads": ("التنزيلات", os.path.join(H, "Downloads"), "ملفاتك الشخصية؛ لا تُلمس.", None),
+    "winold":   ("Windows.old (النظام السابق)", r"C:\Windows.old", "يتيح الرجوع للإصدار السابق؛ لا يُحذف إلا بعد 14 يوماً من إنشائه ويستغرق دقائق.", "winold"),
+}
+# whole-volume breakdown so the list reconciles with the real used space: key -> (label, path, kind) ; kind "file" = single file, "dir" = slow folder scan
+BIG = {
+    "pagefile": ("ملف الذاكرة الافتراضية", r"C:\pagefile.sys", "file"),
+    "hiber": ("ملف السبات", r"C:\hiberfil.sys", "file"),
+    "swapf": ("ملف تبديل التطبيقات", r"C:\swapfile.sys", "file"),
+    "windows": ("ويندوز", r"C:\Windows", "dir"),
+    "progfiles": ("Program Files", r"C:\Program Files", "dir"),
+    "progfiles86": ("Program Files (x86)", r"C:\Program Files (x86)", "dir"),
+    "progdata": ("ProgramData", r"C:\ProgramData", "dir"),
+    "profile": ("ملفك الشخصي", H, "dir"),
+}
+BIG_HOURS = 24
+SCHEMA = ("CREATE TABLE IF NOT EXISTS dirsize(ts INTEGER NOT NULL, key TEXT NOT NULL, gb REAL, files INTEGER, PRIMARY KEY(ts,key)) WITHOUT ROWID;"
+          "CREATE TABLE IF NOT EXISTS space_runs(id INTEGER PRIMARY KEY, ts INTEGER NOT NULL, kind TEXT, mb REAL, files INTEGER, skipped INTEGER, src TEXT);")
+SAFE = ("temp", "edgecache", "npmcache")
+# kinds whose large files go to the 7-day quarantine instead of being deleted (setting "space.quarantine_kinds", default temp).
+# The quarantine lives on the same volume, so those bytes are freed only when it is purged (Q_DAYS later); small files are deleted at once.
+Q_MIN_BYTES = 5 * 2**20
+KIND_LABEL = {"temp": "الملفات المؤقتة", "edgecache": "ذاكرة Edge", "npmcache": "ذاكرة npm", "swdist": "تنزيلات تحديث ويندوز", "winold": "Windows.old"}
+# manual-only kinds (never part of the hourly auto-clean): the update download cache, and the previous Windows after its grace period.
+EXTRA = ("swdist", "winold")
+AUTO_EXTRA = ("pipcache", "crashdumps", "wintemp")   # extras.py light kinds that may be switched on for the hourly auto-clean
+BULK = SAFE + ("swdist",)     # what "clean all" runs; Windows.old is deliberately a separate, explicit action
+WINOLD = r"C:\Windows.old"
+WINOLD_DAYS = 14
+SWDIST = r"C:\Windows\SoftwareDistribution\Download"
+SETTINGS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "space.settings.json")
+
+
+def _setting(k, d=None):
+    with db._lock:
+        r = _c().execute("SELECT value FROM settings WHERE key=?", (k,)).fetchone()
+    try:
+        return json.loads(r[0]) if r else d
+    except Exception:
+        return d
+
+
+def _setting_set(k, v):
+    with db._lock:
+        c = _c(); c.execute("INSERT INTO settings(key,value,ts) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, ts=excluded.ts", (k, json.dumps(v), int(time.time()))); c.commit()
+
+
+def get_auto():
+    a = _setting("space.auto")
+    if a is None:
+        a = {}
+        try:   # one-time import of the old JSON file
+            a = json.load(open(SETTINGS, encoding="utf-8")).get("auto", {})
+        except Exception:
+            errlog.swallowed()
+        _setting_set("space.auto", {k: bool(a.get(k)) for k in SAFE})
+    return {k: bool(a.get(k)) for k in SAFE + AUTO_EXTRA}
+
+
+def set_auto(kind, on):
+    if kind not in SAFE + AUTO_EXTRA:
+        return False
+    a = get_auto(); a[kind] = bool(on)
+    _setting_set("space.auto", a)
+    return True
+
+
+def clean(kind, dry=True, src="manual", early=False):
+    """Preview (dry=True) or run a whitelisted cleanup. Every real run is audited: expected vs actual and free space before/after.
+    early: owner's explicit override of the Windows.old age gate (the UI asks for a separate confirmation)."""
+    if dry:
+        return _clean_impl(kind, True, src)
+    try:
+        exp = _clean_impl(kind, True, src).get("mb")
+    except Exception:
+        exp = None
+    fb = shutil.disk_usage("C:\\").free
+    r = _clean_impl(kind, False, src + "-early" if early and kind == "winold" else src, early)
+    fa = shutil.disk_usage("C:\\").free
+    r.update(expectedMB=exp, freeBeforeGB=round(fb / 2**30, 2), freeAfterGB=round(fa / 2**30, 2))
+    if kind in ("dism", "claudearchive", "dockercompact"):
+        return r   # background jobs write their own audit row when they finish
+    try:
+        with db._lock:
+            c = _c()
+            cur = c.execute("INSERT INTO actions(ts,kind,src,expected_mb,actual_mb,files,skipped,free_before_gb,free_after_gb,ok,detail) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                            (int(time.time()), kind, src, exp, r.get("mb", 0), r.get("files", 0), r.get("skipped", 0), r["freeBeforeGB"], r["freeAfterGB"], 1 if r.get("ok") else 0, r.get("error")))
+            c.commit(); r["actionId"] = cur.lastrowid
+    except Exception:
+        errlog.swallowed()
+    return r
+
+
+# ---------------- quarantine: reversible removal for riskier items (held 7 days, then purged)
+Q_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "quarantine")
+Q_DAYS = 7
+
+
+def _quarantine_store():
+    from quarantine_store import QuarantineStore
+    return QuarantineStore(db, Q_DIR, _c, allowed_origins=(TEMP,), days=Q_DAYS)
+
+
+def quarantine_move(path, action_id=None):
+    """Durable intent + atomic same-volume rename; never overwrites an existing path."""
+    return _quarantine_store().move(path, action_id, lambda p: _size(p, time.time() + 120, fast=True)[0])
+
+
+def quarantine_list():
+    return _quarantine_store().listing()
+
+
+def quarantine_restore(qid):
+    return _quarantine_store().restore(qid)
+
+
+def purge_quarantine():
+    return _quarantine_store().purge()
+
+
+def auto_run():
+    """Hourly: run the cleanups the user switched on (each is limited to disposable data)."""
+    for k, on in get_auto().items():
+        if on:
+            clean(k, dry=False, src="auto")
+    try:
+        import extras
+        extras.dism_monthly()
+    except Exception:
+        errlog.swallowed()
+
+_ready = False
+_scan_lock = threading.Lock()
+state = {"running": False, "last": 0}
+
+
+def _c():
+    global _ready
+    if not _ready:
+        import infra
+        with db._lock:
+            db.conn().executescript(SCHEMA); db.conn().commit(); infra.migrate(db.conn())
+        _ready = True
+    return db.conn()
+
+
+_k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+_k32.GetCompressedFileSizeW.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+_k32.GetCompressedFileSizeW.restype = wintypes.DWORD
+CLOUD = 0x1000 | 0x40000 | 0x400000  # OFFLINE | RECALL_ON_OPEN | RECALL_ON_DATA_ACCESS: placeholder, not on this disk
+
+
+def _alloc(path, logical):
+    hi = wintypes.DWORD(0)
+    lo = _k32.GetCompressedFileSizeW(path, ctypes.byref(hi))
+    if lo == 0xFFFFFFFF and ctypes.get_last_error() != 0:
+        return logical
+    return (hi.value << 32) | lo
+
+
+def _size(path, deadline, dedupe=False, fast=False):
+    """Space actually allocated on disk: sparse/compressed files by allocation, cloud placeholders as 0,
+    and (dedupe=True) hard-linked files counted once. Returns (bytes, files)."""
+    tot = n = 0
+    seen = set()
+    if os.path.isfile(path):
+        try:
+            return _alloc(path, os.stat(path).st_size), 1
+        except OSError:
+            return 0, 0
+    stack = [path]
+    while stack:
+        if time.time() > deadline:
+            break
+        try:
+            with os.scandir(stack.pop()) as it:
+                for e in it:
+                    try:
+                        if e.is_symlink():
+                            continue
+                        if e.is_dir(follow_symlinks=False):
+                            if e.stat(follow_symlinks=False).st_file_attributes & 0x400:
+                                continue  # junction (e.g. "Application Data"): its target is counted where it really lives
+                            stack.append(e.path)
+                            continue
+                        st = e.stat(follow_symlinks=False)
+                        n += 1
+                        if getattr(st, "st_file_attributes", 0) & CLOUD:
+                            continue
+                        if dedupe:
+                            fs = os.stat(e.path)
+                            if fs.st_nlink > 1:
+                                key = (fs.st_dev, fs.st_ino)
+                                if key in seen:
+                                    continue
+                                seen.add(key)
+                        tot += st.st_size if fast else _alloc(e.path, st.st_size)
+                    except OSError:
+                        errlog.swallowed()
+        except PermissionError:
+            pass  # protected system folders: skipped silently, not logged on every scan
+        except OSError:
+            errlog.swallowed()
+    return tot, n
+
+
+def scan(budget=100):
+    if not _scan_lock.acquire(blocking=False):
+        return False
+    state["running"] = True
+    try:
+        ts = int(time.time()); deadline = time.time() + budget; rows = []
+        for k, (_, p, _, _) in TARGETS.items():
+            if k != "winold" and os.path.exists(p):   # Windows.old is huge: measured by its own background thread
+                # own budget per folder: one huge folder must not starve the ones after it (they were recorded as 0)
+                b, n = _size(p, time.time() + budget)
+                rows.append((ts, k, round(b / 2**30, 3), n))
+        for k in SAFE:
+            try:
+                r = clean(k, dry=True)
+                rows.append((ts, "rec_" + k, round(r["gb"], 4), r["files"]))
+            except Exception:
+                errlog.swallowed()
+        with db._lock:
+            c = _c(); c.executemany("INSERT OR REPLACE INTO dirsize VALUES(?,?,?,?)", rows)
+            c.commit()
+        state["last"] = ts
+        return True
+    finally:
+        state["running"] = False; _scan_lock.release()
+
+
+def drives():
+    """Fixed local drives (letter, label, used/total/free GB)."""
+    out = []
+    try:
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        for i in range(26):
+            if mask & (1 << i):
+                L = chr(65 + i); root = L + ":\\"
+                if ctypes.windll.kernel32.GetDriveTypeW(root) == 3:
+                    try:
+                        du = shutil.disk_usage(root)
+                    except OSError:
+                        continue
+                    lab = ctypes.create_unicode_buffer(64)
+                    ctypes.windll.kernel32.GetVolumeInformationW(root, lab, 64, None, None, None, None, 0)
+                    out.append({"letter": L, "label": lab.value, "used": round(du.used / 2**30, 1), "total": round(du.total / 2**30, 1), "free": round(du.free / 2**30, 1)})
+    except Exception:
+        errlog.swallowed()
+    return out
+
+
+def scan_drive(L, budget=600):
+    """Top-level folders of another drive, by on-disk size."""
+    root = L + ":\\"; ts = int(time.time()); deadline = time.time() + budget; rows = []; files_b = 0
+    try:
+        with os.scandir(root) as it:
+            ents = list(it)
+    except OSError:
+        return
+    for e in ents:
+        try:
+            if e.name.lower() in ("$recycle.bin", "system volume information"):
+                continue
+            if e.is_dir(follow_symlinks=False):
+                b, n = _size(e.path, deadline)
+                rows.append((ts, "vol_%s_%s" % (L, e.name), round(b / 2**30, 3), -1 if time.time() > deadline else n))
+            else:
+                files_b += _alloc(e.path, e.stat().st_size)
+        except OSError:
+            errlog.swallowed()
+    if files_b:
+        rows.append((ts, "vol_%s_(ملفات الجذر)" % L, round(files_b / 2**30, 3), 0))
+    if rows:
+        with db._lock:
+            c = _c(); c.executemany("INSERT OR REPLACE INTO dirsize VALUES(?,?,?,?)", rows); c.commit()
+
+
+def drive_overview(L):
+    with db._lock:
+        c = _c()
+        t = c.execute("SELECT MAX(ts) FROM dirsize WHERE key LIKE ?", ("vol_%s_%%" % L,)).fetchone()[0]
+        rows = c.execute("SELECT key, gb, files FROM dirsize WHERE ts=? AND key LIKE ?", (t, "vol_%s_%%" % L)).fetchall() if t else []
+    pre = "vol_%s_" % L
+    parts = sorted(({"label": r["key"][len(pre):], "gb": r["gb"], "partial": r["files"] == -1} for r in rows), key=lambda x: -x["gb"])
+    return {"parts": parts, "ts": t, "scanning": bool(state.get("big"))}
+
+
+def scan_big(budget=900):
+    """Slow whole-volume pass (daily). Partial results are flagged, never presented as exact."""
+    ts = int(time.time()); deadline = time.time() + budget; rows = []
+    for k, (_, p, kind) in BIG.items():
+        if not os.path.exists(p):
+            continue
+        if kind == "file":
+            try:
+                rows.append((ts, "big_" + k, round(os.stat(p).st_size / 2**30, 3), 1))
+            except OSError:
+                errlog.swallowed()
+        else:
+            b, n = _size(p, deadline, dedupe=(k in ("windows", "progdata", "progfiles")))
+            rows.append((ts, "big_" + k, round(b / 2**30, 3), -1 if time.time() > deadline else n))  # files=-1 marks a truncated scan
+    if rows:
+        with db._lock:
+            c = _c(); c.executemany("INSERT OR REPLACE INTO dirsize VALUES(?,?,?,?)", rows); c.commit()
+    for d in drives():
+        if d["letter"] != "C":
+            scan_drive(d["letter"])
+
+
+def scan_if_due(hours=6):
+    with db._lock:
+        r = _c().execute("SELECT MAX(ts) FROM dirsize WHERE key NOT LIKE 'big_%' AND key NOT LIKE 'vol_%'").fetchone()
+    if not r[0] or time.time() - r[0] > hours * 3600:
+        scan()
+    with db._lock:
+        r = _c().execute("SELECT MAX(ts) FROM dirsize WHERE key LIKE 'big_%'").fetchone()
+    if (not r[0] or time.time() - r[0] > BIG_HOURS * 3600) and not state.get("big"):
+        state["big"] = True
+        threading.Thread(target=lambda: (scan_big(), state.update(big=False)), daemon=True).start()
+
+
+LIVE_KEYS = ("docker", "temp", "edge", "npm", "swdist", "downloads")
+
+
+def live_tick():
+    """Agent job: re-measure every watched folder (cheap) and publish to fs_live; docker reclaimable every 3 min."""
+    now = int(time.time()); rows = []
+    for k in LIVE_KEYS:  # only the folders that change between scans; short per-folder budget
+        _, p, _, _ = TARGETS[k]
+        if os.path.exists(p):
+            b, n = _size(p, time.time() + 15, fast=True)
+            rows.append((k, round(b / 2**30, 3), n, now))
+    with db._lock:
+        c = _c()
+        last = c.execute("SELECT ts FROM fs_live WHERE key='dockercache_mb'").fetchone()
+    if not last or now - last[0] > 180:
+        try:
+            r = docker_cache(True)
+            rows.append(("dockercache_mb", r.get("mb") if r.get("ok") else None, 0, now))
+        except Exception:
+            errlog.swallowed()
+    with db._lock:
+        c = _c(); c.executemany("INSERT INTO fs_live(key,gb,files,ts) VALUES(?,?,?,?) ON CONFLICT(key) DO UPDATE SET gb=excluded.gb, files=excluded.files, ts=excluded.ts", rows); c.commit()
+    return "%d folders" % len(rows)
+
+
+def _fs_live():
+    with db._lock:
+        return {r["key"]: (r["gb"], r["files"], r["ts"]) for r in _c().execute("SELECT key, gb, files, ts FROM fs_live").fetchall()}
+
+
+def _agent_status():
+    with db._lock:
+        r = _c().execute("SELECT value FROM meta WHERE key='agent_hb'").fetchone()
+    hb = int(r[0]) if r else None
+    return {"alive": bool(hb and time.time() - hb < 60), "heartbeat": hb}
+
+
+def _drops(c, hours=72, min_gb=2.0):
+    rows = c.execute("SELECT ts, disk_free_gb v FROM samples WHERE disk_free_gb IS NOT NULL AND ts>=? ORDER BY ts", (int(time.time()) - hours * 3600,)).fetchall()
+    out = []
+    for i, a in enumerate(rows):
+        win = [r for r in rows[i:] if r["ts"] - a["ts"] <= 3 * 3600]
+        lo = min(win, key=lambda r: r["v"])
+        if a["v"] - lo["v"] >= min_gb:
+            if out and a["ts"] <= out[-1]["to"]:
+                m = out[-1]
+                if a["v"] > m["hi"]:
+                    m["hi"] = a["v"]
+                if lo["v"] < m["lo"]:
+                    m["lo"] = lo["v"]; m["to"] = lo["ts"]
+            else:
+                out.append({"from": a["ts"], "to": lo["ts"], "hi": a["v"], "lo": lo["v"]})
+    for m in out:
+        m["gb"] = round(m["hi"] - m["lo"], 1); m["hi"] = round(m["hi"], 1); m["lo"] = round(m["lo"], 1)
+    return out[-3:]
+
+
+_rc = {"t": 0, "v": {}}
+
+
+def _rec_refresh():
+    try:
+        r = {k: clean(k, dry=True) for k in SAFE + ("swdist", "winold")}
+        _rc["v"] = {k: v.get("mb", 0.0) for k, v in r.items()}; _rc["locked"] = {k: v.get("lockedMB", 0.0) for k, v in r.items()}
+    except Exception:
+        errlog.swallowed()
+    finally:
+        _rc["t"] = time.time(); _rc["busy"] = False
+
+
+def _rec_live():
+    """What each safe cleanup would free (cached 60 s). Measured in the background so the page never waits on a slow folder walk."""
+    if time.time() - _rc["t"] > 60 and not _rc.get("busy"):
+        _rc["busy"] = True
+        threading.Thread(target=_rec_refresh, daemon=True).start()
+    return _rc["v"] or {k: 0.0 for k in SAFE + EXTRA}
+
+
+def overview():
+    with db._lock:
+        c = _c()
+        snaps = [r[0] for r in c.execute("SELECT DISTINCT ts FROM dirsize WHERE key NOT LIKE 'big_%' AND key NOT LIKE 'vol_%' ORDER BY ts DESC LIMIT 200").fetchall()]
+        free = c.execute("SELECT disk_free_gb FROM samples WHERE disk_free_gb IS NOT NULL ORDER BY ts DESC LIMIT 1").fetchone()
+        hist = [(r[0], r[1]) for r in c.execute("SELECT (ts/600)*600 t, ROUND(AVG(disk_free_gb),2) v FROM samples WHERE disk_free_gb IS NOT NULL AND ts>=? GROUP BY t ORDER BY t", (int(time.time()) - 86400,)).fetchall()]
+        drops = _drops(c)
+        cur = {r["key"]: r for r in c.execute("SELECT * FROM dirsize WHERE ts=?", (snaps[0],)).fetchall()} if snaps else {}
+        old, oldts = {}, None
+        if len(snaps) > 1:
+            want = snaps[0] - 24 * 3600
+            oldts = min(snaps[1:], key=lambda t: abs(t - want))
+            old = {r["key"]: r for r in c.execute("SELECT * FROM dirsize WHERE ts=?", (oldts,)).fetchall()}
+    rec = _rec_live()
+    with db._lock:
+        runs = [dict(r) for r in _c().execute("SELECT ts, kind, actual_mb AS mb, expected_mb, files, skipped, src, free_before_gb, free_after_gb FROM actions WHERE ok=1 ORDER BY ts DESC LIMIT 6").fetchall()]
+    LV = _fs_live()
+    du = shutil.disk_usage("C:\\")
+    with db._lock:
+        bigrows = {r["key"]: r for r in _c().execute("SELECT key, gb, files, ts FROM dirsize WHERE key LIKE 'big_%' AND ts=(SELECT MAX(ts) FROM dirsize WHERE key LIKE 'big_%')").fetchall()}
+    parts = []
+    for k, (label, p, kind) in BIG.items():
+        r = bigrows.get("big_" + k)
+        if r:
+            parts.append({"key": k, "label": label, "gb": r["gb"], "partial": r["files"] == -1})
+    known = sum(x["gb"] for x in parts)
+    used = round(du.used / 2**30, 1)
+    volume = {"used": used, "total": round(du.total / 2**30, 1), "free": round(du.free / 2**30, 1), "parts": parts,
+              "other": round(max(0.0, used - known), 1) if parts else None, "ts": next(iter(bigrows.values()))["ts"] if bigrows else None,
+              "partial": any(x["partial"] for x in parts), "scanning": bool(state.get("big"))}
+    items = []
+    for k, (label, p, advice, clean) in TARGETS.items():
+        if k == "winold":
+            if os.path.isdir(p):
+                wb, wn = _winold_size()
+                items.append({"key": k, "label": label, "gb": round(wb / 2**30, 3), "delta": None, "files": wn, "clean": clean, "measuring": not _wo["t"],
+                              "advice": advice + ("" if _wo["t"] else " (جارٍ القياس…)")})
+            continue
+        if k not in cur:
+            continue
+        gb, nf = cur[k]["gb"], cur[k]["files"]
+        lv = LV.get(k)
+        if lv and lv[0] is not None and time.time() - lv[2] < 300:
+            gb, nf = lv[0], lv[1]
+        d = round(gb - old[k]["gb"], 2) if k in old else None
+        items.append({"key": k, "label": label, "gb": gb, "delta": d, "files": nf, "advice": advice, "clean": clean})
+    items.sort(key=lambda x: -x["gb"])
+    grew = [x for x in items if x["delta"] and x["delta"] >= 0.3]
+    return {"free": round(free[0], 1) if free else None, "hist": hist, "drops": drops, "items": items,
+            "ts": (int(max(v[2] for kk, v in LV.items() if kk in TARGETS)) if any(kk in TARGETS for kk in LV) else (snaps[0] if snaps else None)), "since": oldts, "culprit": max(grew, key=lambda x: x["delta"])["key"] if grew else None,
+            "running": state["running"], "auto": get_auto(), "recoverableMB": rec, "runs": runs, "dockerMB": (LV.get("dockercache_mb") or (None,))[0], "agent": _agent_status(), "lockedMB": _rc.get("locked", {}), "winold": winold_status(), "bulk": list(BULK), "extra": list(EXTRA), "labels": KIND_LABEL, "volume": volume, "extras": _extras_overview(),
+            "drives": drives(), "dvol": {d["letter"]: drive_overview(d["letter"]) for d in drives() if d["letter"] != "C"}}
+
+
+def _extras_overview():
+    try:
+        import extras
+        return extras.overview()
+    except Exception:
+        errlog.swallowed()
+        return None
+
+
+def _edge_running():
+    try:
+        r = subprocess.run(["tasklist", "/FI", "IMAGENAME eq msedge.exe", "/NH"], capture_output=True, timeout=15, creationflags=0x08000000)
+        return b"msedge.exe" in r.stdout
+    except Exception:
+        return True
+
+
+_k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+_k32.CreateFileW.restype = wintypes.HANDLE
+_k32.CloseHandle.argtypes = [wintypes.HANDLE]
+_INVALID = wintypes.HANDLE(-1).value
+
+
+def _deletable(p):
+    h = _k32.CreateFileW(p, 0x10000, 7, None, 3, 0x02000000, None)  # DELETE access, share all, OPEN_EXISTING, BACKUP_SEMANTICS
+    if h is None or h == _INVALID:
+        return False
+    _k32.CloseHandle(h)
+    return True
+
+
+_REPARSE = 0x400  # FILE_ATTRIBUTE_REPARSE_POINT: junctions, symlinks, mount points
+
+
+def _is_reparse(path):
+    try:
+        return bool(getattr(os.lstat(path), "st_file_attributes", 0) & _REPARSE) or os.path.islink(path)
+    except OSError:
+        return True   # unreadable: treat as unsafe
+
+
+def _walk(root):
+    """os.walk that never descends into a reparse point (a junction inside a cache folder must not lead the deletion elsewhere).
+    Yields (dirpath, real_subdirs, link_subdirs, files); the root itself must be a real folder inside its allowed area."""
+    if _is_reparse(root):
+        return
+    for dp, dn, fn in os.walk(root, topdown=True, followlinks=False):
+        links = [d for d in dn if _is_reparse(os.path.join(dp, d))]
+        dn[:] = [d for d in dn if d not in links]
+        yield dp, list(dn), links, fn
+
+
+def _old_files(root, days=None):
+    cut = time.time() - (MIN_AGE_DAYS if days is None else days) * 86400
+    for dp, dn, _links, fn in _walk(root):
+        for f in fn:
+            p = os.path.join(dp, f)
+            try:
+                st = os.stat(p)
+                if st.st_mtime < cut:
+                    yield p, st.st_size
+            except OSError:
+                errlog.swallowed()
+
+
+def _cache_dirs():
+    base = os.path.join(LA, "Microsoft", "Edge", "User Data")
+    out = []
+    if os.path.isdir(base):
+        for prof in os.listdir(base):
+            if prof == "Default" or prof.startswith("Profile"):
+                for sub in ("Cache", "Code Cache", "GPUCache"):
+                    p = os.path.join(base, prof, sub)
+                    if os.path.isdir(p):
+                        out.append(p)
+    return out
+
+
+def _purge_dir(root):
+    """Delete files one by one; locked/in-use files are skipped (so a running Edge is fine). Returns (bytes freed, files removed, files skipped)."""
+    freed = n = skipped = 0
+    for dp, dn, links, fn in reversed(list(_walk(root))):
+        for f in fn:
+            p = os.path.join(dp, f)
+            try:
+                sz = os.path.getsize(p); os.remove(p); freed += sz; n += 1
+            except OSError:
+                skipped += 1
+        for d in dn + links:   # a link is removed as a link only; its target is never touched
+            try:
+                os.rmdir(os.path.join(dp, d))
+            except OSError as ex:
+                # expected: the folder still holds a locked/in-use file we skipped (WinError 145 not empty, 32 in use, 5 denied)
+                if getattr(ex, "winerror", None) not in (5, 32, 145):
+                    errlog.swallowed()
+    return freed, n, skipped
+
+
+def _gb(txt):
+    m = re.match(r"([\d.]+)\s*([KMGT]?i?B)", (txt or "").strip(), re.I)
+    if not m:
+        return 0.0
+    v, u = float(m.group(1)), m.group(2).upper()
+    return v * {"B": 1 / 2**30, "KB": 1 / 2**20, "KIB": 1 / 2**20, "MB": 1 / 2**10, "MIB": 1 / 2**10, "GB": 1, "GIB": 1, "TB": 1024, "TIB": 1024}.get(u, 0)
+
+
+def _docker(args, timeout=300):
+    return subprocess.run([DOCKER] + args, capture_output=True, text=True, timeout=timeout, creationflags=0x08000000)
+
+
+def docker_cache(dry):
+    """Unused BUILD CACHE only. Never images, containers or volumes."""
+    try:
+        r = _docker(["system", "df", "--format", "{{json .}}"], 40)
+        if r.returncode != 0:
+            return {"ok": False, "error": "Docker غير مشغّل"}
+        rec = 0.0
+        for ln in r.stdout.splitlines():
+            d = json.loads(ln)
+            if d.get("Type") == "Build Cache":
+                rec = _gb(d.get("Reclaimable", "0"))
+        if dry:
+            return {"ok": True, "dry": True, "gb": round(rec, 3), "mb": round(rec * 1024, 1), "files": 0, "skipped": 0, "note": "داخل Docker؛ يعود للقرص بعد الضغط"}
+        r = _docker(["builder", "prune", "-f"], 600)
+        m = re.search(r"Total:\s*([\d.]+\s*[KMGT]?i?B)", r.stdout, re.I)
+        got = _gb(m.group(1)) if m else 0.0
+        return {"ok": r.returncode == 0, "dry": False, "gb": round(got, 3), "mb": round(got * 1024, 1), "files": 0, "skipped": 0, "note": "حُرّر داخل Docker؛ يعود للقرص بعد الضغط"}
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "error": "انتهت المهلة"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:80]}
+
+
+_wo = {"t": 0, "b": 0, "n": 0, "busy": False, "job": None}
+
+
+def _is_admin():
+    try:
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False
+
+
+def winold_status():
+    """Age gate for Windows.old: deleting it removes the rollback to the previous Windows, so it is allowed only WINOLD_DAYS after creation."""
+    if not os.path.isdir(WINOLD):
+        return {"present": False}
+    if _is_reparse(WINOLD):
+        return {"present": True, "unsafe": True}
+    age = (time.time() - os.stat(WINOLD).st_ctime) / 86400
+    return {"present": True, "ageDays": round(age, 1), "eligible": age >= WINOLD_DAYS, "daysLeft": max(0, int(WINOLD_DAYS - age + 0.999)), "admin": _is_admin(), "job": _wo["job"]}
+
+
+def _winold_size():
+    if time.time() - _wo["t"] > 600 and not _wo["busy"]:
+        _wo["busy"] = True
+        def run():
+            try:
+                b, n = _size(WINOLD, time.time() + 900, dedupe=True)
+                _wo.update(b=b, n=n, t=time.time())
+            except Exception:
+                errlog.swallowed()
+            finally:
+                _wo["busy"] = False
+        threading.Thread(target=run, daemon=True).start()
+    return _wo["b"], _wo["n"]
+
+
+def _winold_delete(src, early=False):
+    """Background: take ownership, grant Administrators, remove. Re-checks the gate; never follows links."""
+    t0 = time.time()
+    try:
+        st = winold_status()
+        if not st.get("present") or st.get("unsafe") or not (st.get("eligible") or early):
+            _wo["job"] = {"state": "refused", "ts": int(t0)}
+            return
+        _wo["job"] = {"state": "running", "ts": int(t0)}
+        fb = shutil.disk_usage("C:\\").free
+        nw = 0x08000000
+        subprocess.run(["takeown", "/F", WINOLD, "/R", "/D", "Y"], capture_output=True, timeout=1800, creationflags=nw)
+        subprocess.run(["icacls", WINOLD, "/grant", "*S-1-5-32-544:(OI)(CI)F", "/T", "/C", "/Q", "/L"], capture_output=True, timeout=3600, creationflags=nw)
+        subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", WINOLD], capture_output=True, timeout=7200, creationflags=nw)
+        left = os.path.isdir(WINOLD)
+        fa = shutil.disk_usage("C:\\").free
+        mb = round(max(0, fa - fb) / 2**20, 1)
+        with db._lock:
+            c = _c()
+            c.execute("INSERT INTO space_runs(ts,kind,mb,files,skipped,src) VALUES(?,?,?,?,?,?)", (int(time.time()), "winold", mb, 0, 1 if left else 0, src))
+            c.execute("INSERT INTO actions(ts,kind,src,expected_mb,actual_mb,files,skipped,free_before_gb,free_after_gb,ok,detail) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                      (int(time.time()), "winold", src, round(_wo["b"] / 2**20, 1), mb, 0, 1 if left else 0, round(fb / 2**30, 2), round(fa / 2**30, 2), 0 if left else 1, "بقي جزء" if left else None))
+            c.commit()
+        _wo["job"] = {"state": "partial" if left else "done", "mb": mb, "ts": int(time.time())}
+        _wo["t"] = 0
+        threading.Thread(target=scan, args=(60,), daemon=True).start()
+    except Exception as e:
+        errlog.swallowed()
+        _wo["job"] = {"state": "error", "error": str(e)[:80], "ts": int(t0)}
+
+
+def _clean_impl(kind, dry=True, src="manual", early=False):
+    """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped."""
+    freed = n = skipped = locked = held = 0
+    qkinds = _setting("space.quarantine_kinds", ["temp"]) if not dry else []
+    if kind == "temp":
+        for p, sz in _old_files(TEMP, days=1):  # الملفات المؤقتة: أقدم من يوم واحد
+            if dry:
+                if _deletable(p):
+                    n += 1; freed += sz
+                else:
+                    skipped += 1; locked += sz
+                continue
+            if kind in qkinds and sz >= Q_MIN_BYTES:
+                try:
+                    quarantine_move(p); held += sz; n += 1
+                except Exception:
+                    skipped += 1
+                continue
+            n += 1; freed += sz
+            try:
+                os.remove(p)
+            except OSError:
+                freed -= sz; n -= 1; skipped += 1
+    elif kind == "edgecache":
+        for d in _cache_dirs():
+            if dry:
+                for dp, dn, _links, fn in _walk(d):
+                    for f in fn:
+                        pp = os.path.join(dp, f)
+                        try:
+                            sz = os.path.getsize(pp)
+                        except OSError:
+                            continue
+                        if _deletable(pp):
+                            freed += sz; n += 1
+                        else:
+                            skipped += 1; locked += sz
+            else:
+                b, k, sk = _purge_dir(d); freed += b; n += k; skipped += sk
+    elif kind == "npmcache":
+        p = os.path.join(LA, "npm-cache")
+        if os.path.isdir(p):
+            if dry:
+                freed, n = _size(p, time.time() + 60)
+            else:
+                freed, n, skipped = _purge_dir(p)
+    elif kind == "swdist":
+        if os.path.isdir(SWDIST):
+            if dry:
+                for dp, dn, _links, fn in _walk(SWDIST):
+                    for f in fn:
+                        pp = os.path.join(dp, f)
+                        try:
+                            sz = os.path.getsize(pp)
+                        except OSError:
+                            continue
+                        if _deletable(pp):
+                            freed += sz; n += 1
+                        else:
+                            skipped += 1; locked += sz
+            else:
+                freed, n, skipped = _purge_dir(SWDIST)
+    elif kind == "winold":
+        st = winold_status()
+        if not st.get("present"):
+            return {"ok": True, "dry": dry, "gb": 0, "mb": 0, "files": 0, "skipped": 0, "note": "غير موجود"}
+        if st.get("unsafe"):
+            return {"ok": False, "error": "المسار غير آمن"}
+        b, nf = _winold_size()
+        if dry:
+            return {"ok": True, "dry": True, "gb": round(b / 2**30, 3), "mb": round(b / 2**20, 1), "files": nf, "skipped": 0, "lockedMB": 0, "heldMB": 0, "winold": st,
+                    "note": "جارٍ القياس" if not _wo["t"] else None}
+        if not st["eligible"] and not early:
+            return {"ok": False, "error": "لم تمضِ %d يوماً بعد؛ متبقٍ %d" % (WINOLD_DAYS, st["daysLeft"]), "blocked": True, "winold": st}
+        if not st["admin"]:
+            return {"ok": False, "error": "يتطلب تشغيل الخادم بصلاحية المسؤول"}
+        if (_wo["job"] or {}).get("state") == "running":
+            return {"ok": False, "error": "الحذف جارٍ"}
+        threading.Thread(target=_winold_delete, args=(src, early), daemon=True).start()
+        return {"ok": True, "dry": False, "started": True, "gb": 0, "mb": 0, "files": 0, "skipped": 0, "note": "بدأ الحذف في الخلفية؛ قد يستغرق دقائق"}
+    elif kind == "dockercache":
+        return docker_cache(dry)
+    else:
+        import extras
+        if kind in extras.KINDS:
+            return extras.run(kind, dry, src)
+        return {"ok": False, "error": "غير مسموح"}
+    if not dry:
+        try:
+            with db._lock:
+                c = _c(); c.execute("INSERT INTO space_runs(ts,kind,mb,files,skipped,src) VALUES(?,?,?,?,?,?)", (int(time.time()), kind, round(freed / 2**20, 1), n, skipped, src)); c.commit()
+        except Exception:
+            errlog.swallowed()
+        threading.Thread(target=scan, args=(60,), daemon=True).start()
+    return {"ok": True, "dry": dry, "gb": round(freed / 2**30, 3), "mb": round(freed / 2**20, 1), "files": n, "skipped": skipped, "lockedMB": round(locked / 2**20, 1), "heldMB": round(held / 2**20, 1)}

@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-26T07:13:20.381784+00:00",
+  "status": "pass",
+  "sourceSha256": "386588bfa9f0ceffd1542e6f47b936fb8c05f68a3ffd880caeb302170828daba",
+  "servedSourceMatches": true,
+  "lineEndingCRCount": 0,
+  "inlineScripts": 1,
+  "cspHashesMatch": true,
+  "serverPid": 26496,
+  "widgetRunning": true,
+  "browserRendered": false,
+  "note": "Read-only source/CSP/runtime integrity; not browser layout or UI operation."
+}

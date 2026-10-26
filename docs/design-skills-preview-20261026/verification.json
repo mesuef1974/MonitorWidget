@@ -1,0 +1,73 @@
+{
+  "checks": 14,
+  "routes": 19,
+  "sections": 33,
+  "panels": 115,
+  "method": "Owned DOM; controlled viewport. This does not measure painted geometry or pixel fit.",
+  "rendered": false,
+  "hashes": {
+    "index.html": "030c3143d47366296ea61d94b082aea1fe3c511fc06e37238b19298ad3826c27",
+    "preview.css": "dbd8198402b1433b95ec645cc0b222f4cb33e0d4ff5f98c5607db782865c7def",
+    "preview.js": "0c845682f70e0b2ec752ea137a218b7ec0991987e4a32b1bb25238d9882ccb0f",
+    "content.js": "ebcd2ae20f9c1f7a98b3d99e27f5a37167b3b7383500025ce559619c20591920",
+    "coverage.json": "5468af216cea93209b3d9dd6e6c7ff09190fb05ca55d346f446dda0c5e9a5aab"
+  },
+  "results": [
+    {
+      "name": "19 exact source routes",
+      "pass": true
+    },
+    {
+      "name": "all content reachable at controlled 1280x800",
+      "pass": true
+    },
+    {
+      "name": "all content reachable at controlled 1600x1000",
+      "pass": true
+    },
+    {
+      "name": "all content reachable at controlled 1000x740",
+      "pass": true
+    },
+    {
+      "name": "Space has all five original subviews",
+      "pass": true
+    },
+    {
+      "name": "GPU exposes four metric plots in explicit charts subview",
+      "pass": true
+    },
+    {
+      "name": "CPU threshold uses logical cores average10minutes",
+      "pass": true
+    },
+    {
+      "name": "full widget metrics/rings/chart/counts/four switches/four run controls remain",
+      "pass": true
+    },
+    {
+      "name": "shared light/dark and four palettes",
+      "pass": true
+    },
+    {
+      "name": "local commands explicit and nonexecuting",
+      "pass": true
+    },
+    {
+      "name": "bottom counter and mouse wheel pagination",
+      "pass": true
+    },
+    {
+      "name": "action dialogs never execute or invent an unrelated numeric input",
+      "pass": true
+    },
+    {
+      "name": "no remote resources or production endpoints",
+      "pass": true
+    },
+    {
+      "name": "unique DOM ids and no blocking huge minimum-size guard",
+      "pass": true
+    }
+  ]
+}

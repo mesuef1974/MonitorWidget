@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-26",
+  "status": "تنفيذ التصميم المعتمد وتصحيح انتشار لون الهوية",
+  "sourceHashes": {
+    "index.html": "386588bfa9f0ceffd1542e6f47b936fb8c05f68a3ffd880caeb302170828daba",
+    "widget.ps1": "c5e007ad8b85493831988bc145bcb5b99b205e64be574c0358000ee90ff45b27"
+  },
+  "browserRendered": false,
+  "verification": {
+    "isolatedGroupsPassed": 43,
+    "failed": 0,
+    "skipped": 0,
+    "additionalPaletteTest": "8 combinations,72 token pairs,min4.60:1; source cascade only",
+    "runtimeEvidence": "tests/approved-implementation-runtime-20261026.json",
+    "widgetActivation": "tests/approved-widget-activation-20261026.json"
+  },
+  "limitations": [
+    "لم يُنفّذ فحص المتصفح البصري بسبب حظر الأداة السابق؛ الاختبارات المعزولة لا تثبت الملاءمة البصرية لكل نافذة."
+  ]
+}

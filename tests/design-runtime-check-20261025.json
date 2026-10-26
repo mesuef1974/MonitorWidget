@@ -1,0 +1,155 @@
+{
+  "startedAt": "2026-10-25T14:21:42.716192+00:00",
+  "steps": [
+    {
+      "name": "preflight_no_manual_or_trim_work_and_agent_healthy",
+      "value": true
+    },
+    {
+      "name": "new_server_already_recovered_resume",
+      "value": true
+    },
+    {
+      "name": "updated_widget_running",
+      "value": true
+    },
+    {
+      "name": "appearance_confirmed",
+      "value": {
+        "revision": 27,
+        "mode": "light",
+        "palette": "teal"
+      }
+    },
+    {
+      "name": "mini_and_appearance_api_revision_match",
+      "value": true
+    },
+    {
+      "name": "served_html_matches_source",
+      "value": true
+    },
+    {
+      "name": "served_csp_matches_normalized_scripts",
+      "value": true
+    },
+    {
+      "name": "widget_after_server_restart",
+      "value": {
+        "running": true
+      }
+    }
+  ],
+  "previousAttempt": {
+    "startedAt": "2026-10-25T13:11:45.105213+00:00",
+    "steps": [
+      {
+        "name": "preflight_no_manual_or_trim_work_and_agent_healthy",
+        "value": true
+      },
+      {
+        "name": "server_restart_requested_through_existing_api",
+        "value": true
+      },
+      {
+        "name": "new_server_recovered_seconds",
+        "value": 56.01
+      },
+      {
+        "name": "updated_widget_running",
+        "value": true
+      },
+      {
+        "name": "approved_light_graphite_saved",
+        "value": {
+          "revision": 1,
+          "mode": "light",
+          "palette": "graphite"
+        }
+      },
+      {
+        "name": "mini_and_appearance_api_revision_match",
+        "value": true
+      },
+      {
+        "name": "served_html_matches_source",
+        "value": true
+      },
+      {
+        "name": "served_csp_matches_normalized_scripts",
+        "value": true
+      },
+      {
+        "name": "widget_after_server_restart",
+        "value": {
+          "running": true
+        }
+      }
+    ],
+    "previousAttempt": {
+      "startedAt": "2026-10-25T13:09:41.152972+00:00",
+      "steps": [
+        {
+          "name": "preflight_no_manual_or_trim_work_and_agent_healthy",
+          "value": true
+        },
+        {
+          "name": "new_server_already_recovered_resume",
+          "value": true
+        },
+        {
+          "name": "updated_widget_running",
+          "value": true
+        },
+        {
+          "name": "approved_light_graphite_saved",
+          "value": {
+            "revision": 1,
+            "mode": "light",
+            "palette": "graphite"
+          }
+        },
+        {
+          "name": "mini_and_appearance_api_revision_match",
+          "value": true
+        },
+        {
+          "name": "served_html_matches_source",
+          "value": true
+        },
+        {
+          "name": "widget_after_server_restart",
+          "value": {
+            "running": true
+          }
+        }
+      ],
+      "previousAttempt": {
+        "startedAt": "2026-10-25T13:06:54.870944+00:00",
+        "steps": [
+          {
+            "name": "preflight_no_manual_or_trim_work_and_agent_healthy",
+            "value": true
+          },
+          {
+            "name": "server_restart_requested_through_existing_api",
+            "value": true
+          },
+          {
+            "name": "new_server_recovered_seconds",
+            "value": 46.4
+          }
+        ],
+        "status": "failed",
+        "error": "RuntimeError: Updated widget was not confirmed running; new server remains available",
+        "completedAt": "2026-10-25T13:07:44.418837+00:00"
+      },
+      "status": "pass",
+      "completedAt": "2026-10-25T13:09:41.773237+00:00"
+    },
+    "status": "pass",
+    "completedAt": "2026-10-25T13:12:41.249220+00:00"
+  },
+  "status": "pass",
+  "completedAt": "2026-10-25T14:21:47.212516+00:00"
+}

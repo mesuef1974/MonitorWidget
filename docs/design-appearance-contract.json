@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "status": "implemented-runtime",
+  "defaults": {
+    "mode": "auto",
+    "palette": "teal"
+  },
+  "allowedModes": [
+    "auto",
+    "light",
+    "dark"
+  ],
+  "allowedPalettes": [
+    "teal",
+    "blue",
+    "violet",
+    "graphite"
+  ],
+  "sharedScope": [
+    "application",
+    "desktop-widget"
+  ],
+  "runtimePersistence": "central user preference store; atomic write; optimistic revision check",
+  "syncTargetMs": 2000,
+  "semanticStatusColorsIndependent": true,
+  "unknownValueFallback": {
+    "mode": "auto",
+    "palette": "teal"
+  },
+  "acceptanceCriteria": [
+    "ID-06",
+    "ID-07",
+    "ID-08"
+  ]
+}

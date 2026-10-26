@@ -1,0 +1,422 @@
+{
+  "date": "2026-10-25T18:02:18.334769+00:00",
+  "specVersion": "2.0.0",
+  "source": {
+    "index.html": "136c93716c913d34cc51ff348d2e7d98a00dcb543ab1abf488d6aac97400f33c",
+    "widget.ps1": "78e1e1790941fd6337a507b9daa98fe30e5157376f7159667ef2d141a6c66114"
+  },
+  "runtime": {
+    "startedAt": "2026-10-25T18:02:00.783049+00:00",
+    "steps": [
+      {
+        "name": "preflight_no_maintenance",
+        "value": true
+      },
+      {
+        "name": "background_opacity_preserved",
+        "value": {
+          "previous": 0.96,
+          "current": 0.96
+        }
+      },
+      {
+        "name": "updated_widget_running",
+        "value": true
+      },
+      {
+        "name": "saved_opacity_confirmed",
+        "value": 0.96
+      },
+      {
+        "name": "shared_appearance_not_written",
+        "value": {
+          "before": {
+            "schemaVersion": 1,
+            "revision": 45,
+            "mode": "dark",
+            "palette": "blue"
+          },
+          "after": {
+            "schemaVersion": 1,
+            "revision": 45,
+            "mode": "dark",
+            "palette": "blue"
+          }
+        }
+      },
+      {
+        "name": "server_not_restarted",
+        "value": true
+      },
+      {
+        "name": "served_html_and_csp_match",
+        "value": true
+      }
+    ],
+    "status": "pass",
+    "completedAt": "2026-10-25T18:02:06.605171+00:00"
+  },
+  "native": {
+    "method": "AST-extracted real compact UI construction + real Update-Compact, native offscreen WPF; no production full script execution",
+    "sourceSha256": "78e1e1790941fd6337a507b9daa98fe30e5157376f7159667ef2d141a6c66114",
+    "cases": [
+      {
+        "geometry": [
+          {
+            "name": "headerBrand",
+            "text": null,
+            "bounds": {
+              "top": 14.4,
+              "width": 228.0,
+              "left": 14.4,
+              "height": 30.4,
+              "bottom": 44.8,
+              "right": 242.4
+            }
+          },
+          {
+            "name": "headerButtons",
+            "text": null,
+            "bounds": {
+              "top": 16.8,
+              "width": 54.4,
+              "left": 242.4,
+              "height": 25.6,
+              "bottom": 42.400000000000006,
+              "right": 296.8
+            }
+          },
+          {
+            "name": "headerStatus",
+            "text": null,
+            "bounds": {
+              "top": 52.8,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 17.6,
+              "bottom": 70.4,
+              "right": 296.79999999999995
+            }
+          },
+          {
+            "name": "compactcpu",
+            "text": "—",
+            "bounds": {
+              "top": 102.4,
+              "width": 20.8,
+              "left": 78.4,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 99.2
+            }
+          },
+          {
+            "name": "compactram",
+            "text": "38%",
+            "bounds": {
+              "top": 102.4,
+              "width": 40.8,
+              "left": 152.8,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 193.60000000000002
+            }
+          },
+          {
+            "name": "compactdisk",
+            "text": "148 GB",
+            "bounds": {
+              "top": 102.4,
+              "width": 65.6,
+              "left": 221.6,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 287.2
+            }
+          },
+          {
+            "name": "compactAlert",
+            "text": "تحتاج البيانات إلى تحديث؛ افتح التطبيق للتحقق.",
+            "bounds": {
+              "top": 145.6,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 15.2,
+              "bottom": 160.79999999999998,
+              "right": 296.79999999999995
+            }
+          },
+          {
+            "name": "open",
+            "text": null,
+            "bounds": {
+              "top": 171.20000000000002,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 33.6,
+              "bottom": 204.8,
+              "right": 296.79999999999995
+            }
+          }
+        ],
+        "pill": "قديم",
+        "alert": "تحتاج البيانات إلى تحديث؛ افتح التطبيق للتحقق.",
+        "case": "stale",
+        "expanderCount": 0,
+        "height": 248.0,
+        "scrollViewerCount": 0,
+        "buttonCount": 3,
+        "width": 340,
+        "image": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\stale.png",
+        "palette": "graphite",
+        "mode": "light",
+        "availableWorkHeight": 600
+      },
+      {
+        "geometry": [
+          {
+            "name": "headerBrand",
+            "text": null,
+            "bounds": {
+              "top": 14.4,
+              "width": 228.0,
+              "left": 14.4,
+              "height": 30.4,
+              "bottom": 44.8,
+              "right": 242.4
+            }
+          },
+          {
+            "name": "headerButtons",
+            "text": null,
+            "bounds": {
+              "top": 16.8,
+              "width": 54.4,
+              "left": 242.4,
+              "height": 25.6,
+              "bottom": 42.400000000000006,
+              "right": 296.8
+            }
+          },
+          {
+            "name": "headerStatus",
+            "text": null,
+            "bounds": {
+              "top": 52.8,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 17.6,
+              "bottom": 70.4,
+              "right": 296.79999999999995
+            }
+          },
+          {
+            "name": "compactcpu",
+            "text": "—",
+            "bounds": {
+              "top": 102.4,
+              "width": 20.8,
+              "left": 78.4,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 99.2
+            }
+          },
+          {
+            "name": "compactram",
+            "text": "—",
+            "bounds": {
+              "top": 102.4,
+              "width": 20.8,
+              "left": 172.79999999999998,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 193.6
+            }
+          },
+          {
+            "name": "compactdisk",
+            "text": "—",
+            "bounds": {
+              "top": 102.4,
+              "width": 20.8,
+              "left": 266.4,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 287.2
+            }
+          },
+          {
+            "name": "compactAlert",
+            "text": "بعض القياسات غير متاحة؛ راجع التطبيق.",
+            "bounds": {
+              "top": 145.6,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 15.2,
+              "bottom": 160.79999999999998,
+              "right": 296.79999999999995
+            }
+          },
+          {
+            "name": "open",
+            "text": null,
+            "bounds": {
+              "top": 171.20000000000002,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 33.6,
+              "bottom": 204.8,
+              "right": 296.79999999999995
+            }
+          }
+        ],
+        "pill": "ناقص",
+        "alert": "بعض القياسات غير متاحة؛ راجع التطبيق.",
+        "case": "missing",
+        "expanderCount": 0,
+        "height": 248.0,
+        "scrollViewerCount": 0,
+        "buttonCount": 3,
+        "width": 340,
+        "image": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\missing.png",
+        "palette": "teal",
+        "mode": "dark",
+        "availableWorkHeight": 600
+      },
+      {
+        "geometry": [
+          {
+            "name": "headerBrand",
+            "text": null,
+            "bounds": {
+              "top": 14.4,
+              "width": 228.0,
+              "left": 14.4,
+              "height": 30.4,
+              "bottom": 44.8,
+              "right": 242.4
+            }
+          },
+          {
+            "name": "headerButtons",
+            "text": null,
+            "bounds": {
+              "top": 16.8,
+              "width": 54.4,
+              "left": 242.4,
+              "height": 25.6,
+              "bottom": 42.400000000000006,
+              "right": 296.8
+            }
+          },
+          {
+            "name": "headerStatus",
+            "text": null,
+            "bounds": {
+              "top": 52.8,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 17.6,
+              "bottom": 70.4,
+              "right": 296.79999999999995
+            }
+          },
+          {
+            "name": "compactcpu",
+            "text": "24%",
+            "bounds": {
+              "top": 102.4,
+              "width": 41.6,
+              "left": 57.600000000000016,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 99.20000000000002
+            }
+          },
+          {
+            "name": "compactram",
+            "text": "96%",
+            "bounds": {
+              "top": 102.4,
+              "width": 40.8,
+              "left": 152.8,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 193.60000000000002
+            }
+          },
+          {
+            "name": "compactdisk",
+            "text": "12 GB",
+            "bounds": {
+              "top": 102.4,
+              "width": 53.6,
+              "left": 233.6,
+              "height": 28.0,
+              "bottom": 130.4,
+              "right": 287.2
+            }
+          },
+          {
+            "name": "compactAlert",
+            "text": "المساحة الحرة منخفضة؛ راجع التطبيق قبل التنظيف.",
+            "bounds": {
+              "top": 145.6,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 15.2,
+              "bottom": 160.79999999999998,
+              "right": 296.79999999999995
+            }
+          },
+          {
+            "name": "open",
+            "text": null,
+            "bounds": {
+              "top": 171.20000000000002,
+              "width": 282.4,
+              "left": 14.4,
+              "height": 33.6,
+              "bottom": 204.8,
+              "right": 296.79999999999995
+            }
+          }
+        ],
+        "pill": "حرج",
+        "alert": "المساحة الحرة منخفضة؛ راجع التطبيق قبل التنظيف.",
+        "case": "warning",
+        "expanderCount": 0,
+        "height": 248.0,
+        "scrollViewerCount": 0,
+        "buttonCount": 3,
+        "width": 340,
+        "image": "C:\\Users\\mesue\\.codex\\visualizations\\2026\\10\\25\\01a17266-b23c-7271-993a-11ccd8b89286\\qa-compact-independent\\warning.png",
+        "palette": "blue",
+        "mode": "dark",
+        "availableWorkHeight": 600
+      }
+    ],
+    "limits": [
+      "96 DPI only; not real monitor placement or keyboard interaction",
+      "No desktop windows shown, network requests, settings/log writes, tasks, notifications or app commands executed"
+    ]
+  },
+  "scope": "Single compact widget; no detailed pages or scrolling in widget.",
+  "applicationNoScroll": "incomplete; index.html kept unchanged to preserve functionality",
+  "testSuiteChange": {
+    "previousGroups": 26,
+    "currentGroups": 20,
+    "reason": "Seven detailed-widget checks replaced by one compact-widget check; removed chart/cleanup controls are historical, not skipped coverage of existing controls.",
+    "retained": [
+      "widget_close_check.ps1",
+      "widget_menu_contrast_check.ps1"
+    ],
+    "replacement": "widget_compact_check.ps1"
+  },
+  "limits": [
+    "Live browser inspection is blocked by saved tool permission.",
+    "Native isolated fixtures are not live desktop screenshots.",
+    "All-page application no-scroll redesign is not delivered in this phase."
+  ]
+}

@@ -1,0 +1,43 @@
+PASS healthz 200 or 503
+PASS healthz integrity ok
+PASS no token -> 401
+PASS wrong token -> 401
+PASS ticket issued
+PASS ticket exchange -> 302 + cookie
+PASS ticket single-use (second use rejected)
+PASS GET /api/state 200 JSON
+PASS /api/state has 'rules'
+PASS /api/state has 'tasks'
+PASS /api/state latency < 8000ms
+PASS GET /api/mini 200 JSON
+PASS /api/mini latency < 8000ms
+PASS GET /api/space 200 JSON
+PASS /api/space has 'quarantine'
+PASS /api/space latency < 8000ms
+PASS GET /api/startup 200 JSON
+PASS /api/startup has 'items'
+PASS /api/startup latency < 8000ms
+PASS GET /api/health 200 JSON
+PASS /api/health latency < 8000ms
+PASS GET /api/widget 200 JSON
+PASS /api/widget latency < 8000ms
+PASS GET /api/history 200 JSON
+PASS /api/history latency < 8000ms
+PASS GET /api/db-info 200 JSON
+PASS /api/db-info latency < 8000ms
+PASS GET /api/theme 200 JSON
+PASS /api/theme latency < 8000ms
+PASS GET /api/infra 200 JSON
+PASS /api/infra latency < 8000ms
+PASS GET /api/jobs 200 JSON
+PASS /api/jobs latency < 8000ms
+PASS GET /api/actions 200 JSON
+PASS /api/actions latency < 8000ms
+PASS startup items present
+PASS startup ids unique
+PASS startup items have required fields
+PASS protected items are not writable
+PASS rule ids unique
+PASS rule actions valid
+
+ÇáäÊíÌÉ ÇáÍíÉ: äÌÍÊ

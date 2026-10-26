@@ -1,0 +1,197 @@
+{
+  "date": "2026-10-26T02:22:45.727448+00:00",
+  "specVersion": "2.1.0",
+  "browserInspection": "blocked by saved tool permission; no bypass",
+  "widget": {
+    "status": "implemented, isolated native checks passed, activated",
+    "sourceSha256": "78e1e1790941fd6337a507b9daa98fe30e5157376f7159667ef2d141a6c66114",
+    "frameDIP": [
+      340,
+      248
+    ],
+    "surfaceCount": 1,
+    "scrollContainers": 0,
+    "evidence": [
+      "compact-checks-20261025.txt",
+      "compact-runtime-20261025.json"
+    ]
+  },
+  "application": {
+    "allPagesNoScrollComplete": false,
+    "pages": [
+      {
+        "id": "home",
+        "view": "viewHome",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "health",
+        "view": "viewHealth",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "alerts",
+        "view": "viewAlerts",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "advice",
+        "view": "viewAdvice",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "cpu",
+        "view": "viewCpu",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "mem",
+        "view": "viewMem",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "procs",
+        "view": "viewProcs",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "wsl",
+        "view": "viewWsl",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "gpu",
+        "view": "viewGpu",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "power",
+        "view": "viewPower",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "space",
+        "view": "viewSpace",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "io",
+        "view": "viewIo",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "startup",
+        "view": "loadStartup",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "tasks",
+        "view": "viewTasks",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "rules",
+        "view": "viewRules",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "history",
+        "view": "viewHistory",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "dbx",
+        "view": "viewDbx",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "ctrl",
+        "view": "viewCtrl",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      },
+      {
+        "id": "appearance",
+        "view": "viewAppearance",
+        "status": "implemented_with_runtime_fit; visual_acceptance_pending",
+        "rendered": false,
+        "note": "Included in final36-group isolated suite; real browser geometry remains unverified.",
+        "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f"
+      }
+    ],
+    "allPagesImplementationComplete": true,
+    "visualAcceptance": "pending; saved browser tool permission blocks rendered inspection"
+  },
+  "globalNavigation": {
+    "status": "implemented; visual_acceptance_pending",
+    "domCases": 12,
+    "sourceSha256": "490ebced9b83b9041dfae5c4d179929b4fdd06f010b7a2a5eb8ddd8260a2180f",
+    "rendered": false
+  },
+  "clientDate": "2026-10-26",
+  "sharedDialogs": {
+    "completeTextPaging": true,
+    "confirmationCases": 11,
+    "rendered": false
+  },
+  "finalChecks": {
+    "groups": 36,
+    "failures": 0,
+    "skips": 0,
+    "file": "no-scroll-checks-20261026.txt",
+    "runtime": "no-scroll-runtime-20261026.json"
+  }
+}

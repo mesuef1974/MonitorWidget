@@ -1,0 +1,1454 @@
+[
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 440.0,
+    "cardHeight": 412.0,
+    "contentHeight": 382.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "مستقر",
+    "alert": "القياسات المتاحة ضمن الحدود.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 97.6,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 362.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "light",
+    "frameWidth": 340,
+    "frameHeight": 440.0,
+    "cardHeight": 412.0,
+    "contentHeight": 382.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "مستقر",
+    "alert": "القياسات المتاحة ضمن الحدود.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 97.6,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 362.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 768,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 468.0,
+    "cardHeight": 440.0,
+    "contentHeight": 410.4,
+    "chartHeight": 78.4,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "مستقر",
+    "alert": "القياسات المتاحة ضمن الحدود.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 102.4,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 152.00000000000003,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 174.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 193.6,
+        "width": 282.4,
+        "height": 78.4
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 275.2,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 300.0,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 320.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 365.6,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 391.2,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 768,
+    "theme": "light",
+    "frameWidth": 340,
+    "frameHeight": 468.0,
+    "cardHeight": 440.0,
+    "contentHeight": 410.4,
+    "chartHeight": 78.4,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "مستقر",
+    "alert": "القياسات المتاحة ضمن الحدود.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 102.4,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 152.00000000000003,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 174.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 193.6,
+        "width": 282.4,
+        "height": 78.4
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 275.2,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 300.0,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 320.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 365.6,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 391.2,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 1080,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 468.0,
+    "cardHeight": 440.0,
+    "contentHeight": 410.4,
+    "chartHeight": 78.4,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "مستقر",
+    "alert": "القياسات المتاحة ضمن الحدود.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 102.4,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 152.00000000000003,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 174.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 193.6,
+        "width": 282.4,
+        "height": 78.4
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 275.2,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 300.0,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 320.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 365.6,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 391.2,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 1080,
+    "theme": "light",
+    "frameWidth": 340,
+    "frameHeight": 468.0,
+    "cardHeight": 440.0,
+    "contentHeight": 410.4,
+    "chartHeight": 78.4,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "مستقر",
+    "alert": "القياسات المتاحة ضمن الحدود.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 102.4,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 102.4,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 152.00000000000003,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 174.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 193.6,
+        "width": 282.4,
+        "height": 78.4
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 275.2,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 300.0,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 320.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 365.6,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 391.2,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 456.0,
+    "cardHeight": 428.0,
+    "contentHeight": 398.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: 99% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "حرج",
+    "alert": "التزام الذاكرة 99% قريب من حد الحجز؛ احفظ عملك وراجع التطبيقات.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 97.6,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 32.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 378.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "light",
+    "frameWidth": 340,
+    "frameHeight": 440.0,
+    "cardHeight": 412.0,
+    "contentHeight": 382.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: غير مقاس · 20 / 32 GB",
+    "lastMaintenance": "آخر صيانة: لم تصل نتائج بعد",
+    "nextMaintenance": "التالي: الموعد غير متاح",
+    "status": "ناقص",
+    "alert": "بعض القياسات غير متاحة؛ راجع التطبيق.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 78.4,
+        "top": 97.6,
+        "width": 20.8,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 172.79999999999998,
+        "top": 97.6,
+        "width": 20.8,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 266.4,
+        "top": 97.6,
+        "width": 20.8,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 362.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 472.0,
+    "cardHeight": 444.0,
+    "contentHeight": 414.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "تنبيه",
+    "alert": "استهلاك معالج مستمر: long-process long-process long-process long-process long-process long-process long-process long-process…",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 57.600000000000016,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 97.6,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 48.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 394.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 440.0,
+    "cardHeight": 412.0,
+    "contentHeight": 382.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "قديم",
+    "alert": "تحتاج البيانات إلى تحديث؛ افتح التطبيق للتحقق.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 78.4,
+        "top": 97.6,
+        "width": 20.8,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 97.6,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 362.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  },
+  {
+    "method": "actual widget source offscreen WPF, synthetic data; no live window/API/settings/startup changes",
+    "sourceSha256": "15dcc89c5a69fa34dc3994318e11263f226e54f4bc745660541668fbffa1d4fb",
+    "workHeight": 600,
+    "theme": "dark",
+    "frameWidth": 340,
+    "frameHeight": 440.0,
+    "cardHeight": 412.0,
+    "contentHeight": 382.4,
+    "chartHeight": 56.0,
+    "commit": "التزام الذاكرة: 62% · 20 / 32 GB",
+    "lastMaintenance": "آخر: يومية · نجحت · 26/10 05:14",
+    "nextMaintenance": "التالي: يومية · 26/10 09:14",
+    "status": "غير متصل",
+    "alert": "لم تتوفر قياسات بعد؛ افتح التطبيق للتحقق.",
+    "geometry": [
+      {
+        "name": "header",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "headerBrand",
+        "left": 14.4,
+        "top": 14.4,
+        "width": 228.0,
+        "height": 30.4
+      },
+      {
+        "name": "headerButtons",
+        "left": 242.4,
+        "top": 16.8,
+        "width": 54.4,
+        "height": 25.6
+      },
+      {
+        "name": "headerStatus",
+        "left": 14.4,
+        "top": 52.8,
+        "width": 282.4,
+        "height": 17.6
+      },
+      {
+        "name": "compactcpu",
+        "left": 78.4,
+        "top": 97.6,
+        "width": 20.8,
+        "height": 28.0
+      },
+      {
+        "name": "compactram",
+        "left": 152.00000000000003,
+        "top": 97.6,
+        "width": 41.6,
+        "height": 28.0
+      },
+      {
+        "name": "compactdisk",
+        "left": 221.6,
+        "top": 97.6,
+        "width": 65.6,
+        "height": 28.0
+      },
+      {
+        "name": "commitText",
+        "left": 14.4,
+        "top": 147.20000000000002,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "historyTitle",
+        "left": 14.4,
+        "top": 169.6,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "memoryChart",
+        "left": 14.399999999999977,
+        "top": 188.79999999999998,
+        "width": 282.4,
+        "height": 56.0
+      },
+      {
+        "name": "memoryLegend",
+        "left": 14.4,
+        "top": 248.0,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceTitle",
+        "left": 14.4,
+        "top": 272.79999999999995,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "maintenanceLast",
+        "left": 14.4,
+        "top": 292.79999999999995,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "maintenanceNext",
+        "left": 14.4,
+        "top": 311.19999999999993,
+        "width": 282.4,
+        "height": 15.2
+      },
+      {
+        "name": "compactAlert",
+        "left": 14.4,
+        "top": 338.4,
+        "width": 282.4,
+        "height": 16.0
+      },
+      {
+        "name": "open",
+        "left": 14.4,
+        "top": 362.4,
+        "width": 282.4,
+        "height": 33.6
+      }
+    ],
+    "windowOpacity": 1.0,
+    "backgroundAlpha": 245
+  }
+]

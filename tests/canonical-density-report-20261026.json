@@ -1,0 +1,2450 @@
+{
+  "sourceSha256": "68d3e3ae0ab6f1275890a93c69e852a39ae9aedf4c7c3601044f1ac445bda5ef",
+  "checks": 88,
+  "populatedRoutes": 14,
+  "populatedControlledSections": 23,
+  "browserRendered": false,
+  "measurementScope": "Controller/DOM fixtures only; no visual fit or actual scroll dimensions claimed",
+  "cases": [
+    {
+      "route": "cpu",
+      "section": "الاستخدام والعمليات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "DIV",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "chart",
+          "title": "المعالج الكلي خلال ساعة",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "الآن",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "متوسط آخر 10 دقائق",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "متوسط آخر ساعة",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "DIV",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 7,
+          "kind": "toolbar",
+          "title": "cg-cpu-source",
+          "height": 180,
+          "span": 2
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4,
+          5
+        ],
+        [
+          6,
+          7
+        ]
+      ]
+    },
+    {
+      "route": "gpu",
+      "section": "الكروت والمحركات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "SECTION",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "BUTTON",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "ذاكرة الشاشة حسب البرنامج",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "gpu",
+      "section": "الطاقة والتفاصيل",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "DIV",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "إحصاءات الفترة",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "الكرت المدمج",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "toolbar",
+          "title": "cg-gpu-source",
+          "height": 180,
+          "span": 2
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3
+        ]
+      ]
+    },
+    {
+      "route": "gpu",
+      "section": "الرسوم الأربعة",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "الفترة",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "route": "mem",
+      "section": "القياسات والفئات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "الذاكرة",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "SPAN",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "SPAN",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "حسب الفئة",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 7,
+          "kind": "content",
+          "title": "أكبر البرامج الذاكرة الخاصة، مجمّعة بالاسم",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 8,
+          "kind": "content",
+          "title": "الملاحظات والتنبيهات",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          7,
+          8
+        ]
+      ]
+    },
+    {
+      "route": "power",
+      "section": "القياسات والخطة",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "الطاقة والحرارة",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "SPAN",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "SPAN",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "خطة الطاقة يُطبَّق فوراً",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 7,
+          "kind": "content",
+          "title": "التفاصيل",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 8,
+          "kind": "content",
+          "title": "الملاحظات والتنبيهات",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          7,
+          8
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "نظرة عامة",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "si-space-source",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "toolbar",
+          "title": "si-space-notes",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "المساحة الحرة القرص C · آخر 24 ساعة",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "قابل للتحرير الآن",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "الهبوط الأخير آخر 72 ساعة",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "المجلدات المراقبة",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "si-space-source",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "toolbar",
+          "title": "si-space-notes",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "أين تذهب المساحة؟ قيست قبل قليل",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "تنظيفات إضافية",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "si-space-source",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "toolbar",
+          "title": "si-space-notes",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "تنظيفات إضافية معاينة ثم تأكيد؛ لا يُحذف شيء دون موافقتك",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "المكرر والكبير",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "si-space-source",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "toolbar",
+          "title": "si-space-notes",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "DIV",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "الذاكرة والسجل",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "si-space-source",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "toolbar",
+          "title": "si-space-notes",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "أكبر مستهلكي الذاكرة undefined من undefined GB (undefined%)",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "في الحجر قابل للاسترجاع",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "آخر ما حُرّر",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "route": "io",
+      "section": "الأداء الحالي",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "حركة القرص",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "si-io-source",
+          "height": 180,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "route": "io",
+      "section": "اليومي والتوقفات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "خريطة الانشغال آخر 14 يوماً · الساعة × اليوم",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "أكثر العمليات حركة تقدير تقريبي",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "التوقفات متى علق القرص ومن كان يكتب وقتها",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "المكتوب والمقروء يومياً آخر 30 يوماً",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "procs",
+      "section": "العمليات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "العمليات والشلات",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "الشلات 21 شل · الأقدم أولاً",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "عمليات Claude 23",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "حسب الفئة",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "route": "procs",
+      "section": "الكانس والحماية",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "SPAN",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "إعدادات الكانس",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "الأسماء المحمية من الكانس",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "آخر إجراءات الكانس",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "الملاحظات",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          4
+        ]
+      ]
+    },
+    {
+      "route": "wsl",
+      "section": "الاستهلاك والتوزيعات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "WSL وDocker",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 2,
+          "kind": "toolbar",
+          "title": "SPAN",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 3,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "SPAN",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "العمليات",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "التوزيعات",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 7,
+          "kind": "content",
+          "title": "الأقراص الافتراضية",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 8,
+          "kind": "content",
+          "title": "إعدادات .wslconfig",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 9,
+          "kind": "content",
+          "title": "الملاحظات",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ],
+        [
+          2,
+          3,
+          4
+        ],
+        [
+          5,
+          6,
+          7,
+          8
+        ],
+        [
+          9
+        ]
+      ]
+    },
+    {
+      "route": "advice",
+      "section": "التوصيات الحالية",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "التوصيات",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "DIV",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "tasks",
+      "section": "كل المهام",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "اختر المجموعة",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "records",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "rules",
+      "section": "كل القواعد",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "toolbar",
+          "title": "اختر المجموعة",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 1,
+          "kind": "records",
+          "title": "DIV",
+          "height": 280,
+          "span": 2
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "ctrl",
+      "section": "التشغيل والصيانة",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "إعدادات التحكم",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "الويدجت على سطح المكتب",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "الذاكرة",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "وضع الصيانة",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "الكانس",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "عتبات التنبيه",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "طبقات التنظيف",
+          "height": 180,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          4,
+          5,
+          6
+        ]
+      ]
+    },
+    {
+      "route": "alerts",
+      "section": "الحدود والاستثناءات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "FIELDSET",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "FIELDSET",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "FIELDSET",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 3,
+          "kind": "content",
+          "title": "FIELDSET",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 4,
+          "kind": "content",
+          "title": "FIELDSET",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "toolbar",
+          "title": "DIV",
+          "height": 180,
+          "span": 2
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "route": "alerts",
+      "section": "سجل التنبيهات",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "مركز التنبيهات",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "سجل التنبيهات الأحدث أولاً",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "appearance",
+      "section": "الألوان والشفافية",
+      "dimensions": {
+        "width": 1100,
+        "height": 600
+      },
+      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
+      "units": [
+        {
+          "index": 0,
+          "kind": "content",
+          "title": "الهوية والألوان",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 1,
+          "kind": "content",
+          "title": "لون الهوية",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 2,
+          "kind": "content",
+          "title": "المعاينة",
+          "height": 280,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    }
+  ],
+  "referenceTopologyCases": [
+    {
+      "route": "home",
+      "section": "الملخص",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "القياسات المتاحة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "استخدام الذاكرة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "الصيانة القادمة",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "ما يستدعي انتباهك",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "health",
+      "section": "الحالة والتغطية",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "درجة الصحة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "مجالات الصحة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "تطور الصحة",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "تفصيل درجة الصحة",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "health",
+      "section": "الاعتمادية والأحداث",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الاعتمادية خلال أسبوع",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "أنواع الأحداث",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "آخر الأحداث",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "health",
+      "section": "العتاد والأمان",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "مواصفات العتاد",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الأمان",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "التخزين والتوقع",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "التسربات والتذكير",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "cpu",
+      "section": "الاستخدام والعمليات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "استخدام المعالج",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "أكبر المستهلكين",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "الأنوية المنطقية",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "الاتجاه والحدود",
+          "height": 79,
+          "span": 1
+        },
+        {
+          "title": "مقارنة العمليات خلال الفترة",
+          "height": 132,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "route": "gpu",
+      "section": "الكروت والمحركات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الكرت المحدد",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "استخدام المحركات",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "العمليات الرسومية",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "الفترة والتعريف",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "gpu",
+      "section": "الطاقة والتفاصيل",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الطاقة والتردد والحالة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "ذاكرة البرامج",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "إحصاءات الفترة",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "الكرت المدمج",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "gpu",
+      "section": "الرسوم الأربعة",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "حرارة الكرت",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "حمل الكرت",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "قدرة الكرت",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "الذاكرة المخصصة",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "mem",
+      "section": "القياسات والفئات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الفعلية والالتزام",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الذاكرة المتاحة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "حسب الفئة",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "أكبر البرامج",
+          "height": 79,
+          "span": 1
+        },
+        {
+          "title": "تفاصيل النظام",
+          "height": 132,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "route": "procs",
+      "section": "العمليات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الشلات",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "عمليات Claude",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "حسب الفئة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "procs",
+      "section": "الكانس والحماية",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "إعدادات الكانس",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الكلمات المحمية",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "آخر إجراءات الكانس",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "wsl",
+      "section": "الاستهلاك والتوزيعات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "معالج vmmem",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "التوزيعات",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "الأقراص الافتراضية",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "الإعدادات والعمليات",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "power",
+      "section": "القياسات والخطة",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "التردد",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "البطارية",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "خطة الطاقة",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "تفاصيل الحرارة",
+          "height": 79,
+          "span": 1
+        },
+        {
+          "title": "صحة البطارية والتشغيل",
+          "height": 132,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "نظرة عامة",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الأقراص",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "المساحة الحرة عبر الوقت",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "القابل للتحرير",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "سبب انخفاض المساحة",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "المجلدات المراقبة",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "المجلدات الأكبر",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "تغيرات المجلدات",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "السياسة والإجراء",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "تنظيفات إضافية",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "عناصر التنظيف",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "صيانة Windows",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "مراجعة قبل التنفيذ",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "نسخة Windows السابقة",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "المكرر والكبير",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "مجموعات مكررة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الملفات الكبيرة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "المجلدات الفارغة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "space",
+      "section": "الذاكرة والسجل",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "أكبر البرامج والذاكرة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الحجر والاسترجاع",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "المساحة المحررة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "io",
+      "section": "الأداء الحالي",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "القراءة والكتابة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "زمن الاستجابة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "الانشغال والمساحة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "io",
+      "section": "اليومي والتوقفات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "المكتوب والمقروء يوميًا",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "خريطة الانشغال",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "التوقفات وأكبر المستهلكين",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "إجمالي 30 يومًا",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "startup",
+      "section": "البرامج والمصادر",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "عناصر بدء التشغيل",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "مصادر العناصر",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "تفاصيل العنصر المحدد",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "tasks",
+      "section": "كل المهام",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الصيانة اليومية",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الصيانة الأسبوعية",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "الصيانة الشهرية",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "التقرير ربع السنوي",
+          "height": 79,
+          "span": 1
+        },
+        {
+          "title": "تصفية المهام",
+          "height": 132,
+          "span": 1
+        },
+        {
+          "title": "المجموعات والتفاصيل",
+          "height": 185,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ]
+      ]
+    },
+    {
+      "route": "rules",
+      "section": "كل القواعد",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الملفات المؤقتة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الذاكرة المخبأة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "صيانة المكونات",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "فلاتر وسياسات",
+          "height": 79,
+          "span": 1
+        },
+        {
+          "title": "شروط القاعدة ونتيجتها",
+          "height": 132,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3,
+          4
+        ]
+      ]
+    },
+    {
+      "route": "history",
+      "section": "الملخص",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الذاكرة عبر الوقت",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الملخص اليومي",
+          "height": 123,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "history",
+      "section": "الأحداث",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الأحداث الأخيرة",
+          "height": 70,
+          "span": 3
+        }
+      ],
+      "pages": [
+        [
+          0
+        ]
+      ]
+    },
+    {
+      "route": "history",
+      "section": "التنظيفات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "سجل التشغيل",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "تشغيل سابق",
+          "height": 123,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "history",
+      "section": "إحصاءات قاعدة البيانات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "SQLite والمخطط",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "التغطية والاحتفاظ",
+          "height": 123,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "dbx",
+      "section": "المخطط والجداول",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "حالة القاعدة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الجداول",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "أعمدة الجدول",
+          "height": 176,
+          "span": 1
+        },
+        {
+          "title": "سجلات metrics",
+          "height": 79,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ]
+    },
+    {
+      "route": "ctrl",
+      "section": "التشغيل والصيانة",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الويدجت وحارس الذاكرة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "التنظيف والكانس",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "طبقات الصيانة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "appearance",
+      "section": "الألوان والشفافية",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "الهوية المشتركة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الويدجت",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "معاينة الهوية",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "alerts",
+      "section": "الحدود والاستثناءات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "حدود الذاكرة والمعالج",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "حدود القرص والحرارة",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "برامج مستثناة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    },
+    {
+      "route": "alerts",
+      "section": "سجل التنبيهات",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "آخر التنبيهات",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "الإشعارات",
+          "height": 123,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1
+        ]
+      ]
+    },
+    {
+      "route": "advice",
+      "section": "التوصيات الحالية",
+      "measurement": "Reference topology stress only; synthetic70–219px heights, not populated production rendering",
+      "items": [
+        {
+          "title": "استهلاك الذاكرة",
+          "height": 70,
+          "span": 3
+        },
+        {
+          "title": "النسخ الخارجي",
+          "height": 123,
+          "span": 1
+        },
+        {
+          "title": "تغطية الحرارة",
+          "height": 176,
+          "span": 1
+        }
+      ],
+      "pages": [
+        [
+          0,
+          1,
+          2
+        ]
+      ]
+    }
+  ]
+}

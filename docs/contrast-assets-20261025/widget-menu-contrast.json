@@ -1,0 +1,369 @@
+{
+  "sourceSha256": "a16d4524e5837cf7afa5e58bfe5a2e2d531f9704112a5af7a2ca89f50835fa53",
+  "method": "owned native WPF MenuItem templates, actual HeaderPresenter text/Frame/closed PART_Popup child; no desktop popup or command",
+  "paletteCount": 8,
+  "menuStateCases": 40,
+  "minimumContrast": 5.5276822795322955,
+  "rows": [
+    {
+      "palette": "teal",
+      "light": true,
+      "state": "normal",
+      "foreground": "#FF182E34",
+      "background": "#FFFFFFFF",
+      "contrast": 14.19664499242543,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "state": "highlighted",
+      "foreground": "#FF182E34",
+      "background": "#FFDFF1EB",
+      "contrast": 12.114027948502388,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "state": "checked",
+      "foreground": "#FF182E34",
+      "background": "#FFFFFFFF",
+      "contrast": 14.19664499242543,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "state": "disabled",
+      "foreground": "#FF536970",
+      "background": "#FFFFFFFF",
+      "contrast": 5.79726068474668,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "teal",
+      "light": true,
+      "state": "focused",
+      "foreground": "#FF182E34",
+      "background": "#FFFFFFFF",
+      "contrast": 14.19664499242543,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "state": "normal",
+      "foreground": "#FF202F43",
+      "background": "#FFFFFFFF",
+      "contrast": 13.55651373108223,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "state": "highlighted",
+      "foreground": "#FF202F43",
+      "background": "#FFE5EEFC",
+      "contrast": 11.598612270107822,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "state": "checked",
+      "foreground": "#FF202F43",
+      "background": "#FFFFFFFF",
+      "contrast": 13.55651373108223,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "state": "disabled",
+      "foreground": "#FF53657D",
+      "background": "#FFFFFFFF",
+      "contrast": 5.95676102476973,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "blue",
+      "light": true,
+      "state": "focused",
+      "foreground": "#FF202F43",
+      "background": "#FFFFFFFF",
+      "contrast": 13.55651373108223,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "state": "normal",
+      "foreground": "#FF352740",
+      "background": "#FFFFFFFF",
+      "contrast": 13.855738715997278,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "state": "highlighted",
+      "foreground": "#FF352740",
+      "background": "#FFF0E9FA",
+      "contrast": 11.705488979843283,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "state": "checked",
+      "foreground": "#FF352740",
+      "background": "#FFFFFFFF",
+      "contrast": 13.855738715997278,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "state": "disabled",
+      "foreground": "#FF6B597D",
+      "background": "#FFFFFFFF",
+      "contrast": 6.268198218595795,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "violet",
+      "light": true,
+      "state": "focused",
+      "foreground": "#FF352740",
+      "background": "#FFFFFFFF",
+      "contrast": 13.855738715997278,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "state": "normal",
+      "foreground": "#FF26353F",
+      "background": "#FFFFFFFF",
+      "contrast": 12.624507036125001,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "state": "highlighted",
+      "foreground": "#FF26353F",
+      "background": "#FFE6EDF1",
+      "contrast": 10.669781441832818,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "state": "checked",
+      "foreground": "#FF26353F",
+      "background": "#FFFFFFFF",
+      "contrast": 12.624507036125001,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "state": "disabled",
+      "foreground": "#FF596B78",
+      "background": "#FFFFFFFF",
+      "contrast": 5.5276822795322955,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "graphite",
+      "light": true,
+      "state": "focused",
+      "foreground": "#FF26353F",
+      "background": "#FFFFFFFF",
+      "contrast": 12.624507036125001,
+      "popupSurface": "#FFFFFFFF"
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "state": "normal",
+      "foreground": "#FFE5EEED",
+      "background": "#FF182323",
+      "contrast": 13.643284424275798,
+      "popupSurface": "#FF182323"
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "state": "highlighted",
+      "foreground": "#FFE5EEED",
+      "background": "#FF203D35",
+      "contrast": 9.9893798564779,
+      "popupSurface": "#FF182323"
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "state": "checked",
+      "foreground": "#FFE5EEED",
+      "background": "#FF182323",
+      "contrast": 13.643284424275798,
+      "popupSurface": "#FF182323"
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "state": "disabled",
+      "foreground": "#FFA8BFBC",
+      "background": "#FF182323",
+      "contrast": 8.318591314546051,
+      "popupSurface": "#FF182323"
+    },
+    {
+      "palette": "teal",
+      "light": false,
+      "state": "focused",
+      "foreground": "#FFE5EEED",
+      "background": "#FF182323",
+      "contrast": 13.643284424275798,
+      "popupSurface": "#FF182323"
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "state": "normal",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF1B2532",
+      "contrast": 13.13333027381765,
+      "popupSurface": "#FF1B2532"
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "state": "highlighted",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF24364E",
+      "contrast": 10.408002795936138,
+      "popupSurface": "#FF1B2532"
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "state": "checked",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF1B2532",
+      "contrast": 13.13333027381765,
+      "popupSurface": "#FF1B2532"
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "state": "disabled",
+      "foreground": "#FFAFC0D8",
+      "background": "#FF1B2532",
+      "contrast": 8.365377031565629,
+      "popupSurface": "#FF1B2532"
+    },
+    {
+      "palette": "blue",
+      "light": false,
+      "state": "focused",
+      "foreground": "#FFE5EDFA",
+      "background": "#FF1B2532",
+      "contrast": 13.13333027381765,
+      "popupSurface": "#FF1B2532"
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "state": "normal",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF25202F",
+      "contrast": 13.348035795982584,
+      "popupSurface": "#FF25202F"
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "state": "highlighted",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF382B4B",
+      "contrast": 10.95999733593111,
+      "popupSurface": "#FF25202F"
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "state": "checked",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF25202F",
+      "contrast": 13.348035795982584,
+      "popupSurface": "#FF25202F"
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "state": "disabled",
+      "foreground": "#FFC5B4D6",
+      "background": "#FF25202F",
+      "contrast": 8.198335650989248,
+      "popupSurface": "#FF25202F"
+    },
+    {
+      "palette": "violet",
+      "light": false,
+      "state": "focused",
+      "foreground": "#FFF0E9F7",
+      "background": "#FF25202F",
+      "contrast": 13.348035795982584,
+      "popupSurface": "#FF25202F"
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "state": "normal",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF232A30",
+      "contrast": 12.43777764727764,
+      "popupSurface": "#FF232A30"
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "state": "highlighted",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF34414A",
+      "contrast": 8.983796513649747,
+      "popupSurface": "#FF232A30"
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "state": "checked",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF232A30",
+      "contrast": 12.43777764727764,
+      "popupSurface": "#FF232A30"
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "state": "disabled",
+      "foreground": "#FFB5C2CD",
+      "background": "#FF232A30",
+      "contrast": 8.000259714995378,
+      "popupSurface": "#FF232A30"
+    },
+    {
+      "palette": "graphite",
+      "light": false,
+      "state": "focused",
+      "foreground": "#FFE9EEF2",
+      "background": "#FF232A30",
+      "contrast": 12.43777764727764,
+      "popupSurface": "#FF232A30"
+    }
+  ]
+}

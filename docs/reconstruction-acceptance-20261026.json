@@ -1,0 +1,92 @@
+{
+  "date": "2026-10-26",
+  "status": "أعيد بناء الصفحات والويدجت وصُححت كثافة البطاقات؛ الفحوص السلوكية ناجحة، والفحص البصري للمتصفح غير منفذ",
+  "reference": "docs/design-skills-preview-20261026/index.html",
+  "referenceHashes": {
+    "index.html": "030c3143d47366296ea61d94b082aea1fe3c511fc06e37238b19298ad3826c27",
+    "content.js": "ebcd2ae20f9c1f7a98b3d99e27f5a37167b3b7383500025ce559619c20591920",
+    "preview.js": "0c845682f70e0b2ec752ea137a218b7ec0991987e4a32b1bb25238d9882ccb0f",
+    "preview.css": "dbd8198402b1433b95ec645cc0b222f4cb33e0d4ff5f98c5607db782865c7def"
+  },
+  "criteria": [
+    {
+      "id": "RC01",
+      "requirement": "تركيب صفحات فعلي وفق أقسام المرجع وبطاقاته؛ لا يكتفى بطبقة تنسيق",
+      "status": "نجح بنيويًا: مسار تركيب جديد وأقسام33؛ المقارنة البصرية غير مفحوصة"
+    },
+    {
+      "id": "RC02",
+      "requirement": "كل المسارات19وأقسامها وبياناتها وإجراءاتها قابلة للوصول",
+      "status": "نجح تحميل19مسارًا؛74حالة على14صفحة مأهولة +النظرة العامة؛ بقية الصفحات بفحوصها الجزئية"
+    },
+    {
+      "id": "RC03",
+      "requirement": "الترتيب والتقليب محددان داخل القسم دون تعبئة عشوائية أو إظهار التمرير",
+      "status": "نجح مخطط الارتفاعات الطبيعية والتجميع والحدود في194حالة؛88فحصًا مستقلاً، ولا يوجد إثبات بصري لأبعاد المتصفح"
+    },
+    {
+      "id": "RC04",
+      "requirement": "النظرة العامة تعرض أربع بطاقات المرجع ببيانات فعلية",
+      "status": "نجحت4بطاقات ببيانات فعلية البنية وتحديث وقيم قديمة ومجهولة"
+    },
+    {
+      "id": "RC05",
+      "requirement": "الويدجت يعيد بناء ترتيب القراءات والهيدر والمقاسات والرسوم وفق المرجع",
+      "status": "نجحت7عروضWPFأصلية مع مراجعة صورتين ومقاسات جديدة؛ الويدجت الحي فُعّل"
+    },
+    {
+      "id": "RC06",
+      "requirement": "حفظ الإعدادات والمسودات وحالات الإجراءات والصلاحيات",
+      "status": "نجحت فحوص ملكية النماذج والمسودات والتركيز والإجراءات والمظهر؛ ليست تجربة أوامر فعلية على النظام"
+    },
+    {
+      "id": "RC07",
+      "requirement": "توثيق اختبارات السلوك والبيانات واللقطاتWPFمع حدود فحص المتصفح",
+      "status": "الأدلة موثقة، وفحص المتصفح لم يُنفّذ بسبب الحظر السابق"
+    }
+  ],
+  "browserRendered": false,
+  "widgetOffscreenEvidence": {
+    "portrait": "C:/Users/mesue/.codex/visualizations/2026/10/25/01a17266-b23c-7271-993a-11ccd8b89286/qa-widget-rebuilt-20261026/restored-dark-1232-False.png",
+    "landscape": "C:/Users/mesue/.codex/visualizations/2026/10/25/01a17266-b23c-7271-993a-11ccd8b89286/qa-widget-rebuilt-20261026/restored-dark-1000-False.png",
+    "review": "راجعت اللقطتان بصريًا: القراءات صفوف والمؤشرات68والرسم متمايز وكل مستويات الصيانة ظاهرة، وزر الفتح مستقل متوسط النص.",
+    "liveCapture": false
+  },
+  "verification": {
+    "activeGroupsPassed": 44,
+    "failed": 0,
+    "skipped": 0,
+    "canonicalChecks": 88,
+    "canonicalPopulatedRoutes": 14,
+    "homePopulatedCheck": true,
+    "offlineBootRoutes": 19,
+    "referenceSections": 33,
+    "nativeWidgetFrames": 7,
+    "evidence": "tests/reconstruction-density-suite-20261026.txt",
+    "runtime": "tests/density-runtime-20261026.json",
+    "widgetActivation": "tests/rebuilt-widget-activation-20261026.json",
+    "initialRun": "tests/reconstruction-suite-20261026.txt",
+    "legacyTestsRetired": [
+      "frontend_card_packing_check.cjs",
+      "frontend_card_packing_algorithm_check.cjs"
+    ],
+    "canonicalControlledSections": 23,
+    "densityBoundaryCases": 194,
+    "densityEvidence": "tests/canonical-density-report-20261026.json"
+  },
+  "sourceHashes": {
+    "index.html": "68d3e3ae0ab6f1275890a93c69e852a39ae9aedf4c7c3601044f1ac445bda5ef",
+    "widget.ps1": "9aa72065cbff1763adea367b6283dcbfbdc66bdd02272f8963f193a0d6e54c9c"
+  },
+  "densityOverride": {
+    "reason": "المستخدم رفض بطاقات مرتفعة شبه فارغة وكثرة التقليب في جميع الصفحات",
+    "requirements": [
+      "جمع المؤشرات المرتبطة في شريط ملخص واحد",
+      "أدوات القياس والتصفية شريط مدمج وليست بطاقات كاملة",
+      "ارتفاع طبيعي حسب المحتوى دون تمديد كل عنصر إلى نصف النافذة",
+      "ملء متتابع يحفظ ترتيب الأقسام والبطاقات ويقلل الصفحات",
+      "عدم تصغير الخط أو إخفاء الحقول للوصول إلى كثافة أعلى"
+    ],
+    "status": "طُبقت على19مسارًا و33قسمًا؛88فحصًا مستقلاً، منها14صفحة مأهولة و23قسمًا مضبوطًا؛ القياسات محاكاة"
+  }
+}

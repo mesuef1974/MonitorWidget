@@ -1,0 +1,248 @@
+{
+  "date": "2026-10-25",
+  "status": "source and isolated function review; rendered verification pending",
+  "rendered": false,
+  "browserBlock": "Browser origin inspection remains rejected by the tool policy; no alternative browser or file-render bypass used.",
+  "pages": [
+    {
+      "id": "home",
+      "view": "viewHome",
+      "scope": "نظرة عامة وتفاصيل موسعة",
+      "issue": "لون سلسلة المعالج كان ثابتًا بخلاف اللون المشترك؛ حدود البطاقات والقدم مراجعة من المصدر.",
+      "change": "استخدام لون الهوية للمعالج، والحفاظ على الرسوم المدمجة وتحديث الصفوف الثابت وفتح التفاصيل بعد القياس.",
+      "checks": [
+        "frontend_contract_check.js",
+        "frontend_layout_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "health",
+      "view": "viewHealth",
+      "scope": "الملخص والاعتمادية والعتاد",
+      "issue": "الغلاف المقيد كان يقص البطاقات المتراصة والبيانات الطويلة في النافذة الضيقة.",
+      "change": "تمرير داخلي لكل محتوى الصفحة؛ بطاقة أحداث الاعتمادية وحدها محدودة الارتفاع للمجدول الرقمي، مع حفظ بقية المعلومات.",
+      "checks": [
+        "frontend_contract_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "alerts",
+      "view": "viewAlerts",
+      "scope": "الحدود وسجل التنبيهات",
+      "issue": "نموذج متعدد الأعمدة داخل صفحة بارتفاع مقيد قد يخفي الحفظ والحقول؛ pgFit كان يخفي السجل.",
+      "change": "تدفق طبيعي للنموذج، حقول مرنة، أزرار تلتف، سجل كامل بتمرير محدود، وعنوان مختصر مع تحديث ثابت.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "advice",
+      "view": "viewAdvice",
+      "scope": "التوصيات والإجراءات والتأجيل",
+      "issue": "pgFit كان يخفي التوصيات دون طريق للوصول إليها؛ التحديث يستبدل الأزرار.",
+      "change": "جميع التوصيات ضمن تدفق الصفحة، عمودان أو عمود واحد حسب المحتوى، ومعرفات صفوف ثابتة وتحديث يحافظ على العناصر.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "cpu",
+      "view": "viewCpu",
+      "scope": "الرسم والعمليات الحالية والمتوسطات",
+      "issue": "مراجعة الحفاظ على الإصلاح السابق: عرض الرسم الفعلي وكل الصفوف والتمرير؛ لا عطل إضافي مثبت في هذه الدفعة.",
+      "change": "الإبقاء على الرسم المدمج والعرض الفعلي والصفوف الكاملة، مع اسم صفحة أقصر وخط أرقام مشترك.",
+      "checks": [
+        "frontend_contract_check.js",
+        "frontend_layout_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "mem",
+      "view": "viewMem",
+      "scope": "القياسات والرسومان والفئات والبرامج",
+      "issue": "pgFit أخفى الفئات والبرامج وارتفاع الصفحة المقيد قص البطاقات المتراصة.",
+      "change": "صفحة طبيعية ببطاقات رسوم محدودة وقوائم كاملة قابلة للتمرير، وتحديث ثابت للعناصر.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "procs",
+      "view": "viewProcs",
+      "scope": "الشلات وClaude والفئات وإعدادات الكانس",
+      "issue": "صفوف مخفية وأعمدة عددية ثابتة تتجاوز البطاقة الضيقة ومدخلات تفقد عناصرها عند التحديث.",
+      "change": "جداول داخل تمرير أفقي ورأسي محدود دون حذف الأعمدة؛ جميع الصفوف محفوظة؛ بطاقات الإعدادات تتدفق وتلتف أزرارها وتحديثها ثابت.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "wsl",
+      "view": "viewWsl",
+      "scope": "المعالج والعمليات والتوزيعات والأقراص والإعدادات",
+      "issue": "pgFit أخفى العمليات والتوزيعات والإعدادات؛ الأعمدة الجانبية قد تقص المحتوى في النافذة الضيقة.",
+      "change": "بطاقات طبيعية مرنة وقوائم كاملة بتمرير داخلي، مع الحفاظ على أزرار نسخ الأوامر والإعدادات.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "gpu",
+      "view": "viewGpu",
+      "scope": "القياسات وأربعة رسوم والبرامج والإحصاءات",
+      "issue": "اسم بطاقة طويل وعنوان مع إجراء قد يتزاحمان؛ مراجعة عدم إخفاء الصفوف السابقة.",
+      "change": "التفاف اسم البطاقة وعناوين الأقسام والإجراءات، والاحتفاظ بأبعاد الرسوم المدمجة وكل صفوف البرامج.",
+      "checks": [
+        "frontend_contract_check.js",
+        "frontend_layout_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "power",
+      "view": "viewPower",
+      "scope": "الطاقة والحرارة والخطة والتفاصيل",
+      "issue": "pgFit أخفى التفاصيل والصفحة المقيدة قد تقص الخطط والبطاقات عند تكديسها.",
+      "change": "تدفق طبيعي ورسوم مدمجة، كل التفاصيل في قائمة قابلة للتمرير وأزرار الخطط باقية مع تحديث ثابت.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "space",
+      "view": "viewSpace",
+      "scope": "الملخص والمجلدات والإضافات والتقارير والذاكرة",
+      "issue": "أسماء ومسارات المجلدات كانت مقصوصة داخل صفوف ثابتة ومحتوى البطاقات الداخلي محجوب.",
+      "change": "صفوف مرنة ومقروءة مع تمرير داخلي يحافظ على ترقيم الصفحات وتنسيقها، ورسوم بميزانية محدودة وأعمدة تتكيف مع الحاوية.",
+      "checks": [
+        "frontend_wheel_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "io",
+      "view": "viewIo",
+      "scope": "القراءة والاستجابة والمساحة والخريطة والعمليات والتوقفات واليومي",
+      "issue": "العمليات الأقل حركة أُخفيت دون بديل؛ خريطة 24 ساعة كانت تُصغّر تسميات 9.5px؛ القيم اليومية تسمياتها صغيرة.",
+      "change": "كل العمليات قابلة للتمرير، خريطة تقاس من عرض حاويتها بحد 176–416 وتخفيف العلامات مع بقاء 24 ساعة وخط 11px؛ تمرير أفقي احتياطي فقط دون عرض 176.",
+      "checks": [
+        "frontend_wheel_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "startup",
+      "view": "loadStartup",
+      "scope": "عناصر بدء التشغيل ومصادرها",
+      "issue": "الأوامر الطويلة مقصوصة في صف 72 ثابت؛ تقدير السعة لا يضمن ملاءمة النص المتعدد الأسطر.",
+      "change": "صفوف وأوامر قابلة للالتفاف وتمرير رأسي للقائمة مع إبقاء حجم الصفحة وإزاحاتها مستقرة، والحفاظ على أزرار التفعيل.",
+      "checks": [
+        "frontend_pages_check.js",
+        "frontend_wheel_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "tasks",
+      "view": "viewTasks",
+      "scope": "المجموعات والنتائج والأوامر والمواعيد",
+      "issue": "صفوف طويلة وأزرار قد تتجاوز ارتفاع القائمة المقدر، والقدم قد لا تتسع للأرقام في نافذة ضيقة.",
+      "change": "إبقاء الغلاف المقيد وترقيمه، مع تمرير الصفوف الطويلة والتفاف الإجراءات والمرشحات والقدم دون قص.",
+      "checks": [
+        "frontend_pages_check.js",
+        "frontend_wheel_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "rules",
+      "view": "viewRules",
+      "scope": "قواعد الطبقات والحالة والنتيجة",
+      "issue": "الوصف ونتيجة القاعدة قد يلفان خارج السعة المقدرة للقائمة.",
+      "change": "الترقيم والإزاحات ثابتة، وتتاح قراءة كامل الصفوف والإجراءات عبر التمرير الداخلي، مع قدم ومرشحات مرنة.",
+      "checks": [
+        "frontend_pages_check.js",
+        "frontend_wheel_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "history",
+      "view": "viewHistory",
+      "scope": "الملخص والأحداث والتشغيلات ومعلومات القاعدة",
+      "issue": "أعمدة التشغيلات تتجاوز الحاوية والصفوف الملتفة قد تُقص، ومعلومات القاعدة ليست بيانات تحتاج غلافًا مرقمًا ثابتًا.",
+      "change": "تمرير أفقي متزامن للأعمدة الثمانية داخل بطاقة التشغيلات، قوائم طويلة قابلة للتمرير، معلومات القاعدة تتدفق طبيعيًا، ورسم الملخص المدمج محفوظ.",
+      "checks": [
+        "frontend_pages_check.js",
+        "frontend_wheel_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "dbx",
+      "view": "viewDbx",
+      "scope": "الجداول والصفوف ومعلومات الملف",
+      "issue": "نقطة تكديس الجداول كانت حسب النافذة لا عرض المحتوى الفعلي؛ الأعمدة تقنية وكثيفة.",
+      "change": "تكديس قائمتي الجداول والصفوف حسب الحاوية الضيقة مع حدود مقروءة، والحفاظ على التمرير الأفقي داخل جدول البيانات والترقيم.",
+      "checks": [
+        "frontend_pages_check.js",
+        "frontend_wheel_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "ctrl",
+      "view": "viewCtrl",
+      "scope": "الويدجت والذاكرة والصيانة والكانس وطبقات التنظيف",
+      "issue": "عمودان دائمًا وارتفاع مخفي يقصان أسفل الإعدادات، مع فقرة تقنية طويلة وادعاء تجربة حتى تاريخ منقضٍ.",
+      "change": "بطاقتان متناسقتان تتكدسان حسب الحاوية، تدفق كامل قابل للتمرير، شرح سلوك وأثر مختصر وإزالة التاريخ المنقضي مع الحفاظ على كل الإجراءات.",
+      "checks": [
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    },
+    {
+      "id": "appearance",
+      "view": "viewAppearance",
+      "scope": "وضع المظهر وأربع لوحات ومعاينة مشتركة",
+      "issue": "مراجعة الحفاظ على المزامنة والتحقق والتعارض والتعافي؛ لا عطل إضافي مثبت في هذه الدفعة.",
+      "change": "الحفاظ على التحكم المشترك الموثق، مع الخط الرقمي الموحد والقدم والهوامش المتناسقة؛ لا تغيير لعقد الحفظ.",
+      "checks": [
+        "frontend_appearance_check.js",
+        "frontend_pages_check.js"
+      ],
+      "rendered": false
+    }
+  ],
+  "sourceSha256": "136c93716c913d34cc51ff348d2e7d98a00dcb543ab1abf488d6aac97400f33c",
+  "checkGroups": {
+    "frontend_contract_check.js": 27,
+    "frontend_appearance_check.js": 22,
+    "frontend_layout_check.js": 12,
+    "frontend_wheel_check.js": 21,
+    "frontend_pages_check.js": 19
+  },
+  "previousSourceSha256": "1169d04f2d3e82e6f543e3e90ec85cf99051e14778396716c47198058d2b644c",
+  "controlContrast": {
+    "textStates": 3120,
+    "switchStates": 32,
+    "minimumTextRatio": 4.672,
+    "evidenceFile": "control-contrast-evidence-20261025.json",
+    "rendered": false
+  }
+}

@@ -1,0 +1,173 @@
+<title>تقرير مركز مراقبة التنظيف</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Readex+Pro:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* التخطيط: ترويسة تقرير فني ثم لوحة درجات، فمخاطر، فنتائج مصفّاة، فخطة إصلاح، فنصائح. عمود واحد مقروء بعرض 64rem. */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --surface2:#eaeeed; --ink:#14201f; --ink2:#465654; --line:#d3dbd9;
+  --accent:#0f6b63; --accent-ink:#ffffff; --accent-soft:#d9eeeb;
+  --crit:#b3261e; --crit-soft:#f9dedc;
+  --high:#b25a0b; --high-soft:#fbe7d2;
+  --med:#8a6d00; --med-soft:#f6ecc2;
+  --low:#3f5f7a; --low-soft:#dde8f1;
+  --ok:#1d7a3d; --ok-soft:#d9efdf;
+  --f-body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  --f-head:"Readex Pro","IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;
+  --f-mono:"IBM Plex Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c1413; --surface:#141f1e; --surface2:#1b2a29; --ink:#e6efed; --ink2:#a3b5b2; --line:#2a3b39;
+  --accent:#4fc4b6; --accent-ink:#06201d; --accent-soft:#17403c;
+  --crit:#ff8a80; --crit-soft:#3d1c1a;
+  --high:#ffb066; --high-soft:#3b2812;
+  --med:#e8cc5a; --med-soft:#362e0c;
+  --low:#8fb4d3; --low-soft:#1a2b3a;
+  --ok:#6fd48e; --ok-soft:#173222; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1413; --surface:#141f1e; --surface2:#1b2a29; --ink:#e6efed; --ink2:#a3b5b2; --line:#2a3b39;
+  --accent:#4fc4b6; --accent-ink:#06201d; --accent-soft:#17403c;
+  --crit:#ff8a80; --crit-soft:#3d1c1a;
+  --high:#ffb066; --high-soft:#3b2812;
+  --med:#e8cc5a; --med-soft:#362e0c;
+  --low:#8fb4d3; --low-soft:#1a2b3a;
+  --ok:#6fd48e; --ok-soft:#173222; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.75;
+  padding-block:0 4rem;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:64rem;margin-inline:auto}
+h1,h2,h3{font-family:var(--f-head);text-wrap:balance;line-height:1.35;margin:0}
+h2{font-size:1.5rem;font-weight:700;margin-block:3rem 1rem}
+h3{font-size:1.1rem;font-weight:600}
+p{margin:0 0 .8rem}
+code,.mono{font-family:var(--f-mono);font-size:.84em;direction:ltr;unicode-bidi:isolate;background:var(--surface2);padding:.1em .4em;border-radius:4px}
+.num{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+
+.wrap{max-width:62rem;margin-inline:auto}
+header.top{padding-block:2.2rem 1.6rem;border-bottom:2px solid var(--ink)}
+.kicker{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.08em;color:var(--ink2);direction:ltr;text-align:start;margin-bottom:.7rem}
+h1{font-size:clamp(1.7rem,5vw,2.5rem);font-weight:700}
+.lead{font-size:1.1rem;color:var(--ink2);max-width:46rem;margin-top:.8rem}
+.verdict{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.8rem;margin-top:1.4rem}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.9rem 1.1rem;min-width:0}
+.kpi b{display:block;font-family:var(--f-head);font-size:2rem;line-height:1.2}
+.kpi span{color:var(--ink2);font-size:.9rem}
+.kpi.ok b{color:var(--ok)} .kpi.warn b{color:var(--high)} .kpi.bad b{color:var(--crit)}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:40rem}
+th,td{text-align:start;padding:.7rem .9rem;border-bottom:1px solid var(--line);vertical-align:top;font-size:.95rem}
+th{background:var(--surface2);font-family:var(--f-head);font-weight:600;font-size:.85rem}
+tr:last-child td{border-bottom:0}
+td small{display:block;color:var(--ink2);margin-top:.2rem}
+.chip{display:inline-block;font-size:.78rem;font-weight:600;padding:.1rem .65rem;border-radius:999px;white-space:nowrap}
+.c-ok{background:var(--ok-soft);color:var(--ok)} .c-part{background:var(--med-soft);color:var(--med)}
+.c-open{background:var(--crit-soft);color:var(--crit)} .c-you{background:var(--accent);color:var(--accent-ink)}
+.c-chk{background:var(--low-soft);color:var(--low)}
+.cards{display:grid;gap:.8rem}
+.card{background:var(--surface);border:1px solid var(--line);border-inline-start:6px solid var(--accent);border-radius:8px;padding:1rem 1.2rem;min-width:0}
+.card.you{border-inline-start-color:var(--crit)}
+.card h3{margin-bottom:.4rem}
+.card p{margin:0 0 .4rem;color:var(--ink2)}
+ol.steps{margin:0;padding-inline-start:1.4rem}
+ol.steps li{margin-bottom:.5rem}
+details{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:.2rem 1.1rem;margin-top:.8rem}
+summary{cursor:pointer;font-family:var(--f-head);font-weight:600;padding:.8rem 0}
+details ul{margin:0 0 1rem;padding-inline-start:1.3rem}
+details li{margin-bottom:.4rem}
+footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--ink2);font-size:.88rem}
+</style>
+
+<div class="wrap" dir="rtl" lang="ar">
+<header class="top">
+<div class="kicker">MONITORWIDGET · EVALUATION · 2026-10-24</div>
+<h1>تقرير مركز مراقبة التنظيف</h1>
+<p class="lead">أُجري تقييم كامل للخادم والقاعدة والواجهة والودجت. أُصلح أخطر ما فيه، وبقيت أمور محددة تحتاج قرارك أو تحققًا. هذه الصفحة تعرض الباقي فقط.</p>
+<div class="verdict">
+<div class="kpi bad"><b>6.5</b><span>التقييم قبل الإصلاح من 10</span></div>
+<div class="kpi ok"><b>4 من 8</b><span>أخطر البنود مُعالَج بالكامل</span></div>
+<div class="kpi warn"><b>4</b><span>بنود جزئية أو يُتحقق منها</span></div>
+<div class="kpi bad"><b>2</b><span>قراران عليك</span></div>
+</div>
+</header>
+
+<section>
+<h2>أولًا: حال أخطر المشكلات الآن</h2>
+<div class="tbl"><table>
+<thead><tr><th>المشكلة</th><th>الخطورة</th><th>الحال</th><th>ما جرى وما بقي</th></tr></thead>
+<tbody><tr><td><b>تصعيد الصلاحيات عبر المهام المجدولة</b></td><td>حرجة</td><td><span class="chip c-ok">مُعالَج</span></td><td>نُفِّذ التثبيت المحمي في <code>C:\ProgramData\MonitorWidget</code> بصلاحيات SYSTEM والمديرين، ومهام <code>MemoryPurge-Light/Standby/Deep</code> بوسيط ثابت وتحقق تجزئة.<small>يبقى: حذف المهمة القديمة <code>MemoryPurge-OnDemand</code> (قرارك).</small></td></tr><tr><td><b>قتل العمليات بسكربت خارجي</b></td><td>حرجة</td><td><span class="chip c-ok">مُعالَج</span></td><td>تثبيت تجزئة سكربت الـ reaper ضمن التثبيت المحمي.</td></tr><tr><td><b>حذف بلا تأكيد خادمي</b></td><td>عالية</td><td><span class="chip c-part">جزئي</span></td><td>الخادم يردّ 428 برمز لمرة واحدة (120 ثانية)، وفحص Origin يردّ 403 لأي أصل غريب، والحجر 7 أيام.<small>ثغرة معلومة: الرمز مرتبط بالمسار والمعاملات لا بنتيجة المعاينة.</small></td></tr><tr><td><b>ضياع دفعة بيانات عند فشل إدراج</b></td><td>عالية</td><td><span class="chip c-ok">مُعالَج</span></td><td>الإزاحة تُحفظ بعد الإدراج في المعاملة نفسها، وتُتخطى الأسطر ذات الوقت التالف مع تسجيلها.</td></tr><tr><td><b>اتصال قاعدة مشترك بلا قفل</b></td><td>عالية</td><td><span class="chip c-part">جزئي</span></td><td>أُضيف <code>db.ro()</code> (قراءة فقط) و<code>db.maint()</code> للصيانة، و<code>prune_if_due</code> صار تحت القفل.<small>يُتحقق من الاستعلامات الثقيلة في diskio_api وhomeapi.</small></td></tr><tr><td><b>حقن أوامر في تبديل بند بدء التشغيل</b></td><td>عالية</td><td><span class="chip c-chk">يُتحقق منه</span></td><td>ورد في الخطة ولم يُذكر صراحة في سجل التغييرات؛ يُفحص <code>startup_mgr.py:138</code>.</td></tr><tr><td><b>الودجت: Mutex متروك، تجمّد الواجهة، حمل ثابت</b></td><td>عالية</td><td><span class="chip c-ok">مُعالَج</span></td><td>يُلتقط <code>AbandonedMutexException</code>، وطلبات POST في الخلفية بـ <code>-NoProxy</code>، ومؤقت الإعدادات 2000ms. أُعيد تشغيله وظهرت فيه شارة «مدير».</td></tr><tr><td><b>نمو القاعدة بلا سقف</b></td><td>متوسطة</td><td><span class="chip c-part">يُقاس</span></td><td>جدول احتفاظ واحد، وVACUUM أسبوعي، وفهرسان جديدان.<small>الهدف تحت 60MB؛ يُقاس أسبوعًا.</small></td></tr></tbody></table></div>
+</section>
+
+<section>
+<h2>ثانيًا: ما ينتظر قرارك</h2>
+<div class="cards">
+<div class="card you"><h3>حذف المهمة القديمة <code>MemoryPurge-OnDemand</code> <span class="chip c-you">أنت</span></h3>
+<p>ما زالت تشغّل <code>purge.exe</code> من مجلد يكتب فيه المستخدم العادي، وهي مسار التصعيد نفسه. المهام الثلاث الجديدة تغطي وظيفتها. يتم الحذف بسكربت التثبيت مع <code>-RemoveLegacy</code>، وهو يحذف معها <code>MonitorWidget-BootTrace</code>.</p></div>
+<div class="card you"><h3>مسار النسخ الاحتياطي خارج القرص <span class="chip c-you">أنت</span></h3>
+<p>المفتاح <code>backup.extra_dir</code> فارغ، فالنسخ اليومية على القرص نفسه ولا تحمي من فشله. المطلوب مسار (قرص آخر أو مجلد مزامنة) ليُضبط.</p></div>
+</div></section>
+
+<section>
+<h2>ثالثًا: ما بقي للمناقشة مع جلسة الإصلاح</h2>
+<div class="cards">
+<div class="card"><h3>1. ربط رمز التأكيد بنتيجة المعاينة</h3><p>الرمز اليوم مرتبط بالمسار والمعاملات فقط. المطلوب ربطه بتجزئة قائمة المرشّحين التي رآها المستخدم، فلا يُنفَّذ حذف مختلف عمّا عُرض.</p></div>
+<div class="card"><h3>2. فحص CSP في المتصفح</h3><p>الترويسات حيّة والـ hash مطابق، لكن لم تُفحص وحدة التحكم بحثًا عن انتهاكات، وتبقى <code>unsafe-inline</code> للأنماط بسبب نحو 75 سمة style.</p></div>
+<div class="card"><h3>3. اختبار الاسترجاع</h3><p>لم تُسترجع أي نسخة احتياطية قط. تُسترجع واحدة إلى مجلد مؤقت ويُفحص <code>integrity_check</code>.</p></div>
+<div class="card"><h3>4. مسار <code>/healthz</code></h3><p>يردّ 404 على المنفذ 47832 بينما وصفه التقرير الأول كمسار موجود بلا مصادقة. يُحسم هل أُزيل عمدًا أم تغيّر مساره.</p></div>
+<div class="card"><h3>5. إخفاقات اختبارات سابقة</h3><p>إخفاقات قديمة ليست انحدارًا: <code>check_all</code> و<code>guard_check</code> و<code>policy_check</code> و<code>run_all</code>. تُصلح أو تُوثَّق كمعروفة.</p></div>
+<div class="card"><h3>6. توحيد إصدار بايثون</h3><p>الاختصار يشغّل 3.12 وظهرت مسارات 3.13 في السجل. يُختار إصدار واحد ويُعدَّل الاختصار وسطر <code>widget.ps1:301</code> معًا.</p></div>
+</div></section>
+
+<section>
+<h2>رابعًا: ما أُنجز في هذه الجلسة</h2>
+<ol class="steps">
+<li>شُغِّل سكربت التثبيت المحمي وتأكدت التجزئات، وأُعيد تشغيل الخادم بالشيفرة الجديدة (الترويسات الأمنية ظاهرة في الخدمة الحيّة).</li>
+<li>دُوِّر الرمز <code>.token</code>؛ والقديم محفوظ في <code>.token.old</code> للتراجع.</li>
+<li>أُضيفت شارة حمراء «مدير» في الودجت والتطبيق تظهر عندما يعمل الخادم بصلاحية مديرة فقط، وتختفي إذا بدأته المهمة العادية (<code>RunLevel Limited</code>). النسخ: <code>.bak_admin_badge</code>.</li>
+<li>عُطّلت نسخة Desktop Commander المكررة لتخفيف الحمل الأولي للجلسات؛ الأثر يُقاس بعد أيام مقابل خط الأساس.</li>
+</ol></section>
+
+<section>
+<h2>خامسًا: التفاصيل الباقية (مطويّة)</h2>
+<details><summary>الدرجات الأربع قبل الإصلاح</summary><ul>
+<li>الواجهة الأمامية 7.0 · قاعدة البيانات 6.5 · الخادم الخلفي 6.3 · ودجت سطح المكتب 6.0 · المتوسط 6.5</li>
+<li>الأضعف: الوصول 5.5 وجودة الشيفرة 5.5 في الواجهة، والأمان 5 في الودجت.</li></ul></details>
+<details><summary>الخادم الخلفي: متوسطة ومنخفضة</summary><ul>
+<li>اتباع الوصلات خارج الجذر في الحذف (<code>space.py</code>): يُمنع أي مسار يتجاوز realpath له الجذر.</li>
+<li>الثقة بملف <code>admin_probe.json</code> القابل للكتابة (<code>health.py:309</code>).</li>
+<li>سباقات خيوط في <code>_prev_cpu</code> و<code>_cached</code> و<code>gpuwatch</code>.</li>
+<li>فحص يحجب الطلب حتى 150 ثانية (<code>health.py:350</code>)؛ يُنقل إلى مهمة خلفية.</li>
+<li>تواريخ ثابتة في <code>insight.py:689</code> و<code>relia.py:21</code>.</li>
+<li>كتابة غير ذرية لـ <code>explain_last.txt</code> وابتلاع الاستثناءات في <code>relia.store</code>.</li>
+<li><code>lms unload --all</code> قد يفرّغ نماذج لا تخص التطبيق.</li></ul></details>
+<details><summary>قاعدة البيانات: متوسطة ومنخفضة</summary><ul>
+<li>كشف <code>dbview</code> للإزاحات والمسارات خلف الرمز؛ عولج بجداول مخفية وسقف للإزاحة.</li>
+<li>محارف LIKE غير مهرّبة، وتقسيم الترحيل على «;»، وعدم تطابق <code>schema_version</code> مع <code>user_version</code>.</li>
+<li>سجل مهمة محذوفة <code>trimwatch</code> ما زال في جدول jobs.</li></ul></details>
+<details><summary>الواجهة: وصول وأداء وعربية</summary><ul>
+<li>لا بديل نصي للرسوم، والحوارات بلا <code>aria-labelledby</code>، والتنبيه بلا <code>role="alert"</code>.</li>
+<li>إعادة بناء DOM وSVG كل 5 ثوانٍ، واستطلاع <code>/api/theme</code> كل 700ms.</li>
+<li>بقايا <code>text-align:right</code> و<code>margin-right</code>، وعبارات مثل «1 أخطاء» بلا مفرد ومثنى.</li>
+<li>ملف واحد من 2,873 سطرًا بثلاثة محركات رسم مكررة.</li>
+<li>مقارنة الرمز بـ <code>==</code> بدل <code>compare_digest</code>.</li></ul></details>
+<details><summary>الودجت: نظافة وسلامة</summary><ul>
+<li>83 ملف .bak وملف <code>crash.dmp</code> بحجم 8.3MB في مجلد يُنفَّذ منه كود مرتفع.</li>
+<li>تعبيرا القتل واسعان (عولجا بتضييق المرشّحات إلى هذا المجلد).</li>
+<li>أكثر من 25 كتلة catch فارغة، وتدوير السجل يحذفه كله عند 200KB.</li>
+<li>الرمز يُقرأ لمجموعة <code>CodexSandboxUsers</code>؛ تُزال من ACL ملف <code>.token</code>.</li></ul></details>
+<details><summary>نقاط القوة المؤكدة</summary><ul>
+<li>الربط على 127.0.0.1 فقط، وفحص Host ضد DNS rebinding، وتذكرة لمرة واحدة ثم كوكي HttpOnly.</li>
+<li>لا حقن SQL، وفحص السلامة نظيف، ونسخ احتياطي بفحص ثم استبدال ذري.</li>
+<li>لا CDN، والخطوط مضمّنة، والتباين لا يقل عن 4.60 في السمتين.</li></ul></details>
+<details><summary>حدود التقييم</summary><ul>
+<li>لم تُقرأ: <code>diskio.py</code> و<code>reliab.py</code> و<code>shotwatch.py</code> و<code>show_rel.py</code> وملفات tests.</li>
+<li>لا EXPLAIN QUERY PLAN ولا قياس أزمنة؛ أحجام الجداول تقدير بـ <code>length()</code>.</li>
+<li>مخاطرة الـ Mutex المتروك كانت نظرية.</li>
+<li>التقارير التفصيلية: <code>widget_eval_backend / database / frontend / widget _2026-10-24.md</code> في <code>delivery_manager_work\docs</code>.</li></ul></details>
+</section>
+
+<footer>سجل التغييرات: <code>CHANGES_2026-10-24.md</code> داخل مجلد التطبيق. لا رفع إلى أي مستودع، ونسخة <code>.bak</code> قبل كل تعديل.</footer>
+</div>
+<script>document.documentElement.dir="rtl";document.documentElement.lang="ar";</script>

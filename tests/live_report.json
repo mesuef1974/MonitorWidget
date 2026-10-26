@@ -1,0 +1,207 @@
+[
+ {
+  "name": "healthz 200 or 503",
+  "status": "PASS",
+  "detail": "200"
+ },
+ {
+  "name": "healthz integrity ok",
+  "status": "PASS",
+  "detail": "{\"ok\": true, \"uptime_s\": 2473, \"pid\": 26496}"
+ },
+ {
+  "name": "no token -> 401",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "wrong token -> 401",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "ticket issued",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "ticket exchange -> 302 + cookie",
+  "status": "PASS",
+  "detail": "302"
+ },
+ {
+  "name": "ticket single-use (second use rejected)",
+  "status": "PASS",
+  "detail": "200"
+ },
+ {
+  "name": "GET /api/state 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/state has 'rules'",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "/api/state has 'tasks'",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "/api/state latency < 8000ms",
+  "status": "PASS",
+  "detail": "16ms"
+ },
+ {
+  "name": "GET /api/mini 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/mini latency < 8000ms",
+  "status": "PASS",
+  "detail": "44ms"
+ },
+ {
+  "name": "GET /api/space 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/space has 'quarantine'",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "/api/space latency < 8000ms",
+  "status": "PASS",
+  "detail": "5140ms"
+ },
+ {
+  "name": "GET /api/startup 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/startup has 'items'",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "/api/startup latency < 8000ms",
+  "status": "PASS",
+  "detail": "4047ms"
+ },
+ {
+  "name": "GET /api/health 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/health latency < 8000ms",
+  "status": "PASS",
+  "detail": "136ms"
+ },
+ {
+  "name": "GET /api/widget 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/widget latency < 8000ms",
+  "status": "PASS",
+  "detail": "33ms"
+ },
+ {
+  "name": "GET /api/history 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/history latency < 8000ms",
+  "status": "PASS",
+  "detail": "64ms"
+ },
+ {
+  "name": "GET /api/db-info 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/db-info latency < 8000ms",
+  "status": "PASS",
+  "detail": "35ms"
+ },
+ {
+  "name": "GET /api/theme 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/theme latency < 8000ms",
+  "status": "PASS",
+  "detail": "15ms"
+ },
+ {
+  "name": "GET /api/infra 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/infra latency < 8000ms",
+  "status": "PASS",
+  "detail": "445ms"
+ },
+ {
+  "name": "GET /api/jobs 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/jobs latency < 8000ms",
+  "status": "PASS",
+  "detail": "29ms"
+ },
+ {
+  "name": "GET /api/actions 200 JSON",
+  "status": "PASS",
+  "detail": "code=200"
+ },
+ {
+  "name": "/api/actions latency < 8000ms",
+  "status": "PASS",
+  "detail": "16ms"
+ },
+ {
+  "name": "startup items present",
+  "status": "PASS",
+  "detail": "15 عنصر"
+ },
+ {
+  "name": "startup ids unique",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "startup items have required fields",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "protected items are not writable",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "rule ids unique",
+  "status": "PASS",
+  "detail": ""
+ },
+ {
+  "name": "rule actions valid",
+  "status": "PASS",
+  "detail": ""
+ }
+]

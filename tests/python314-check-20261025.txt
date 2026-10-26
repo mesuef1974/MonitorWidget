@@ -1,0 +1,163 @@
+تقرير مرصد الجهاز: 2026-10-25 14:43
+المراحل الفاشلة: 0 من 12
+الفحوص المتخطاة: 0 (التغطية غير مكتملة إن تجاوزت صفرًا)
+
+===== الخلفية والإعدادات (معزول) (exit 0) =====
+test_abort_and_replace_failure_preserve_original (__main__.AtomicConfiguration.test_abort_and_replace_failure_preserve_original) ... ok
+test_bom_and_finite_json (__main__.AtomicConfiguration.test_bom_and_finite_json) ... ok
+test_concurrent_processes_do_not_lose_updates (__main__.AtomicConfiguration.test_concurrent_processes_do_not_lose_updates) ... ok
+test_http_concurrency_slot_released_after_thread (__main__.BackendRequests.test_http_concurrency_slot_released_after_thread) ... ok
+test_incomplete_protected_purge_fails_before_task_query (__main__.BackendRequests.test_incomplete_protected_purge_fails_before_task_query) ... ok
+test_incomplete_request (__main__.BackendRequests.test_incomplete_request) ... ok
+test_internal_error_does_not_leak_exception (__main__.BackendRequests.test_internal_error_does_not_leak_exception) ... ok
+test_invalid_json_is_400 (__main__.BackendRequests.test_invalid_json_is_400) ... ok
+test_invalid_lengths (__main__.BackendRequests.test_invalid_lengths) ... ok
+test_large_request_is_rejected_before_read (__main__.BackendRequests.test_large_request_is_rejected_before_read) ... ok
+test_logout_revokes_only_its_cookie (__main__.BackendRequests.test_logout_revokes_only_its_cookie) ... ok
+test_media_type_not_substring (__main__.BackendRequests.test_media_type_not_substring) ... ok
+test_missing_protected_purge_never_falls_back (__main__.BackendRequests.test_missing_protected_purge_never_falls_back) ... ok
+test_partial_protected_engine_fails_closed (__main__.BackendRequests.test_partial_protected_engine_fails_closed) ... ok
+test_seen_rejects_nonfinite_and_huge_values_before_preview (__main__.BackendRequests.test_seen_rejects_nonfinite_and_huge_values_before_preview) ... ok
+test_session_capacity_is_bounded (__main__.BackendRequests.test_session_capacity_is_bounded) ... ok
+test_sessions_independent_expire_and_revoke (__main__.BackendRequests.test_sessions_independent_expire_and_revoke) ... ok
+test_startup_returns_one_response (__main__.BackendRequests.test_startup_returns_one_response) ... ok
+test_transfer_encoding_rejected (__main__.BackendRequests.test_transfer_encoding_rejected) ... ok
+test_widget_token_and_browser_sessions_are_independent (__main__.BackendRequests.test_widget_token_and_browser_sessions_are_independent) ... ok
+test_protected_pin_missing_or_invalid_never_unpins (__main__.ProtectedPin.test_protected_pin_missing_or_invalid_never_unpins) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 1.067s
+
+OK
+
+===== البيانات والتشغيل (معزول) (exit 0) =====
+test_backup_retry_independent_from_local_success (__main__.DbOps.test_backup_retry_independent_from_local_success) ... ok
+test_collector_mutex_has_kernel_lifetime (__main__.DbOps.test_collector_mutex_has_kernel_lifetime) ... ok
+test_external_copy_verified_and_failed_copy_keeps_previous (__main__.DbOps.test_external_copy_verified_and_failed_copy_keeps_previous) ... ok
+test_fresh_bootstrap_and_idempotence (__main__.DbOps.test_fresh_bootstrap_and_idempotence) ... ok
+test_null_only_bucket_retains_real_row (__main__.DbOps.test_null_only_bucket_retains_real_row) ... ok
+test_required_policy_and_engine_missing_fail (__main__.DbOps.test_required_policy_and_engine_missing_fail) ... ok
+test_scheduler_cooperative_deadline_and_no_overlap (__main__.DbOps.test_scheduler_cooperative_deadline_and_no_overlap) ... ok
+test_scheduler_releases_marker_on_bookkeeping_failure (__main__.DbOps.test_scheduler_releases_marker_on_bookkeeping_failure) ... ok
+test_thinning_unaligned_and_pressure_peak (__main__.DbOps.test_thinning_unaligned_and_pressure_peak) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.450s
+
+OK
+
+===== الحجر والتعافي (معزول) (exit 0) =====
+test_concurrent_restore_and_purge_have_one_safe_outcome (__main__.Quarantine.test_concurrent_restore_and_purge_have_one_safe_outcome) ... ok
+test_crash_after_move_before_db_finish_reconciles_without_loss (__main__.Quarantine.test_crash_after_move_before_db_finish_reconciles_without_loss) ... ok
+test_crash_after_restore_reconciles_legacy_identity (__main__.Quarantine.test_crash_after_restore_reconciles_legacy_identity) ... ok
+test_crash_before_move_keeps_original_and_reports_failed (__main__.Quarantine.test_crash_before_move_keeps_original_and_reports_failed) ... ok
+test_cross_volume_move_refused_before_intent (__main__.Quarantine.test_cross_volume_move_refused_before_intent) ... ok
+test_intent_is_durable_before_atomic_move_and_uuid_unique (__main__.Quarantine.test_intent_is_durable_before_atomic_move_and_uuid_unique) ... ok
+test_legacy_held_rows_restore (__main__.Quarantine.test_legacy_held_rows_restore) ... ok
+test_live_process_mutex_blocks_recovery_until_owner_releases (__main__.Quarantine.test_live_process_mutex_blocks_recovery_until_owner_releases) ... ok
+test_outside_quarantine_path_is_never_deleted (__main__.Quarantine.test_outside_quarantine_path_is_never_deleted) ... ok
+test_purge_crash_finishes_tombstone_on_recovery (__main__.Quarantine.test_purge_crash_finishes_tombstone_on_recovery) ... ok
+test_reparse_point_is_refused_without_following_target (__main__.Quarantine.test_reparse_point_is_refused_without_following_target) ... ok
+test_restore_no_replace_even_when_target_appears_after_check (__main__.Quarantine.test_restore_no_replace_even_when_target_appears_after_check) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 1.364s
+
+OK
+
+===== SQLite الخاص (معزول) (exit 0) =====
+test_missing_runtime_refuses_fallback (__main__.PrivateRuntime.test_missing_runtime_refuses_fallback) ... ok
+test_modified_runtime_refuses_fallback (__main__.PrivateRuntime.test_modified_runtime_refuses_fallback) ... ok
+test_pinned_version_idempotent_and_native_path (__main__.PrivateRuntime.test_pinned_version_idempotent_and_native_path) ... ok
+test_preimported_sqlite_is_rejected (__main__.PrivateRuntime.test_preimported_sqlite_is_rejected) ... ok
+test_transactions_wal_backup_and_fresh_restart (__main__.PrivateRuntime.test_transactions_wal_backup_and_fresh_restart) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.662s
+
+OK
+
+===== تغطية مؤشرات الصحة (معزول) (exit 0) =====
+........
+----------------------------------------------------------------------
+Ran 8 tests in 0.001s
+
+OK
+
+===== فتح النافذة وسياسة CSP (معزول) (exit 0) =====
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.007s
+
+OK
+
+===== جمع النسخة المحمية (معزول) (exit 0) =====
+...
+----------------------------------------------------------------------
+Ran 3 tests in 0.045s
+
+OK
+
+===== حد التنفيذ المرتفع (معزول) (exit 0) =====
+.
+----------------------------------------------------------------------
+Ran 1 test in 0.013s
+
+OK
+
+===== ترحيل بيانات الحزمة (معزول) (exit 0) =====
+test_active_quarantine_outside_source_root_blocks_snapshot (__main__.ProtectedInstaller.test_active_quarantine_outside_source_root_blocks_snapshot) ... ok
+test_apply_requires_explicit_token_rotation_and_shortcut_migration (__main__.ProtectedInstaller.test_apply_requires_explicit_token_rotation_and_shortcut_migration) ... ok
+test_qpath_remap_identity_and_held_restore_after_final_move (__main__.ProtectedInstaller.test_qpath_remap_identity_and_held_restore_after_final_move) ... ok
+test_static_no_activation_or_principal_elevation (__main__.ProtectedInstaller.test_static_no_activation_or_principal_elevation) ... ok
+test_unresolved_operation_blocks_snapshot (__main__.ProtectedInstaller.test_unresolved_operation_blocks_snapshot) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.783s
+
+OK
+
+===== عقود مهام التثبيت (معزول) (exit 0) =====
+{
+  "tests": 7,
+  "status": "PASS",
+  "taskSchedulerTouched": false,
+  "scope": "isolated XML, private token fixtures, shortcut COM double, and rollback failure injection"
+}
+
+===== سلوك الواجهة (معزول) (exit 0) =====
+PASS same GET shares one request and promise
+PASS completed reads release timeout
+PASS mutation transport failure is never retried
+PASS 428 receives one explicit challenge response
+PASS canceled page result is rejected even when transport ignores abort
+PASS old chart range cannot overwrite the selected range
+PASS request deadline is bounded to 20 seconds
+PASS timeout is reported and releases request
+PASS 401 explains reopening the dashboard
+PASS manual mode suppresses background polling
+PASS hidden page suppresses polling
+PASS visible automatic mode permits polling
+PASS dialog has programmatic name and description
+PASS CPU and GPU refresh use stable reconciliation
+PASS missing health measurements are not displayed as zero or perfect health
+PASS partial score never claims excellent overall health
+PASS Defender alone cannot produce a protected/updated security domain
+PASS stale security domain is neutral and explicitly out of date
+PASS failed quarantine item exposes safe error but no restore button
+PASS held quarantine item exposes restore
+PASS notification baseline does not announce old issues
+PASS important notification is deduplicated across metric changes
+PASS muted important issues remain silent
+PASS navigation groups preserve every existing destination
+PASS fresh receipt never makes frozen source CPU measurements current
+PASS missing source timestamp cannot imply a current CPU measurement
+PASS overview freshness requires source timestamp as well as receipt
+RESULT 27 checks passed
+
+===== إتاحة عناصر الويدجت (معزول) (exit 0) =====
+PASS PowerShell syntax; native Button/ToggleButton templates, names, Invoke/Toggle patterns and keyboard participation
+PASS compact metric binding, disconnected freshness and stale CPU handling (synthetic controls and data only)
+PASS native notification delegation, important-state deduplication and mute (notification object is a test double; no OS notification sent)
+
+التقرير محفوظ في tests\report.txt

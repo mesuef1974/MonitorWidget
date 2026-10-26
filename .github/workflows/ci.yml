@@ -1,0 +1,30 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+permissions: { contents: read }
+concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Python syntax
+        shell: bash
+        run: python -m compileall -q $(git ls-files '*.py')
+      - name: PowerShell parse
+        shell: pwsh
+        run: |
+          $bad = 0
+          foreach ($f in git ls-files '*.ps1') {
+            $e = $null; [void][System.Management.Automation.Language.Parser]::ParseFile($f,[ref]$null,[ref]$e)
+            if ($e) { $e | ForEach-Object { "$f : $($_.Message)" }; $bad++ }
+          }
+          if ($bad) { exit 1 }
+      - name: Secret guard
+        shell: bash
+        run: |
+          if git ls-files | grep -E '(^|/)\.token|\.db$|\.dmp$|\.pem$'; then echo "tracked secret/state file"; exit 1; fi

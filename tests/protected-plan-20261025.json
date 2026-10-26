@@ -1,0 +1,394 @@
+{
+  "mode": "Plan",
+  "source": "C:\\Users\\mesue\\Documents\\Scripts\\MonitorWidget",
+  "destination": "C:\\ProgramData\\MonitorWidget\\app",
+  "taskNames": [
+    "MonitorWidget-Agent",
+    "MonitorWidget-Collector",
+    "MonitorWidget-Launch"
+  ],
+  "python": "C:\\ProgramData\\MonitorWidget\\app\\runtime\\python\\python314\\pythonw.exe",
+  "taskReadiness": [
+    {
+      "ready": false,
+      "reason": "Task inspection unavailable; elevated-principal compatibility must be reviewed before Apply."
+    }
+  ],
+  "code": [
+    {
+      "relative": "agent.py",
+      "sha256": "c61034d790315144f64fcef90ed2ed6e432891e0272797f35174f9f857ba1956"
+    },
+    {
+      "relative": "alertcfg.py",
+      "sha256": "ea001a39367bff8a031084e23fe1adeb5b57d59b9e8c4d3d4e6d9a6a7d191fb6"
+    },
+    {
+      "relative": "atomic_json.py",
+      "sha256": "bbf7fbd23a61b44ef1ba3564255d699fa4f77ccf09cbb65f06674f784ed72d5e"
+    },
+    {
+      "relative": "collector.py",
+      "sha256": "28ccaf4b47d3cf3576c71d5d7fc1777c197a925520dac58a0bb554e35a97fdc9"
+    },
+    {
+      "relative": "cpuwatch.py",
+      "sha256": "23d65f1f1e6d79f3169bb865c4c6b2166856fbd8ae37813b529dbb2914055a2c"
+    },
+    {
+      "relative": "db.py",
+      "sha256": "7915d62ba24fd7b2777c4aae5dcb6d3b492365b993b6568749793305f3b530a6"
+    },
+    {
+      "relative": "dbview.py",
+      "sha256": "81d86f7e461aa7c1b00c56700d9e458b806953185b94953c71a742db09377122"
+    },
+    {
+      "relative": "diskio.py",
+      "sha256": "9ba5d7a452e39ab380ad894629462e6f292d631b2bea6caa7ca1a019abc0b38b"
+    },
+    {
+      "relative": "diskio_api.py",
+      "sha256": "e683f45f0633401bea5f8cf65a62ffbad558dbaa4de00798d8c1317b86cb7dd8"
+    },
+    {
+      "relative": "diskio_collect.py",
+      "sha256": "b0da81ea108fee03402704fb95ae3fc3263e2d96b50e5466f1509c614d4f6c95"
+    },
+    {
+      "relative": "errlog.py",
+      "sha256": "77754898d5e0e0a7e49033be0985dccf877ee7c961e10dbc1441e755799e9b3a"
+    },
+    {
+      "relative": "explain.py",
+      "sha256": "89f06e44b25e377f28f5639a76adcc4a544d39a517baba39040b7f41647df6cb"
+    },
+    {
+      "relative": "extras.py",
+      "sha256": "0f9b5a8ea2c9ed59e8df0fc0710e1e980e1dd132e1c80787bfa75db11a8dd622"
+    },
+    {
+      "relative": "gpuwatch.py",
+      "sha256": "0d6e59d315a0c6957aeabd8efcd1911ef22d3cafb8516e293550eaf986e12a28"
+    },
+    {
+      "relative": "health.py",
+      "sha256": "9476f6880db4d01894a90ab81506f3acfc9beaef2e80734679cc6cfdf3cc18ba"
+    },
+    {
+      "relative": "health_score.py",
+      "sha256": "ff4b05b550bd87b68d8f56edfce7a8d631fe40f74c487828627a2a0cac30f402"
+    },
+    {
+      "relative": "homeapi.py",
+      "sha256": "859536ab19247b8c591545fc59ecabfd41f7e1fad4303a2c8edbddd94f995223"
+    },
+    {
+      "relative": "infra.py",
+      "sha256": "8066de6c0f1317446f5032b80469cd271ec1e0d9cd5af1293e9d2e813208351d"
+    },
+    {
+      "relative": "insight.py",
+      "sha256": "17ce48e7b23724b7a903ca8247f43093f9ebacb8e5115a66a996e3eaac7e2d41"
+    },
+    {
+      "relative": "quarantine_store.py",
+      "sha256": "69fc5a69cd2353f725a819c6be98a365fa373ced75358a22ff595460c8d444dc"
+    },
+    {
+      "relative": "relia.py",
+      "sha256": "6e9166d9cd61272bd31f8edbf7996a36f3d3a1fc91189b9dd98a41342e34a18c"
+    },
+    {
+      "relative": "reliab.py",
+      "sha256": "4c001d2e3cc54ea14971083600311d60e2c3bee4facb3b39da73ebb7d89213ad"
+    },
+    {
+      "relative": "sched.py",
+      "sha256": "4745a7eb4e820bac0c0e6569666fed1eabc048a6686cb24764e4f44b11b0574f"
+    },
+    {
+      "relative": "secure.py",
+      "sha256": "0049bdc1dc9920b78ec381d9e1ab6b8ca2cebfe55818fa81383ae3e5f96a570e"
+    },
+    {
+      "relative": "server.py",
+      "sha256": "10c46ef5ec02081d86418da182aec74f7b1b95537388349ac2637197e2bf8b8b"
+    },
+    {
+      "relative": "shotwatch.py",
+      "sha256": "6d6f719717e3fc2c67ac2456d57b1d8fe3a6a8a1d87ba5d6f1ab2416aec76401"
+    },
+    {
+      "relative": "space.py",
+      "sha256": "976cc5dbfab14898a77934b923a53ed574170e2ac733c97e3bbf9e9b55b10327"
+    },
+    {
+      "relative": "sqlite_runtime.py",
+      "sha256": "a2dec40dea06e75fa2724b59ff441fe02dd7eb3e770bf3846aa4659714c66e7f"
+    },
+    {
+      "relative": "startup_mgr.py",
+      "sha256": "3fef247be1a3dd28e97da9e8fdf32ddaa6fef8c329cb57dfaeab3b4ef656a25d"
+    },
+    {
+      "relative": "widget.ps1",
+      "sha256": "af9a2a5456b3782ee432de89aedcc788a58fcfb839af59941b5d4bbf2519f354"
+    },
+    {
+      "relative": "collect.ps1",
+      "sha256": "0c8858bf46efe49915e153af2f64788c7461870b93d749434abc7f9a32ec4fab"
+    },
+    {
+      "relative": "ops.ps1",
+      "sha256": "aa078a2e8f1a1dfdc6c71eb5242c794e24a5a6fd089439f838e54d00e44538b1"
+    },
+    {
+      "relative": "healthprobe.ps1",
+      "sha256": "dfe47270db312a709230466dd5f901e6f932f54a5a8146f241571c1e20bc3586"
+    },
+    {
+      "relative": "relia_scan.ps1",
+      "sha256": "7d23ba471a696cfe64ebce08a60fb0ad6e0ae721eec8edfc9c290e1588fe3e66"
+    },
+    {
+      "relative": "show_widget.ps1",
+      "sha256": "3c6f6b3097197278ccf6efc21dc0b8d8a6df5c1fc9fe61a315cd3e076b0e8ece"
+    },
+    {
+      "relative": "restart_widget.ps1",
+      "sha256": "bc4a319ef52547cbdf03443c500bb84252353d0b457e374b31ed01161ebd9b97"
+    },
+    {
+      "relative": "restart_agent.ps1",
+      "sha256": "a34bb26418f0536646d97417435b2167d259d04c292f3e3d77e1a771bb9786c9"
+    },
+    {
+      "relative": "launch_mini.vbs",
+      "sha256": "93dc127cb4847b6d50156b7e4bbdb5bca9a7eda38cf14b96b11c88d080073208"
+    },
+    {
+      "relative": "purge.exe",
+      "sha256": "7e799e8ff2590650d18b7540326a30c4a8743d8aff3168c2d4b9b372a2f754ea"
+    },
+    {
+      "relative": "index.html",
+      "sha256": "ade8aa819ca773269c4cf77e8ecf4d51e38d92f84bfeef17dbe753148f144901"
+    },
+    {
+      "relative": "assets\\apple-touch-icon.png",
+      "sha256": "aa19b01d2fd0d962cfb21b1cabb46c6af8d627c6771e99e0604e4902b16b2791"
+    },
+    {
+      "relative": "assets\\favicon.ico",
+      "sha256": "b714629bc0e04f5bf51dc373d79525989bf32f3c3e7f3b49bd3eb3ffc7336abc"
+    },
+    {
+      "relative": "assets\\favicon.svg",
+      "sha256": "ad07b1f6db97a0b3cc264440854ac86bc69ff4d76339d3698be8375456557132"
+    },
+    {
+      "relative": "assets\\icon_192.png",
+      "sha256": "279afd6718273b1412a4d7dcecdf93859c5611a490f2a61ee61ea162b418ab3e"
+    },
+    {
+      "relative": "assets\\icon_512.png",
+      "sha256": "f94d7ae8f04d5dbfcd603101bb957e3a459aa365912b2f1c62d74906a724cbc3"
+    },
+    {
+      "relative": "assets\\icon.ico",
+      "sha256": "a859c54eb86f9dbeb0f69fc35b6d3602acaf0d145a2b5d65bc6f4e83b329a36f"
+    },
+    {
+      "relative": "assets\\icon.svg",
+      "sha256": "06706bcd67fd39a05617265163d62de1453164c12082ff1ea521d49061dcaa50"
+    },
+    {
+      "relative": "assets\\logo_dark.png",
+      "sha256": "cf0acd4aa7ada6508e3d8bfe5df48a866e15b1f09b69c52b3bd256c43c165551"
+    },
+    {
+      "relative": "assets\\logo_dark.svg",
+      "sha256": "bd35e8e5154fc1ff2eb9df665c8d2a14981c87d8e11180dcd2222143ea5c1b1c"
+    },
+    {
+      "relative": "assets\\logo_light.png",
+      "sha256": "15674279bea95a7e18c47f9af9def648b11ccd0f51e66011accd8e8afadf5ce1"
+    },
+    {
+      "relative": "assets\\logo_light.svg",
+      "sha256": "540d4768f9815ce705013ce391b241defda234ac66100660bceb8113ba7849e2"
+    },
+    {
+      "relative": "runtime\\sqlite\\manifest.json",
+      "sha256": "cdf7c3e58f951e28202ae19b18abe55f620bbc4b5f801165466d73714c9a1819"
+    },
+    {
+      "relative": "runtime\\sqlite\\README.html",
+      "sha256": "48405d4077a693bda1c94f63eba792a3ecb6907f7bdad5160c9c70f13115399d"
+    },
+    {
+      "relative": "runtime\\sqlite\\README.md",
+      "sha256": "50327485d8a4369de684dc6082f66d3a9bc9e1814308e4eee8e3e35dc141e65d"
+    },
+    {
+      "relative": "runtime\\sqlite\\sqlite3.dll",
+      "sha256": "4b59d3cded9dc1608544160f3b4b10ac974c6ac0d6ffc23064e5f4c8dbd05aea"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_asyncio.pyd",
+      "sha256": "987ce7c79f8ce34864331e51fe31ff1edaa044a676bbc97df78ece260d4a9191"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_bz2.pyd",
+      "sha256": "2db8c279a6976dd74faae4f8b1a3749727976f3928a350f7a45e9b7deca5e2b0"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_ctypes.pyd",
+      "sha256": "c1b0ec4243d3d729456e608426bd17e3934b266bb9271a6dd83b360ddc454936"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_decimal.pyd",
+      "sha256": "f9a6b9de4dce3acd64cf6a8dffc45bb46a031bc23f682739e4cf8eff274431eb"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_elementtree.pyd",
+      "sha256": "87f17737db2864ba1c982af0ef3e6c19f0d5b4fca0e7526deddbe8611812612e"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_hashlib.pyd",
+      "sha256": "fe4ef731c177294301c723c66488fd80dc8254c8bd0e896559086f67272a027b"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_lzma.pyd",
+      "sha256": "7e64fbe55b5fd705f20fd1936ed23356956496d9a5882846850c32800e61d554"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_multiprocessing.pyd",
+      "sha256": "dab3e6bd4ed286867b5bcb5e7d731a66ede6c1fc8b6fd444120ec69518e42dd9"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_overlapped.pyd",
+      "sha256": "570d771dbfdcddaaa59f31fb6ba72f1a21bddf87e59b8ddff59ae82a5cc8f26f"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_queue.pyd",
+      "sha256": "e4f59c46669d6e1b17b0d2c2062f0841d8f321dfbd1cf0b865fa5532c947c0b5"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_remote_debugging.pyd",
+      "sha256": "d3cf86aaa87f47f8c963cf0717935babb4bb80e277134f5213eac8b4fff58254"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_socket.pyd",
+      "sha256": "1bcb3758cacabea4d10350aa776b8192881b66130ed61e514a6d0ef6ab984a2e"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_sqlite3.pyd",
+      "sha256": "f275e3df1a196ec254f17e8bb370a17d502df9b6952315ae3112714cdac9bf66"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_ssl.pyd",
+      "sha256": "2aedf0a5ee5a80706ed1ea33c894f1b9ce46dafd3457b28126db15a00d083a85"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_uuid.pyd",
+      "sha256": "701d4cdc77b9a0fdb4f9c38ac5df5bb940dc07ef6ee1a3cbe8fb78b2310eedf0"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_wmi.pyd",
+      "sha256": "2f520ba52cfd80c09b029d035ec7754c4fbd4fc7ce2a790029344bad78c159e8"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_zoneinfo.pyd",
+      "sha256": "2b46428e492731cf69518bb3f52772bc521bca6cc1d00e741c5bfb748c26986b"
+    },
+    {
+      "relative": "runtime\\python\\python314\\_zstd.pyd",
+      "sha256": "473c52fdabf4e0741d91e1a3b1cd2b4b983bd62823832fd0386cec91b6914976"
+    },
+    {
+      "relative": "runtime\\python\\python314\\libcrypto-3.dll",
+      "sha256": "75495fe0e079ab00d49be740d3c710a0b94e3f74f9648cb7cc9f768fc7f52319"
+    },
+    {
+      "relative": "runtime\\python\\python314\\libffi-8.dll",
+      "sha256": "eff52743773eb550fcc6ce3efc37c85724502233b6b002a35496d828bd7b280a"
+    },
+    {
+      "relative": "runtime\\python\\python314\\libssl-3.dll",
+      "sha256": "8957182a9c385bfd9f3f790921de2ddc614cf91f99edbed4e9e5446a46504e32"
+    },
+    {
+      "relative": "runtime\\python\\python314\\libtommath.dll",
+      "sha256": "2e4e9201c35f542ffe965efd0d2a727b44eccbb63c88b7878755f79eb5a44a73"
+    },
+    {
+      "relative": "runtime\\python\\python314\\LICENSE.txt",
+      "sha256": "935cf13e19f8c31b497d20b05d73623431a226b230c3599bc30fa3348979bc68"
+    },
+    {
+      "relative": "runtime\\python\\python314\\pyexpat.pyd",
+      "sha256": "0dbf70ffca178955718b4bb99c38074d2abd40ad39449b13a74d1d8a63d31315"
+    },
+    {
+      "relative": "runtime\\python\\python314\\python.cat",
+      "sha256": "e8ebc0b98abfddb0f5449de94e861612a79bbe0103a6f8a884d350ec498cbf60"
+    },
+    {
+      "relative": "runtime\\python\\python314\\python.exe",
+      "sha256": "e67f33a86fc64a07798a136af126f38a8e0d3c0a25787c635fb1678c2b66b12a"
+    },
+    {
+      "relative": "runtime\\python\\python314\\python3.dll",
+      "sha256": "f1af2c16d941d55fea8cc2e7afceb9948649d5ce58ca6e49392b947b6015caa8"
+    },
+    {
+      "relative": "runtime\\python\\python314\\python314._pth",
+      "sha256": "8d6cd48c2319a33c4b2ee3bfc31d8eb6886c32c2a37dae9eae8ef53c2829df63"
+    },
+    {
+      "relative": "runtime\\python\\python314\\python314.dll",
+      "sha256": "6a0abe3e09cf7896c54b5b065c9a268f6545d3ca93437f7e55b9f8258bf0bc18"
+    },
+    {
+      "relative": "runtime\\python\\python314\\python314.zip",
+      "sha256": "6120caba7f9ae34503557fab91f351c6fbd92595fd63ebca3627e7ea60cf30c2"
+    },
+    {
+      "relative": "runtime\\python\\python314\\pythonw.exe",
+      "sha256": "050dbc2a1ba41fd16b994b3e1261105e19f0bef26c2392a0c98991a2ba6361e2"
+    },
+    {
+      "relative": "runtime\\python\\python314\\select.pyd",
+      "sha256": "9ff5f07cc90a570243da93031dac91d05125f4d758c9e9ac3900d1f8299f39b5"
+    },
+    {
+      "relative": "runtime\\python\\python314\\sqlite3.dll",
+      "sha256": "861f4ef7d990ed593638982957f22a1a42651bd18be3e106fe3ce450f8be1624"
+    },
+    {
+      "relative": "runtime\\python\\python314\\unicodedata.pyd",
+      "sha256": "250d659947b1a77ba822ba0a9364f6b089d6d64bf55a34d85ec69c7bd918379a"
+    },
+    {
+      "relative": "runtime\\python\\python314\\vcruntime140_1.dll",
+      "sha256": "a7146c08f89fe5b04541ab507cdb59ff7b44534d4ba3c668a426c6450a03434e"
+    },
+    {
+      "relative": "runtime\\python\\python314\\vcruntime140.dll",
+      "sha256": "d1f4225df2cd877dbf130d5668a021dce3f94118455ff5ec952061c30afc9ce7"
+    },
+    {
+      "relative": "runtime\\python\\python314\\winsound.pyd",
+      "sha256": "be55948d00addd27ea34a26aa5691d56c088c453232b4e0a56530083f293ab3b"
+    },
+    {
+      "relative": "runtime\\python\\manifest.json",
+      "sha256": "93f71583643e4dc0f4e793a692130456c1d05f75a6559c6fb5d998aef556fce5"
+    }
+  ],
+  "data": "SQLite online backup; existing token/settings; logs; quarantine; shots/auto; latest 14 monitor DB backups. No cleanup_apps or old source-code backups.",
+  "activation": "No task/process changes by Plan/Stage. Apply requires explicit quiescence and leaves all replacement tasks disabled.",
+  "rollback": "Restores original task XML with Enabled=false. Does not overwrite source data or delete either app tree."
+}
