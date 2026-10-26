@@ -1688,6 +1688,23 @@ select option:disabled{background:var(--control-muted-bg);color:var(--control-mu
 #view[data-canonical-live] .canonical-card[data-roomy]>:not(h2):not(h3):not(.live-actions){margin-block:auto}
 #view[data-canonical-live] .canonical-card.hv{flex-direction:row!important;flex-wrap:wrap!important;align-content:flex-start;align-items:baseline!important;gap:6px 16px!important}
 #view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="summary"]{align-content:center}
+#view[data-canonical-live] .canonical-card[data-live-span]{grid-column:span var(--live-span,1)!important}
+#view[data-canonical-live] [style*="--rowh"]{--rowh:64px!important}
+/* Home: the four live measures become one KPI strip; the memory chart spans two columns beside the merged notes card. */
+#view[data-canonical-live] .canonical-card[data-home-card="metrics"]{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;grid-template-rows:auto auto 1fr!important;align-items:center!important;gap:4px 14px!important;padding:12px 14px!important;min-height:0!important}
+#view[data-canonical-live] [data-home-card="metrics"]>h2{grid-column:1;grid-row:1}
+#view[data-canonical-live] [data-home-card="metrics"]>small{grid-column:1;grid-row:2}
+#view[data-canonical-live] [data-home-card="metrics"]>.live-actions{grid-column:2;grid-row:1/3;margin:0!important}
+#view[data-canonical-live] [data-home-card="metrics"]>.live-pairs{grid-column:1/-1;grid-row:3;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;flex:none!important}
+#view[data-canonical-live] [data-home-card="metrics"] .live-pairs>div{flex-direction:column-reverse!important;align-items:flex-start!important;justify-content:flex-end!important;gap:2px!important;padding:10px 12px!important;border:1px solid var(--rule)!important;border-radius:10px;background:var(--surface);min-width:0}
+#view[data-canonical-live] [data-home-card="metrics"] .live-pairs dd{font-size:26px;font-weight:700;line-height:1.15;text-align:start}
+#view[data-canonical-live] [data-home-card="metrics"] .live-pairs dt{font-size:12px}
+#view[data-canonical-live] #pwa-advice-items{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(440px,1fr));grid-auto-rows:minmax(120px,1fr);gap:10px;align-content:stretch}
+#view[data-canonical-live][data-live-fill] .canonical-card .hh-list{display:flex!important;flex-direction:column}
+#view[data-canonical-live][data-live-fill] .canonical-card .hh-list>.hh-record{flex:1 1 64px;height:auto!important;min-height:64px}
+#view[data-canonical-live] #pwa-advice-items>*{height:auto!important;min-height:0!important;margin:0!important}
+#view[data-canonical-live] #alForm fieldset.al-g:not(.al-ign){display:grid!important;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px 16px;align-content:start;align-items:end}
+#view[data-canonical-live] #alForm fieldset.al-g:not(.al-ign)>legend{grid-column:1/-1}
 /* END_FOOTER_ONLY_PAGING_20261026 */
 
 
@@ -4545,13 +4562,13 @@ const CANONICAL_WORKSPACE=(()=>{
  home:[['summary','الملخص','[data-home-card]']],
  health:[['summary','الحالة والتغطية','.hl-score,.hl-how,.hl-doms,.hl-trend'],['reliability','الاعتمادية والأحداث','.hl-strip,.hl-kt,.hl-evs'],['hardware','العتاد والأمان','.hl-hw>section.card']],
  cpu:[['usage','الاستخدام والعمليات','[data-cg-leaf],.cpu-alert,.cpu-head']],
- gpu:[['usage','الكروت والمحركات','[data-cg-region="metrics"] .gp-tile,[data-cg-region="processes"]>[data-cg-leaf],[data-cg-region="metrics"]>.gp-head'],['details','الطاقة والتفاصيل','[data-cg-region="details"]>[data-cg-leaf]'],['charts','الرسوم الأربعة','[data-cg-region="charts"] .gp-ch']],
+ gpu:[['usage','الكروت والمحركات والرسوم','[data-cg-region="metrics"]>.gp-head,[data-cg-region="metrics"] .gp-tile,[data-cg-region="processes"]>[data-cg-leaf],[data-cg-region="details"]>[data-cg-leaf],[data-cg-region="charts"] .gp-ch']],
  mem:[['usage','القياسات والفئات','[data-mp-leaf]']],
- procs:[['processes','العمليات','[data-pwa-region="metrics"] .gp-tile,[data-pwa-region="charts"] .gp-ch,[data-pwa-region="records"] .card,[data-pwa-region="items"]'],['reaper','الكانس والحماية','[data-pwa-region="tools"] .card,.pwa-controls .gp-row,.pwa-controls .pg-add,[data-pwa-region="notes"]']],
+ procs:[['processes','العمليات والكانس','[data-pwa-region="metrics"] .gp-tile,[data-pwa-region="charts"] .gp-ch,[data-pwa-region="records"] .card,[data-pwa-region="items"],[data-pwa-region="tools"] .card,.pwa-controls .gp-row,.pwa-controls .pg-add,[data-pwa-region="notes"]']],
  wsl:[['usage','الاستهلاك والتوزيعات','[data-pwa-leaf]']],
  power:[['usage','القياسات والخطة','[data-mp-leaf]']],
  space:[['overview','نظرة عامة','section.card,.gt,.sp-ctl'],['folders','المجلدات المراقبة','section.card,.gt,.sp-ctl'],['extra','تنظيفات إضافية','section.card,.gt,.sp-ctl'],['report','المكرر والكبير','section.card,.gt,.sp-ctl'],['memory','الذاكرة والسجل','section.card,.gt,.sp-ctl']],
- io:[['live','الأداء الحالي','.gp-kpis>.gp-tile,.gp-head,[data-live-io-section="0"] section.card'],['history','اليومي والتوقفات','[data-live-io-section="1"] section.card']],
+ io:[['live','الأداء والتوقفات','.gp-kpis>.gp-tile,.gp-head,[data-live-io-section="0"] section.card,[data-live-io-section="1"] section.card']],
  startup:[['items','البرامج والمصادر','.str-options,.str-body']],
  tasks:[['all','كل المهام','.str-options,.str-body']],
  rules:[['all','كل القواعد','.str-options,.str-body']],
@@ -4574,7 +4591,7 @@ const CANONICAL_WORKSPACE=(()=>{
   for(const holder of view.querySelectorAll('.str-body,.dh-history .pb')){const foot=holder.parentElement?.querySelector(':scope>#pf');if(foot)holder.append(foot)}
   view.querySelectorAll('[data-pwa-leaf],[data-cg-cpu-list],[data-cg-detail],[data-mp-leaf],[data-ap-leaf],.pwa-controls .gp-row,.pwa-controls .pg-add').forEach(n=>n.hidden=false);
   const assigned=new Set(),groups=selectors.map(selector=>{const all=[...new Set([...view.querySelectorAll(selector)].map(normalize))].filter(n=>!n.closest('dialog')&&!n.matches('.skeleton,.empty')&&!n.closest('.canonical-omit-control'));return all.filter(n=>!all.some(other=>other!==n&&other.contains(n))).filter(n=>{if(assigned.has(n))return false;assigned.add(n);return true})});
-  const destination=node=>{if(['health','space','history'].includes(route))return s.section;if(route==='gpu'){const region=node.closest('[data-cg-region]')?.dataset.cgRegion;return region==='charts'?2:region==='details'?1:0}if(route==='procs'&&node.closest('[data-pwa-region="tools"],[data-pwa-region="notes"]'))return 1;if(route==='io'&&node.closest('[data-live-io-section="1"]'))return 1;if(route==='alerts'&&!node.closest('#alForm'))return 1;return 0};
+  const destination=node=>{if(['health','space','history'].includes(route))return s.section;if(route==='alerts'&&!node.closest('#alForm'))return 1;return 0};
   const add=raw=>{const node=normalize(raw);if(!node||assigned.has(node)||[...assigned].some(other=>other.contains(node)||node.contains(other)))return;groups[destination(node)]?.push(node);assigned.add(node)};
   view.querySelectorAll('section.card,.gp-tile').forEach(n=>{if(!n.closest('dialog'))add(n)});
   // Source actions outside visual cards retain their original logical section and form owner.
@@ -4609,12 +4626,12 @@ const CANONICAL_WORKSPACE=(()=>{
  function fillRows(view,units){const shown=units.filter(n=>!n.hidden);if(!shown.length)return;const kindOf=n=>n.dataset.liveKind,spanning=n=>['summary','toolbar','records'].includes(kindOf(n));
   if(typeof getComputedStyle!=='function')return;
   const flow=shown.filter(n=>!spanning(n)).length,maxCols=Math.max(1,parseInt(view.style.getPropertyValue('--live-cols'))||1);
-  view.style.removeProperty('grid-template-rows');
+  view.style.removeProperty('grid-template-rows');const spans=shown.filter(n=>n.dataset.liveSpan);for(const n of spans)n.style.setProperty('--live-span',Math.min(Number(n.dataset.liveSpan),maxCols));
   // Real grid tracks are read back from the browser (empty/implicit ones included); free height is shared in proportion to content.
   const read=()=>{const cs=getComputedStyle(view);return{gap:parseFloat(cs.rowGap)||0,top:parseFloat(cs.paddingTop)||0,heights:String(cs.gridTemplateRows||'').split(' ').map(parseFloat).filter(Number.isFinite)}};
   let g=read();const sum=x=>x.heights.reduce((a,h)=>a+h,0)+x.gap*Math.max(0,x.heights.length-1);
   // Balanced columns (e.g. 2x2 instead of 3+1) are kept only when they still fit the planned page height.
-  if(flow>=1){const cols=Math.ceil(flow/Math.ceil(flow/maxCols));if(cols<maxCols){view.style.setProperty('--live-cols',cols);g=read()}}
+  if(flow>=1&&!spans.length){const cols=Math.ceil(flow/Math.ceil(flow/maxCols));if(cols<maxCols){view.style.setProperty('--live-cols',cols);g=read()}}
   const {gap,heights}=g;if(!heights.length)return;
   const box=view.getBoundingClientRect(),tracks=[];let offset=box.top+g.top;for(const h of heights){tracks.push({start:offset,h,kinds:[]});offset+=h+gap}
   for(const n of shown){const top=n.getBoundingClientRect().top,t=tracks.reduce((best,q)=>Math.abs(q.start-top)<Math.abs(best.start-top)?q:best,tracks[0]);t.kinds.push(kindOf(n))}
@@ -4626,6 +4643,7 @@ const CANONICAL_WORKSPACE=(()=>{
   view.dataset.liveFill=soft?'soft':'1';view.style.setProperty('grid-template-rows',sizes.map(v=>Math.floor(v)+'px').join(' '),'important')}
   // Cards of one or two lines (and consecutive toolbars) are combined into a single card; form-owned nodes never move.
  const SMALL_CARD=230;
+ const SPAN_HINTS=[['home','[data-home-card="memory"]',2],['health','.hl-score',2],['cpu','[data-cg-leaf]:has(.cpu-chart)',2]];
  const SUBMENU='.sgc,.gp-range:has([data-iosw])';
  // Cards whose content leaves a large void spread their blocks evenly instead of leaving an unexplained gap below.
  function spreadSparse(units){for(const n of units){n.removeAttribute('data-roomy');if(n.hidden||!['content','chart'].includes(n.dataset.liveKind)||n.dataset.liveMerged||n.matches('.hv')||n.closest('form'))continue;const used=[...n.children].reduce((a,c)=>a+(c.hidden||c.matches('h2,h3')?0:c.getBoundingClientRect().height),0);if(n.clientHeight>0&&n.scrollHeight<=n.clientHeight+1&&used<n.clientHeight*0.55)n.dataset.roomy='1'}}
@@ -4635,13 +4653,13 @@ const CANONICAL_WORKSPACE=(()=>{
   // Members of one form may merge only with each other, so the wrapper stays inside that form and field ownership never changes.
   for(const kind of ['toolbar','content']){const pool=out.filter(n=>n.dataset.liveKind===kind&&!n.hidden&&!n.matches('.al-act')&&!n.querySelector('form')&&(kind==='toolbar'||(natural(n)>0&&natural(n)<=SMALL_CARD)));const groups=new Map();for(const n of pool){const k=owner(n);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(n)}
    for(const list of groups.values()){if(list.length<2)continue;const w=wrap(list,kind),at=out.indexOf(list[0]);if(kind==='content'&&natural(w)<=220){w.dataset.liveKind='toolbar';w.dataset.liveWide='1'}out=out.filter(n=>!list.includes(n));out.splice(at,0,w)}}
-  out.forEach((n,i)=>{if(!n.dataset.liveMerged)n.dataset.liveCard=String(i)});return out}
+  out.forEach((n,i)=>{n.dataset.liveCard=String(i);if(n.dataset.liveMerged)for(const inner of n.querySelectorAll('[data-live-card]'))inner.dataset.liveCard=String(i)});return out}
  function apply(route=tab){if(running||!profiles[route]||route!==tab)return;const view=document.getElementById('view');if(!view)return;running=true;observer?.disconnect();try{for(const w of view.querySelectorAll('.merged-card')){while(w.firstChild)w.before(w.firstChild);w.remove()}delete view.dataset.liveFill;view.style.removeProperty('grid-template-rows');chrome();restorePresentation(view);const s=current(route),config=profiles[route],groups=sectionCards(view,route);s.section=Math.min(s.section,config.length-1);let units=(groups[s.section]||[]).filter(n=>!n.matches(SUBMENU));const box=view.getBoundingClientRect(),cap=capacity(box.width||view.clientWidth||900,box.height||view.clientHeight||500),budget=Math.max(120,box.height||view.clientHeight||500),anchor=s.pages?.[s.page]?.[0]??0;
    view.dataset.canonicalLive=route;view.style.setProperty('--live-cols',cap.cols);view.style.setProperty('--live-card-limit',budget+'px');const all=new Set(groups.flat());
-   for(const node of all){node.classList.add('canonical-card');node.dataset.liveKind=node.matches('.gp-kpis,.sp-tiles,.hl-doms')?'summary':node.matches('button,select,input,.gp-head,.sp-ctl,.cpu-head,.gp-range,.dh-db-head,.dh-db-options,.dh-history-options,.str-options,.al-act')?'toolbar':node.matches('.str-body,.dh-history .pb,.dh-db-card')?'records':node.querySelector('.gp-plot,.cpu-chart,.hplot,.live-memory-plot')?'chart':'content';node.dataset.liveCard=String(units.indexOf(node));node.dataset.liveSection=String(groups.findIndex(g=>g.includes(node)));node.hidden=!units.includes(node);let parent=node.parentElement;while(parent&&parent!==view){parent.hidden=false;parent.classList.add('canonical-shell');parent=parent.parentElement}}
+   for(const node of all){node.classList.add('canonical-card');node.dataset.liveKind=node.matches('.gp-kpis,.sp-tiles,.hl-doms,[data-home-card="metrics"]')?'summary':node.matches('button,select,input,.gp-head,.sp-ctl,.cpu-head,.gp-range,.dh-db-head,.dh-db-options,.dh-history-options,.str-options,.al-act')?'toolbar':node.matches('.str-body,.dh-history .pb,.dh-db-card')?'records':node.querySelector('.gp-plot,.cpu-chart,.hplot,.live-memory-plot')?'chart':'content';{const hint=SPAN_HINTS.find(h=>h[0]===route&&node.matches(h[1]));if(hint)node.dataset.liveSpan=String(hint[2]);else delete node.dataset.liveSpan}node.dataset.liveCard=String(units.indexOf(node));node.dataset.liveSection=String(groups.findIndex(g=>g.includes(node)));node.hidden=!units.includes(node);let parent=node.parentElement;while(parent&&parent!==view){parent.hidden=false;parent.classList.add('canonical-shell');parent=parent.parentElement}}
    view.querySelectorAll(ignored).forEach(n=>{if(![...all].some(card=>card===n||card.contains(n)))n.classList.add('canonical-omit')});const walk=node=>{for(const child of [...node.children]){if(all.has(child))continue;if(child.classList.contains('canonical-shell'))walk(child);else child.classList.add('canonical-omit')}};walk(view);units=mergeSmall(view,units);
    
-   const sizes=units.map(card=>({height:card.getBoundingClientRect().height||({summary:106,toolbar:44,records:270,chart:200,content:180}[card.dataset.liveKind]),span:['summary','toolbar','records'].includes(card.dataset.liveKind)?cap.cols:1}));s.pages=canonicalSequentialPages(sizes,cap.cols,budget,12);s.page=Math.max(0,s.pages.findIndex(page=>page.includes(Math.min(anchor,Math.max(0,units.length-1)))));if(s.wantLast>0){s.page=s.pages.length-1;s.wantLast--}const chosen=new Set(s.pages[s.page]);units.forEach((node,i)=>node.hidden=!chosen.has(i));s.totalPages=s.pages.length;s.count=chosen.size;view.dataset.liveCapacity=String(s.count);
+   const sizes=units.map(card=>({height:card.getBoundingClientRect().height||({summary:106,toolbar:44,records:270,chart:200,content:180}[card.dataset.liveKind]),span:['summary','toolbar','records'].includes(card.dataset.liveKind)?cap.cols:Math.min(cap.cols,Number(card.dataset.liveSpan)||1)}));s.pages=canonicalSequentialPages(sizes,cap.cols,budget,12);s.page=Math.max(0,s.pages.findIndex(page=>page.includes(Math.min(anchor,Math.max(0,units.length-1)))));if(s.wantLast>0){s.page=s.pages.length-1;s.wantLast--}const chosen=new Set(s.pages[s.page]);units.forEach((node,i)=>node.hidden=!chosen.has(i));s.totalPages=s.pages.length;s.count=chosen.size;view.dataset.liveCapacity=String(s.count);
    const nav=document.getElementById('liveSections'),key=route+'|'+s.section;if(nav.dataset.key!==key){nav.innerHTML=config.map(([id,label],i)=>`<button type="button" class="btn ${i===s.section?'go':'line'}" data-live-section="${i}" aria-pressed="${i===s.section}">${esc(label)}</button>`).join('');nav.dataset.key=key}
    document.getElementById('liveSectionLabel').textContent=config[s.section][1];document.getElementById('livePageCount').textContent=(s.page+1)+' من '+s.pages.length;document.querySelector('#livePager [data-live-dir="-1"]').disabled=s.page===0&&s.section===0;document.querySelector('#livePager [data-live-dir="1"]').disabled=s.page===s.pages.length-1&&s.section===config.length-1;fillRows(view,units);spreadSparse(units);draw(view);
   }finally{running=false;if(observer)observer.observe(view,{childList:true,subtree:true})}}
@@ -4654,6 +4672,11 @@ const CANONICAL_WORKSPACE=(()=>{
  function goPage(delta){const s=current(),config=profiles[tab],next=s.page+delta;if(next>=0&&next<(s.totalPages||1)){s.page=next;apply();return true}const section=s.section+(delta>0?1:-1);if(!config||section<0||section>=config.length)return false;s.wantLast=delta<0?3:0;goSection(section);return true}
 
  document.addEventListener('click',e=>{const b=e.target.closest?.('[data-live-section],[data-live-dir]');if(!b){schedule();return;}e.preventDefault();if(b.dataset.liveSection!==undefined)goSection(Number(b.dataset.liveSection));else goPage(Number(b.dataset.liveDir))});
+ // Mouse wheel drives the footer counter back and forth; a card or list that can still scroll in that direction scrolls natively first.
+ let wheelAt=0,nativeAt=0;
+ document.addEventListener('wheel',e=>{const view=document.getElementById('view');if(!view?.dataset.canonicalLive||!view.contains(e.target)||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||Math.abs(e.deltaY)<=Math.abs(e.deltaX)||!e.deltaY)return;if(e.target.closest?.('input,select,textarea,[contenteditable="true"]'))return;
+  const dir=e.deltaY>0?1:-1;for(let n=e.target.nodeType===1?e.target:e.target.parentElement;n&&n!==view;n=n.parentElement){if(!/^(auto|scroll)$/.test(getComputedStyle(n).overflowY)||n.scrollHeight<=n.clientHeight+1)continue;const atEdge=dir>0?n.scrollTop+n.clientHeight>=n.scrollHeight-1:n.scrollTop<=0;if(!atEdge){nativeAt=Date.now();return}}
+  const now=Date.now();e.preventDefault();e.stopImmediatePropagation();if(now-nativeAt<400||now-wheelAt<380||Math.abs(e.deltaY)<4)return;if(goPage(dir))wheelAt=now;},{capture:true,passive:false});
  chrome();if(typeof MutationObserver!=='undefined'){observer=new MutationObserver(records=>{if(records.some(r=>!r.target.closest?.('.gp-plot,.cpu-chart,.live-memory-plot,#io-heat-host,#io-daily,svg'))){schedule()}});const view=document.getElementById('view');if(view)observer.observe(view,{childList:true,subtree:true})}window.addEventListener('resize',schedule);
  return{profiles,state,current,capacity,collect:sectionCards,plan:canonicalSequentialPages,paginateCard,innerState,apply,goSection,goPage,schedule};
 })();
