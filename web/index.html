@@ -76,6 +76,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
 .live.err i{background:var(--bad);animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
+.tag .x{margin-inline-start:4px;padding:0 4px;border-radius:6px;color:var(--ink3);font-size:14px;line-height:1}.tag .x:hover{color:var(--bad)}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--line2);border-radius:10px;background:var(--panel);color:var(--ink);font-size:13px;transition:border-color .15s,background .15s,transform .15s}
 .btn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:var(--panel2)}
 .btn:active{transform:translateY(1px)}
@@ -349,7 +350,8 @@ const PAGES = {
     render([h, rl]) {
       if (!h) return `<div class="banner">تعذّر قراءة بيانات الصحة.</div>`;
       const s = h.score, [vt, vl] = verdict(s.score), fc = h.forecast || {}, g = h.gpu?.now;
-      let out = panel("الدرجة", `<div class="hero grow" style="flex-direction:column;justify-content:center;text-align:center">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row" style="margin-top:8px">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${p.max - p.pts}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
+      let out = panel("شرح بالذكاء المحلي", `<p class="note">يكتب النموذج المحلي شرحًا لحالة الجهاز أو لأخطاء السجل؛ قد يستغرق دقيقة.</p><div class="acts"><button class="btn primary" data-explain="health">اشرح صحة الجهاز</button><button class="btn" data-explain="errors">اشرح أخطاء السجل</button><button class="btn" data-explain="unload">تفريغ النموذج من الذاكرة</button></div>`, { cls: "c12" });
+      out += panel("الدرجة", `<div class="hero grow" style="flex-direction:column;justify-content:center;text-align:center">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row" style="margin-top:8px">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${p.max - p.pts}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
       out += panel("المكوّنات", `<div class="list">${(s.parts || []).map(p => `<div class="li"><span class="t">${esc(p.label)}</span><span class="r">${p.pts == null ? "—" : `<bdi dir="ltr" class="q">${p.pts}/${p.max}</bdi>`}</span><span class="d">${esc(p.why || "")}</span><div class="meter ${p.pts == null ? "" : p.pts < p.max * .6 ? "bad" : p.pts < p.max ? "warn" : ""}"><i style="width:${p.pts == null ? 0 : clamp(p.pts / p.max * 100, 0, 100)}%"></i></div></div>`).join("")}</div>`, { cls: "c7" });
       out += panel("اتجاه الدرجة", `<div id="hhChart" class="grow"></div>`, { cls: "c7", meta: `آخر ${(h.history || []).length} يومًا` });
       out += panel("توقع المساحة", `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("معدل التغيّر", (fc.slopeGBday > 0 ? "−" : "+") + nf(Math.abs(fc.slopeGBday), 2), "GB/يوم")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
@@ -448,10 +450,14 @@ const confirmDlg = (text, okLabel = "تأكيد") => new Promise(res => {
   d.innerHTML = `<form method="dialog"><p>${esc(text)}</p><div class="dlg-act"><button class="btn" value="no">إلغاء</button><button class="btn primary" value="yes" autofocus>${esc(okLabel)}</button></div></form>`;
   d.addEventListener("close", () => { res(d.returnValue === "yes"); d.remove(); }); document.body.append(d); d.showModal();
 });
+const ERR_AR = { "not allowed": "غير مسموح", "bad name": "اسم غير صالح", "bad action": "إجراء غير صالح", "bad tier": "مستوى غير صالح", confirm_required: "يلزم تأكيد العملية",
+  candidates_changed: "تغيّرت الملفات المرشّحة للحذف منذ المعاينة؛ أعد المعاينة", "seen_mb required": "عاين أولاً قبل التنفيذ", "a manual cleanup is already running": "تنظيف يدوي يعمل الآن",
+  "trim already running": "تنظيف الذاكرة يعمل الآن", unauthorized: "انتهت الجلسة", "bad origin": "مصدر الطلب غير مسموح" };
 async function post(path, body) {
-  const r = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  const send = data => fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data || {}) });
+  let r = await send(body), j = await r.json().catch(() => ({}));
+  if (r.status === 428 && j.confirm) { r = await send({ ...body, confirm: j.confirm }); j = await r.json().catch(() => ({})); }   // one-time token: the user already confirmed in the dialog
+  if (!r.ok) throw new Error(ERR_AR[j.error] || j.error || ("HTTP " + r.status));
   return j;
 }
 const act = async (fn, okMsg) => { try { await fn(); toast(okMsg); await show(); } catch (e) { toast("تعذّر: " + e.message, true); } };
@@ -463,6 +469,98 @@ const sev = s => /err|crit|bad|fail/.test(s) ? "bad" : /warn/.test(s) ? "warn" :
 const stack = (items, pal) => `<div class="stackbar">${items.map((c, i) => `<i title="${esc(c.label)}" style="flex:${Math.max(c.v, .001)};background:${pal[i % pal.length]}"></i>`).join("")}</div>`;
 const PAL = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
 const pager = (id, total, size, off) => `<div class="pager"><button class="btn" data-pg="${id}" data-off="${Math.max(0, off - size)}" ${off <= 0 ? "disabled" : ""}>السابق</button><span class="note">${Q(total ? off + 1 : 0)}–${Q(Math.min(total, off + size))} من ${Q(total)}</span><button class="btn" data-pg="${id}" data-off="${off + size}" ${off + size >= total ? "disabled" : ""}>التالي</button></div>`;
+/* ───────── space cleanup (preview → confirm → clean) ───────── */
+const SPV = {}, SPALL = { s: null };
+const fmtMB = mb => mb >= 1024 ? Q(mb / 1024, "GB", 2) : Q(mb, "MB");
+function spaceKinds(d) {
+  const lab = d.labels || {}, seen = new Set(), rows = [];
+  const add = (kind, label, o = {}) => { if (!kind || seen.has(kind)) return; seen.add(kind); rows.push({ kind, label: label || lab[kind] || kind, ...o }); };
+  (d.items || []).filter(i => i.clean).forEach(i => add(i.clean, i.label, { note: i.advice }));
+  (d.bulk || []).forEach(k => add(k));
+  (d.extras?.items || []).forEach(x => add(x.key, x.label, { note: x.note, blockedBy: x.blockedBy, last: x.last, admin: x.admin, job: x.job, mb: x.mb, lockedMB: x.lockedMB, monthly: x.key === "dism" ? x.monthly : undefined }));
+  if (d.winold?.present) add("winold", lab.winold || "Windows.old");
+  return rows;
+}
+function spCtl(r, d) {
+  const v = SPV[r.kind] || {}, wo = r.kind === "winold" ? d.winold : null, k = esc(r.kind);
+  if (wo?.job?.state === "running" || r.job?.state === "running") return '<span class="tag warn">يعمل في الخلفية…</span>';
+  if (r.blockedBy && !v.busy && !v.res) return `<span class="tag warn">أغلق ${esc(r.blockedBy)} أولاً</span>`;
+  if (v.busy) return '<span class="tag">جارٍ…</span>';
+  const res = v.res;
+  if (res?.ok && res.dry) return `<span class="acts">يتحرّر <b>${fmtMB(res.mb || 0)}</b><button class="btn primary" data-sp="clean" data-spk="${k}"${wo && !wo.eligible ? ' data-early="1"' : ""}>${wo && !wo.eligible ? "تأكيد الحذف الآن" : "تأكيد"}</button><button class="btn" data-sp="cancel" data-spk="${k}">إلغاء</button></span>`;
+  if (res?.ok && res.started) return '<span class="tag warn">بدأ الحذف في الخلفية</span>';
+  if (res?.ok) return `<span class="tag ok">تحرّر ${fmtMB(res.mb || 0)}</span>${res.skipped ? ` <span class="note">+${Q(res.skipped)} متروك</span>` : ""}`;
+  if (res) return `<span class="tag bad">${esc(res.error || "تعذّر")}</span>`;
+  const hasAuto = d.auto && r.kind in d.auto;
+  return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note">تلقائي</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`)}` : '<span class="tag">يدوي</span>'}${r.monthly !== undefined ? `<span class="note">شهري</span>${sw(!!r.monthly, 'data-sp="dismmonthly"')}` : ""}</span>`;
+}
+function spaceCleanPanel(d) {
+  const rec = d.recoverableMB || {}, rows = spaceKinds(d), bulkMB = (d.bulk || []).reduce((a, k) => a + (rec[k] || 0), 0);
+  const all = SPALL.s === "busy" ? '<span class="tag">جارٍ التنظيف…</span>' : `<button class="btn primary" data-sp="all">تنظيف الآمن كله (${fmtMB(bulkMB)})</button>`;
+  const head = `<div class="toolbar"><button class="btn" data-sp="scan">${d.running ? "يجري قياس…" : "قياس الآن"}</button><button class="btn" data-sp="report">${d.extras?.report?.busy ? "التقرير قيد الإعداد…" : "تقرير المكرر والكبير"}</button>${all}</div>`;
+  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? ' <span class="tag">مدير</span>' : ""}</td><td class="note" style="max-width:340px">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td>${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
+  return panel("تنظيف المساحة", head + body, { cls: "c12" });
+}
+function spaceReportPanel(d) {
+  const R = d.extras?.report, x = R?.data;
+  if (!x) return panel("المكرر والكبير", `<div class="empty">${R?.busy ? "التقرير قيد الإعداد…" : "لم يُجرَ تقرير بعد — اضغط «تقرير المكرر والكبير» في لوحة التنظيف."}</div>`, { cls: "c12" });
+  const dup = (x.dups || []).slice(0, 12).map(g => `<div class="li"><span class="t">${Q(g.n)} نسخ · ${fmtMB(g.size / 1048576)} للنسخة</span><span class="r"><span class="tag warn">هدر ${fmtMB(g.wasted / 1048576)}</span></span><span class="d" dir="ltr" style="text-align:start">${esc(g.paths[0])}</span></div>`).join("");
+  const big = (x.large || []).slice(0, 15).map(f => `<div class="li"><span class="t" dir="ltr" style="text-align:start;overflow:hidden;text-overflow:ellipsis" title="${esc(f.path)}">${esc(f.path.split("\\").pop())}</span><span class="r">${fmtMB(f.mb)}</span><span class="d" dir="ltr" style="text-align:start">${esc(f.path)}</span></div>`).join("");
+  return panel("ملفات مكررة", `<div class="note">للعرض فقط؛ لا يحذف التطبيق منها شيئًا. المهدر الإجمالي ${fmtMB(x.dupWastedMB || 0)}</div><div class="list scrollbox">${dup || '<div class="empty">لا مكرر</div>'}</div>`, { cls: "c6", meta: when(x.ts) })
+    + panel("أكبر الملفات", `<div class="list scrollbox">${big || '<div class="empty">—</div>'}</div><div class="note">${Q(x.emptyCount)} مجلدًا فارغًا</div>`, { cls: "c6" });
+}
+const infoDlg = text => new Promise(res => {
+  const d = document.createElement("dialog"); d.className = "dlg";
+  d.innerHTML = `<form method="dialog"><p style="white-space:pre-wrap;max-height:60vh;overflow:auto">${esc(text)}</p><div class="dlg-act"><button class="btn primary" value="ok" autofocus>إغلاق</button></div></form>`;
+  d.addEventListener("close", () => { res(); d.remove(); }); document.body.append(d); d.showModal();
+});
+async function explainAction(t) {
+  if (explainAction.busy) return; explainAction.busy = true; const k = t.dataset.explain;
+  try {
+    if (k === "unload") { const r = await post("/api/llm-unload", {}); toast(r.text || "فُرّغ النموذج"); }
+    else { toast(k === "health" ? "النموذج المحلي يكتب الشرح… قد يستغرق دقيقة" : "أقرأ السجل وأشرح الأخطاء… قد يستغرق دقيقة"); const r = await post(k === "health" ? "/api/explain" : "/api/explain-errors", k === "health" ? { kind: "health" } : {}); await infoDlg(r.text + (r.model ? `\n\n${r.model} · ${r.ms} ms` : "")); }
+  } catch (e) { toast("تعذّر: " + e.message, true); } finally { explainAction.busy = false; }
+}
+async function reaperRun(t) {
+  const dry = t.dataset.reaprun === "dry";
+  if (!dry && !(await confirmDlg("تشغيل الكانس الآن فعليًا؟ يُنهي الشلات الخاملة المطابقة لشروطه، والمحميّ مستثنى. ينفّذه سكربت MachineCare نفسه."))) return;
+  t.disabled = true; toast(dry ? "جارٍ فحص الشلات…" : "جارٍ تشغيل الكانس…");
+  try { const r = await post("/api/reaper-run", { dry }); toast(r.ok ? (dry ? `الفحص: ${r.candidates} مرشّح، لم يُنهَ شيء` : `أُنهي ${r.killed} من ${r.candidates} مرشّح`) : "تعذّر: " + (r.error || "فشل التشغيل"), !r.ok); show(true); }
+  catch (e) { toast("تعذّر: " + e.message, true); } finally { t.disabled = false; }
+}
+async function runTier(t) {
+  const k = t.dataset.runtier, dry = t.dataset.dry === "1", L = { daily: "اليومي", weekly: "الأسبوعي", monthly: "الشهري", quarterly: "الربع سنوي" }[k];
+  if (!dry && !(await confirmDlg(`تنفيذ فعلي للتنظيف ${L}؟ ستُحذف الملفات المطابقة للقواعد المفعّلة.`, "نفّذ"))) return;
+  act(() => post("/api/run-cleanup", { tier: k, dry }), dry ? "بدأت التجربة" : "بدأ التنفيذ");
+}
+function redraw() { if (!page || !last) return; const y = scrollY; $("#main").innerHTML = page.render(last); page.after?.(last); scrollTo(0, y); }
+async function spAction(t) {
+  const a = t.dataset.sp, k = t.dataset.spk, d = last?.[0], later = (ms, f) => setTimeout(f, ms), reload = () => show(true);
+  try {
+    if (a === "preview") { SPV[k] = { busy: true }; redraw(); try { SPV[k] = { res: await post("/api/space", { action: "preview", kind: k }) }; } catch (e) { SPV[k] = { res: { ok: false, error: e.message } }; } redraw(); }
+    else if (a === "cancel") { delete SPV[k]; redraw(); }
+    else if (a === "clean") {
+      const early = t.dataset.early === "1";
+      if (early && !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن"))) return;
+      const seen = Math.round(SPV[k]?.res?.mb || 0); SPV[k] = { busy: true }; redraw();
+      try { SPV[k] = { res: await post("/api/space", { action: "clean", kind: k, seen_mb: seen, ...(early ? { early: true } : {}) }) }; } catch (e) { SPV[k] = { res: { ok: false, error: e.message } }; }
+      redraw(); later(5000, reload); later(15000, () => { delete SPV[k]; redraw(); });
+    }
+    else if (a === "all") {
+      const rec = d.recoverableMB || {}, mb = (d.bulk || []).reduce((s, x) => s + (rec[x] || 0), 0);
+      if (!(await confirmDlg(`تنظيف كل الأنواع الآمنة (${(d.bulk || []).map(x => (d.labels || {})[x] || x).join("، ")}) — المتوقع تحرير ${Math.round(mb)} MB؟`))) return;
+      SPALL.s = "busy"; redraw();
+      try { const r = await post("/api/space", { action: "cleanall", seen_mb: Math.round(mb) }); toast(`حُرّر ${Math.round(r.mb || 0)} MB`); } catch (e) { toast("تعذّر التنظيف: " + e.message, true); }
+      SPALL.s = null; reload();
+    }
+    else if (a === "auto") { await post("/api/space", { action: "auto", kind: k, on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
+    else if (a === "dismmonthly") { await post("/api/space", { action: "dismmonthly", on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
+    else if (a === "scan") { await post("/api/space", { action: "scan" }); toast("بدأ القياس"); later(20000, reload); reload(); }
+    else if (a === "report") { await post("/api/space", { action: "report" }); toast("بدأ إعداد التقرير"); later(15000, reload); later(45000, reload); }
+    else if (a === "qr") { const r = await post("/api/space", { action: "qrestore", id: Number(t.dataset.id) }); toast(r.ok ? "استُرجع العنصر إلى مكانه الأصلي" : "تعذّر الاسترجاع: " + (r.error || ""), !r.ok); reload(); }
+  } catch (e) { toast("تعذّر: " + e.message, true); }
+}
+
 const ui = { ioDev: "disk0", evOff: 0, evSev: "", evQ: "", runOff: 0, dbTable: "", dbOff: 0, spaceRange: "24h" };
 
 Object.assign(PAGES, {
@@ -470,15 +568,15 @@ Object.assign(PAGES, {
     title: "العمليات", sub: "مصادر استهلاك الموارد قبل إيقاف أي عمل", icon: "list",
     async load() { return settle(api("/api/procs")); },
     render([d]) {
-      if (!d) return `<div class="banner">تعذّر قراءة العمليات.</div>`;
+      if (!d || !d.cats) return `<div class="banner">تعذّر قراءة العمليات.</div>`;
       const r = d.reaper || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1;
       let out = panel("الملخص", `<div class="kpis">${kpi("كل العمليات", Q(d.total), "", `${Q(d.cats.length)} فئات`)}${kpi("Claude", Q(d.claudeTotal), "", `${Q(d.claudeMB / 1024, "GB", 1)} ذاكرة`)}${kpi("نوافذ conhost", Q(d.conhost))}${kpi("الشلات", Q(d.shellTotal), "", `${Q(d.orphans)} يتيمة · ${Q(d.bareNow)} عارية`)}</div>`);
       out += panel("حسب الفئة", `${stack(d.cats.map(c => ({ label: c.label, v: c.mb })), PAL)}<div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i class="dot" style="background:${PAL[i % PAL.length]}"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${Q(c.n)} عملية · ${Q(c.cores, "نواة", 2)} · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
       out += panel("الأكثر استهلاكًا للمعالج", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">PID</th><th class="n">المعالج</th><th class="n">الذاكرة</th></tr></thead><tbody>${d.topCpu.map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.pid)}</td><td class="n">${Q(p.cores, "نواة", 2)}</td><td class="n">${Q(p.mb, "MB")}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
       out += panel("الشلات", `<table class="tbl"><thead><tr><th>الشل</th><th>الأب</th><th class="n">العمر</th><th class="n">الذاكرة</th><th>الحالة</th></tr></thead><tbody>${d.shells.map(s => `<tr><td>${esc(s.name)} <span class="note">${Q(s.pid)}</span></td><td>${esc(s.parent || "—")}</td><td class="n">${dur(s.age)}</td><td class="n">${Q(s.mb, "MB")}</td><td>${s.orphan ? '<span class="tag warn">يتيم</span>' : s.bare ? '<span class="tag warn">عارٍ</span>' : '<span class="tag ok">سليم</span>'}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا شلات</td></tr>`}</tbody></table>`, { cls: "c7", meta: `${Q(d.shellTotal)} شلًا` });
       out += panel("عمليات Claude", `<table class="tbl"><thead><tr><th>PID</th><th class="n">العمر</th><th class="n">الذاكرة</th><th class="n">معالج</th></tr></thead><tbody>${d.claude.map(c => `<tr><td>${Q(c.pid)}</td><td class="n">${dur(c.age)}</td><td class="n">${Q(c.mb, "MB")}</td><td class="n">${Q(c.cores, "نواة", 2)}</td></tr>`).join("")}</tbody></table>`, { cls: "c5", meta: `${Q(d.claudeTotal)} عملية` });
-      out += panel("الكانس", `<div class="pill-row"><span class="tag ${r.mode === "Apply" ? "ok" : "warn"}">${r.mode === "Apply" ? "تنفيذ فعلي" : "تجربة فقط"}</span><span class="tag">عمر أقصى ${Q(r.maxAgeMin, "د")}</span><span class="tag">معالج أقصى ${Q(r.maxCpuS, "ث")}</span><span class="tag">عارٍ بعد ${Q(r.bareMin, "د")}</span></div><div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("أُنهيت / 24س", Q(r.killed24h))}${kpi("كانت ستُنهى", Q(r.would24h))}</div><div class="row-sw"><span>إنهاء الشلات العارية تلقائيًا</span>${sw(!!r.killBare, 'data-reaper="1"')}</div><div class="list">${(r.acts || []).slice(0, 5).map(a => `<div class="li"><span class="t">${esc(a.text)}</span><span class="r note">${when(a.ts)}</span></div>`).join("")}</div>`, { cls: "c6" });
-      out += panel("عمليات محمية", `<div class="pill-row">${(r.protect || []).map(x => `<span class="tag">${esc(typeof x === "string" ? x : x.name || JSON.stringify(x))}</span>`).join("") || '<span class="note">لا شيء</span>'}</div>`, { cls: "c6" });
+      out += panel("الكانس", `<div class="pill-row"><span class="tag ${r.mode === "Apply" ? "ok" : "warn"}">${r.mode === "Apply" ? "تنفيذ فعلي" : "تجربة فقط"}</span><span class="tag">عمر أقصى ${Q(r.maxAgeMin, "د")}</span><span class="tag">معالج أقصى ${Q(r.maxCpuS, "ث")}</span><span class="tag">عارٍ بعد ${Q(r.bareMin, "د")}</span></div><div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("أُنهيت / 24س", Q(r.killed24h))}${kpi("كانت ستُنهى", Q(r.would24h))}</div><div class="row-sw"><span>إنهاء الشلات العارية تلقائيًا</span>${sw(!!r.killBare, 'data-reaper="1"')}</div><div class="acts"><button class="btn" data-reaprun="dry">فحص (بلا إنهاء)</button><button class="btn primary" data-reaprun="real">تشغيل الكانس الآن</button></div><div class="field-row"><span>الشل العاري بعد (دقيقة، 60–2880)</span><span class="acts"><input class="inp" id="bareMin" type="number" dir="ltr" min="60" max="2880" value="${esc(r.bareMin ?? 240)}" style="width:90px"><button class="btn" data-baremin="1">حفظ</button></span></div><div class="list">${(r.acts || []).slice(0, 5).map(a => `<div class="li"><span class="t">${esc(a.text)}</span><span class="r note">${when(a.ts)}</span></div>`).join("")}</div>`, { cls: "c6" });
+      out += panel("عمليات محمية", `<div class="pill-row">${(r.protect || []).map(x => { const n = String(typeof x === "string" ? x : x.name || JSON.stringify(x)).replace(/\\\./g, "."); return `<span class="tag">${esc(n)} <button class="x" data-protdel="${esc(n)}" aria-label="إزالة ${esc(n)}">×</button></span>`; }).join("") || '<span class="note">لا شيء</span>'}</div><div class="field-row"><span>إضافة اسم محمي</span><span class="acts"><input class="inp" id="protIn" dir="ltr" maxlength="64" placeholder="backup.exe" style="width:170px"><button class="btn" data-protadd="1">إضافة</button></span></div>`, { cls: "c6" });
       return out;
     }
   },
@@ -547,7 +645,7 @@ Object.assign(PAGES, {
       if (!d) return `<div class="banner">تعذّر قراءة المساحة.</div>`;
       const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
       let out = panel("القرص C", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c7" });
-      out += panel("التنظيف التلقائي", `<div class="pill-row">${Object.entries(d.auto || {}).map(([k, v]) => `<span class="tag ${v ? "ok" : ""}">${esc(k)} ${v ? "✓" : "—"}</span>`).join("")}</div><p class="note">التنفيذ الفعلي والمعاينة التفصيلية للأنواع الإضافية من الواجهة الحالية لضمان تأكيدات الأمان.</p>`, { cls: "c5" });
+      out += spaceCleanPanel(d) + spaceReportPanel(d);
       out += panel("المجلدات المراقبة", `<table class="tbl"><thead><tr><th>المجلد</th><th class="n">الحجم</th><th class="n">التغير</th><th class="n">ملفات</th><th>نصيحة</th></tr></thead><tbody>${(d.items || []).map(i => `<tr><td>${esc(i.label)}</td><td class="n">${Q(i.gb, "GB", 2)}</td><td class="n">${i.delta ? `<span class="tag ${i.delta > 0 ? "warn" : "ok"}">${i.delta > 0 ? "+" : ""}${Q(i.delta, "", 2)}</span>` : "—"}</td><td class="n">${Q(i.files)}</td><td class="note">${esc(i.advice || "")}</td></tr>`).join("")}</tbody></table>`);
       out += panel("المساحة الحرة", `<div id="spChart" class="grow"></div>`, { cls: "c8" });
       out += panel("أكبر الهبوط", `<div class="list">${(d.drops || []).map(x => `<div class="li"><span class="t">${when(x.from)}</span><span class="r"><span class="tag bad">−${Q(x.gb, "GB", 1)}</span></span><span class="d">من ${Q(x.hi, "GB", 1)} إلى ${Q(x.lo, "GB", 1)}</span></div>`).join("") || '<div class="empty">لا هبوط ملحوظ</div>'}</div>`, { cls: "c4" });
@@ -556,8 +654,7 @@ Object.assign(PAGES, {
       out += panel("الأقراص", `<div class="list">${(d.drives || []).map(x => `<div class="li"><span class="t">${esc(x.letter)}: ${esc(x.label)}</span><span class="r">${Q(x.free, "GB", 1)} حرّ</span><span class="d">${Q(x.used, "GB", 1)} من ${Q(x.total, "GB", 1)}</span>${meter(x.used, x.total * .85, x.total * .93, x.total)}</div>`).join("")}</div>`, { cls: "c4" });
       out += panel("ما يشغله القرص C", d.volume ? vp(d.volume.parts, d.volume.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4", meta: d.volume ? `${Q(d.volume.used, "GB", 1)} مستخدم` : "" });
       out += panel("القرص D", d.dvol?.D ? vp(d.dvol.D.parts, (d.drives || []).find(x => x.letter === "D")?.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4" });
-      out += panel("تنظيفات إضافية", `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل</th><th>الحالة</th><th class="n">آخر تنفيذ</th></tr></thead><tbody>${(d.extras?.items || []).map(x => `<tr><td><b>${esc(x.label)}</b></td><td class="note">${esc(x.note)}</td><td class="n">${Q(x.mb, "MB", 1)}</td><td>${x.blockedBy ? `<span class="tag warn">${esc(x.blockedBy)}</span>` : x.auto ? '<span class="tag ok">تلقائي</span>' : '<span class="tag">يدوي</span>'}${x.admin ? ' <span class="tag">مدير</span>' : ""}</td><td class="n note">${x.last ? `${when(x.last.ts)} · ${Q(x.last.mb, "MB", 1)}` : "—"}</td></tr>`).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`, { cls: "c8" });
-      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td></tr>`).join("") || '<tr><td colspan="3" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c4", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
+      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c4", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
       return out;
     },
     after([d]) { if (!d?.hist?.length) return; const ix = compact(d.hist, 170), H = ix.map(i => d.hist[i]); chart($("#spChart"), { t: H.map(x => x[0]), series: [{ id: "s", name: "حرّ", color: "var(--accent)", v: H.map(x => x[1]), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...H.map(x => x[1])) * .97, height: 220, yFmt: v => nf(v, 0) }); }
@@ -590,7 +687,7 @@ Object.assign(PAGES, {
     render([d, mini]) {
       if (!d) return `<div class="banner">تعذّر قراءة القواعد.</div>`;
       const tiers = [["daily", "يومي"], ["weekly", "أسبوعي"], ["monthly", "شهري"], ["quarterly", "ربع سنوي"]], last = d.ruleLast || {};
-      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts"><span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id]; return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(r.action)}</span></td><td class="note" style="max-width:420px">${esc(r.description || "")}</td><td>${x ? `<span class="tag ${sev(x.status)}">${esc(x.status)}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
+      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts">${d.manual?.running && d.manual.tier === k ? '<span class="tag warn">يعمل الآن</span>' : `<button class="btn" data-runtier="${k}" data-dry="1">${k === "quarterly" ? "تشغيل التقرير" : "تجربة"}</button>${k === "quarterly" ? "" : `<button class="btn primary" data-runtier="${k}" data-dry="0">تنفيذ فعلي</button>`}`}<span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id]; return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(r.action)}</span></td><td class="note" style="max-width:420px">${esc(r.description || "")}</td><td>${x ? `<span class="tag ${sev(x.status)}">${esc(x.status)}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
     }
   },
 
@@ -696,6 +793,13 @@ document.addEventListener("click", async e => {
   if (t.dataset.pg) { const id = t.dataset.pg, off = +t.dataset.off; if (id === "ev") ui.evOff = off; else if (id === "run") ui.runOff = off; else ui.dbOff = off; show(); }
   else if (t.dataset.iodev) { ui.ioDev = t.dataset.iodev; show(); }
   else if (t.dataset.tbl) { ui.dbTable = t.dataset.tbl; ui.dbOff = 0; show(); }
+  else if (t.dataset.sp) { spAction(t); }
+  else if (t.dataset.explain) { explainAction(t); }
+  else if (t.dataset.reaprun) { reaperRun(t); }
+  else if (t.dataset.baremin) { const v = Math.round(Number($("#bareMin").value)); if (!(v >= 60 && v <= 2880)) return toast("بين 60 و2880 دقيقة", true); act(() => post("/api/reaper-set", { key: "bareClaudeShellMinutes", value: v }), "حُفظت المدة"); }
+  else if (t.dataset.protadd) { const v = $("#protIn").value.trim(); if (!/^[A-Za-z0-9_.\- ]{1,64}$/.test(v)) return toast("حروف إنجليزية وأرقام ونقطة وشرطة فقط", true); act(() => post("/api/reaper-protect", { name: v, op: "add" }), "أُضيف إلى المحميّ"); }
+  else if (t.dataset.protdel) { if (await confirmDlg(`إزالة «${t.dataset.protdel}» من المحميّ؟ قد يصبح أي شل يحتوي سطر أمره هذه الكلمة عرضة للإنهاء.`)) act(() => post("/api/reaper-protect", { name: t.dataset.protdel, op: "remove" }), "أُزيل من المحميّ"); }
+  else if (t.dataset.runtier) { runTier(t); }
   else if (t.dataset.reaper) { act(() => post("/api/reaper", { key: "killBareClaudeShells", value: t.getAttribute("aria-checked") !== "true" }), "حُدّث إعداد الكانس"); }
   else if (t.dataset.plan) { if (await confirmDlg(`تفعيل خطة الطاقة «${t.dataset.pname}»؟ تُطبَّق فورًا على الجهاز.`)) act(() => post("/api/power-plan", { guid: t.dataset.plan }), "فُعّلت الخطة"); }
   else if (t.dataset.st) { const on = t.getAttribute("aria-checked") !== "true"; if (await confirmDlg(on ? "تفعيل هذا العنصر عند بدء التشغيل؟" : "تعطيل هذا العنصر عند بدء التشغيل؟")) act(() => post("/api/startup", { id: t.dataset.st, enabled: on }), "تم — يسري عند الدخول التالي"); }
@@ -716,14 +820,11 @@ const NAV = [
   ["الصيانة", [["space", "المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
 ];
-const LEGACY = [];
 
 /* ───────── shell + router ───────── */
 function buildNav(cur) {
   $("#nav").innerHTML = `<div class="brand"><div class="brand-mark">${svgi("cpu").replace("<svg", '<svg width="22" height="22"')}</div><div><b>مرصد الجهاز</b><small>الواجهة الجديدة</small></div></div>`
     + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
-    + (LEGACY.length ? `<div class="nav-group"><div class="nav-label">صفحات أخرى</div>${LEGACY.map(([k, l]) => `<a href="/#${k}"><span>${l}</span>${svgi("ext", "ext")}</a>`).join("")}</div>` : "")
-    + `<div class="nav-foot"><a href="/" title="التنظيف الفعلي للقرص والشرح بالنموذج المحلي ما زالا هناك">${svgi("ext", "ext")}<span>الواجهة الحالية (للتنظيف الفعلي)</span></a><small class="note">القراءة محليّة من 127.0.0.1 — لا اتصال خارجي.</small></div>`;
 }
 let timer = 0, page = null, last = null, busy = false, lastSig = "";
 async function show(first = false) {
@@ -748,7 +849,7 @@ async function show(first = false) {
 function schedule() { clearInterval(timer); const ms = +$("#every").value; if (ms) timer = setInterval(() => { if (!document.hidden) show(); }, ms); }
 function route() {
   const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
-  $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = page.title + " — مرصد الجهاز";
+  $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
   buildNav(key); $("#nav").classList.remove("open"); lastSig = ""; const m = $("#main"); m.classList.add("enter"); setTimeout(() => m.classList.remove("enter"), 900); m.innerHTML = skeleton(6); show(true); schedule(); scrollTo(0, 0);
 }
 addEventListener("hashchange", route);

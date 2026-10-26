@@ -39,7 +39,7 @@ class WindowSecurity(unittest.TestCase):
     def test_actual_html_matches_normalized_hash(self):
         namespace = {"re":re, "hashlib":hashlib,"base64":base64,"_csp_cache":{},"_CSP_BASE":"default-src 'none'"}
         exec(compile(functions({"_page_csp"}),"actual-page-csp","exec"),namespace)
-        raw = (ROOT / "index.html").read_bytes()
+        raw = (ROOT / "web" / "index.html").read_bytes()
         policy = namespace["_page_csp"](raw)
         for body in re.findall(rb"<script>(.*?)</script>",raw,re.S):
             normalized=body.replace(b"\r\n",b"\n").replace(b"\r",b"\n")

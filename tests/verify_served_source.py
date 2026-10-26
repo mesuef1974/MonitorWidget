@@ -9,7 +9,7 @@ parser.add_argument('--report', required=True)
 args = parser.parse_args()
 assert re.fullmatch(r'[a-f0-9]{64}', args.expected_sha)
 assert re.fullmatch(r'[a-z0-9-]+\.json', args.report)
-source = (ROOT/'index.html').read_bytes()
+source = (ROOT/'web'/'index.html').read_bytes()
 assert b'\r' not in source, 'Unexpected CR line ending'
 sha = hashlib.sha256(source).hexdigest()
 assert sha == args.expected_sha, 'Source changed during freeze'

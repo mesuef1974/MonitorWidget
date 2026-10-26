@@ -28,7 +28,7 @@ Write-Output 'No real window enumeration, message, close or process termination 
 Add-Type -TypeDefinition 'public static class CompactWindowStub{public static bool Found;public static int Activations,Closes;public static bool Exists(string t){return Found;}public static bool Activate(string t){Activations++;return true;}public static int Close(string t){Closes++;return 1;}}'
 $click=$ast.Find({param($n)$n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Expression.Extent.Text -eq '$UI.open' -and $n.Member.Value -eq 'Add_Click'},$true)
 if(-not $click){throw 'Application opener handler missing'}
-$body=$click.Arguments[0].ScriptBlock.Extent.Text;$body=$body.Substring(1,$body.Length-2).Replace('[WF]::','[CompactWindowStub]::').Replace("(Join-Path `$PSScriptRoot 'index.html')","(Join-Path `$widgetRoot 'index.html')")
+$body=$click.Arguments[0].ScriptBlock.Extent.Text;$body=$body.Substring(1,$body.Length-2).Replace('[WF]::','[CompactWindowStub]::').Replace("(Join-Path `$PSScriptRoot 'web\index.html')","(Join-Path `$widgetRoot 'web\index.html')")
 if($body -match '\[CompactWindowStub\]::Close'){throw 'Compact opener can close an application window'}
 $widgetRoot=Split-Path $PSScriptRoot -Parent;$script:ticketCalls=0;$script:openedTicket=$null
 function Show-Toast($message){$script:openError=$message}
