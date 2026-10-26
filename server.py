@@ -911,7 +911,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._guard():
             return
         path = self.path.split("?")[0]
-        if path in ("/", "/index.html"):
+        if path in ("/", "/index.html", "/v2", "/v2/"):
             k = parse_qs(urlparse(self.path).query).get("k", [""])[0]
             if k and _use_ticket(k):  # exchange the one-time ticket for a cookie, then drop it from the URL
                 session = _session_create()
@@ -919,11 +919,11 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(503, {"error": "session capacity reached"})
                 self.send_response(302)
                 self.send_header("Set-Cookie", "mw_s=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%d" % (session, SESSION_TTL))
-                self.send_header("Location", "/")
+                self.send_header("Location", "/v2" if path.startswith("/v2") else "/")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
-            page = open(os.path.join(ROOT, "index.html"), "rb").read()
+            page = open(os.path.join(ROOT, "web", "index.html") if path.startswith("/v2") else os.path.join(ROOT, "index.html"), "rb").read()
             self._send(200, page, "text/html; charset=utf-8", csp=_page_csp(page))
         elif path in _ASSETS or path == "/favicon.ico":
             fn = "favicon.ico" if path == "/favicon.ico" else path

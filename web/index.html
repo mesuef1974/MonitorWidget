@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
+<title>مرصد الجهاز</title>
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<style>
+/* ───────── Design tokens ─────────
+   Direction: "instrument cluster" — graphite surfaces, one phosphor accent, hairline panels,
+   DIN-like numerals (Bahnschrift) against a calm Arabic UI face. Everything is a token. */
+:root{
+  --f-ui:"Segoe UI Variable Text","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
+  --f-num:"Bahnschrift","Segoe UI Variable Display","Segoe UI",Tahoma,sans-serif;
+  --f-mono:"Cascadia Mono",Consolas,monospace;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --nav-w:248px;
+}
+:root[data-theme="dark"]{
+  --bg:#080b10;--bg-glow:rgba(62,230,176,.075);--panel:#0e131b;--panel2:#131a24;--raise:#18212d;
+  --line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.13);
+  --ink:#e9eef5;--ink2:#9ba8ba;--ink3:#69778c;
+  --accent:#3ee6b0;--accent-ink:#03231a;--accent2:#7ca6ff;--violet:#b79cff;
+  --ok:#3ee6b0;--warn:#ffb54a;--bad:#ff6b79;--ok-bg:rgba(62,230,176,.12);--warn-bg:rgba(255,181,74,.12);--bad-bg:rgba(255,107,121,.13);
+  --grid:rgba(255,255,255,.055);--shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -16px rgba(0,0,0,.7);
+}
+:root[data-theme="light"]{
+  --bg:#f2efe8;--bg-glow:rgba(10,157,116,.09);--panel:#fffdf8;--panel2:#f8f5ee;--raise:#efeadf;
+  --line:rgba(20,30,40,.09);--line2:rgba(20,30,40,.16);
+  --ink:#121c29;--ink2:#455468;--ink3:#7a8797;
+  --accent:#08a177;--accent-ink:#fff;--accent2:#2f62d6;--violet:#6f4fd0;
+  --ok:#08a177;--warn:#c27a00;--bad:#d1334a;--ok-bg:rgba(8,161,119,.1);--warn-bg:rgba(194,122,0,.1);--bad-bg:rgba(209,51,74,.1);
+  --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
+}
+*{box-sizing:border-box;margin:0}
+html{color-scheme:dark light}
+body{font:400 14px/1.55 var(--f-ui);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(900px 520px at 85% -10%,var(--bg-glow),transparent 70%),
+             linear-gradient(var(--grid) 1px,transparent 1px) 0 0/100% 56px,
+             linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/56px 100%;
+  -webkit-mask-image:linear-gradient(180deg,#000,transparent 70%);mask-image:linear-gradient(180deg,#000,transparent 70%)}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.skip{position:fixed;inset-block-start:8px;inset-inline-start:8px;z-index:100;background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:8px;transform:translateY(-200%)}
+.skip:focus{transform:none}
+.q{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:.01em;direction:ltr;unicode-bidi:isolate;display:inline-block}
+
+/* ───────── Shell ───────── */
+.app{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:100vh}
+.nav{position:sticky;top:0;height:100vh;overflow-y:auto;padding:var(--s5) var(--s4);border-inline-end:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 92%,transparent),transparent);display:flex;flex-direction:column;gap:var(--s4);scrollbar-width:thin}
+.brand{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s2) var(--s3)}
+.brand-mark{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 40%,var(--accent2)));color:var(--accent-ink);box-shadow:0 8px 24px -10px var(--accent)}
+.brand b{display:block;font-size:16px;letter-spacing:.2px}
+.brand small{color:var(--ink3);font-size:11.5px}
+.nav-group{display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--ink3);padding:var(--s2) var(--s3) var(--s1)}
+.nav a{display:flex;align-items:center;gap:var(--s3);padding:7px var(--s3);border-radius:10px;color:var(--ink2);transition:background .18s var(--ease),color .18s}
+.nav a svg{width:18px;height:18px;flex:none;opacity:.85}
+.nav a:hover{background:var(--panel2);color:var(--ink)}
+.nav a[aria-current="page"]{background:var(--ok-bg);color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.nav a .ext{margin-inline-start:auto;opacity:.45;width:13px;height:13px}
+.nav-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--s2);padding-top:var(--s3);border-top:1px solid var(--line)}
+.main{min-width:0;display:flex;flex-direction:column}
+.bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:var(--s4);padding:var(--s4) var(--s6);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--line)}
+.bar h1{font-size:22px;font-weight:650;letter-spacing:.1px}
+.bar .sub{color:var(--ink3);font-size:12.5px}
+.bar .grow{flex:1;min-width:0}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
+.live.err i{background:var(--bad);animation:none}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--line2);border-radius:10px;background:var(--panel);color:var(--ink);font-size:13px;transition:border-color .15s,background .15s,transform .15s}
+.btn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:var(--panel2)}
+.btn:active{transform:translateY(1px)}
+.btn svg{width:16px;height:16px}
+select.btn{appearance:none;padding-inline-end:12px}
+.content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:grid;gap:var(--s4);grid-template-columns:repeat(12,minmax(0,1fr));align-content:start;align-items:stretch}
+.menu-btn{display:none}
+
+/* ───────── Panels ───────── */
+.panel{grid-column:span 12;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:var(--s4) var(--s5) var(--s5);min-width:0;position:relative;display:flex;flex-direction:column;gap:var(--s3)}
+.enter .panel,.enter .card{animation:rise .45s var(--ease) both}
+.panel::before{content:"";position:absolute;inset-inline-start:var(--s5);top:-1px;width:34px;height:2px;background:var(--accent);border-radius:2px;opacity:.9}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.grow{flex:1 1 auto;min-height:0}
+.kpis{align-content:stretch}.panel>.kpis{flex:1}
+.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
+@media(max-width:1280px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}}
+@media(max-width:860px){.c3,.c4,.c5,.c6{grid-column:span 12}.app{grid-template-columns:1fr}.nav{position:fixed;inset-block:0;inset-inline-start:0;width:min(86vw,300px);z-index:50;transform:translateX(100%);transition:transform .25s var(--ease);background:var(--panel)}
+  html[dir="rtl"] .nav{transform:translateX(100%)}.nav.open{transform:none!important}.menu-btn{display:inline-flex}.bar,.content{padding-inline:var(--s4)}}
+.ph{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3)}
+.ph h2{font-size:12.5px;font-weight:650;letter-spacing:.06em;color:var(--ink2)}
+.ph .meta{font-size:12px;color:var(--ink3)}
+.chips{display:inline-flex;gap:4px;padding:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
+.chips button{padding:4px 11px;border-radius:7px;font-size:12px;color:var(--ink2)}
+.chips button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:0 0 0 1px var(--line2)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--ink2);white-space:nowrap}
+.tag.ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}.tag.warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}.tag.bad{color:var(--bad);background:var(--bad-bg);border-color:transparent}
+
+/* stats */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:var(--s3)}
+.kpi{padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0}
+.kpi .l{font-size:12px;color:var(--ink3)}
+.kpi .v{font-size:30px;line-height:1.05;font-weight:600;display:flex;align-items:baseline;gap:5px;direction:ltr;justify-content:flex-end}
+.kpi .v small{font-size:13px;color:var(--ink3);font-family:var(--f-ui);font-weight:400}
+.kpi .s{font-size:12px;color:var(--ink3)}
+.meter{height:5px;border-radius:5px;background:var(--raise);overflow:hidden;margin-top:4px}
+.meter>i{display:block;height:100%;border-radius:5px;background:var(--accent);transition:width .6s var(--ease)}
+.meter.warn>i{background:var(--warn)}.meter.bad>i{background:var(--bad)}
+/* gauges */
+.gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:var(--s3);align-content:center;flex:1}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:6px;padding:var(--s3) var(--s2)}
+.gauge svg{width:100%;max-width:176px;height:auto;overflow:visible}
+.gauge .gv{font:600 34px/1 var(--f-num);fill:var(--ink)}
+.gauge .gu{font:500 12px var(--f-ui);fill:var(--ink3)}
+.gauge .gl{font-size:13px;color:var(--ink2)}
+.gauge .gs{font-size:11.5px;color:var(--ink3);margin-top:-2px}
+.arc{transition:stroke-dashoffset .8s var(--ease),stroke .3s}
+/* tables */
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th.n{text-align:end}
+.tbl th{font-size:11.5px;font-weight:600;color:var(--ink3);text-align:start;padding:6px var(--s2);border-bottom:1px solid var(--line2)}
+.tbl td{padding:8px var(--s2);border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.n{text-align:end;white-space:nowrap}
+.tbl tr:hover td{background:color-mix(in srgb,var(--raise) 55%,transparent)}
+.rowbar{display:flex;align-items:center;gap:var(--s2);min-width:110px}.rowbar .meter{flex:1;margin:0}
+.list{display:flex;flex-direction:column}
+.li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px var(--s3);padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
+.li:last-child{border-bottom:0}
+.li .t{font-weight:550}.li .d{grid-column:1;color:var(--ink3);font-size:12.5px}.li .r{grid-row:1/3;grid-column:2;text-align:end}
+.li .meter{grid-column:1/-1}
+.empty{color:var(--ink3);text-align:center;padding:var(--s5) 0}
+.note{font-size:12.5px;color:var(--ink3)}
+/* charts */
+.chart{position:relative;direction:ltr;padding-left:40px}
+.plot{position:relative}
+.chart svg{display:block;width:100%;overflow:visible}
+.chart .grid line{stroke:var(--grid);stroke-width:1;vector-effect:non-scaling-stroke}
+.chart .ln{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.chart .yl,.chart .xl{position:absolute;font:11px var(--f-num);color:var(--ink3);pointer-events:none}
+.chart .yl{left:-40px;width:34px;text-align:right;transform:translateY(-50%)}
+.chart .xl{bottom:-18px;transform:translateX(-50%)}
+.chart .cur{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);pointer-events:none;display:none}
+.chart .tip{position:absolute;z-index:5;top:6px;min-width:128px;padding:8px 10px;border-radius:10px;border:1px solid var(--line2);background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(8px);font-size:12px;pointer-events:none;display:none;box-shadow:0 10px 28px -12px #000;direction:rtl}
+.chart .tip b{display:block;font:600 11.5px var(--f-num);color:var(--ink3);margin-bottom:3px}
+.chart .tip div{display:flex;align-items:center;gap:6px;justify-content:space-between}
+.chart .tip i{width:8px;height:8px;border-radius:2px}
+.legend{display:flex;flex-wrap:wrap;gap:var(--s4);font-size:12px;color:var(--ink2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:14px;height:3px;border-radius:2px}
+/* skeleton + toast */
+.sk{border-radius:8px;background:linear-gradient(90deg,var(--raise),var(--panel2),var(--raise));background-size:200% 100%;animation:sh 1.3s infinite linear;min-height:18px}
+@keyframes sh{to{background-position:-200% 0}}
+.banner{grid-column:1/-1;padding:var(--s3) var(--s4);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-bg);border-radius:var(--r-md);color:var(--bad);font-size:13px}
+.hero{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap}
+.hero .big{font:600 56px/1 var(--f-num)}
+.hero h3{font-size:20px;font-weight:650}
+.hero p{color:var(--ink2);max-width:60ch}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s4)}
+.pill-row{display:flex;flex-wrap:wrap;gap:var(--s2)}
+
+/* ───────── forms, switches, dialogs, toasts ───────── */
+.switch{width:42px;height:24px;border-radius:999px;background:var(--raise);border:1px solid var(--line2);position:relative;flex:none;transition:background .2s var(--ease),border-color .2s}
+.switch i{position:absolute;top:2px;inset-inline-start:2px;width:18px;height:18px;border-radius:50%;background:var(--ink2);transition:transform .2s var(--ease),background .2s}
+.switch[aria-checked="true"]{background:var(--ok-bg);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.switch[aria-checked="true"] i{background:var(--accent);transform:translateX(-18px)}
+.switch:disabled{opacity:.4;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
+.btn.primary:hover{background:color-mix(in srgb,var(--accent) 88%,#fff)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.inp{width:100%;padding:8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+.inp:focus{outline:2px solid var(--accent);outline-offset:1px}
+textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
+.fs{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4) var(--s4);margin:0 0 var(--s3);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s3)}
+.fs legend{padding:0 8px;font-size:12.5px;font-weight:600;color:var(--ink2)}
+.fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--ink3)}
+.toolbar{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}.toolbar .inp{flex:1;min-width:180px}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding-top:var(--s2)}
+.acts{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
+.row-sw{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:6px 0}
+.field-row{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:8px 0;border-bottom:1px solid var(--line)}
+.field-row:last-of-type{border-bottom:0}
+.stackbar{display:flex;height:12px;border-radius:8px;overflow:hidden;gap:2px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:8px}
+.scroll{overflow:auto;max-width:100%}
+.scrollbox{max-height:620px;overflow-y:auto;scrollbar-width:thin;padding-inline-end:6px}
+.rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--ok-bg);color:var(--accent)}
+.content>*{min-width:0}
+.cards{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2);border-inline-start:4px solid var(--ink3)}
+.card h3{font-size:15px}.card p{color:var(--ink2);font-size:13.5px;flex:1}
+.card.lvl-warn{border-inline-start-color:var(--warn)}.card.lvl-bad{border-inline-start-color:var(--bad)}.card.lvl-ok{border-inline-start-color:var(--ok)}
+.swatches{display:flex;gap:var(--s3);flex-wrap:wrap}
+.swatch{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:12px;background:var(--bg)}
+.swatch i{width:18px;height:18px;border-radius:50%}.swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--ok-bg)}
+.c12{grid-column:span 12}
+.heat{display:grid;grid-template-columns:44px repeat(24,minmax(0,1fr));gap:2px;direction:ltr;font-size:10.5px;color:var(--ink3)}
+.heat b{font-weight:400;text-align:right;padding-right:6px;line-height:16px}
+.heat i{height:16px;border-radius:3px;background:var(--raise)}
+.heat .hh{text-align:center;line-height:14px}
+.vol{display:flex;flex-direction:column;gap:6px}
+.nav-foot a{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:12.5px;padding:6px 8px;border-radius:8px}.nav-foot a:hover{background:var(--panel2);color:var(--ink)}
+td.acts{display:flex;gap:var(--s2);align-items:center;justify-content:flex-end;flex-wrap:wrap}
+dialog.dlg{border:1px solid var(--line2);border-radius:var(--r-lg);background:var(--panel);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:0 30px 80px -20px #000}
+dialog.dlg::backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:var(--s2);justify-content:flex-end}
+#toasts{position:fixed;inset-block-end:20px;inset-inline-start:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
+.toast{padding:10px 16px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);box-shadow:0 14px 36px -14px #000;animation:rise .3s var(--ease)}
+.toast.bad{border-color:color-mix(in srgb,var(--bad) 60%,transparent);color:var(--bad)}
+html{scroll-behavior:auto}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">تخطَّ إلى المحتوى</a>
+<div class="app">
+  <nav class="nav" id="nav" aria-label="التنقل الرئيسي"></nav>
+  <div class="main">
+    <header class="bar">
+      <button class="btn menu-btn" id="menuBtn" aria-label="القائمة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <div class="grow"><h1 id="title">…</h1><div class="sub" id="subtitle"></div></div>
+      <span class="live" id="live" role="status"><i></i><span id="liveTxt">جارٍ التحميل</span></span>
+      <select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
+      <button class="btn" id="refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>تحديث</button>
+      <button class="btn" id="theme" aria-label="تبديل السمة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
+    </header>
+    <main class="content" id="main" tabindex="-1"></main>
+  </div>
+</div>
+<script>
+"use strict";
+/* ───────── helpers ───────── */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const nf = (v, d = 0) => (v == null || !isFinite(v)) ? "—" : Number(v).toLocaleString("en", { maximumFractionDigits: d, minimumFractionDigits: d });
+const Q = (v, u = "", d = 0) => `<bdi dir="ltr" class="q">${nf(v, d)}${u ? " " + u : ""}</bdi>`;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const hhmm = t => new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const level = (v, warn, bad) => v >= bad ? "bad" : v >= warn ? "warn" : "ok";
+const gb = mb => mb >= 1024 ? nf(mb / 1024, 1) + " GB" : nf(mb, 0) + " MB";
+const rate = bps => bps >= 1048576 ? nf(bps / 1048576, 1) + " MB/s" : bps >= 1024 ? nf(bps / 1024, 0) + " KB/s" : nf(bps, 0) + " B/s";
+const ICON = {
+  home: '<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>', heart: '<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.600-9 9-9 9z"/>',
+  cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  mem: '<rect x="3" y="8" width="18" height="8" rx="1.500"/><path d="M7 8v8M12 8v8M17 8v8M6 19v-3M18 19v-3"/>',
+  gpu: '<rect x="2" y="6" width="18" height="12" rx="2"/><circle cx="10" cy="12" r="3.200"/><path d="M20 9h2v6h-2M5 18v2M9 18v2"/>',
+  ext: '<path d="M7 17L17 7M8 7h9v9"/>', sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.900 4.900l1.400 1.400M17.700 17.700l1.400 1.400M2 12h2M20 12h2M4.900 19.100l1.400-1.400M17.700 6.300l1.400-1.400"/>'
+};
+const svgi = (n, cls = "") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n] || ""}</svg>`;
+
+/* ───────── components ───────── */
+function gauge({ value, label, unit = "%", sub = "", warn = 80, bad = 92, max = 100, decimals = 0 }) {
+  const R = 62, C = 2 * Math.PI * R, sweep = 0.75, len = C * sweep;
+  if (value != null && !isFinite(value)) value = null;
+  const pct = clamp((value ?? 0) / max, 0, 1), lv = value == null ? "ok" : level(value / max * 100, warn, bad);
+  const col = `var(--${lv === "ok" ? "accent" : lv})`;
+  let ticks = ""; for (let i = 0; i <= 20; i++) { const a = (135 + 270 * i / 20) * Math.PI / 180, big = i % 5 === 0, r1 = 74, r2 = big ? 80 : 77; ticks += `<line x1="${(90 + r1 * Math.cos(a)).toFixed(1)}" y1="${(90 + r1 * Math.sin(a)).toFixed(1)}" x2="${(90 + r2 * Math.cos(a)).toFixed(1)}" y2="${(90 + r2 * Math.sin(a)).toFixed(1)}" stroke="var(--ink3)" stroke-width="${big ? 1.6 : 1}" opacity="${big ? .7 : .4}"/>`; }
+  return `<div class="gauge"><svg viewBox="0 0 180 180" role="img" aria-label="${esc(label)} ${nf(value, decimals)}${esc(unit)}">
+    ${ticks}
+    <circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--raise)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${len} ${C}" transform="rotate(135 90 90)"/>
+    <circle class="arc" cx="90" cy="90" r="${R}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${len} ${C}" stroke-dashoffset="${(len * (1 - pct)).toFixed(1)}" transform="rotate(135 90 90)" style="filter:drop-shadow(0 0 7px color-mix(in srgb,${col} 55%,transparent))"/>
+    <text class="gv" x="90" y="96" text-anchor="middle">${nf(value, decimals)}</text><text class="gu" x="90" y="118" text-anchor="middle">${esc(unit)}</text></svg>
+    <div class="gl">${esc(label)}</div>${sub ? `<div class="gs">${sub}</div>` : ""}</div>`;
+}
+const meter = (v, warn = 80, bad = 92, max = 100) => `<div class="meter ${level(v / max * 100, warn, bad) === "ok" ? "" : level(v / max * 100, warn, bad)}"><i style="width:${clamp(v / max * 100, 0, 100)}%"></i></div>`;
+const kpi = (l, v, u = "", s = "", m = "") => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v"><span class="num">${v}</span>${u ? `<small>${esc(u)}</small>` : ""}</div>${m}${s ? `<div class="s">${s}</div>` : ""}</div>`;
+const panel = (title, body, { cls = "", meta = "", id = "" } = {}) => `<section class="panel ${cls}" ${id ? `id="${id}"` : ""}><div class="ph"><h2>${esc(title)}</h2><span class="meta">${meta}</span></div>${body}</section>`;
+const skeleton = n => Array.from({ length: n }, (_, i) => `<section class="panel ${i % 3 === 0 ? "c8" : "c4"}"><div class="sk" style="height:14px;width:30%"></div><div class="sk" style="height:${120 + i % 3 * 40}px"></div></section>`).join("");
+
+/* Line/area chart with a hover crosshair and tooltip. series: [{name,color,v:[],fmt,dashed}] */
+function chart(el, { t, series, min = 0, max = null, height = 190, yFmt = v => nf(v, 0), fill = true }) {
+  const W = 1000, pad = 6, H = Math.max(height, Math.round((el.clientHeight || 0) - 24));
+  const all = series.flatMap(s => s.v.filter(x => x != null));
+  const hi = max ?? (all.length ? Math.max(...all) * 1.12 || 1 : 1), lo = min;
+  const n = t.length, X = i => n < 2 ? 0 : i / (n - 1) * W, Y = v => H - pad - (clamp(v, lo, hi) - lo) / (hi - lo || 1) * (H - pad * 2);
+  const paths = series.map(s => {
+    let d = "", seg = false; s.v.forEach((v, i) => { if (v == null) { seg = false; return; } d += `${seg ? "L" : "M"}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`; seg = true; });
+    const area = fill && s.fill !== false ? `<path d="${d}L${W} ${H}L0 ${H}Z" fill="url(#g-${s.id})" opacity=".9"/>` : "";
+    return `<linearGradient id="g-${s.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity=".26"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient>${area}<path class="ln" d="${d}" stroke="${s.color}" ${s.dashed ? 'stroke-dasharray="6 5"' : ""}/>`;
+  }).join("");
+  const ys = [0, .25, .5, .75, 1], xs = [0, .25, .5, .75, 1];
+  el.innerHTML = `<div class="chart" style="height:${H}px;margin-block-end:22px"><div class="plot" style="height:${H}px"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px"><g class="grid">${ys.map(f => `<line x1="0" x2="${W}" y1="${(H - pad - f * (H - pad * 2)).toFixed(1)}" y2="${(H - pad - f * (H - pad * 2)).toFixed(1)}"/>`).join("")}</g>${paths}</svg>
+    ${ys.map(f => `<span class="yl" style="top:${((H - pad - f * (H - pad * 2)) / H * 100).toFixed(1)}%">${yFmt(lo + (hi - lo) * f)}</span>`).join("")}
+    ${n > 1 ? xs.map(f => `<span class="xl" style="left:${f * 100}%">${hhmm(t[Math.round(f * (n - 1))])}</span>`).join("") : ""}
+    <div class="cur"></div><div class="tip"></div></div></div>`;
+  const box = $(".plot", el), cur = $(".cur", box), tip = $(".tip", box);
+  box.addEventListener("pointermove", e => {
+    const r = box.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), i = Math.round(f * (n - 1));
+    cur.style.display = tip.style.display = "block"; cur.style.left = (i / (n - 1) * 100) + "%";
+    tip.innerHTML = `<b>${hhmm(t[i])}</b>` + series.map(s => `<div><span><i style="background:${s.color}"></i> ${esc(s.name)}</span><span class="num">${s.v[i] == null ? "—" : (s.fmt || yFmt)(s.v[i])}</span></div>`).join("");
+    const w = tip.offsetWidth; tip.style.left = clamp(f * r.width + 14, 0, r.width - w) + "px";
+  });
+  box.addEventListener("pointerleave", () => { cur.style.display = tip.style.display = "none"; });
+}
+const legend = items => `<div class="legend">${items.map(([c, l, d]) => `<span><i style="background:${c};${d ? "background:repeating-linear-gradient(90deg," + c + " 0 5px,transparent 5px 8px)" : ""}"></i>${esc(l)}</span>`).join("")}</div>`;
+const compact = (arr, n = 140) => { if (arr.length <= n) return arr.map((_, i) => i); const step = arr.length / n; return Array.from({ length: n }, (_, i) => Math.floor(i * step)); };
+
+/* ───────── data layer ───────── */
+let ctl = null;
+async function api(path) {
+  const r = await fetch(path, { credentials: "same-origin", signal: ctl?.signal, headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error(path + " " + r.status);
+  return r.json();
+}
+const settle = async (...ps) => (await Promise.allSettled(ps)).map(r => r.status === "fulfilled" ? r.value : null);
+
+/* ───────── pages ───────── */
+const state = { range: "24h" };
+const RANGES = [["1h", "ساعة"], ["6h", "6 ساعات"], ["24h", "24 ساعة"], ["7d", "7 أيام"]];
+const rangeChips = () => `<div class="chips" role="group" aria-label="المدى الزمني">${RANGES.map(([k, l]) => `<button data-range="${k}" aria-pressed="${state.range === k}">${l}</button>`).join("")}</div>`;
+const verdict = score => score >= 90 ? ["ممتازة", "ok"] : score >= 75 ? ["جيدة", "ok"] : score >= 55 ? ["تحتاج انتباهًا", "warn"] : ["حرجة", "bad"];
+
+const PAGES = {
+  overview: {
+    title: "نظرة عامة", sub: "حالة الجهاز الآن في لمحة واحدة", icon: "home",
+    async load() { return settle(api("/api/home"), api("/api/mem?range=6h"), api("/api/health")); },
+    render([home, mem, health]) {
+      if (!home && !mem) return `<div class="banner">تعذّر قراءة البيانات من الخادم.</div>`;
+      const m = mem?.m || {}, sc = health?.score?.score, [vt, vl] = sc != null ? verdict(sc) : ["—", ""];
+      const cpuPct = home?.cpu?.pct, g = home?.gpu, io = home?.io?.now;
+      const ms = mem?.series, idx = ms ? compact(ms.t, 160) : [];
+      let out = panel("الحالة العامة", `<div class="hero"><div class="big num" style="color:var(--${vl === "bad" ? "bad" : vl === "warn" ? "warn" : "accent"})">${sc ?? "—"}</div><div><h3>صحة الجهاز ${vt}</h3><p>${health?.forecast ? `المساحة الحرة على C ${nf(health.forecast.freeGB, 1)} GB، والاتجاه ${esc(health.forecast.state)}${health.forecast.daysLeft ? ` — يكفي نحو ${nf(health.forecast.daysLeft)} يومًا` : ""}.` : "لا تتوفر بيانات التوقع بعد."}</p><div class="pill-row" style="margin-top:8px"><span class="tag ${vl}">${health?.score?.coveragePct ?? "—"}% تغطية القياس</span><span class="tag">${nf(m.claude)} عملية Claude</span><span class="tag">${nf(io?.stalls24 ?? home?.io?.stalls24)} توقفات قرص / 24س</span></div></div></div>`, { cls: "c12" });
+      out = out.replace('class="panel c12"', 'class="panel" style="grid-column:span 12"');
+      out += panel("المقاييس الحية", `<div class="gauges">${gauge({ value: cpuPct, label: "المعالج", sub: `${Q(home?.cpu?.cores, "", 1)} من ${Q(home?.cpu?.ncpu)} نواة`, warn: 70, bad: 90 })}${gauge({ value: m.ramPct, label: "الذاكرة الفعلية", sub: `${Q(m.totalGB - m.availGB, "", 1)} من ${Q(m.totalGB, "GB", 1)}`, warn: 80, bad: 92 })}${gauge({ value: m.commitPct, label: "التزام الذاكرة", sub: `${Q(m.commitGB, "", 1)} من ${Q(m.limitGB, "GB", 1)}`, warn: 85, bad: 95 })}${gauge({ value: m.diskPct, label: "القرص C", sub: `حرّ ${Q(m.diskFreeGB, "GB", 1)}`, warn: 85, bad: 93 })}</div>`, { cls: "c8" });
+      out += panel("الرسوميات", g ? `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("الحرارة", nf(g.temp), "°C", "", meter(g.temp, 75, 85))}${kpi("الحمل", nf(g.util), "%", "", meter(g.util, 80, 95))}${kpi("ذاكرة الشاشة", nf(g.vramMB / 1024, 1), "GB", `من ${Q(g.vramTotal / 1024, "GB", 1)}`, meter(g.vramMB, g.vramTotal * .8, g.vramTotal * .95, g.vramTotal))}${kpi("القدرة", nf(g.power, 1), "W")}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4", meta: `<a href="#/gpu" class="tag">التفاصيل</a>` });
+      out += panel("استخدام الذاكرة", `<div id="ovChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1]])}`, { cls: "c8", meta: "آخر 6 ساعات" });
+      out += panel("القرص", io ? `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("قراءة", rate(io.r_bps).split(" ")[0], rate(io.r_bps).split(" ")[1])}${kpi("كتابة", rate(io.w_bps).split(" ")[0], rate(io.w_bps).split(" ")[1])}${kpi("زمن الكتابة", nf(io.lat_w_ms, 2), "ms")}${kpi("الانشغال", nf(io.busy_pct, 1), "%", "", meter(io.busy_pct, 60, 85))}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4" });
+      out += panel("أكثر العمليات استهلاكًا", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">المعالج</th><th class="n">الذاكرة</th><th class="n">القرص</th></tr></thead><tbody>${(home?.top || []).slice(0, 8).map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.cpu, "نواة", 2)}</td><td class="n">${Q(p.memMB >= 1024 ? p.memMB / 1024 : p.memMB, p.memMB >= 1024 ? "GB" : "MB", p.memMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.ioMB, "MB")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا شيء</td></tr>`}</tbody></table>`, { cls: "c8", meta: `<a href="/#procs" class="tag">كل العمليات ↗</a>` });
+      out += panel("خدمات الخلفية", `<div class="list">${(home?.bg || []).map(b => `<div class="li"><span class="t">${esc(b.label)}</span><span class="r"><span class="tag ${b.state === "off" ? "" : "warn"}">${b.state === "off" ? "خامل" : "نشط"}</span></span><span class="d">${Q(b.cpu, "%", 1)} · ${Q(b.ioMB, "MB", 1)}</span></div>`).join("") || `<div class="empty">لا شيء</div>`}</div>`, { cls: "c4" });
+      return out;
+    },
+    after([home, mem]) {
+      const ms = mem?.series, el = $("#ovChart"); if (!ms || !el) return;
+      const ix = compact(ms.t, 160), pick = a => ix.map(i => a[i]);
+      chart(el, { t: pick(ms.t), series: [{ id: "a", name: "فعلية", color: "var(--accent2)", v: pick(ms.ram), fmt: v => nf(v, 1) + "%" }, { id: "b", name: "التزام", color: "var(--violet)", v: pick(ms.commit), dashed: true, fill: false, fmt: v => nf(v, 1) + "%" }], min: 0, max: 100, height: 200, yFmt: v => nf(v) + "%" });
+    }
+  },
+
+  health: {
+    title: "صحة الجهاز", sub: "درجة مركّبة من الذاكرة والقرص والمهام والنسخ الاحتياطي", icon: "heart",
+    async load() { return settle(api("/api/health"), api("/api/reliab")); },
+    render([h, rl]) {
+      if (!h) return `<div class="banner">تعذّر قراءة بيانات الصحة.</div>`;
+      const s = h.score, [vt, vl] = verdict(s.score), fc = h.forecast || {}, g = h.gpu?.now;
+      let out = panel("الدرجة", `<div class="hero grow" style="flex-direction:column;justify-content:center;text-align:center">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row" style="margin-top:8px">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${p.max - p.pts}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
+      out += panel("المكوّنات", `<div class="list">${(s.parts || []).map(p => `<div class="li"><span class="t">${esc(p.label)}</span><span class="r">${p.pts == null ? "—" : `<bdi dir="ltr" class="q">${p.pts}/${p.max}</bdi>`}</span><span class="d">${esc(p.why || "")}</span><div class="meter ${p.pts == null ? "" : p.pts < p.max * .6 ? "bad" : p.pts < p.max ? "warn" : ""}"><i style="width:${p.pts == null ? 0 : clamp(p.pts / p.max * 100, 0, 100)}%"></i></div></div>`).join("")}</div>`, { cls: "c7" });
+      out += panel("اتجاه الدرجة", `<div id="hhChart" class="grow"></div>`, { cls: "c7", meta: `آخر ${(h.history || []).length} يومًا` });
+      out += panel("توقع المساحة", `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("معدل التغيّر", (fc.slopeGBday > 0 ? "−" : "+") + nf(Math.abs(fc.slopeGBday), 2), "GB/يوم")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
+      out += panel("الرسوميات (24 ساعة)", g ? `<div class="kpis">${kpi("الآن", nf(g.temp), "°C")}${kpi("الذروة", nf(h.gpu.max24), "°C")}${kpi("الحمل", nf(g.util), "%")}${kpi("الحالة", esc(g.pstate), "")}</div>` : `<div class="empty">لا بيانات</div>`, { cls: "c6" });
+      out += panel("تسرّب الذاكرة", (h.leaks || []).length ? `<div class="list">${h.leaks.map(l => `<div class="li"><span class="t">${esc(l.name)}</span><span class="d">${esc(l.note || "")}</span></div>`).join("")}</div>` : `<div class="empty">لم تُكتشف عمليات تنمو باستمرار</div>`, { cls: "c6" });
+      const ig = h.gpu?.igpu;
+      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note" style="white-space:pre-wrap;direction:ltr">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
+      out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", Q(ig.shared_mb, "MB"), "", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
+      return out;
+    },
+    after([h]) {
+      const ig = h?.gpu?.igpu; if (ig?.hist?.length > 1 && $("#igChart")) { const ix = compact(ig.hist, 120), H = ix.map(i => ig.hist[i]); chart($("#igChart"), { t: H.map(x => x.t), series: [{ id: "ig", name: "3D", color: "var(--accent2)", v: H.map(x => x.util3d), fmt: v => nf(v, 1) + "%" }], min: 0, height: 120, yFmt: v => nf(v) + "%" }); }
+      const el = $("#hhChart"); if (!h || !el) return; const hs = h.history || []; if (hs.length < 2) return;
+      chart(el, { t: hs.map(d => Date.parse(d.day + "T12:00:00") / 1000), series: [{ id: "h", name: "الدرجة", color: "var(--accent)", v: hs.map(d => d.score) }], min: 40, max: 100, height: 190, yFmt: v => nf(v) });
+    }
+  },
+
+  cpu: {
+    title: "المعالج", sub: "الاستخدام عبر الوقت وأكثر التطبيقات استهلاكًا", icon: "cpu",
+    async load() { return settle(api("/api/cpu")); },
+    render([c]) {
+      if (!c) return `<div class="banner">تعذّر قراءة بيانات المعالج.</div>`;
+      const pct = c.total / c.ncpu * 100, maxc = Math.max(...c.now.map(x => x.cores), .1);
+      const tbl = (rows, key) => `<table class="tbl"><thead><tr><th>التطبيق</th><th>الاستهلاك</th><th class="n">نسخ</th></tr></thead><tbody>${rows.slice(0, 8).map(p => `<tr><td>${esc(p.name)}</td><td><div class="rowbar"><div class="meter"><i style="width:${clamp((p[key] ?? 0) / maxc * 100, 2, 100)}%"></i></div><span class="num">${nf(p[key], 2)}</span></div></td><td class="n num">${p.n ?? ""}</td></tr>`).join("")}</tbody></table>`;
+      let out = panel("الحمل الحالي", `<div class="kpis">${kpi("المجموع", nf(c.total, 1), "نواة", `من ${Q(c.ncpu)} نواة`, meter(pct, 70, 90))}${kpi("النسبة", nf(pct, 1), "%")}${kpi("متوسط 10 دقائق", nf(c.avg10?.reduce((a, x) => a + x.avg, 0), 1), "نواة")}</div>`, { cls: "c4" });
+      out += panel("المعالج الكلي خلال ساعة", `<div id="cpuChart" class="grow"></div>`, { cls: "c8", meta: c.alert ? `<span class="tag warn">${esc(c.alert.text || "تنبيه")}</span>` : "" });
+      out += panel("الآن", tbl(c.now, "cores"), { cls: "c4" });
+      out += panel("متوسط آخر 10 دقائق", tbl(c.avg10 || [], "avg"), { cls: "c4" });
+      out += panel("متوسط آخر ساعة", tbl(c.avg60 || [], "avg"), { cls: "c4" });
+      return out;
+    },
+    after([c]) { const el = $("#cpuChart"); if (!c || !el) return; const ix = compact(c.series.t, 160), p = a => ix.map(i => a[i]); chart(el, { t: p(c.series.t), series: [{ id: "c", name: "نواة", color: "var(--accent)", v: p(c.series.v), fmt: v => nf(v, 2) }], min: 0, max: c.ncpu, height: 230, yFmt: v => nf(v, 0) }); }
+  },
+
+  mem: {
+    title: "الذاكرة", sub: "الفعلية والالتزام والبرامج الأكثر استهلاكًا", icon: "mem",
+    async load() { return settle(api("/api/mem?range=" + state.range)); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة بيانات الذاكرة.</div>`;
+      const m = d.m, p = d.perf || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1, pal = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
+      let out = panel("القياسات", `<div class="kpis">${kpi("الفعلية", nf(m.ramPct, 0), "%", `متاح ${Q(m.availGB, "GB", 1)}`, meter(m.ramPct, d.thr.ramWarn, d.thr.ramBad))}${kpi("الالتزام", nf(m.commitPct, 0), "%", `${Q(m.commitGB, "", 1)} / ${Q(m.limitGB, "GB", 1)}`, meter(m.commitPct, d.thr.commitWarn, d.thr.commitBad))}${kpi("كاش النظام", nf(p.cacheGB, 1), "GB")}${kpi("ذاكرة النواة", nf(p.kernelGB, 1), "GB", `مقسّمة ${Q(p.kernelPagedGB, "", 2)} · ثابتة ${Q(p.kernelNonpagedGB, "", 2)}`)}${kpi("العمليات", nf(p.procs), "", `${Q(p.threads)} خيط · ${Q(p.handles)} مقبض`)}</div>`);
+      out += panel("الفعلية والالتزام", `<div id="memChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1], ["var(--accent)", "متاحة"]])}`, { cls: "c8", meta: rangeChips() });
+      out += panel("حسب الفئة", `<div style="display:flex;height:12px;border-radius:8px;overflow:hidden;gap:2px">${d.cats.map((c, i) => `<i title="${esc(c.label)}" style="flex:${c.mb};background:${pal[i % pal.length]}"></i>`).join("")}</div><div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:${pal[i % pal.length]};margin-inline-end:8px"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${c.n} عملية · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
+      out += panel("أكبر البرامج", `<table class="tbl"><thead><tr><th>البرنامج</th><th class="n">نسخ</th><th class="n">خاصة</th><th class="n">مجموعة العمل</th></tr></thead><tbody>${d.top.slice(0, 10).map(p => `<tr><td>${esc(p.name)}</td><td class="n num">${p.n}</td><td class="n">${Q(p.privMB >= 1024 ? p.privMB / 1024 : p.privMB, p.privMB >= 1024 ? "GB" : "MB", p.privMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.wsMB >= 1024 ? p.wsMB / 1024 : p.wsMB, p.wsMB >= 1024 ? "GB" : "MB", p.wsMB >= 1024 ? 1 : 0)}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
+      out += panel("إعداد WSL", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t num" style="font-family:var(--f-mono);font-size:12.5px;direction:ltr;text-align:start">${esc(k)}</span><span class="r num">${esc(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c4" });
+      return out;
+    },
+    after([d]) {
+      const ms = d?.series, el = $("#memChart"); if (!ms || !el) return; const ix = compact(ms.t, 180), p = a => ix.map(i => a[i]);
+      chart(el, { t: p(ms.t), series: [{ id: "r", name: "فعلية", color: "var(--accent2)", v: p(ms.ram), fmt: v => nf(v, 1) + "%" }, { id: "c", name: "التزام", color: "var(--violet)", v: p(ms.commit), dashed: true, fill: false, fmt: v => nf(v, 1) + "%" }], min: 0, max: 100, height: 230, yFmt: v => nf(v) + "%" });
+    }
+  },
+
+  gpu: {
+    title: "الرسوميات", sub: "كرت الشاشة: الحرارة والحمل والقدرة وذاكرة الشاشة", icon: "gpu",
+    async load() { return settle(api("/api/gpu?range=" + state.range)); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة بيانات الرسوميات.</div>`;
+      const s = d.static || {}, l = d.live || {}, st = d.stats || {};
+      let out = panel(s.name || "كرت الرسوميات", `<div class="pill-row">${s.driver ? `<span class="tag">تعريف ${Q(s.driver)}</span>` : ""}${s.vramTotal ? `<span class="tag">${Q(s.vramTotal / 1024, "GB")}</span>` : ""}${s.powerMax ? `<span class="tag">حدّ القدرة ${Q(s.powerMax, "W")}</span>` : ""}${l.pcieGen != null ? `<span class="tag">PCIe ${Q(l.pcieGen)} ×${Q(l.pcieWidth)}</span>` : ""}${l.pstate ? `<span class="tag ${l.pstate === "P0" ? "warn" : ""}">${esc(l.pstate)}</span>` : ""}${!l.ts ? `<span class="tag warn">لا قياسات حية الآن</span>` : ""}</div>`, { cls: "", meta: rangeChips() });
+      out += panel("الآن", `<div class="gauges">${gauge({ value: l.temp, label: "الحرارة", unit: "°C", warn: 75, bad: 85 })}${gauge({ value: l.util, label: "الحمل", warn: 80, bad: 95 })}${gauge({ value: l.power, label: "القدرة", unit: "W", max: s.powerMax || 140, warn: 70, bad: 90, decimals: 1 })}${gauge({ value: l.vram / 1024, label: "ذاكرة الشاشة", unit: "GB", max: (l.vramTotal || 1) / 1024, warn: 80, bad: 95, decimals: 1, sub: `من ${Q(l.vramTotal / 1024, "GB", 1)}` })}</div>`, { cls: "c8" });
+      out += panel("إحصاءات الفترة", `<div class="list"><div class="li"><span class="t">الحرارة</span><span class="r"><bdi dir="ltr" class="q">${nf(st.temp?.min)}–${nf(st.temp?.max)} °C</bdi></span><span class="d">متوسط ${Q(st.temp?.avg, "", 1)} · P95 ${Q(st.temp?.p95)}</span></div><div class="li"><span class="t">الطاقة المستهلكة</span><span class="r">${Q(st.energyWh, "Wh")}</span></div><div class="li"><span class="t">الانشغال</span><span class="r">${Q(st.busyPct, "%", 1)}</span><span class="d">خامل ${Q(st.idlePct, "%", 1)} · ثقيل ${Q(st.heavyPct, "%", 1)}</span></div><div class="li"><span class="t">ذروة ذاكرة الشاشة</span><span class="r">${Q(st.vramPeakPct, "%")}</span></div></div>`, { cls: "c4" });
+      const mk = id => panel(id[1], `<div id="${id[0]}" class="grow"></div>`, { cls: "c6" });
+      out += [["gT", "الحرارة"], ["gU", "الحمل على الكرت"], ["gP", "القدرة"], ["gV", "ذاكرة الشاشة"]].map(mk).join("");
+      out += panel("ذاكرة الشاشة حسب البرنامج", (d.procs || []).length ? `<table class="tbl"><tbody>${d.procs.map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.mb, "MB")}</td></tr>`).join("")}</tbody></table>` : `<div class="empty">لا عمليات تستخدم الكرت حاليًا</div>`, { cls: "c6" });
+      out += panel("التقييم", `<div class="pill-row"><span class="tag ${d.verdict === "ok" ? "ok" : d.verdict === "bad" ? "bad" : "warn"}">${d.verdict === "ok" ? "سليم" : d.verdict === "bad" ? "يحتاج تدخّلًا" : "فيه ملاحظات"}</span></div><div class="list">${(d.notes || []).map(n => `<div class="li"><span class="t">${esc(n.title || "")}</span><span class="d">${esc(n.text || n)}</span></div>`).join("") || `<div class="empty">لا ملاحظات</div>`}</div>`, { cls: "c6" });
+      return out;
+    },
+    after([d]) {
+      if (!d) return; const ss = d.series, ix = compact(ss.t, 180), p = a => ix.map(i => a[i]), t = p(ss.t);
+      const draw = (id, key, name, color, opts) => { const el = $("#" + id); if (el) chart(el, { t, series: [{ id, name, color, v: p(ss[key]), fmt: opts.fmt }], height: 170, ...opts }); };
+      draw("gT", "temp", "الحرارة", "var(--warn)", { min: 20, yFmt: v => nf(v) + "°", fmt: v => nf(v) + " °C" });
+      draw("gU", "util", "الحمل", "var(--accent2)", { min: 0, max: 100, yFmt: v => nf(v) + "%", fmt: v => nf(v) + "%" });
+      draw("gP", "power", "القدرة", "var(--accent)", { min: 0, yFmt: v => nf(v) + "W", fmt: v => nf(v, 1) + " W" });
+      draw("gV", "vram", "الذاكرة", "var(--violet)", { min: 0, yFmt: v => nf(v / 1024, 1) + "G", fmt: v => nf(v) + " MB" });
+    }
+  }
+};
+
+Object.assign(ICON, {
+  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>', box: '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>',
+  bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>', disk: '<ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.700 3.600 3 8 3s8-1.300 8-3V6M4 12v6c0 1.700 3.600 3 8 3s8-1.300 8-3v-6"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', power: '<path d="M12 3v9M6.300 6.300a8 8 0 1 0 11.400 0"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  bulb: '<path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.700V17h8v-2.300A7 7 0 0 0 12 2z"/>', bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21a2 2 0 0 0 4 0"/>',
+  sliders: '<path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+  db: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.700 3.600 3 8 3s8-1.300 8-3V5M4 12c0 1.700 3.600 3 8 3s8-1.300 8-3"/>', palette: '<path d="M12 3a9 9 0 1 0 0 18c1.200 0 2-.8 2-1.800 0-1.300-1-1.500-1-2.700 0-1 .8-1.500 1.800-1.500H17a4 4 0 0 0 4-4C21 6.500 17 3 12 3z"/><circle cx="7.500" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7.500" r="1"/>'
+});
+/* ───────── interaction helpers (toast, confirm, post) ───────── */
+const toast = (msg, bad = false) => {
+  let h = $("#toasts"); if (!h) { h = document.createElement("div"); h.id = "toasts"; h.setAttribute("role", "status"); document.body.append(h); }
+  const t = document.createElement("div"); t.className = "toast" + (bad ? " bad" : ""); t.textContent = msg; h.append(t); setTimeout(() => t.remove(), 4200);
+};
+const confirmDlg = (text, okLabel = "تأكيد") => new Promise(res => {
+  const d = document.createElement("dialog"); d.className = "dlg";
+  d.innerHTML = `<form method="dialog"><p>${esc(text)}</p><div class="dlg-act"><button class="btn" value="no">إلغاء</button><button class="btn primary" value="yes" autofocus>${esc(okLabel)}</button></div></form>`;
+  d.addEventListener("close", () => { res(d.returnValue === "yes"); d.remove(); }); document.body.append(d); d.showModal();
+});
+async function post(path, body) {
+  const r = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+const act = async (fn, okMsg) => { try { await fn(); toast(okMsg); await show(); } catch (e) { toast("تعذّر: " + e.message, true); } };
+const when = ts => ts ? `<bdi dir="ltr" class="q">${new Date(ts * 1000).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
+const whenIso = iso => iso ? `<bdi dir="ltr" class="q">${new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
+const dur = s => s >= 3600 ? Q(s / 3600, "س", 1) : s >= 60 ? Q(s / 60, "د") : Q(s, "ث");
+const sw = (on, attrs) => `<button class="switch" role="switch" aria-checked="${on}" ${attrs}><i></i></button>`;
+const sev = s => /err|crit|bad|fail/.test(s) ? "bad" : /warn/.test(s) ? "warn" : /ok|success/.test(s) ? "ok" : "";
+const stack = (items, pal) => `<div class="stackbar">${items.map((c, i) => `<i title="${esc(c.label)}" style="flex:${Math.max(c.v, .001)};background:${pal[i % pal.length]}"></i>`).join("")}</div>`;
+const PAL = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
+const pager = (id, total, size, off) => `<div class="pager"><button class="btn" data-pg="${id}" data-off="${Math.max(0, off - size)}" ${off <= 0 ? "disabled" : ""}>السابق</button><span class="note">${Q(total ? off + 1 : 0)}–${Q(Math.min(total, off + size))} من ${Q(total)}</span><button class="btn" data-pg="${id}" data-off="${off + size}" ${off + size >= total ? "disabled" : ""}>التالي</button></div>`;
+const ui = { ioDev: "disk0", evOff: 0, evSev: "", evQ: "", runOff: 0, dbTable: "", dbOff: 0, spaceRange: "24h" };
+
+Object.assign(PAGES, {
+  procs: {
+    title: "العمليات", sub: "مصادر استهلاك الموارد قبل إيقاف أي عمل", icon: "list",
+    async load() { return settle(api("/api/procs")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة العمليات.</div>`;
+      const r = d.reaper || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1;
+      let out = panel("الملخص", `<div class="kpis">${kpi("كل العمليات", Q(d.total), "", `${Q(d.cats.length)} فئات`)}${kpi("Claude", Q(d.claudeTotal), "", `${Q(d.claudeMB / 1024, "GB", 1)} ذاكرة`)}${kpi("نوافذ conhost", Q(d.conhost))}${kpi("الشلات", Q(d.shellTotal), "", `${Q(d.orphans)} يتيمة · ${Q(d.bareNow)} عارية`)}</div>`);
+      out += panel("حسب الفئة", `${stack(d.cats.map(c => ({ label: c.label, v: c.mb })), PAL)}<div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i class="dot" style="background:${PAL[i % PAL.length]}"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${Q(c.n)} عملية · ${Q(c.cores, "نواة", 2)} · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
+      out += panel("الأكثر استهلاكًا للمعالج", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">PID</th><th class="n">المعالج</th><th class="n">الذاكرة</th></tr></thead><tbody>${d.topCpu.map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.pid)}</td><td class="n">${Q(p.cores, "نواة", 2)}</td><td class="n">${Q(p.mb, "MB")}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
+      out += panel("الشلات", `<table class="tbl"><thead><tr><th>الشل</th><th>الأب</th><th class="n">العمر</th><th class="n">الذاكرة</th><th>الحالة</th></tr></thead><tbody>${d.shells.map(s => `<tr><td>${esc(s.name)} <span class="note">${Q(s.pid)}</span></td><td>${esc(s.parent || "—")}</td><td class="n">${dur(s.age)}</td><td class="n">${Q(s.mb, "MB")}</td><td>${s.orphan ? '<span class="tag warn">يتيم</span>' : s.bare ? '<span class="tag warn">عارٍ</span>' : '<span class="tag ok">سليم</span>'}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا شلات</td></tr>`}</tbody></table>`, { cls: "c7", meta: `${Q(d.shellTotal)} شلًا` });
+      out += panel("عمليات Claude", `<table class="tbl"><thead><tr><th>PID</th><th class="n">العمر</th><th class="n">الذاكرة</th><th class="n">معالج</th></tr></thead><tbody>${d.claude.map(c => `<tr><td>${Q(c.pid)}</td><td class="n">${dur(c.age)}</td><td class="n">${Q(c.mb, "MB")}</td><td class="n">${Q(c.cores, "نواة", 2)}</td></tr>`).join("")}</tbody></table>`, { cls: "c5", meta: `${Q(d.claudeTotal)} عملية` });
+      out += panel("الكانس", `<div class="pill-row"><span class="tag ${r.mode === "Apply" ? "ok" : "warn"}">${r.mode === "Apply" ? "تنفيذ فعلي" : "تجربة فقط"}</span><span class="tag">عمر أقصى ${Q(r.maxAgeMin, "د")}</span><span class="tag">معالج أقصى ${Q(r.maxCpuS, "ث")}</span><span class="tag">عارٍ بعد ${Q(r.bareMin, "د")}</span></div><div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("أُنهيت / 24س", Q(r.killed24h))}${kpi("كانت ستُنهى", Q(r.would24h))}</div><div class="row-sw"><span>إنهاء الشلات العارية تلقائيًا</span>${sw(!!r.killBare, 'data-reaper="1"')}</div><div class="list">${(r.acts || []).slice(0, 5).map(a => `<div class="li"><span class="t">${esc(a.text)}</span><span class="r note">${when(a.ts)}</span></div>`).join("")}</div>`, { cls: "c6" });
+      out += panel("عمليات محمية", `<div class="pill-row">${(r.protect || []).map(x => `<span class="tag">${esc(typeof x === "string" ? x : x.name || JSON.stringify(x))}</span>`).join("") || '<span class="note">لا شيء</span>'}</div>`, { cls: "c6" });
+      return out;
+    }
+  },
+
+  wsl: {
+    title: "WSL وDocker", sub: "التوزيعات والأقراص الافتراضية واستهلاك الموارد", icon: "box",
+    async load() { return settle(api("/api/wsl?range=" + state.range)); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة بيانات WSL.</div>`;
+      let out = panel("التوزيعات", `<table class="tbl"><thead><tr><th>الاسم</th><th>الحالة</th><th class="n">الإصدار</th><th></th></tr></thead><tbody>${d.distros.map(x => `<tr><td>${esc(x.name)}</td><td><span class="tag ${x.state === "Running" ? "ok" : ""}">${esc(x.state)}</span></td><td class="n">${Q(x.ver)}</td><td>${x.default ? '<span class="tag">افتراضي</span>' : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا توزيعات</td></tr>`}</tbody></table>`, { cls: "c6", meta: rangeChips() });
+      out += panel("الأقراص الافتراضية", `<div class="list">${d.vhdx.map(v => `<div class="li"><span class="t num" style="font-family:var(--f-mono);font-size:12px;direction:ltr;text-align:start">${esc(v.path)}</span><span class="r">${Q(v.gb, "GB", 1)}</span><span class="d">آخر تعديل ${when(v.mtime)}</span></div>`).join("") || '<div class="empty">لا شيء</div>'}</div>`, { cls: "c6" });
+      out += panel("العمليات", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">نسخ</th><th class="n">الذاكرة</th><th class="n">المعالج</th></tr></thead><tbody>${d.procs.map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.n)}</td><td class="n">${Q(p.mb, "MB")}</td><td class="n">${Q(p.cores, "نواة", 2)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا عمليات</td></tr>`}</tbody></table>`, { cls: "c6" });
+      out += panel("إعداد .wslconfig", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t" style="font-family:var(--f-mono);font-size:12.5px;direction:ltr;text-align:start">${esc(k)}</span><span class="r">${Q(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c6" });
+      out += panel("ملاحظات", `<div class="list">${(d.notes || []).map(n => `<div class="li"><span class="t"><span class="tag ${sev(n.lvl)}">${esc(n.lvl)}</span> ${esc(n.title)}</span><span class="d">${esc(n.text)}</span></div>`).join("") || '<div class="empty">لا ملاحظات</div>'}</div>`);
+      return out;
+    }
+  },
+
+  power: {
+    title: "الطاقة والحرارة", sub: "البطارية وخطة الطاقة وتردد المعالج", icon: "bolt",
+    async load() { return settle(api("/api/power?range=" + state.range)); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة بيانات الطاقة.</div>`;
+      const s = d.status || {}, b = d.battery || {}, f = d.mhz || {};
+      let out = panel("الآن", `<div class="gauges">${gauge({ value: s.pct, label: "البطارية", sub: s.charging ? "تُشحن" : s.ac ? "موصولة" : "على البطارية", warn: 101, bad: 101 })}${gauge({ value: f.cur, label: "تردد المعالج", unit: "MHz", max: f.max || 1, warn: 101, bad: 101 })}${b.healthPct != null ? gauge({ value: b.healthPct, label: "صحة البطارية", sub: `${Q(b.cycles)} دورة شحن`, warn: 101, bad: 101, decimals: 1 }) : ""}</div>`, { cls: "c7" });
+      out += panel("خطة الطاقة", `<div class="list">${(d.plans || []).map(p => `<div class="li"><span class="t">${esc(p.name)}</span><span class="r">${p.active ? '<span class="tag ok">مُفعّلة</span>' : `<button class="btn" data-plan="${esc(p.guid)}" data-pname="${esc(p.name)}">تفعيل</button>`}</span></div>`).join("")}</div><p class="note">مدة التشغيل ${dur(d.uptimeS)}${d.pendingReboot ? " · يلزم إعادة تشغيل" : ""}</p>`, { cls: "c5" });
+      out += panel("التردد خلال الفترة", `<div id="pwChart" class="grow"></div>`, { cls: "c6", meta: rangeChips() });
+      out += panel("شحن البطارية", `<div id="pbChart" class="grow"></div>`, { cls: "c6" });
+      return out;
+    },
+    after([d]) {
+      if (!d?.series?.t?.length) return; const ss = d.series, ix = compact(ss.t, 170), p = a => ix.map(i => a[i]), t = p(ss.t);
+      chart($("#pwChart"), { t, series: [{ id: "m", name: "MHz", color: "var(--accent2)", v: p(ss.mhz), fmt: v => nf(v) + " MHz" }], min: 0, height: 190, yFmt: v => nf(v) });
+      chart($("#pbChart"), { t, series: [{ id: "b", name: "الشحن", color: "var(--accent)", v: p(ss.batt), fmt: v => nf(v) + "%" }], min: 0, max: 100, height: 190, yFmt: v => nf(v) + "%" });
+    }
+  },
+
+  io: {
+    title: "حركة القرص", sub: "المعدلات وزمن الاستجابة والتوقفات والعمليات المسؤولة", icon: "disk",
+    async load() { return settle(api("/api/io?range=" + state.range + "&dev=" + encodeURIComponent(ui.ioDev))); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة بيانات القرص.</div>`;
+      const c = (d.cur || []).find(x => x.dev === "C:") || d.cur?.[0] || {};
+      let out = panel("الأداء الحالي", `<div class="chips" role="group" aria-label="الجهاز">${(d.devices || []).map(x => `<button data-iodev="${esc(x)}" aria-pressed="${(d.dev || ui.ioDev) === x}">${esc(x === "_total" ? "المجموع" : x)}</button>`).join("")}</div><div class="kpis">${kpi("قراءة", Q(c.r_bps / 1048576, "MB/s", 2))}${kpi("كتابة", Q(c.w_bps / 1048576, "MB/s", 2))}${kpi("زمن الكتابة", Q(c.lat_w_ms, "ms", 2))}${kpi("الانشغال", Q(c.busy_pct, "%", 1), "", "", meter(c.busy_pct, 60, 85))}${kpi("توقفات 24س", Q(d.stalls?.length))}</div>`, { meta: rangeChips() });
+      out += panel("المعدل (MB/s)", `<div id="ioR" class="grow"></div>${legend([["var(--accent2)", "قراءة"], ["var(--accent)", "كتابة"]])}`, { cls: "c6" });
+      out += panel("الانشغال والاستجابة", `<div id="ioB" class="grow"></div>${legend([["var(--warn)", "انشغال %"], ["var(--bad)", "زمن الكتابة ms", 1]])}`, { cls: "c6" });
+      out += panel("المساحة الحرة مقابل المكتوب", `<div id="ioF" class="grow"></div>`, { cls: "c6" });
+      out += panel("العمليات المسؤولة", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">كتابة</th><th class="n">قراءة</th></tr></thead><tbody>${(d.top || []).slice(0, 8).map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.w_mb / 1024, "GB", 1)}</td><td class="n">${Q(p.r_mb / 1024, "GB", 1)}</td></tr>`).join("")}</tbody></table>`, { cls: "c6" });
+      if ((d.heat || []).length) { const days = [...new Set(d.heat.map(x => x.day))].sort(), cell = new Map(d.heat.map(x => [x.day + "|" + x.hour, x])); out += panel("خريطة الانشغال (يوم × ساعة)", `<div class="heat"><span></span>${Array.from({ length: 24 }, (_, h) => `<span class="hh">${h % 3 ? "" : h}</span>`).join("")}${days.map(dy => `<b>${esc(dy.slice(5))}</b>${Array.from({ length: 24 }, (_, h) => { const c = cell.get(dy + "|" + h); const v = c ? c.busy_avg : null; const a = v == null ? 0 : Math.min(1, v / 40); return `<i title="${esc(dy)} ${h}:00 — ${c ? "انشغال " + nf(v, 1) + "% · كتابة " + nf(c.w_gb, 1) + " GB" : "لا قياس"}" style="${v == null ? "" : `background:color-mix(in srgb,var(--${v > 40 ? "bad" : v > 15 ? "warn" : "accent"}) ${Math.round(18 + a * 82)}%,var(--raise))`}"></i>`; }).join("")}`).join("")}</div><p class="note">كل خلية ساعة؛ اللون يدل على متوسط الانشغال (الأخضر منخفض، الكهرماني متوسط، الأحمر مرتفع).</p>`, { cls: "c12" }); }
+      out += panel("اليومي", `<table class="tbl"><thead><tr><th>اليوم</th><th class="n">قراءة</th><th class="n">كتابة</th><th class="n">انشغال</th><th class="n">توقفات</th></tr></thead><tbody>${(d.daily || []).map(x => `<tr><td>${esc(x.day)}</td><td class="n">${Q(x.r_gb, "GB", 1)}</td><td class="n">${Q(x.w_gb, "GB", 1)}</td><td class="n">${Q(x.busy_avg, "%", 1)}</td><td class="n">${x.stalls ? `<span class="tag warn">${Q(x.stalls)}</span>` : Q(0)}</td></tr>`).join("")}</tbody></table>`, { cls: "c6" });
+      out += panel("التوقفات", `<div class="list">${(d.stalls || []).map(s => `<div class="li"><span class="t">${when(s.ts_start)} <span class="note">· ${dur(s.ts_end - s.ts_start)}</span></span><span class="r">${Q(s.busy_avg, "%")}</span><span class="d">${esc(s.note || "")}</span></div>`).join("") || '<div class="empty">لا توقفات</div>'}</div>`, { cls: "c6" });
+      return out;
+    },
+    after([d]) {
+      if (!d?.series?.length) return; const ix = compact(d.series, 170), S = ix.map(i => d.series[i]), t = S.map(x => x.t);
+      chart($("#ioR"), { t, series: [{ id: "r", name: "قراءة", color: "var(--accent2)", v: S.map(x => x.r), fmt: v => nf(v, 2) + " MB/s" }, { id: "w", name: "كتابة", color: "var(--accent)", v: S.map(x => x.w), fmt: v => nf(v, 2) + " MB/s" }], min: 0, height: 190, yFmt: v => nf(v, 1) });
+      chart($("#ioB"), { t, series: [{ id: "b", name: "انشغال", color: "var(--warn)", v: S.map(x => x.b), fmt: v => nf(v, 1) + "%" }, { id: "l", name: "زمن الكتابة", color: "var(--bad)", v: S.map(x => x.lw), fill: false, dashed: true, fmt: v => nf(v, 2) + " ms" }], min: 0, height: 190, yFmt: v => nf(v, 0) });
+      if (d.free?.length) { const fx = compact(d.free, 170), F = fx.map(i => d.free[i]); chart($("#ioF"), { t: F.map(x => x.t), series: [{ id: "f", name: "حرّ", color: "var(--violet)", v: F.map(x => x.f), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...F.map(x => x.f)) * .98, height: 190, yFmt: v => nf(v, 0) }); }
+    }
+  },
+
+  space: {
+    title: "المساحة", sub: "أين ذهبت المساحة وما الذي يمكن تحريره بأمان", icon: "folder",
+    async load() { return settle(api("/api/space")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة المساحة.</div>`;
+      const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
+      let out = panel("القرص C", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c7" });
+      out += panel("التنظيف التلقائي", `<div class="pill-row">${Object.entries(d.auto || {}).map(([k, v]) => `<span class="tag ${v ? "ok" : ""}">${esc(k)} ${v ? "✓" : "—"}</span>`).join("")}</div><p class="note">التنفيذ الفعلي والمعاينة التفصيلية للأنواع الإضافية من الواجهة الحالية لضمان تأكيدات الأمان.</p>`, { cls: "c5" });
+      out += panel("المجلدات المراقبة", `<table class="tbl"><thead><tr><th>المجلد</th><th class="n">الحجم</th><th class="n">التغير</th><th class="n">ملفات</th><th>نصيحة</th></tr></thead><tbody>${(d.items || []).map(i => `<tr><td>${esc(i.label)}</td><td class="n">${Q(i.gb, "GB", 2)}</td><td class="n">${i.delta ? `<span class="tag ${i.delta > 0 ? "warn" : "ok"}">${i.delta > 0 ? "+" : ""}${Q(i.delta, "", 2)}</span>` : "—"}</td><td class="n">${Q(i.files)}</td><td class="note">${esc(i.advice || "")}</td></tr>`).join("")}</tbody></table>`);
+      out += panel("المساحة الحرة", `<div id="spChart" class="grow"></div>`, { cls: "c8" });
+      out += panel("أكبر الهبوط", `<div class="list">${(d.drops || []).map(x => `<div class="li"><span class="t">${when(x.from)}</span><span class="r"><span class="tag bad">−${Q(x.gb, "GB", 1)}</span></span><span class="d">من ${Q(x.hi, "GB", 1)} إلى ${Q(x.lo, "GB", 1)}</span></div>`).join("") || '<div class="empty">لا هبوط ملحوظ</div>'}</div>`, { cls: "c4" });
+      out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`);
+      const vp = (parts, tot) => `${stack(parts.map(x => ({ label: x.label, v: x.gb })), PAL)}<div class="list">${parts.slice(0, 9).map((x, i) => `<div class="li"><span class="t"><i class="dot" style="background:${PAL[i % PAL.length]}"></i>${esc(x.label)}${x.partial ? ' <span class="tag">تقدير</span>' : ""}</span><span class="r">${Q(x.gb, "GB", 1)}</span><span class="d">${Q(x.gb / (tot || 1) * 100, "%")}</span></div>`).join("")}</div>`;
+      out += panel("الأقراص", `<div class="list">${(d.drives || []).map(x => `<div class="li"><span class="t">${esc(x.letter)}: ${esc(x.label)}</span><span class="r">${Q(x.free, "GB", 1)} حرّ</span><span class="d">${Q(x.used, "GB", 1)} من ${Q(x.total, "GB", 1)}</span>${meter(x.used, x.total * .85, x.total * .93, x.total)}</div>`).join("")}</div>`, { cls: "c4" });
+      out += panel("ما يشغله القرص C", d.volume ? vp(d.volume.parts, d.volume.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4", meta: d.volume ? `${Q(d.volume.used, "GB", 1)} مستخدم` : "" });
+      out += panel("القرص D", d.dvol?.D ? vp(d.dvol.D.parts, (d.drives || []).find(x => x.letter === "D")?.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4" });
+      out += panel("تنظيفات إضافية", `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل</th><th>الحالة</th><th class="n">آخر تنفيذ</th></tr></thead><tbody>${(d.extras?.items || []).map(x => `<tr><td><b>${esc(x.label)}</b></td><td class="note">${esc(x.note)}</td><td class="n">${Q(x.mb, "MB", 1)}</td><td>${x.blockedBy ? `<span class="tag warn">${esc(x.blockedBy)}</span>` : x.auto ? '<span class="tag ok">تلقائي</span>' : '<span class="tag">يدوي</span>'}${x.admin ? ' <span class="tag">مدير</span>' : ""}</td><td class="n note">${x.last ? `${when(x.last.ts)} · ${Q(x.last.mb, "MB", 1)}` : "—"}</td></tr>`).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`, { cls: "c8" });
+      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td></tr>`).join("") || '<tr><td colspan="3" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c4", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
+      return out;
+    },
+    after([d]) { if (!d?.hist?.length) return; const ix = compact(d.hist, 170), H = ix.map(i => d.hist[i]); chart($("#spChart"), { t: H.map(x => x[0]), series: [{ id: "s", name: "حرّ", color: "var(--accent)", v: H.map(x => x[1]), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...H.map(x => x[1])) * .97, height: 220, yFmt: v => nf(v, 0) }); }
+  },
+
+  startup: {
+    title: "بدء التشغيل", sub: "عناصر البدء القابلة للتعديل مع حماية العناصر الأساسية", icon: "power",
+    async load() { return settle(api("/api/startup")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة عناصر البدء.</div>`;
+      const on = d.items.filter(i => i.enabled).length;
+      return panel("العناصر", `<div class="pill-row"><span class="tag ok">${Q(on)} مفعّل</span><span class="tag">${Q(d.items.length - on)} معطّل</span></div><table class="tbl"><thead><tr><th>العنصر</th><th>المصدر</th><th>الأمر</th><th class="n">الذاكرة</th><th>الحالة</th><th></th></tr></thead><tbody>${d.items.map(i => `<tr><td>${esc(i.name)}</td><td><span class="tag">${esc(i.source)}</span></td><td class="note" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(i.command)}">${esc(i.command)}</td><td class="n">${Q(i.memMB, "MB")}</td><td>${i.running ? '<span class="tag ok">يعمل</span>' : ""}${i.protected ? '<span class="tag">محمي</span>' : ""}${!i.writable && !i.protected ? '<span class="tag">للقراءة فقط</span>' : ""}</td><td>${i.writable && !i.protected ? sw(i.enabled, `data-st="${esc(i.id)}"`) : sw(i.enabled, "disabled")}</td></tr>`).join("")}</tbody></table>`);
+    }
+  },
+
+  tasks: {
+    title: "الجدولة", sub: "المهام المجدولة ونتائج آخر تشغيل", icon: "calendar",
+    async load() { return settle(api("/api/state")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة المهام.</div>`;
+      const groups = {}; d.tasks.forEach(t => (groups[t.group || "other"] = groups[t.group || "other"] || []).push(t));
+      const names = { clean: "التنظيف", mem: "الذاكرة والمراقبة", backup: "النسخ الاحتياطي", other: "أخرى" };
+      return Object.entries(groups).map(([g, ts]) => panel(names[g] || g, `<table class="tbl"><thead><tr><th>المهمة</th><th>الجدول</th><th>آخر تشغيل</th><th>التالي</th><th>النتيجة</th><th></th></tr></thead><tbody>${ts.map(t => `<tr><td><b>${esc(t.label || t.name)}</b><div class="note">${esc(t.name)}</div></td><td>${esc(t.schedule || "—")}</td><td class="note">${whenIso(t.last)}</td><td class="note">${whenIso(t.next)}</td><td>${t.missing ? '<span class="tag bad">مفقودة</span>' : t.result === 0 ? '<span class="tag ok">نجحت</span>' : `<span class="tag warn">${esc(t.result)}</span>`}</td><td><div class="acts" style="justify-content:flex-end">${t.needsAdmin ? '<span class="tag">تحتاج مدير</span>' : `${t.canRun ? `<button class="btn" data-task="run" data-p="${esc(t.path)}" data-n="${esc(t.name)}">تشغيل الآن</button>` : ""}${sw(t.enabled, `data-task="toggle" data-p="${esc(t.path)}" data-n="${esc(t.name)}"`)}`}</div></td></tr>`).join("")}</tbody></table>`)).join("");
+    }
+  },
+
+  rules: {
+    title: "قواعد التنظيف", sub: "السياسات حسب المستوى مع آخر نتيجة لكل قاعدة", icon: "list",
+    async load() { return settle(api("/api/state"), api("/api/mini")); },
+    render([d, mini]) {
+      if (!d) return `<div class="banner">تعذّر قراءة القواعد.</div>`;
+      const tiers = [["daily", "يومي"], ["weekly", "أسبوعي"], ["monthly", "شهري"], ["quarterly", "ربع سنوي"]], last = d.ruleLast || {};
+      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts"><span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id]; return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(r.action)}</span></td><td class="note" style="max-width:420px">${esc(r.description || "")}</td><td>${x ? `<span class="tag ${sev(x.status)}">${esc(x.status)}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
+    }
+  },
+
+  history: {
+    title: "السجل", sub: "القياسات والأحداث وعمليات التنظيف المسجلة", icon: "clock",
+    async load() { return settle(api("/api/history?range=" + state.range), api(`/api/events?limit=12&offset=${ui.evOff}&sev=${ui.evSev}&range=${state.range}&q=${encodeURIComponent(ui.evQ)}`), api(`/api/runs?limit=8&offset=${ui.runOff}`), api("/api/db-info")); },
+    render([h, ev, rn, di]) {
+      if (!h) return `<div class="banner">تعذّر قراءة السجل.</div>`;
+      const k = h.kpi || {};
+      let out = panel("الملخص", `<div class="kpis">${kpi("ذروة الالتزام", Q(k.commitMax, "%"), "", `متوسط ${Q(k.commitAvg, "%", 1)}`)}${kpi("أدنى ذاكرة متاحة", Q(k.availMin, "GB", 1))}${kpi("تنظيفات الذاكرة", Q(k.trims), "", `حرّرت ${Q(k.trimFreedMB / 1024, "GB", 1)}`)}${kpi("تنظيفات القرص", Q(k.cleanups), "", `${Q(k.cleanupFiles)} ملف`)}${kpi("قياسات", Q(k.samples))}</div>`, { meta: rangeChips() });
+      out += panel("الالتزام والفعلية", `<div id="hsChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1]])}`, { cls: "c8" });
+      out += panel("يوميًا", `<table class="tbl"><thead><tr><th>اليوم</th><th class="n">التزام</th><th class="n">ذروة</th><th class="n">أدنى متاح</th></tr></thead><tbody>${(h.daily || []).slice(0, 7).map(x => `<tr><td>${esc(x.day)}</td><td class="n">${Q(x.commit_avg, "%", 1)}</td><td class="n">${Q(x.commit_max, "%")}</td><td class="n">${Q(x.avail_min, "GB", 1)}</td></tr>`).join("")}</tbody></table>`, { cls: "c4" });
+      out += panel("الأحداث", `<div class="toolbar"><select class="btn" id="evSev"><option value="">كل الشدّات</option><option value="warn">تحذيرات</option><option value="err">أخطاء</option><option value="ok">نجاح</option></select><input class="inp" id="evQ" placeholder="بحث في الأحداث…" value="${esc(ui.evQ)}"></div><div class="list">${(ev?.rows || []).map(e => `<div class="li"><span class="t"><span class="tag ${sev(e.severity)}">${esc(e.source)}</span> ${esc(e.title)}</span><span class="r note">${when(e.ts)}</span><span class="d">${esc(e.detail || "")}</span></div>`).join("") || '<div class="empty">لا أحداث</div>'}</div>${pager("ev", ev?.total || 0, 12, ui.evOff)}`, { cls: "c7", meta: `${Q(ev?.total)} حدثًا` });
+      out += panel("جولات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>المستوى</th><th class="n">محرَّر</th><th>الحالة</th></tr></thead><tbody>${(rn?.rows || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.tier)} ${r.dry ? '<span class="tag">تجربة</span>' : ""}</td><td class="n">${Q(r.bytes_freed / 1048576, "MB", 1)}</td><td>${r.rules_failed ? `<span class="tag bad">${Q(r.rules_failed)} فشل</span>` : '<span class="tag ok">سليم</span>'}</td></tr>`).join("")}</tbody></table>${pager("run", rn?.total || 0, 8, ui.runOff)}`, { cls: "c5" });
+      if (di) out += panel("إحصاءات قاعدة البيانات", `<div class="kpis">${kpi("الحجم", Q(di.bytes / 1048576, "MB", 1))}${kpi("منذ", whenIso(new Date(di.first * 1000).toISOString()), "", "")}${kpi("SQLite", di.sqlite)}${kpi("المخطط", Q(di.schema))}</div><table class="tbl"><thead><tr><th>الجدول</th><th class="n">الصفوف</th></tr></thead><tbody>${Object.entries(di.tables).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="n">${Q(v)}</td></tr>`).join("")}</tbody></table>`, { cls: "c12" });
+      return out;
+    },
+    after([h]) {
+      const sel = $("#evSev"); if (sel) { sel.value = ui.evSev; sel.onchange = () => { ui.evSev = sel.value; ui.evOff = 0; show(); }; }
+      const q = $("#evQ"); if (q) q.onkeydown = e => { if (e.key === "Enter") { ui.evQ = q.value.trim(); ui.evOff = 0; show(); } };
+      if (!h?.series?.length) return; const ix = compact(h.series, 170), S = ix.map(i => h.series[i]);
+      chart($("#hsChart"), { t: S.map(x => x.t), series: [{ id: "r", name: "فعلية", color: "var(--accent2)", v: S.map(x => x.ram), fmt: v => nf(v, 1) + "%" }, { id: "c", name: "التزام", color: "var(--violet)", v: S.map(x => x.commit), dashed: true, fill: false, fmt: v => nf(v, 1) + "%" }], min: 0, max: 100, height: 210, yFmt: v => nf(v) + "%" });
+    }
+  },
+
+  advice: {
+    title: "التوصيات", sub: "مرتبطة بالقياسات؛ لا تُنفَّذ تلقائيًا", icon: "bulb",
+    async load() { return settle(api("/api/advice")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة التوصيات.</div>`;
+      const c = d.counts || {};
+      return panel("الملخص", `<div class="pill-row"><span class="tag bad">${Q(c.bad)} حرج</span><span class="tag warn">${Q(c.warn)} انتبه</span><span class="tag">${Q(c.info)} للعلم</span><span class="tag ok">${Q(c.ok)} سليم</span></div>`)
+        + `<div class="cards">${d.items.map(i => `<article class="card lvl-${esc(i.lvl)}"><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p><div class="acts">${i.go ? `<a class="btn" href="#/${esc(i.go)}">فتح الصفحة</a>` : ""}${i.action ? `<button class="btn primary" data-adv='${esc(JSON.stringify({ api: i.action.api, body: i.action.body || {}, confirm: i.action.confirm || "" }))}'>${esc(i.action.label || "تنفيذ")}</button>` : ""}</div></article>`).join("")}</div>`;
+    }
+  },
+
+  alerts: {
+    title: "مركز التنبيهات", sub: "حدود التنبيه المشتركة وسجل التنبيهات", icon: "bell",
+    async load() { return settle(api("/api/alerts")); },
+    render([d]) {
+      if (!d || !d.cfg || !d.limits) return `<div class="banner">تعذّر قراءة التنبيهات.</div>`;
+      const F = [["mem", "الذاكرة", [["ramWarn", "تحذير الذاكرة %"], ["ramBad", "خطر الذاكرة %"], ["commitWarn", "تحذير الالتزام %"], ["commitBad", "خطر الالتزام %"]]], ["cpu", "المعالج", [["minCores", "حدّ التنبيه (نواة)"], ["windowMin", "النافذة (دقائق)"]]], ["disk", "القرص C", [["freeWarnGB", "تحذير: أقل من GB"], ["freeBadGB", "خطر: أقل من GB"]]], ["gpu", "كرت الشاشة", [["tempWarn", "تحذير الحرارة °"], ["tempBad", "خطر الحرارة °"]]]];
+      return `<form id="alForm" class="panel" style="grid-column:span 7"><div class="ph"><h2>الحدود</h2></div>${F.map(([sec, t, fs]) => `<fieldset class="fs"><legend>${t}</legend>${fs.map(([k, l]) => `<label class="fld"><span>${l}</span><input class="inp" type="number" dir="ltr" name="${sec}.${k}" value="${d.cfg[sec][k]}" step="any" min="${d.limits[sec][k][0]}" max="${d.limits[sec][k][1]}"></label>`).join("")}</fieldset>`).join("")}<fieldset class="fs"><legend>برامج لا ينبّه المعالج عنها</legend><textarea class="inp" name="cpu.ignore" rows="3" dir="ltr" placeholder="backup.exe">${esc((d.cfg.cpu.ignore || []).join("\n"))}</textarea></fieldset><div class="acts"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" id="alReset">القيم الافتراضية</button></div></form>`
+        + panel("سجل التنبيهات", `<div class="list scrollbox">${d.log.map(x => `<div class="li"><span class="t"><span class="tag ${sev(x.sev)}">${esc(x.source)}</span> ${esc(x.title)}</span><span class="r note">${when(x.ts)}</span><span class="d">${esc(x.detail || "")}</span></div>`).join("") || '<div class="empty">لا تنبيهات</div>'}</div>`, { cls: "c5" });
+    },
+    after([d]) {
+      const f = $("#alForm"); if (!f) return;
+      f.onsubmit = async e => { e.preventDefault(); const o = { cpu: {}, mem: {}, disk: {}, gpu: {} }; f.querySelectorAll("input[type=number]").forEach(i => { const [s, k] = i.name.split("."); o[s][k] = Number(i.value); }); o.cpu.ignore = f.querySelector("textarea").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); await act(() => post("/api/alerts", o), "حُفظت حدود التنبيه"); };
+      $("#alReset").onclick = () => { for (const [sec, vals] of Object.entries(d.defaults)) for (const [k, v] of Object.entries(vals)) { const i = f.querySelector(`[name="${sec}.${k}"]`); if (i && k !== "ignore") i.value = v; } };
+    }
+  },
+
+  ctrl: {
+    title: "الإعدادات والتحكم", sub: "المهام الخلفية وتنظيف الذاكرة والمظهر", icon: "sliders",
+    async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget")); },
+    render([j, m, ap, inf, wg]) {
+      let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="chips" role="group">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button data-palette="${k}" aria-pressed="${ap?.palette === k}">${l}</button>`).join("")}</div></div><p class="note">يُحفظ اختيار الواجهة الحالية والويدجت معًا. هذه الواجهة الجديدة لها سمتها الخاصة (زر القمر).</p>`, { cls: "c6" });
+      out += panel("الذاكرة", `<p>تقليص مجموعات عمل العمليات مؤقتًا دون إنهاء أي عملية.</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button><button class="btn" data-trim="deep">تنظيف عميق</button></div>`, { cls: "c6" });
+      out += panel("وضع الصيانة المؤقت", m ? `<div class="row-sw"><span>${m.on ? "مفعّل" : "غير مفعّل"} — يوقف ${(m.rules || []).map(esc).join("، ")} أثناء عمل Claude Code</span>${sw(!!m.on, 'data-maint="1"')}</div>` : '<div class="empty">غير متاح</div>', { cls: "c12" });
+      if (inf) {
+        const sv = inf.server || {}, dbh = inf.db || {};
+        out += panel("صحة الخادم وقاعدة البيانات", `<div class="kpis">${kpi("تشغيل الخادم", dur(sv.uptime_s))}${kpi("الطلبات", Q(sv.requests?.total), "", `${Q(sv.requests?.s2xx)} ناجحة`)}${kpi("زمن الاستجابة p50", Q(sv.p50_ms, "ms", 0), "", `p95 ${Q(sv.p95_ms, "ms")}`)}${kpi("سلامة القاعدة", dbh.integrity === "ok" ? "سليمة" : esc(dbh.integrity), "", `${esc(dbh.journal)} · ${Q(dbh.bytes / 1048576, "MB", 1)}`)}${kpi("الوكيل", inf.agent?.alive ? "يعمل" : "متوقف", "", inf.agent ? `نبضة قبل ${Q(Date.now() / 1000 - inf.agent.heartbeat, "ث")}` : "")}</div>${(sv.recent_errors || []).length ? `<div class="list">${sv.recent_errors.map(e => `<div class="li"><span class="t">${esc(e.text || JSON.stringify(e))}</span></div>`).join("")}</div>` : '<p class="note">لا أخطاء حديثة في الخادم.</p>'}`, { cls: "c8" });
+        out += panel("النسخ الاحتياطية", `<div class="list">${(inf.backups || []).map(b => `<div class="li"><span class="t num" style="font-size:12.5px">${esc(b.name)}</span><span class="r">${Q(b.bytes / 1048576, "MB", 1)}</span><span class="d">${when(b.ts)}</span></div>`).join("") || '<div class="empty">لا نسخ</div>'}</div>`, { cls: "c4" });
+      }
+      out += panel("ويدجت سطح المكتب", `<div class="row-sw"><span>${wg?.running ? "ظاهر الآن" : "مخفي"}</span>${sw(!!wg?.running, 'data-widget="1"')}</div>`, { cls: "c12" });
+      out += panel("المهام الخلفية", j ? `<table class="tbl"><thead><tr><th>المهمة</th><th class="n">كل</th><th>آخر تشغيل</th><th>الحالة</th><th class="n">التالي</th><th></th></tr></thead><tbody>${j.jobs.map(x => `<tr><td><b>${esc(x.name)}</b></td><td class="n">${dur(x.interval_s)}</td><td class="note">${when(x.last_end)} · ${Q(x.last_ms / 1000, "ث", 1)}</td><td><span class="tag ${x.last_status === "ok" ? "ok" : "bad"}">${esc(x.last_status || "—")}</span> <span class="note">${Q(x.runs)} تشغيل · ${Q(x.fails)} فشل</span></td><td class="n note">${when(x.next_run)}</td><td><button class="btn" data-job="${esc(x.name)}">تشغيل</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty">غير متاح</div>');
+      return out;
+    }
+  },
+
+  dbx: {
+    title: "قاعدة البيانات", sub: "مخطط القاعدة وصفوف الجداول للقراءة فقط", icon: "db",
+    async load() {
+      const db = await api("/api/db").catch(() => null); if (db && !ui.dbTable) ui.dbTable = db.tables[0]?.name || "";
+      const rows = db && ui.dbTable ? await api(`/api/db/rows?table=${encodeURIComponent(ui.dbTable)}&limit=15&offset=${ui.dbOff}`).catch(() => null) : null;
+      return [db, rows];
+    },
+    render([db, rows]) {
+      if (!db) return `<div class="banner">تعذّر قراءة القاعدة.</div>`;
+      let out = panel("الملف", `<div class="kpis">${kpi("الحجم", Q(db.bytes / 1048576, "MB", 1))}${kpi("سجل WAL", Q(db.walBytes / 1048576, "MB", 1))}${kpi("الجداول", Q(db.tables.length))}${kpi("الإصدار", Q(db.schema))}</div>`);
+      out += panel("الجداول", `<div class="list scrollbox">${db.tables.map(t => `<button class="li rowbtn" data-tbl="${esc(t.name)}" aria-pressed="${ui.dbTable === t.name}"><span class="t">${esc(t.name)}</span><span class="r">${Q(t.rows)}</span></button>`).join("")}</div>`, { cls: "c4" });
+      const cols = rows?.columns || rows?.cols || (rows?.rows?.[0] ? Object.keys(rows.rows[0]) : []);
+      out += panel(ui.dbTable || "—", rows ? `<div class="scroll"><table class="tbl"><thead><tr>${cols.map(c => `<th>${esc(c.name || c)}</th>`).join("")}</tr></thead><tbody>${(rows.rows || []).map(r => `<tr>${(Array.isArray(r) ? r : cols.map(c => r[c.name || c])).map(v => `<td class="note" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v)}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${pager("db", rows.total || 0, 15, ui.dbOff)}` : '<div class="empty">اختر جدولًا</div>', { cls: "c8", meta: `${Q(rows?.total)} صفًا` });
+      return out;
+    }
+  },
+
+  appearance: {
+    title: "المظهر الموحد", sub: "الوضع ولون الهوية للتطبيق والويدجت", icon: "palette",
+    async load() { return settle(api("/api/appearance")); },
+    render([ap]) {
+      const sw2 = { teal: "#3ee6b0", blue: "#7ca6ff", violet: "#b79cff", graphite: "#9aa7b8" };
+      return panel("الوضع", `<div class="chips" role="group">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div>`, { cls: "c6" })
+        + panel("لون الهوية", `<div class="swatches">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button class="swatch" data-palette="${k}" aria-pressed="${ap?.palette === k}"><i style="background:${sw2[k]}"></i>${l}</button>`).join("")}</div>`, { cls: "c6" })
+        + panel("للمعلومات", `<p class="note">المراجعة ${Q(ap?.revision)} · يُطبَّق الاختيار على الواجهة الحالية والويدجت. الواجهة الجديدة لها سمتها (زر القمر في الأعلى) وتتبع نظام التشغيل افتراضيًا.</p>`);
+    }
+  }
+});
+
+/* delegated actions for the pages above */
+document.addEventListener("click", async e => {
+  const t = e.target.closest("button, a"); if (!t) return;
+  if (t.dataset.pg) { const id = t.dataset.pg, off = +t.dataset.off; if (id === "ev") ui.evOff = off; else if (id === "run") ui.runOff = off; else ui.dbOff = off; show(); }
+  else if (t.dataset.iodev) { ui.ioDev = t.dataset.iodev; show(); }
+  else if (t.dataset.tbl) { ui.dbTable = t.dataset.tbl; ui.dbOff = 0; show(); }
+  else if (t.dataset.reaper) { act(() => post("/api/reaper", { key: "killBareClaudeShells", value: t.getAttribute("aria-checked") !== "true" }), "حُدّث إعداد الكانس"); }
+  else if (t.dataset.plan) { if (await confirmDlg(`تفعيل خطة الطاقة «${t.dataset.pname}»؟ تُطبَّق فورًا على الجهاز.`)) act(() => post("/api/power-plan", { guid: t.dataset.plan }), "فُعّلت الخطة"); }
+  else if (t.dataset.st) { const on = t.getAttribute("aria-checked") !== "true"; if (await confirmDlg(on ? "تفعيل هذا العنصر عند بدء التشغيل؟" : "تعطيل هذا العنصر عند بدء التشغيل؟")) act(() => post("/api/startup", { id: t.dataset.st, enabled: on }), "تم — يسري عند الدخول التالي"); }
+  else if (t.dataset.task) { const run = t.dataset.task === "run", on = t.getAttribute("aria-checked") === "true"; const ok = await confirmDlg(run ? `تشغيل المهمة «${t.dataset.n}» الآن؟` : on ? "إيقاف جدولة هذه المهمة؟" : "تفعيل جدولة هذه المهمة؟"); if (ok) act(() => post("/api/task", { op: run ? "run" : on ? "disable" : "enable", path: t.dataset.p, name: t.dataset.n }), run ? "بدأ التشغيل" : "تم"); }
+  else if (t.dataset.tier) { const paused = t.getAttribute("aria-checked") !== "true"; if (await confirmDlg(paused ? "إيقاف هذا المستوى مؤقتًا؟ لن يُشغَّل تنظيفه المجدول." : "استئناف هذا المستوى؟")) act(() => post("/api/tier-pause", { tier: t.dataset.tier, paused }), "تم"); }
+  else if (t.dataset.rule) { const on = t.getAttribute("aria-checked") === "true"; if (await confirmDlg(on ? "تعطيل هذه القاعدة؟" : "تفعيل هذه القاعدة؟")) act(() => post("/api/rule", { id: t.dataset.rule, enabled: !on }), "حُدّثت السياسة"); }
+  else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/trim-memory", "/api/trim-auto", "/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
+  else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(() => post("/api/appearance", next), "حُفظ المظهر"); }
+  else if (t.dataset.trim) { if (await confirmDlg(t.dataset.trim === "deep" ? "تنظيف عميق للذاكرة؟ قد يبطّئ التطبيقات لحظات." : "تنظيف الذاكرة الآن؟")) act(() => post("/api/trim-memory", { mode: t.dataset.trim }), "بدأ التنظيف"); }
+  else if (t.dataset.widget) { const show = t.getAttribute("aria-checked") !== "true"; act(() => post("/api/widget", { show }), show ? "أُظهر الويدجت" : "أُخفي الويدجت"); }
+  else if (t.dataset.maint) { const on = t.getAttribute("aria-checked") === "true"; act(() => post("/api/maintenance", { on: !on }), "حُدّث وضع الصيانة"); }
+  else if (t.dataset.job) { if (await confirmDlg(`تشغيل المهمة «${t.dataset.job}» الآن؟`)) act(() => post("/api/jobs/run", { name: t.dataset.job }), "بدأ التشغيل"); }
+});
+
+const NAV = [
+  ["نظرة", [["overview", "نظرة عامة"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
+  ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL وDocker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
+  ["الصيانة", [["space", "المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
+  ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
+];
+const LEGACY = [];
+
+/* ───────── shell + router ───────── */
+function buildNav(cur) {
+  $("#nav").innerHTML = `<div class="brand"><div class="brand-mark">${svgi("cpu").replace("<svg", '<svg width="22" height="22"')}</div><div><b>مرصد الجهاز</b><small>الواجهة الجديدة</small></div></div>`
+    + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
+    + (LEGACY.length ? `<div class="nav-group"><div class="nav-label">صفحات أخرى</div>${LEGACY.map(([k, l]) => `<a href="/#${k}"><span>${l}</span>${svgi("ext", "ext")}</a>`).join("")}</div>` : "")
+    + `<div class="nav-foot"><a href="/" title="التنظيف الفعلي للقرص والشرح بالنموذج المحلي ما زالا هناك">${svgi("ext", "ext")}<span>الواجهة الحالية (للتنظيف الفعلي)</span></a><small class="note">القراءة محليّة من 127.0.0.1 — لا اتصال خارجي.</small></div>`;
+}
+let timer = 0, page = null, last = null, busy = false, lastSig = "";
+async function show(first = false) {
+  if (busy) return; busy = true; ctl?.abort(); ctl = new AbortController();
+  const live = $("#live"), main = $("#main");
+  // a refresh must never disturb what the user is doing: skip while hovering a chart, typing, or a dialog is open
+  if (!first && (main.querySelector(".chart:hover") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) { busy = false; return; }
+  try {
+    const data = await page.load();
+    if (data.every(x => x == null)) throw new Error("no data");
+    const sig = JSON.stringify(data);
+    live.classList.remove("err"); $("#liveTxt").textContent = "مباشر · " + new Date().toLocaleTimeString("en-GB");
+    if (!first && sig === lastSig) return;          // nothing changed: touch nothing
+    lastSig = sig; last = data;
+    const y = scrollY, boxes = [...main.querySelectorAll(".scrollbox")].map(b => b.scrollTop);
+    main.innerHTML = page.render(data); page.after?.(data);
+    main.querySelectorAll(".scrollbox").forEach((b, i) => { b.scrollTop = boxes[i] || 0; });
+    if (!first) scrollTo(0, y);
+  } catch (e) { if (e.name !== "AbortError") { console.error("render/load failed:", e && e.stack || e); live.classList.add("err"); $("#liveTxt").textContent = "تعذّر التحديث"; if (first) $("#main").innerHTML = `<div class="banner">تعذّر الاتصال بالخادم. تأكد من تشغيل المرصد ثم أعد المحاولة.</div>`; } }
+  finally { busy = false; }
+}
+function schedule() { clearInterval(timer); const ms = +$("#every").value; if (ms) timer = setInterval(() => { if (!document.hidden) show(); }, ms); }
+function route() {
+  const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
+  $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = page.title + " — مرصد الجهاز";
+  buildNav(key); $("#nav").classList.remove("open"); lastSig = ""; const m = $("#main"); m.classList.add("enter"); setTimeout(() => m.classList.remove("enter"), 900); m.innerHTML = skeleton(6); show(true); schedule(); scrollTo(0, 0);
+}
+addEventListener("hashchange", route);
+document.addEventListener("click", e => {
+  const r = e.target.closest("[data-range]"); if (r) { state.range = r.dataset.range; show(); }
+});
+$("#refresh").onclick = () => show();
+$("#every").onchange = schedule;
+$("#menuBtn").onclick = () => $("#nav").classList.toggle("open");
+document.addEventListener("visibilitychange", () => { if (!document.hidden) show(); });
+const THEME_KEY = "mw-v2-theme";
+const applyTheme = t => { document.documentElement.dataset.theme = t; try { localStorage.setItem(THEME_KEY, t); } catch (_) {} };
+try { const t = localStorage.getItem(THEME_KEY); if (t) document.documentElement.dataset.theme = t; else if (matchMedia("(prefers-color-scheme: light)").matches) document.documentElement.dataset.theme = "light"; } catch (_) {}
+$("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); show(); };
+route();
+</script>
+</body>
+</html>
