@@ -16,7 +16,7 @@ for f in sorted(glob.glob(os.path.join(ROOT, "*.py"))):
     except (SyntaxError, UnicodeError, OSError) as e:
         check("compile " + os.path.basename(f), False, str(e)[:200])
 
-src = open(os.path.join(ROOT, "index.html"), encoding="utf-8").read()
+src = open(os.path.join(ROOT, "web", "index.html"), encoding="utf-8").read()
 
 # 2) وسوم <style> متوازنة وكل كتلة CSS لها أقواس متوازنة
 styles = re.findall(r"<style[^>]*>(.*?)</style>", src, re.S)
@@ -27,7 +27,7 @@ for i, css in enumerate(styles):
           f"{css_nc.count('{')} vs {css_nc.count('}')}")
 check("style tags balanced", src.count("<style") == src.count("</style>"))
 
-# 3) أكواد JS داخل index.html صحيحة الصياغة
+# 3) أكواد JS داخل web/index.html صحيحة الصياغة
 scripts = re.findall(r"<script(?![^>]*src=)[^>]*>(.*?)</script>", src, re.S)
 sandbox = os.path.join(ROOT, "tests", ".sandboxes")
 os.makedirs(sandbox, exist_ok=True)

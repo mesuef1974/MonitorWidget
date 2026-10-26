@@ -820,14 +820,11 @@ const NAV = [
   ["الصيانة", [["space", "المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
 ];
-const LEGACY = [];
 
 /* ───────── shell + router ───────── */
 function buildNav(cur) {
   $("#nav").innerHTML = `<div class="brand"><div class="brand-mark">${svgi("cpu").replace("<svg", '<svg width="22" height="22"')}</div><div><b>مرصد الجهاز</b><small>الواجهة الجديدة</small></div></div>`
     + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
-    + (LEGACY.length ? `<div class="nav-group"><div class="nav-label">صفحات أخرى</div>${LEGACY.map(([k, l]) => `<a href="/#${k}"><span>${l}</span>${svgi("ext", "ext")}</a>`).join("")}</div>` : "")
-    + `<div class="nav-foot"><a href="/" title="التنظيف الفعلي للقرص والشرح بالنموذج المحلي ما زالا هناك">${svgi("ext", "ext")}<span>الواجهة الحالية (للتنظيف الفعلي)</span></a><small class="note">القراءة محليّة من 127.0.0.1 — لا اتصال خارجي.</small></div>`;
 }
 let timer = 0, page = null, last = null, busy = false, lastSig = "";
 async function show(first = false) {
@@ -852,7 +849,7 @@ async function show(first = false) {
 function schedule() { clearInterval(timer); const ms = +$("#every").value; if (ms) timer = setInterval(() => { if (!document.hidden) show(); }, ms); }
 function route() {
   const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
-  $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = page.title + " — مرصد الجهاز";
+  $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
   buildNav(key); $("#nav").classList.remove("open"); lastSig = ""; const m = $("#main"); m.classList.add("enter"); setTimeout(() => m.classList.remove("enter"), 900); m.innerHTML = skeleton(6); show(true); schedule(); scrollTo(0, 0);
 }
 addEventListener("hashchange", route);

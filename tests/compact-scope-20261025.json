@@ -1,6 +1,0 @@
-{
-  "scope": "compact widget only; application no-scroll still incomplete",
-  "indexSourceUnchanged": true,
-  "indexSha256": "136c93716c913d34cc51ff348d2e7d98a00dcb543ab1abf488d6aac97400f33c",
-  "reason": "Unverified global layout helper not merged; preserves current application behavior."
-}

@@ -867,7 +867,7 @@ public static class WF {
 '@
 $UI.open.Add_Click({
     try {
-        $m = [regex]::Match([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'index.html'), [Text.Encoding]::UTF8), '<title>(.*?)</title>')
+        $m = [regex]::Match([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'web\index.html'), [Text.Encoding]::UTF8), '<title>(.*?)</title>')
         if ($m.Success -and [WF]::Exists($m.Groups[1].Value.Trim())) {
             [void][WF]::Activate($m.Groups[1].Value.Trim())
             return
@@ -909,7 +909,7 @@ function Open-Dash([string]$tk) {
 
 
 $script:dashTitle = $null
-try { $mt = [regex]::Match([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'index.html'), [Text.Encoding]::UTF8), '<title>(.*?)</title>'); if ($mt.Success) { $script:dashTitle = $mt.Groups[1].Value.Trim() } } catch {}
+try { $mt = [regex]::Match([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'web\index.html'), [Text.Encoding]::UTF8), '<title>(.*?)</title>'); if ($mt.Success) { $script:dashTitle = $mt.Groups[1].Value.Trim() } } catch {}
 $dashTimer = New-Object Windows.Threading.DispatcherTimer; $dashTimer.Interval = [TimeSpan]::FromMilliseconds(1000)
 $dashTimer.Add_Tick({ try { if ($script:dashTitle) { $t = if ([WF]::Exists($script:dashTitle)) { $script:txtClose } else { $script:txtOpen }; if ($UI.open.Content -ne $t) { $UI.open.Content = $t } } } catch {} })
 $dashTimer.Start()

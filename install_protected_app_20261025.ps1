@@ -35,7 +35,7 @@ $codeNames = @(
     'shotwatch.py','space.py','sqlite_runtime.py','startup_mgr.py',
     'widget.ps1','collect.ps1','ops.ps1','healthprobe.ps1','relia_scan.ps1',
     'show_widget.ps1','restart_widget.ps1','restart_agent.ps1','launch_mini.vbs',
-    'purge.exe','index.html'
+    'purge.exe','web\index.html'
 )
 $settingsNames = @('.token','tasks.json','alerts.json','appearance.json','widget.settings.json','cpu_ignore.txt',
     'explain_cache.json','explain_last.txt','admin_probe.json','purge_result.json')
