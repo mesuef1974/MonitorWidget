@@ -24,7 +24,9 @@ LIVE_FIELDS = ["temperature.gpu", "utilization.gpu", "utilization.memory", "memo
                "clocks_throttle_reasons.active"]
 
 _lock = threading.Lock()
-_ok_fields = {}      # field -> bool (does this driver/GPU answer it?)
+_ok_fields = {}      # field -> (answers, when probed); a failed probe is retried after RETRY_S, never cached for good
+_down = {"until": 0.0, "why": None}
+RETRY_S = 90
 _cache = {"static": (0.0, None), "live": (0.0, None)}
 
 
@@ -39,6 +41,7 @@ def _run(fields, timeout=10):
     r = subprocess.run([NVSMI, "--query-gpu=" + ",".join(fields), "--format=csv,noheader,nounits"],
                        capture_output=True, timeout=timeout, creationflags=CNW)
     if r.returncode != 0:
+        _down["why"] = (r.stdout or r.stderr).decode("utf-8", "replace").strip()[:160] or ("nvidia-smi exit %s" % r.returncode)
         return None
     lines = r.stdout.decode("utf-8", "replace").strip().splitlines()
     if not lines:
@@ -48,15 +51,24 @@ def _run(fields, timeout=10):
 
 
 def _supported(fields):
-    """Fields this driver understands. Each unknown field fails the whole query, so unknown ones are probed alone once."""
+    """Fields this driver understands. Each unknown field fails the whole query, so unknown ones are probed alone.
+    A probe that failed (timeout under load, transient driver error) is retried later instead of disabling the field for the process lifetime."""
+    now = time.time()
     out = []
     for f in fields:
-        if f not in _ok_fields:
+        v = _ok_fields.get(f)
+        if v is None or (not v[0] and now - v[1] > RETRY_S):
             try:
-                _ok_fields[f] = _run([f], 8) is not None
+                ok = _run([f], 15) is not None
+            except subprocess.TimeoutExpired:
+                _down["why"] = "nvidia-smi timeout"
+                ok = False
             except Exception:
-                _ok_fields[f] = False
-        if _ok_fields[f]:
+                ok = False
+            v = _ok_fields[f] = (ok, now)
+            if not ok and not out and f == fields[0]:
+                break          # the very first field fails: the tool itself is unavailable, do not spend a probe per field
+        if v[0]:
             out.append(f)
     return out
 
@@ -64,9 +76,13 @@ def _supported(fields):
 def _query(fields):
     if not os.path.exists(NVSMI):
         return {}
+    if time.time() < _down["until"]:
+        return {}
     fs = _supported(fields)
     if not fs:
+        _down["until"] = time.time() + 45      # tool unavailable: stop spawning it for every request
         return {}
+    _down["why"] = None
     try:
         parts = _run(fs)
     except Exception:
@@ -301,4 +317,5 @@ def api_payload(rng="24h"):
             verdict = "warn"
     return {"ok": bool(st.get("available") or rows), "range": rng if rng in RANGES else "24h", "span": span, "now": int(time.time()),
             "static": st, "live": live, "series": _series(rows), "stats": stat,
-            "procs": [{"name": n, "mb": v} for n, v in procs], "procsTs": procs_ts, "igpu": ig, "notes": notes, "verdict": verdict}
+            "procs": [{"name": n, "mb": v} for n, v in procs], "procsTs": procs_ts, "igpu": ig, "notes": notes, "verdict": verdict,
+            "diag": None if st.get("available") else (_down["why"] or "nvidia-smi لم يُجب")}

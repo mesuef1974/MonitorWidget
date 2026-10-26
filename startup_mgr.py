@@ -112,13 +112,22 @@ def _items():
     return out
 
 
+_LIST = {"t": 0.0, "v": None}
+LIST_TTL = 20
+
+
 def list_items():
+    now = time.time()
+    if _LIST["v"] is not None and now - _LIST["t"] < LIST_TTL:
+        return _LIST["v"]       # مسح السجل والمهام والعمليات يكلّف ثوانيَ؛ تخزين قصير يجعل الصفحة فورية
     its = _items()
     its.sort(key=lambda i: (i["source"], not i["enabled"], i["name"].lower()))
-    return {"items": its, "ts": int(time.time())}
+    _LIST.update(t=now, v={"items": its, "ts": int(now)})
+    return _LIST["v"]
 
 
 def toggle(body):
+    _LIST["v"] = None
     iid = str(body.get("id", ""))
     en = body.get("enabled")
     if not isinstance(en, bool):
