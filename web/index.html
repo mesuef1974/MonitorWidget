@@ -35,8 +35,14 @@
   --ok:#08a177;--warn:#c27a00;--bad:#d1334a;--ok-bg:rgba(8,161,119,.1);--warn-bg:rgba(194,122,0,.1);--bad-bg:rgba(209,51,74,.1);
   --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
 }
+:root[data-palette="blue"][data-theme="dark"]{--accent:#6aa6ff;--accent-ink:#04122b;--accent2:#3ee6b0;--bg-glow:rgba(106,166,255,.08)}
+:root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
+:root[data-palette="violet"][data-theme="dark"]{--accent:#b79cff;--accent-ink:#160a33;--accent2:#7ca6ff;--bg-glow:rgba(183,156,255,.08)}
+:root[data-palette="violet"][data-theme="light"]{--accent:#6f4fd0;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(111,79,208,.09)}
+:root[data-palette="graphite"][data-theme="dark"]{--accent:#c4ccd8;--accent-ink:#0c1118;--accent2:#7ca6ff;--bg-glow:rgba(196,204,216,.06)}
+:root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}
 *{box-sizing:border-box;margin:0}
-html{color-scheme:dark light}
+html{color-scheme:dark light;overflow-y:scroll;scrollbar-gutter:stable}
 body{font:400 14px/1.55 var(--f-ui);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:radial-gradient(900px 520px at 85% -10%,var(--bg-glow),transparent 70%),
@@ -77,6 +83,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .live.err i{background:var(--bad);animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
 .tag .x{margin-inline-start:4px;padding:0 4px;border-radius:6px;color:var(--ink3);font-size:14px;line-height:1}.tag .x:hover{color:var(--bad)}
+#widgetBtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}@media(max-width:900px){#widgetBtn span{display:none}}
 .boost{display:inline-flex;gap:6px;align-items:center}.boost .btn[disabled]{opacity:.6}#boostMode{min-width:128px}@media(max-width:760px){#boostMode{display:none}#boostTxt{display:none}}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--line2);border-radius:10px;background:var(--panel);color:var(--ink);font-size:13px;transition:border-color .15s,background .15s,transform .15s}
 .btn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:var(--panel2)}
@@ -229,7 +236,7 @@ html{scroll-behavior:auto}
       <button class="btn menu-btn" id="menuBtn" aria-label="القائمة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="grow"><h1 id="title">…</h1><div class="sub" id="subtitle"></div></div>
       <span class="live" id="live" role="status"><i></i><span id="liveTxt">جارٍ التحميل</span></span>
-      <span class="boost"><button class="btn primary" id="boost" title="تنظيف الذاكرة الآن"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg><span id="boostTxt">تنظيف الذاكرة</span></button><select class="btn" id="boostMode" aria-label="عمق التنظيف" title="بسيط: آمن ولا يجمّد الجهاز. متوسط: العمليات الخاملة. عميق: يفرّغ التطبيقات النشطة وقد يجمّد الجهاز"><option value="light">بسيط (آمن)</option><option value="medium">متوسط (الخاملة)</option><option value="deep">عميق (بتأكيد)</option></select></span><select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
+      <button class="btn" id="widgetBtn" aria-pressed="false" title="إظهار الويدجت أو إخفاؤه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>الويدجت</span></button><span class="boost"><button class="btn primary" id="boost" title="تنظيف الذاكرة الآن"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg><span id="boostTxt">تنظيف الذاكرة</span></button><select class="btn" id="boostMode" aria-label="عمق التنظيف" title="بسيط: آمن ولا يجمّد الجهاز. متوسط: العمليات الخاملة. عميق: يفرّغ التطبيقات النشطة وقد يجمّد الجهاز"><option value="light">بسيط (آمن)</option><option value="medium">متوسط (الخاملة)</option><option value="deep">عميق (بتأكيد)</option></select></span><select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
       <button class="btn" id="refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>تحديث</button>
       <button class="btn" id="theme" aria-label="تبديل السمة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
     </header>
@@ -412,7 +419,7 @@ const PAGES = {
     render([d]) {
       if (!d) return `<div class="banner">تعذّر قراءة بيانات الرسوميات.</div>`;
       const s = d.static || {}, l = d.live || {}, st = d.stats || {};
-      let out = panel(s.name || "كرت الرسوميات", `<div class="pill-row">${s.driver ? `<span class="tag">تعريف ${Q(s.driver)}</span>` : ""}${s.vramTotal ? `<span class="tag">${Q(s.vramTotal / 1024, "GB")}</span>` : ""}${s.powerMax ? `<span class="tag">حدّ القدرة ${Q(s.powerMax, "W")}</span>` : ""}${l.pcieGen != null ? `<span class="tag">PCIe ${Q(l.pcieGen)} ×${Q(l.pcieWidth)}</span>` : ""}${l.pstate ? `<span class="tag ${l.pstate === "P0" ? "warn" : ""}">${esc(l.pstate)}</span>` : ""}${!l.ts ? `<span class="tag warn">لا قياسات حية الآن</span>` : ""}</div>`, { cls: "", meta: rangeChips() });
+      let out = panel(s.name || "كرت الرسوميات", `<div class="pill-row">${s.driver ? `<span class="tag">تعريف ${Q(s.driver)}</span>` : ""}${s.vramTotal ? `<span class="tag">${Q(s.vramTotal / 1024, "GB")}</span>` : ""}${s.powerMax ? `<span class="tag">حدّ القدرة ${Q(s.powerMax, "W")}</span>` : ""}${l.pcieGen != null ? `<span class="tag">PCIe ${Q(l.pcieGen)} ×${Q(l.pcieWidth)}</span>` : ""}${l.pstate ? `<span class="tag ${l.pstate === "P0" ? "warn" : ""}">${esc(l.pstate)}</span>` : ""}${!l.ts ? `<span class="tag warn" title="${esc(d.diag || "")}">لا قياسات حية الآن${d.diag ? " — " + esc(d.diag) : ""}</span>` : ""}</div>`, { cls: "", meta: rangeChips() });
       out += panel("الآن", `<div class="gauges">${gauge({ value: l.temp, label: "الحرارة", unit: "°C", warn: 75, bad: 85 })}${gauge({ value: l.util, label: "الحمل", warn: 80, bad: 95 })}${gauge({ value: l.power, label: "القدرة", unit: "W", max: s.powerMax || 140, warn: 70, bad: 90, decimals: 1 })}${gauge({ value: l.vram / 1024, label: "ذاكرة الشاشة", unit: "GB", max: (l.vramTotal || 1) / 1024, warn: 80, bad: 95, decimals: 1, sub: `من ${Q(l.vramTotal / 1024, "GB", 1)}` })}</div>`, { cls: "c8" });
       out += panel("إحصاءات الفترة", `<div class="list"><div class="li"><span class="t">الحرارة</span><span class="r"><bdi dir="ltr" class="q">${nf(st.temp?.min)}–${nf(st.temp?.max)} °C</bdi></span><span class="d">متوسط ${Q(st.temp?.avg, "", 1)} · P95 ${Q(st.temp?.p95)}</span></div><div class="li"><span class="t">الطاقة المستهلكة</span><span class="r">${Q(st.energyWh, "Wh")}</span></div><div class="li"><span class="t">الانشغال</span><span class="r">${Q(st.busyPct, "%", 1)}</span><span class="d">خامل ${Q(st.idlePct, "%", 1)} · ثقيل ${Q(st.heavyPct, "%", 1)}</span></div><div class="li"><span class="t">ذروة ذاكرة الشاشة</span><span class="r">${Q(st.vramPeakPct, "%")}</span></div></div>`, { cls: "c4" });
       const mk = id => panel(id[1], `<div id="${id[0]}" class="grow"></div>`, { cls: "c6" });
@@ -808,7 +815,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.tier) { const paused = t.getAttribute("aria-checked") !== "true"; if (await confirmDlg(paused ? "إيقاف هذا المستوى مؤقتًا؟ لن يُشغَّل تنظيفه المجدول." : "استئناف هذا المستوى؟")) act(() => post("/api/tier-pause", { tier: t.dataset.tier, paused }), "تم"); }
   else if (t.dataset.rule) { const on = t.getAttribute("aria-checked") === "true"; if (await confirmDlg(on ? "تعطيل هذه القاعدة؟" : "تفعيل هذه القاعدة؟")) act(() => post("/api/rule", { id: t.dataset.rule, enabled: !on }), "حُدّثت السياسة"); }
   else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/trim-memory", "/api/trim-auto", "/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
-  else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(() => post("/api/appearance", next), "حُفظ المظهر"); }
+  else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(async () => { applyAppearance(await post("/api/appearance", next)); }, "حُفظ المظهر"); }
   else if (t.dataset.trim) { if (await confirmDlg(t.dataset.trim === "deep" ? "تنظيف عميق للذاكرة؟ قد يبطّئ التطبيقات لحظات." : "تنظيف الذاكرة الآن؟")) act(() => post("/api/trim-memory", { mode: t.dataset.trim }), "بدأ التنظيف"); }
   else if (t.dataset.widget) { const show = t.getAttribute("aria-checked") !== "true"; act(() => post("/api/widget", { show }), show ? "أُظهر الويدجت" : "أُخفي الويدجت"); }
   else if (t.dataset.maint) { const on = t.getAttribute("aria-checked") === "true"; act(() => post("/api/maintenance", { on: !on }), "حُدّث وضع الصيانة"); }
@@ -823,7 +830,10 @@ const NAV = [
 ];
 
 /* ───────── shell + router ───────── */
+let navBuilt = false;
 function buildNav(cur) {
+  if (navBuilt) { document.querySelectorAll("#nav a[href]").forEach(a => { if (a.getAttribute("href") === "#/" + cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); }); return; }
+  navBuilt = true;
   $("#nav").innerHTML = `<div class="brand"><div class="brand-mark"><svg class="logo-mark" viewBox="38 38 180 180" width="40" height="40" aria-hidden="true"><circle cx="128" cy="128" r="76" fill="none" stroke="#2FBFAA" stroke-width="14" stroke-linecap="round" stroke-dasharray="430 48" transform="rotate(-58 128 128)"/><polyline points="68,132 98,132 113,96 135,166 150,118 158,132 188,132" fill="none" stroke="#F2AE22" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="147.7" cy="54.6" r="9" fill="#F2AE22"/></svg></div><div><b>مرصد الجهاز</b></div></div>`
     + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
 }
@@ -842,30 +852,46 @@ $("#boost").onclick = async () => {
   if (m && m.before != null) toast(`الذاكرة ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB`);
   show(true);
 };
+const CACHE = {};                       // per page: last data + signature (stale-while-revalidate)
+let seq = 0, inflight = false, curKey = "overview";
 async function show(first = false) {
-  if (busy) return; busy = true; ctl?.abort(); ctl = new AbortController();
-  const live = $("#live"), main = $("#main");
+  if (!first && inflight) return;
+  const live = $("#live"), main = $("#main"), pg = page, key = curKey;
   // a refresh must never disturb what the user is doing: skip while hovering a chart, typing, or a dialog is open
-  if (!first && (main.querySelector(".chart:hover") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) { busy = false; return; }
+  if (!first && (main.querySelector(".chart:hover") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) return;
+  const my = ++seq; inflight = true;
   try {
-    const data = await page.load();
+    const data = await pg.load();
+    if (my !== seq || pg !== page) return;      // a newer request or another page took over
     if (data.every(x => x == null)) throw new Error("no data");
     const sig = JSON.stringify(data);
+    CACHE[key] = { data, sig };
     live.classList.remove("err"); $("#liveTxt").textContent = "مباشر · " + new Date().toLocaleTimeString("en-GB");
     if (!first && sig === lastSig) return;          // nothing changed: touch nothing
     lastSig = sig; last = data;
     const y = scrollY, boxes = [...main.querySelectorAll(".scrollbox")].map(b => b.scrollTop);
-    main.innerHTML = page.render(data); page.after?.(data);
+    main.innerHTML = pg.render(data); pg.after?.(data);
     main.querySelectorAll(".scrollbox").forEach((b, i) => { b.scrollTop = boxes[i] || 0; });
     if (!first) scrollTo(0, y);
-  } catch (e) { if (e.name !== "AbortError") { console.error("render/load failed:", e && e.stack || e); live.classList.add("err"); $("#liveTxt").textContent = "تعذّر التحديث"; if (first) $("#main").innerHTML = `<div class="banner">تعذّر الاتصال بالخادم. تأكد من تشغيل المرصد ثم أعد المحاولة.</div>`; } }
-  finally { busy = false; }
+  } catch (e) { if (my === seq && e.name !== "AbortError") { console.error("render/load failed:", e && e.stack || e); live.classList.add("err"); $("#liveTxt").textContent = "تعذّر التحديث"; if (first && !CACHE[key]) $("#main").innerHTML = `<div class="banner">تعذّر الاتصال بالخادم. تأكد من تشغيل المرصد ثم أعد المحاولة.</div>`; } }
+  finally { if (my === seq) inflight = false; }
+}
+// warm the heavy pages once the first one is on screen so opening them later is instant
+async function prefetch() {
+  for (const k of ["space", "advice", "startup", "dbx", "health", "procs", "history"]) {
+    if (CACHE[k]) continue;
+    try { const data = await PAGES[k].load(); if (!data.every(x => x == null)) CACHE[k] = { data, sig: JSON.stringify(data) }; } catch { }
+    await new Promise(r => setTimeout(r, 400));
+  }
 }
 function schedule() { clearInterval(timer); const ms = +$("#every").value; if (ms) timer = setInterval(() => { if (!document.hidden) show(); }, ms); }
 function route() {
   const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
-  buildNav(key); $("#nav").classList.remove("open"); lastSig = ""; const m = $("#main"); m.classList.add("enter"); setTimeout(() => m.classList.remove("enter"), 900); m.innerHTML = skeleton(6); show(true); schedule(); scrollTo(0, 0);
+  buildNav(key); $("#nav").classList.remove("open"); curKey = key; lastSig = ""; inflight = false; ++seq;
+  const m = $("#main"), c = CACHE[key];
+  if (c) { last = c.data; lastSig = c.sig; m.innerHTML = page.render(c.data); page.after?.(c.data); } else m.innerHTML = skeleton(6);
+  scrollTo(0, 0); show(!c); schedule();
 }
 addEventListener("hashchange", route);
 document.addEventListener("click", e => {
@@ -875,10 +901,42 @@ $("#refresh").onclick = () => show();
 $("#every").onchange = schedule;
 $("#menuBtn").onclick = () => $("#nav").classList.toggle("open");
 document.addEventListener("visibilitychange", () => { if (!document.hidden) show(); });
-const THEME_KEY = "mw-v2-theme";
-const applyTheme = t => { document.documentElement.dataset.theme = t; try { localStorage.setItem(THEME_KEY, t); } catch (_) {} };
-try { const t = localStorage.getItem(THEME_KEY); if (t) document.documentElement.dataset.theme = t; else if (matchMedia("(prefers-color-scheme: light)").matches) document.documentElement.dataset.theme = "light"; } catch (_) {}
-$("#theme").onclick = () => { applyTheme(document.documentElement.dataset.theme === "dark" ? "light" : "dark"); show(); };
+const AP_KEY = "mw-v2-ap";
+let APPEAR = null;
+const darkMq = matchMedia("(prefers-color-scheme: dark)");
+function applyAppearance(ap) {
+  if (!ap || !ap.mode) return;
+  APPEAR = ap; const root = document.documentElement;
+  root.dataset.theme = ap.mode === "auto" ? (darkMq.matches ? "dark" : "light") : ap.mode;
+  root.dataset.palette = ap.palette || "teal";
+  try { localStorage.setItem(AP_KEY, JSON.stringify({ mode: ap.mode, palette: ap.palette })); } catch (_) { }
+}
+try { applyAppearance(JSON.parse(localStorage.getItem(AP_KEY))); } catch (_) { }   // first paint only; the server value overrides it
+async function loadAppearance() { try { const ap = await api("/api/appearance"); if (!APPEAR || ap.revision !== APPEAR.revision || ap.mode !== APPEAR.mode || ap.palette !== APPEAR.palette) { applyAppearance(ap); if (page && page === PAGES.appearance || page === PAGES.ctrl) show(true); } } catch { } }
+darkMq.addEventListener("change", () => { if (APPEAR?.mode === "auto") applyAppearance(APPEAR); });
+$("#theme").onclick = async () => {
+  const cur = APPEAR || { mode: "auto", palette: "teal" }, next = { ...cur, mode: document.documentElement.dataset.theme === "dark" ? "light" : "dark" };
+  applyAppearance(next);
+  try { const r = await post("/api/appearance", next); applyAppearance(r); } catch (e) { toast("تعذّر حفظ المظهر: " + e.message, true); }
+  show(true);
+};
+loadAppearance(); setInterval(loadAppearance, 20000);
+
+/* ───────── desktop widget: show / hide from the header, opened once with the app ───────── */
+let WG = null;
+function paintWidget() { const b = $("#widgetBtn"); if (!b) return; b.setAttribute("aria-pressed", !!WG?.running); b.querySelector("span").textContent = WG?.running ? "الويدجت ظاهر" : "الويدجت مخفي"; }
+async function syncWidget() { try { WG = await api("/api/widget"); paintWidget(); } catch { } }
+$("#widgetBtn").onclick = async () => {
+  const want = !WG?.running; $("#widgetBtn").disabled = true;
+  try { WG = await post("/api/widget", { show: want }); toast(WG.running ? "ظهر الويدجت" : "أُخفي الويدجت"); } catch (e) { toast("تعذّر: " + e.message, true); }
+  $("#widgetBtn").disabled = false; paintWidget();
+};
+(async () => {
+  await syncWidget();
+  try { if (!WG?.running && !sessionStorage.getItem("mw-v2-widget-auto")) { sessionStorage.setItem("mw-v2-widget-auto", "1"); WG = await post("/api/widget", { show: true }); paintWidget(); } } catch { }
+  setInterval(syncWidget, 15000);
+})();
+setTimeout(prefetch, 2500);
 route();
 </script>
 </body>
