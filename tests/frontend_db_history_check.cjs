@@ -24,12 +24,12 @@ const settle=()=>new Promise(r=>setImmediate(r));const click=el=>el.dispatchEven
 
 (async()=>{
 ctx.drawDbx(true);await settle();
-check('actual paging engine computes 2 records from synthetic 152px budget',()=>{assert.equal(ctx.pagers.dbr.size,2);assert.equal(document.querySelectorAll('.dh-record').length,2);assert.equal(ctx.pagers.dbr.total,17);});
+check('remote record list loads one scrollable chunk instead of height-derived pages',()=>{assert.equal(ctx.pagers.dbr.page,0);assert.equal(document.querySelectorAll('.dh-record').length,Math.min(17,ctx.pagers.dbr.size));assert.equal(ctx.pagers.dbr.total,17);});
 check('wide tables use complete record reader rather than min-width matrix',()=>{assert.equal(document.querySelectorAll('.dscroll,.dr,.dhd').length,0);assert.ok(document.querySelector('.dh-note').textContent.includes('كل الحقول'));});
 click(document.querySelector('.dh-record [data-dh-read]'));
 check('full record preserves every field name, type, null and Unicode value',()=>{assert.ok(read.at(-1).text.includes('id [مفتاح] · INTEGER\n0'));assert.ok(read.at(-1).text.includes(entries[0][1]));assert.ok(read.at(-1).text.includes('nullable · TEXT\n0'));});
 await ctx.pagers.dbr.goto(8);await settle();
-check('last record and explicit numbered page remain reachable',()=>{assert.equal(ctx.pagers.dbr.rows[0][0],16);assert.equal(document.querySelector('#drf [aria-current="page"]').textContent,'9');});
+check('last record and explicit numbered page remain reachable',()=>{assert.equal(ctx.pagers.dbr.rows.at(-1)[0],16);assert.equal(document.querySelector('#drf [aria-current="page"]'),null);});
 const last=document.querySelector('[data-dh-table="99"]');click(last);await settle();
 check('100th table is reachable with selected table and record page reset',()=>{assert.equal(ctx.DBSEL,'table99');assert.equal(ctx.mem.dbr,0);assert.ok(calls.at(-1).includes('table=table99'));});
 ctx.DBO.tables[99].cols.push(...Array.from({length:45},(_,n)=>({name:'extra'+n,type:'TEXT'})));entries[0].push(...Array.from({length:45},(_,n)=>'value'+n));ctx.drawDbx(true);await settle();click(document.querySelector('.dh-record [data-dh-read]'));
