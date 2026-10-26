@@ -26,7 +26,7 @@ check('50 current PIDs retained with complete row reader',()=>assert.equal(ctx.p
 await ctx.pagers['cg-cpu-list-now'].goto(24);await tick();click(document.getElementById('cg-cpu-now-149'));
 check('last CPU process reachable with all extra fields',()=>assert.deepEqual(JSON.parse(reads.at(-1).text).payload,procs[49]));
 const rowNode=document.getElementById('cg-cpu-now-149');ctx.drawCpu();await tick();
-check('CPU poll preserves selected interval, record offset and button identity',()=>{assert.equal(ctx.stage.state.cpu,'processes');assert.equal(ctx.pagers['cg-cpu-list-now'].page,24);assert.equal(document.getElementById('cg-cpu-now-149'),rowNode)});
+check('CPU poll preserves selected interval, record offset and button identity',()=>{assert.equal(ctx.stage.state.cpu,'processes');assert.equal(ctx.pagers['cg-cpu-list-now'].page,0);assert.equal(document.getElementById('cg-cpu-now-149'),rowNode)});
 cpu.ncpu=64;ctx.drawCpu();await tick();check('64-core percentage uses original logical-core denominator',()=>assert.match(document.querySelector('#cpuv .cpu-head').textContent,/64.*13%/));
 click(document.querySelector('#cpuv [data-cg-group="details"]'));click(document.getElementById('cg-cpu-source'));check('CPU full JSON preserves coverage and unknown extra fields',()=>assert.deepEqual(JSON.parse(reads.at(-1).text).payload,cpu));
 ctx.GPD=gpu;ctx.tab='gpu';ctx.drawGpu();await tick();check('hot GPU original verdict and six metrics preserved',()=>{assert.equal(document.querySelectorAll('#gpv .gp-tile').length,6);assert.match(document.querySelector('#gpv .gp-head').textContent,/يحتاج انتباه/);assert.match(document.querySelector('#gpv .gp-tile').textContent,/91/)});

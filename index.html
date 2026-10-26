@@ -1660,7 +1660,7 @@ select option:disabled{background:var(--control-muted-bg);color:var(--control-mu
 /* BEGIN_FILL_LAYOUT_20261026
    After pagination is planned at natural heights, cards stretch to occupy the whole workspace (no dead space under short pages). */
 #view[data-canonical-live][data-live-fill]{align-content:start!important;align-items:stretch!important}
-#view[data-canonical-live][data-live-fill="soft"] .canonical-card[data-live-kind="summary"]{align-self:stretch!important;align-content:center}
+#view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="summary"]{align-self:stretch!important;align-content:center}
 #view[data-canonical-live][data-live-fill] .canonical-card:not([data-live-kind="toolbar"]):not([data-live-kind="summary"]){align-self:stretch!important;max-height:none!important;height:auto!important}
 #view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="records"]{max-height:none!important}
 #view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="records"] .plist{flex:1!important;height:auto!important}
@@ -1673,6 +1673,23 @@ select option:disabled{background:var(--control-muted-bg);color:var(--control-mu
 #view[data-canonical-live][data-live-fill] .canonical-card .live-memory-plot~.live-pairs>div{flex:none}
 #view[data-canonical-live][data-live-fill] .canonical-card .live-attention{flex:1 1 auto;display:flex;flex-direction:column;justify-content:flex-start;gap:12px}
 /* END_FILL_LAYOUT_20261026 */
+/* BEGIN_FOOTER_ONLY_PAGING_20261026
+   Page changes come only from the footer counter. Cards and lists scroll vertically inside themselves; one/two-line cards are merged. */
+.live-sections,.live-sections[hidden],.live-card-pages{display:none!important}
+#view[data-canonical-live] .canonical-card{overflow-y:auto!important;overflow-x:hidden!important;scrollbar-width:thin}
+#view[data-canonical-live][data-canonical-live] .canonical-card[data-live-kind] .plist{height:auto!important;flex:1 1 auto!important;min-height:90px!important;max-height:300px!important;overflow-y:auto!important;scrollbar-width:thin}
+#view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind] .plist{max-height:none!important;min-height:0!important}
+#view[data-canonical-live] .merged-card{gap:0!important;padding:4px 12px!important}
+#view[data-canonical-live] .merged-card[data-live-kind="content"]{display:flex!important;flex-direction:column!important}
+#view[data-canonical-live] .merged-card>.canonical-card{position:static!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;height:auto!important;max-height:none!important;min-height:0!important;padding:9px 0!important;margin:0!important;overflow:visible!important;align-self:stretch!important}
+#view[data-canonical-live] .merged-card[data-live-kind="content"]>.canonical-card+.canonical-card{border-top:1px solid var(--rule)!important}
+#view[data-canonical-live] .merged-card[data-live-kind="toolbar"]{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;gap:6px 14px!important}
+#view[data-canonical-live] .merged-card[data-live-kind="toolbar"]>.canonical-card{flex:0 1 auto!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;gap:6px!important;padding:2px 0!important}
+#view[data-canonical-live] .canonical-card[data-roomy]>:not(h2):not(h3):not(.live-actions){margin-block:auto}
+#view[data-canonical-live] .canonical-card.hv{flex-direction:row!important;flex-wrap:wrap!important;align-content:flex-start;align-items:baseline!important;gap:6px 16px!important}
+#view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="summary"]{align-content:center}
+/* END_FOOTER_ONLY_PAGING_20261026 */
+
 
 </style></head>
 <body>
@@ -2412,8 +2429,8 @@ function makePaged(key, listEl, footEl, rowFn, o = {}) {
   const p = { key, listEl, footEl, rowFn, wheelOwner:o.wheelOwner||null, items: [], rows: [], total: 0, page: PAGEMEM[key] || 0, size: 1, remote: o.remote, empty: o.empty || "لا توجد عناصر.", tok: 0,
     rowH() { const v = parseFloat(getComputedStyle(listEl).getPropertyValue("--rowh")) || parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rowh")) || 62; return v; },
     async paint() {
-      if(!listEl.isConnected || listEl.clientHeight<=0) return;
-      const size = Math.max(1, Math.floor((listEl.clientHeight + 1) / p.rowH())), my = ++p.tok; p.size = size;
+      if(!listEl.isConnected) return;
+      const size = p.remote ? (p.limit = Math.max(p.limit || 0, 60)) : Math.max(1, p.items.length), my = ++p.tok; p.size = size; p.page = 0;
       if (p.remote) {
         let r = await p.remote(p.page * size, size); if (my !== p.tok || PGS[key] !== p || !listEl.isConnected) return;
         const pages = Math.max(1, Math.ceil(r.total / size));
@@ -2426,7 +2443,7 @@ function makePaged(key, listEl, footEl, rowFn, o = {}) {
       PAGEMEM[key] = p.page; listEl.dataset.size = size; listEl.dataset.h = listEl.clientHeight; listEl.dataset.rh = p.rowH();
       renderStable(listEl,p.rows.length ? p.rows.map(p.rowFn).join("") : (o.strict && p.total ? "" : `<div class="empty">${p.empty}</div>`));
       const pages = Math.max(1, Math.ceil(p.total / size));
-      if (footEl) renderStable(footEl,`<span class="pf-t"><b><bdi>${p.total}</bdi></b> ${o.unit || "عنصر"} <span class="pf-count">&#1575;&#1604;&#1589;&#1601;&#1581;&#1577; <bdi>${p.page+1}</bdi> &#1605;&#1606; <bdi>${pages}</bdi></span></span>` + (pages > 1 || o.always ? pagerHTML(p.page, pages, { prev: `data-pg="${key}" data-d="-1"`, next: `data-pg="${key}" data-d="1"`, num: n => `data-pgto="${key}" data-i="${n}"` }) : ""));
+      if (footEl) renderStable(footEl,`<span class="pf-t"><b><bdi>${p.total}</bdi></b> ${o.unit || "عنصر"}</span>`);
       if (o.onPaint) o.onPaint(p);
       if(typeof packingAfterPaint==="function")packingAfterPaint(listEl);
     },
@@ -2435,6 +2452,8 @@ function makePaged(key, listEl, footEl, rowFn, o = {}) {
     set(items) { p.items = items; p.paint(); }, reset() { p.page = 0; PAGEMEM[key] = 0; }
   };
   p.ro = new ResizeObserver(() => { clearTimeout(p.rt); p.rt = setTimeout(() => { if (PGS[key] === p) p.paint(); }, 80); }); p.ro.observe(listEl);
+  // Long lists scroll vertically inside their card; remote lists load the next chunk near the bottom.
+  if (typeof listEl.addEventListener === "function") listEl.addEventListener("scroll", () => { if (p.remote && !p.busy && p.rows.length < p.total && listEl.scrollTop + listEl.clientHeight >= listEl.scrollHeight - 80) { p.busy = true; p.limit = (p.limit || 60) + 60; Promise.resolve(p.paint()).finally(() => { p.busy = false; }); } }, { passive: true });
   setTimeout(() => { if (PGS[key] === p) p.paint(); }, 200); if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (PGS[key] === p) p.paint(); });
   PGS[key] = p; return p;
 }
@@ -4565,7 +4584,7 @@ const CANONICAL_WORKSPACE=(()=>{
   return groups;
  }
  function chrome(){const view=document.getElementById('view');if(!view)return;
-  if(!document.getElementById('liveSections')){const nav=document.createElement('nav');nav.id='liveSections';nav.className='live-sections';nav.setAttribute('aria-label','أقسام الصفحة');view.before(nav)}
+  if(!document.getElementById('liveSections')){const nav=document.createElement('nav');nav.id='liveSections';nav.className='live-sections';nav.hidden=true;nav.setAttribute('aria-label','أقسام الصفحة');view.before(nav)}
   if(!document.getElementById('livePager')){const foot=document.createElement('footer');foot.id='livePager';foot.className='live-pager';foot.innerHTML='<span id="liveSectionLabel"></span><div><button type="button" class="btn line" data-live-dir="-1">السابق</button><span id="livePageCount" aria-live="polite"></span><button type="button" class="btn line" data-live-dir="1">التالي</button></div>';view.after(foot)}
  }
  function restorePresentation(view){view.querySelectorAll('.canonical-shell,.canonical-card,.canonical-omit').forEach(n=>{n.classList.remove('canonical-shell','canonical-card','canonical-omit');if(n.hasAttribute('data-live-card')){delete n.dataset.liveCard;delete n.dataset.liveSection;n.hidden=false}});view.querySelectorAll('.packing-unit,.packing-shell,.packing-ignore,.packing-root,.packing-fixed,.packing-outside-ignore').forEach(n=>n.classList.remove('packing-unit','packing-shell','packing-ignore','packing-root','packing-fixed','packing-outside-ignore'))}
@@ -4585,28 +4604,46 @@ const CANONICAL_WORKSPACE=(()=>{
   for(const [index,atom]of atoms.entries()){show([index]);if(fits([index])||atom.querySelector('button,input,select,textarea')||atom.matches('button,input,select,textarea,.plist,.hm-list'))continue;const full=atom.textContent;if(full.trim().length<140)continue;let button=atom.querySelector(':scope>.live-full-text');if(!button){button=document.createElement('button');button.type='button';button.className='btn line live-full-text';button.textContent='قراءة النص كاملًا';button.onclick=e=>{e.preventDefault();e.stopPropagation();caRead(full,'تفاصيل البطاقة')};const copy=document.createElement('span');copy.className='live-short-text';copy.textContent=HH_STAGE.brief(full,180);atom.replaceChildren(copy,button)}}paint();
  }
  function fitLists(view){for(const p of Object.values(PGS)){const list=p.listEl;if(!list?.isConnected||!view.contains(list)||list.closest('[hidden]'))continue;const card=list.closest('.canonical-card');if(!card||!p.rowH)continue;const cr=card.getBoundingClientRect(),lr=list.getBoundingClientRect(),footer=p.footEl?.getBoundingClientRect().height||30;const available=Math.max(p.rowH(),cr.bottom-lr.top-footer-12),rows=Math.max(1,Math.floor(available/p.rowH())),height=rows*p.rowH(),stamp=height+'|'+rows;if(list.dataset.liveBudget===stamp)continue;const anchor=p.page*p.size;list.dataset.liveBudget=stamp;list.style.height=height+'px';list.style.flex='none';p.page=Math.floor(anchor/rows);PAGEMEM[p.key]=p.page;p.paint();}}
- function draw(view){if(tab==='home'){liveHomeChart();return}if(tab==='io'){ioRedrawCharts();return}if(tab==='cpu'&&typeof fitCpu==='function'){const box=view.querySelector('.cpu-chart');if(box&&CPUD)box.innerHTML=cpuSpark(CPUD.series,Math.min(130,box.clientHeight||100))}else if(tab==='gpu'&&typeof cgDrawVisible==='function')cgDrawVisible(view.querySelector('#gpv'));else if(['mem','power'].includes(tab)&&typeof mpDrawVisible==='function'){const root=view.querySelector('.mp-root');if(root)mpDrawVisible(root)}else if(['procs','wsl','advice'].includes(tab)&&typeof pwaDrawVisible==='function'){const root=view.querySelector('.pwa-root');if(root)pwaDrawVisible(root)}}
+ function draw(view){if(tab==='home'){liveHomeChart();return}if(tab==='io'){ioRedrawCharts();return}if(tab==='cpu'&&typeof fitCpu==='function'){const box=view.querySelector('.cpu-chart');if(box&&CPUD)box.innerHTML=cpuSpark(CPUD.series,Math.min(view.dataset.liveFill?460:130,box.clientHeight||100))}else if(tab==='gpu'&&typeof cgDrawVisible==='function')cgDrawVisible(view.querySelector('#gpv'));else if(['mem','power'].includes(tab)&&typeof mpDrawVisible==='function'){const root=view.querySelector('.mp-root');if(root)mpDrawVisible(root)}else if(['procs','wsl','advice'].includes(tab)&&typeof pwaDrawVisible==='function'){const root=view.querySelector('.pwa-root');if(root)pwaDrawVisible(root)}}
  // Stretch the planned page to the full workspace: rows holding real content share the free height; toolbar/summary rows keep their natural height.
  function fillRows(view,units){const shown=units.filter(n=>!n.hidden);if(!shown.length)return;const kindOf=n=>n.dataset.liveKind,spanning=n=>['summary','toolbar','records'].includes(kindOf(n));
-  const flow=shown.filter(n=>!spanning(n)).length,maxCols=Math.max(1,parseInt(view.style.getPropertyValue('--live-cols'))||1);if(flow){const cols=Math.ceil(flow/Math.ceil(flow/maxCols));if(cols<maxCols)view.style.setProperty('--live-cols',cols)}
+  if(typeof getComputedStyle!=='function')return;
+  const flow=shown.filter(n=>!spanning(n)).length,maxCols=Math.max(1,parseInt(view.style.getPropertyValue('--live-cols'))||1);
   view.style.removeProperty('grid-template-rows');
   // Real grid tracks are read back from the browser (empty/implicit ones included); free height is shared in proportion to content.
-  // When a page only has tiles/toolbars, tiles absorb a capped share instead.
-  if(typeof getComputedStyle!=='function')return;const cs=getComputedStyle(view),gap=parseFloat(cs.rowGap)||0,heights=String(cs.gridTemplateRows||'').split(' ').map(parseFloat).filter(Number.isFinite);if(!heights.length)return;
-  const box=view.getBoundingClientRect(),tracks=[];let offset=box.top+(parseFloat(cs.paddingTop)||0);for(const h of heights){tracks.push({start:offset,h,kinds:[]});offset+=h+gap}
+  const read=()=>{const cs=getComputedStyle(view);return{gap:parseFloat(cs.rowGap)||0,top:parseFloat(cs.paddingTop)||0,heights:String(cs.gridTemplateRows||'').split(' ').map(parseFloat).filter(Number.isFinite)}};
+  let g=read();const sum=x=>x.heights.reduce((a,h)=>a+h,0)+x.gap*Math.max(0,x.heights.length-1);
+  // Balanced columns (e.g. 2x2 instead of 3+1) are kept only when they still fit the planned page height.
+  if(flow>=1){const cols=Math.ceil(flow/Math.ceil(flow/maxCols));if(cols<maxCols){view.style.setProperty('--live-cols',cols);g=read()}}
+  const {gap,heights}=g;if(!heights.length)return;
+  const box=view.getBoundingClientRect(),tracks=[];let offset=box.top+g.top;for(const h of heights){tracks.push({start:offset,h,kinds:[]});offset+=h+gap}
   for(const n of shown){const top=n.getBoundingClientRect().top,t=tracks.reduce((best,q)=>Math.abs(q.start-top)<Math.abs(best.start-top)?q:best,tracks[0]);t.kinds.push(kindOf(n))}
   const build=soft=>tracks.map(t=>({h:t.h,fixed:!t.kinds.length||t.kinds.every(k=>k==='toolbar'||(k==='summary'&&!soft))}));
   let rows=build(false),soft=false;if(rows.every(r=>r.fixed)){rows=build(true);soft=true;if(rows.every(r=>r.fixed))return}
-  const total=rows.reduce((a,r)=>a+r.h,0)+gap*(rows.length-1),weight=rows.filter(r=>!r.fixed).reduce((a,r)=>a+r.h,0);let free=Math.floor(view.clientHeight-total);if(soft)free=Math.min(free,160*rows.filter(r=>!r.fixed).length);
-  view.dataset.liveFill=soft?'soft':'1';view.style.setProperty('grid-template-rows',rows.map(r=>r.fixed||free<=0||!weight?Math.ceil(r.h)+'px':Math.floor(r.h+free*r.h/weight)+'px').join(' '),'important')}
- function apply(route=tab){if(running||!profiles[route]||route!==tab)return;const view=document.getElementById('view');if(!view)return;running=true;observer?.disconnect();try{delete view.dataset.liveFill;view.style.removeProperty('grid-template-rows');chrome();restorePresentation(view);const s=current(route),config=profiles[route],groups=sectionCards(view,route);s.section=Math.min(s.section,config.length-1);const units=groups[s.section]||[],box=view.getBoundingClientRect(),cap=capacity(box.width||view.clientWidth||900,box.height||view.clientHeight||500),budget=Math.max(120,box.height||view.clientHeight||500),anchor=s.pages?.[s.page]?.[0]??0;
+  const total=rows.reduce((a,r)=>a+r.h,0)+gap*(rows.length-1);let free=Math.floor(view.clientHeight-total);const sizes=rows.map(r=>r.h);
+  if(free<0){const flex=rows.map((r,i)=>i).filter(i=>!rows[i].fixed),w=flex.reduce((a,i)=>a+rows[i].h,0);for(const i of flex)sizes[i]=Math.max(Math.min(rows[i].h,140),rows[i].h+free*rows[i].h/w)}
+  if(free>0){const live=rows.map((r,i)=>i).filter(i=>!rows[i].fixed||tracks[i].kinds.includes('summary')),cap=i=>rows[i].fixed?Math.round(rows[i].h*0.6):Infinity;let pool=live.slice(),left=free;for(let pass=0;pass<4&&pool.length&&left>1;pass++){const w=pool.reduce((a,i)=>a+rows[i].h,0),next=[];let spent=0;for(const i of pool){const give=Math.min(left*rows[i].h/w,cap(i)-(sizes[i]-rows[i].h));sizes[i]+=give;spent+=give;if(cap(i)-(sizes[i]-rows[i].h)>1)next.push(i)}left-=spent;pool=next}}
+  view.dataset.liveFill=soft?'soft':'1';view.style.setProperty('grid-template-rows',sizes.map(v=>Math.floor(v)+'px').join(' '),'important')}
+  // Cards of one or two lines (and consecutive toolbars) are combined into a single card; form-owned nodes never move.
+ const SMALL_CARD=230;
+ const SUBMENU='.sgc,.gp-range:has([data-iosw])';
+ // Cards whose content leaves a large void spread their blocks evenly instead of leaving an unexplained gap below.
+ function spreadSparse(units){for(const n of units){n.removeAttribute('data-roomy');if(n.hidden||!['content','chart'].includes(n.dataset.liveKind)||n.dataset.liveMerged||n.matches('.hv')||n.closest('form'))continue;const used=[...n.children].reduce((a,c)=>a+(c.hidden||c.matches('h2,h3')?0:c.getBoundingClientRect().height),0);if(n.clientHeight>0&&n.scrollHeight<=n.clientHeight+1&&used<n.clientHeight*0.55)n.dataset.roomy='1'}}
+ function mergeSmall(view,units){const wrap=(list,kind)=>{const w=document.createElement('section');w.className='card canonical-card merged-card';w.dataset.liveKind=kind;w.dataset.liveMerged=kind;w.dataset.liveCard=list[0].dataset.liveCard;w.dataset.liveSection=list[0].dataset.liveSection;list[0].before(w);for(const n of list){n.hidden=false;w.append(n)}return w};
+  const natural=n=>n.getBoundingClientRect().height,owner=n=>n.closest('form')||null;
+  let out=units.slice();
+  // Members of one form may merge only with each other, so the wrapper stays inside that form and field ownership never changes.
+  for(const kind of ['toolbar','content']){const pool=out.filter(n=>n.dataset.liveKind===kind&&!n.hidden&&!n.matches('.al-act')&&!n.querySelector('form')&&(kind==='toolbar'||(natural(n)>0&&natural(n)<=SMALL_CARD)));const groups=new Map();for(const n of pool){const k=owner(n);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(n)}
+   for(const list of groups.values()){if(list.length<2)continue;const w=wrap(list,kind),at=out.indexOf(list[0]);if(kind==='content'&&natural(w)<=220){w.dataset.liveKind='toolbar';w.dataset.liveWide='1'}out=out.filter(n=>!list.includes(n));out.splice(at,0,w)}}
+  out.forEach((n,i)=>{if(!n.dataset.liveMerged)n.dataset.liveCard=String(i)});return out}
+ function apply(route=tab){if(running||!profiles[route]||route!==tab)return;const view=document.getElementById('view');if(!view)return;running=true;observer?.disconnect();try{for(const w of view.querySelectorAll('.merged-card')){while(w.firstChild)w.before(w.firstChild);w.remove()}delete view.dataset.liveFill;view.style.removeProperty('grid-template-rows');chrome();restorePresentation(view);const s=current(route),config=profiles[route],groups=sectionCards(view,route);s.section=Math.min(s.section,config.length-1);let units=(groups[s.section]||[]).filter(n=>!n.matches(SUBMENU));const box=view.getBoundingClientRect(),cap=capacity(box.width||view.clientWidth||900,box.height||view.clientHeight||500),budget=Math.max(120,box.height||view.clientHeight||500),anchor=s.pages?.[s.page]?.[0]??0;
    view.dataset.canonicalLive=route;view.style.setProperty('--live-cols',cap.cols);view.style.setProperty('--live-card-limit',budget+'px');const all=new Set(groups.flat());
-   for(const node of all){node.classList.add('canonical-card');node.dataset.liveKind=node.matches('.gp-kpis,.sp-tiles,.hl-doms')?'summary':node.matches('button,select,input,.gp-head,.sp-ctl,.cpu-head,.gp-range,.dh-db-head,.dh-db-options,.str-options,.al-act')?'toolbar':node.matches('.str-body,.dh-history .pb,.dh-db-card')?'records':node.querySelector('.gp-plot,.cpu-chart,.hplot,.live-memory-plot')?'chart':'content';node.dataset.liveCard=String(units.indexOf(node));node.dataset.liveSection=String(groups.findIndex(g=>g.includes(node)));node.hidden=!units.includes(node);let parent=node.parentElement;while(parent&&parent!==view){parent.hidden=false;parent.classList.add('canonical-shell');parent=parent.parentElement}}
-   view.querySelectorAll(ignored).forEach(n=>{if(![...all].some(card=>card===n||card.contains(n)))n.classList.add('canonical-omit')});const walk=node=>{for(const child of [...node.children]){if(all.has(child))continue;if(child.classList.contains('canonical-shell'))walk(child);else child.classList.add('canonical-omit')}};walk(view);
-   for(const card of units)paginateCard(card);
-   const sizes=units.map(card=>({height:card.getBoundingClientRect().height||({summary:106,toolbar:44,records:270,chart:200,content:180}[card.dataset.liveKind]),span:['summary','toolbar','records'].includes(card.dataset.liveKind)?cap.cols:1}));s.pages=canonicalSequentialPages(sizes,cap.cols,budget,12);s.page=Math.max(0,s.pages.findIndex(page=>page.includes(Math.min(anchor,Math.max(0,units.length-1)))));const chosen=new Set(s.pages[s.page]);units.forEach((node,i)=>node.hidden=!chosen.has(i));s.totalPages=s.pages.length;s.count=chosen.size;view.dataset.liveCapacity=String(s.count);
+   for(const node of all){node.classList.add('canonical-card');node.dataset.liveKind=node.matches('.gp-kpis,.sp-tiles,.hl-doms')?'summary':node.matches('button,select,input,.gp-head,.sp-ctl,.cpu-head,.gp-range,.dh-db-head,.dh-db-options,.dh-history-options,.str-options,.al-act')?'toolbar':node.matches('.str-body,.dh-history .pb,.dh-db-card')?'records':node.querySelector('.gp-plot,.cpu-chart,.hplot,.live-memory-plot')?'chart':'content';node.dataset.liveCard=String(units.indexOf(node));node.dataset.liveSection=String(groups.findIndex(g=>g.includes(node)));node.hidden=!units.includes(node);let parent=node.parentElement;while(parent&&parent!==view){parent.hidden=false;parent.classList.add('canonical-shell');parent=parent.parentElement}}
+   view.querySelectorAll(ignored).forEach(n=>{if(![...all].some(card=>card===n||card.contains(n)))n.classList.add('canonical-omit')});const walk=node=>{for(const child of [...node.children]){if(all.has(child))continue;if(child.classList.contains('canonical-shell'))walk(child);else child.classList.add('canonical-omit')}};walk(view);units=mergeSmall(view,units);
+   
+   const sizes=units.map(card=>({height:card.getBoundingClientRect().height||({summary:106,toolbar:44,records:270,chart:200,content:180}[card.dataset.liveKind]),span:['summary','toolbar','records'].includes(card.dataset.liveKind)?cap.cols:1}));s.pages=canonicalSequentialPages(sizes,cap.cols,budget,12);s.page=Math.max(0,s.pages.findIndex(page=>page.includes(Math.min(anchor,Math.max(0,units.length-1)))));if(s.wantLast>0){s.page=s.pages.length-1;s.wantLast--}const chosen=new Set(s.pages[s.page]);units.forEach((node,i)=>node.hidden=!chosen.has(i));s.totalPages=s.pages.length;s.count=chosen.size;view.dataset.liveCapacity=String(s.count);
    const nav=document.getElementById('liveSections'),key=route+'|'+s.section;if(nav.dataset.key!==key){nav.innerHTML=config.map(([id,label],i)=>`<button type="button" class="btn ${i===s.section?'go':'line'}" data-live-section="${i}" aria-pressed="${i===s.section}">${esc(label)}</button>`).join('');nav.dataset.key=key}
-   document.getElementById('liveSectionLabel').textContent=config[s.section][1];document.getElementById('livePageCount').textContent=(s.page+1)+' من '+s.pages.length;document.querySelector('#livePager [data-live-dir="-1"]').disabled=s.page===0;document.querySelector('#livePager [data-live-dir="1"]').disabled=s.page===s.pages.length-1;fillRows(view,units);fitLists(view);for(const card of units)if(!card.hidden)paginateCard(card);draw(view);
+   document.getElementById('liveSectionLabel').textContent=config[s.section][1];document.getElementById('livePageCount').textContent=(s.page+1)+' من '+s.pages.length;document.querySelector('#livePager [data-live-dir="-1"]').disabled=s.page===0&&s.section===0;document.querySelector('#livePager [data-live-dir="1"]').disabled=s.page===s.pages.length-1&&s.section===config.length-1;fillRows(view,units);spreadSparse(units);draw(view);
   }finally{running=false;if(observer)observer.observe(view,{childList:true,subtree:true})}}
 
  function schedule(){if(queued||running)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
@@ -4614,11 +4651,9 @@ const CANONICAL_WORKSPACE=(()=>{
   if(tab==='health'){hlGo(index);schedule();return}if(tab==='space'){spGo(index);schedule();return}if(tab==='history'){UI.hs=config[index][0];renderView();schedule();return}if(tab==='io'){ioGo(index===0?0:2);schedule();return}if(tab==='alerts'){CA_UI.alerts=index===0?'limits':'log';}
   apply();
  }
- function goPage(delta){const s=current(),next=Math.max(0,Math.min((s.totalPages||1)-1,s.page+delta));if(next===s.page)return false;s.page=next;apply();return true}
+ function goPage(delta){const s=current(),config=profiles[tab],next=s.page+delta;if(next>=0&&next<(s.totalPages||1)){s.page=next;apply();return true}const section=s.section+(delta>0?1:-1);if(!config||section<0||section>=config.length)return false;s.wantLast=delta<0?3:0;goSection(section);return true}
 
  document.addEventListener('click',e=>{const b=e.target.closest?.('[data-live-section],[data-live-dir]');if(!b){schedule();return;}e.preventDefault();if(b.dataset.liveSection!==undefined)goSection(Number(b.dataset.liveSection));else goPage(Number(b.dataset.liveDir))});
- document.addEventListener('wheel',e=>{const view=document.getElementById('view');if(!view?.dataset.canonicalLive||!view.contains(e.target)||e.ctrlKey||e.metaKey||e.shiftKey||e.target.closest('input,select,textarea,button')||Math.abs(e.deltaY)<=Math.abs(e.deltaX))return;e.preventDefault();e.stopImmediatePropagation();const now=Date.now();if(now-lastWheel<220||Math.abs(e.deltaY)<4)return;if(goPage(e.deltaY>0?1:-1))lastWheel=now;},{capture:true,passive:false});
- document.addEventListener('keydown',e=>{if(e.target.closest?.('input,select,textarea')||e.ctrlKey||e.metaKey)return;if(e.key==='PageDown'&&goPage(1))e.preventDefault();if(e.key==='PageUp'&&goPage(-1))e.preventDefault()});
  chrome();if(typeof MutationObserver!=='undefined'){observer=new MutationObserver(records=>{if(records.some(r=>!r.target.closest?.('.gp-plot,.cpu-chart,.live-memory-plot,#io-heat-host,#io-daily,svg'))){schedule()}});const view=document.getElementById('view');if(view)observer.observe(view,{childList:true,subtree:true})}window.addEventListener('resize',schedule);
  return{profiles,state,current,capacity,collect:sectionCards,plan:canonicalSequentialPages,paginateCard,innerState,apply,goSection,goPage,schedule};
 })();
