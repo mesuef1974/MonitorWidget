@@ -1,8 +1,8 @@
 {
-  "sourceSha256": "68d3e3ae0ab6f1275890a93c69e852a39ae9aedf4c7c3601044f1ac445bda5ef",
+  "sourceSha256": "e0e02316facaf9fe691c4f3b2fb39c2839fd6e8c1b9a5449c034aa9193781870",
   "checks": 88,
   "populatedRoutes": 14,
-  "populatedControlledSections": 23,
+  "populatedControlledSections": 19,
   "browserRendered": false,
   "measurementScope": "Controller/DOM fixtures only; no visual fit or actual scroll dimensions claimed",
   "cases": [
@@ -31,45 +31,45 @@
         },
         {
           "index": 2,
+          "kind": "toolbar",
+          "title": "cg-cpu-source",
+          "height": 280,
+          "span": 2
+        },
+        {
+          "index": 3,
           "kind": "chart",
           "title": "المعالج الكلي خلال ساعة",
           "height": 180,
           "span": 1
         },
         {
-          "index": 3,
+          "index": 4,
           "kind": "content",
           "title": "الآن",
           "height": 280,
           "span": 1
         },
         {
-          "index": 4,
+          "index": 5,
           "kind": "content",
           "title": "متوسط آخر 10 دقائق",
           "height": 280,
           "span": 1
         },
         {
-          "index": 5,
+          "index": 6,
           "kind": "content",
           "title": "متوسط آخر ساعة",
           "height": 280,
           "span": 1
         },
         {
-          "index": 6,
+          "index": 7,
           "kind": "content",
           "title": "DIV",
           "height": 180,
           "span": 1
-        },
-        {
-          "index": 7,
-          "kind": "toolbar",
-          "title": "cg-cpu-source",
-          "height": 180,
-          "span": 2
         }
       ],
       "pages": [
@@ -80,18 +80,17 @@
         [
           2,
           3,
-          4,
-          5
+          4
         ],
         [
-          6,
-          7
+          5,
+          6
         ]
       ]
     },
     {
       "route": "gpu",
-      "section": "الكروت والمحركات",
+      "section": "الكروت والمحركات والرسوم",
       "dimensions": {
         "width": 1100,
         "height": 600
@@ -114,107 +113,9 @@
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "BUTTON",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 3,
-          "kind": "content",
-          "title": "ذاكرة الشاشة حسب البرنامج",
-          "height": 180,
-          "span": 1
-        }
-      ],
-      "pages": [
-        [
-          0,
-          1
-        ],
-        [
-          2,
-          3
-        ]
-      ]
-    },
-    {
-      "route": "gpu",
-      "section": "الطاقة والتفاصيل",
-      "dimensions": {
-        "width": 1100,
-        "height": 600
-      },
-      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
-      "units": [
-        {
-          "index": 0,
-          "kind": "content",
-          "title": "DIV",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 1,
-          "kind": "content",
-          "title": "إحصاءات الفترة",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 2,
-          "kind": "content",
-          "title": "الكرت المدمج",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 3,
-          "kind": "toolbar",
-          "title": "cg-gpu-source",
-          "height": 180,
-          "span": 2
-        }
-      ],
-      "pages": [
-        [
-          0,
-          1,
-          2
-        ],
-        [
-          3
-        ]
-      ]
-    },
-    {
-      "route": "gpu",
-      "section": "الرسوم الأربعة",
-      "dimensions": {
-        "width": 1100,
-        "height": 600
-      },
-      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
-      "units": [
-        {
-          "index": 0,
-          "kind": "toolbar",
-          "title": "الفترة",
-          "height": 280,
-          "span": 2
-        },
-        {
-          "index": 1,
           "kind": "chart",
           "title": "SECTION",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 2,
-          "kind": "chart",
-          "title": "SECTION",
-          "height": 280,
+          "height": 180,
           "span": 1
         },
         {
@@ -230,17 +131,59 @@
           "title": "SECTION",
           "height": 180,
           "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "chart",
+          "title": "SECTION",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "ذاكرة الشاشة حسب البرنامج",
+          "height": 180,
+          "span": 1
+        },
+        {
+          "index": 7,
+          "kind": "content",
+          "title": "DIV",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 8,
+          "kind": "content",
+          "title": "إحصاءات الفترة",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 9,
+          "kind": "content",
+          "title": "الكرت المدمج",
+          "height": 280,
+          "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1,
-          2
+          1
         ],
         [
+          2,
           3,
-          4
+          4,
+          5
+        ],
+        [
+          6,
+          7,
+          8,
+          9
         ]
       ]
     },
@@ -262,15 +205,15 @@
         },
         {
           "index": 1,
-          "kind": "summary",
-          "title": "DIV",
+          "kind": "toolbar",
+          "title": "SPAN",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "SPAN",
+          "kind": "summary",
+          "title": "DIV",
           "height": 280,
           "span": 2
         },
@@ -325,13 +268,12 @@
         [
           2,
           3,
-          4
+          4,
+          5
         ],
         [
-          5,
           6,
-          7,
-          8
+          7
         ]
       ]
     },
@@ -353,15 +295,15 @@
         },
         {
           "index": 1,
-          "kind": "summary",
-          "title": "DIV",
+          "kind": "toolbar",
+          "title": "SPAN",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "SPAN",
+          "kind": "summary",
+          "title": "DIV",
           "height": 280,
           "span": 2
         },
@@ -416,13 +358,12 @@
         [
           2,
           3,
-          4
+          4,
+          5
         ],
         [
-          5,
           6,
-          7,
-          8
+          7
         ]
       ]
     },
@@ -445,40 +386,26 @@
         {
           "index": 1,
           "kind": "toolbar",
-          "title": "DIV",
+          "title": "SECTION",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "si-space-source",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 3,
-          "kind": "toolbar",
-          "title": "si-space-notes",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 4,
           "kind": "content",
           "title": "المساحة الحرة القرص C · آخر 24 ساعة",
           "height": 180,
           "span": 1
         },
         {
-          "index": 5,
+          "index": 3,
           "kind": "content",
           "title": "قابل للتحرير الآن",
           "height": 180,
           "span": 1
         },
         {
-          "index": 6,
+          "index": 4,
           "kind": "content",
           "title": "الهبوط الأخير آخر 72 ساعة",
           "height": 180,
@@ -492,12 +419,8 @@
         ],
         [
           2,
-          3
-        ],
-        [
-          4,
-          5,
-          6
+          3,
+          4
         ]
       ]
     },
@@ -520,26 +443,12 @@
         {
           "index": 1,
           "kind": "toolbar",
-          "title": "DIV",
+          "title": "SECTION",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "si-space-source",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 3,
-          "kind": "toolbar",
-          "title": "si-space-notes",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 4,
           "kind": "content",
           "title": "أين تذهب المساحة؟ قيست قبل قليل",
           "height": 180,
@@ -552,11 +461,7 @@
           1
         ],
         [
-          2,
-          3
-        ],
-        [
-          4
+          2
         ]
       ]
     },
@@ -579,26 +484,12 @@
         {
           "index": 1,
           "kind": "toolbar",
-          "title": "DIV",
+          "title": "SECTION",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "si-space-source",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 3,
-          "kind": "toolbar",
-          "title": "si-space-notes",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 4,
           "kind": "content",
           "title": "تنظيفات إضافية معاينة ثم تأكيد؛ لا يُحذف شيء دون موافقتك",
           "height": 180,
@@ -611,11 +502,7 @@
           1
         ],
         [
-          2,
-          3
-        ],
-        [
-          4
+          2
         ]
       ]
     },
@@ -638,26 +525,12 @@
         {
           "index": 1,
           "kind": "toolbar",
-          "title": "DIV",
+          "title": "SECTION",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "si-space-source",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 3,
-          "kind": "toolbar",
-          "title": "si-space-notes",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 4,
           "kind": "content",
           "title": "DIV",
           "height": 180,
@@ -670,11 +543,7 @@
           1
         ],
         [
-          2,
-          3
-        ],
-        [
-          4
+          2
         ]
       ]
     },
@@ -697,40 +566,26 @@
         {
           "index": 1,
           "kind": "toolbar",
-          "title": "DIV",
+          "title": "SECTION",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "si-space-source",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 3,
-          "kind": "toolbar",
-          "title": "si-space-notes",
-          "height": 180,
-          "span": 2
-        },
-        {
-          "index": 4,
           "kind": "content",
           "title": "أكبر مستهلكي الذاكرة undefined من undefined GB (undefined%)",
           "height": 180,
           "span": 1
         },
         {
-          "index": 5,
+          "index": 3,
           "kind": "content",
           "title": "في الحجر قابل للاسترجاع",
           "height": 180,
           "span": 1
         },
         {
-          "index": 6,
+          "index": 4,
           "kind": "content",
           "title": "آخر ما حُرّر",
           "height": 180,
@@ -744,18 +599,14 @@
         ],
         [
           2,
-          3
-        ],
-        [
-          4,
-          5,
-          6
+          3,
+          4
         ]
       ]
     },
     {
       "route": "io",
-      "section": "الأداء الحالي",
+      "section": "الأداء والتوقفات",
       "dimensions": {
         "width": 1100,
         "height": 600
@@ -771,16 +622,16 @@
         },
         {
           "index": 1,
-          "kind": "summary",
-          "title": "DIV",
+          "kind": "toolbar",
+          "title": "si-io-source",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "si-io-source",
-          "height": 180,
+          "kind": "summary",
+          "title": "DIV",
+          "height": 280,
           "span": 2
         },
         {
@@ -820,64 +671,14 @@
         [
           2,
           3,
-          4
-        ],
-        [
-          5,
-          6
-        ]
-      ]
-    },
-    {
-      "route": "io",
-      "section": "اليومي والتوقفات",
-      "dimensions": {
-        "width": 1100,
-        "height": 600
-      },
-      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
-      "units": [
-        {
-          "index": 0,
-          "kind": "content",
-          "title": "خريطة الانشغال آخر 14 يوماً · الساعة × اليوم",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 1,
-          "kind": "content",
-          "title": "أكثر العمليات حركة تقدير تقريبي",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 2,
-          "kind": "content",
-          "title": "التوقفات متى علق القرص ومن كان يكتب وقتها",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 3,
-          "kind": "content",
-          "title": "المكتوب والمقروء يومياً آخر 30 يوماً",
-          "height": 280,
-          "span": 1
-        }
-      ],
-      "pages": [
-        [
-          0,
-          1,
-          2,
-          3
+          4,
+          5
         ]
       ]
     },
     {
       "route": "procs",
-      "section": "العمليات",
+      "section": "العمليات والكانس",
       "dimensions": {
         "width": 1100,
         "height": 600
@@ -918,6 +719,41 @@
           "title": "حسب الفئة",
           "height": 280,
           "span": 1
+        },
+        {
+          "index": 5,
+          "kind": "content",
+          "title": "SPAN",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 6,
+          "kind": "content",
+          "title": "إعدادات الكانس",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 7,
+          "kind": "content",
+          "title": "الأسماء المحمية من الكانس",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 8,
+          "kind": "content",
+          "title": "آخر إجراءات الكانس",
+          "height": 280,
+          "span": 1
+        },
+        {
+          "index": 9,
+          "kind": "content",
+          "title": "الملاحظات",
+          "height": 280,
+          "span": 1
         }
       ],
       "pages": [
@@ -928,64 +764,14 @@
         [
           2,
           3,
-          4
-        ]
-      ]
-    },
-    {
-      "route": "procs",
-      "section": "الكانس والحماية",
-      "dimensions": {
-        "width": 1100,
-        "height": 600
-      },
-      "measurement": "Synthetic DOM: canonical-card rectangles are280px, not rendered browser pixels",
-      "units": [
-        {
-          "index": 0,
-          "kind": "content",
-          "title": "SPAN",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 1,
-          "kind": "content",
-          "title": "إعدادات الكانس",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 2,
-          "kind": "content",
-          "title": "الأسماء المحمية من الكانس",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 3,
-          "kind": "content",
-          "title": "آخر إجراءات الكانس",
-          "height": 280,
-          "span": 1
-        },
-        {
-          "index": 4,
-          "kind": "content",
-          "title": "الملاحظات",
-          "height": 280,
-          "span": 1
-        }
-      ],
-      "pages": [
-        [
-          0,
-          1,
-          2,
-          3
+          4,
+          5
         ],
         [
-          4
+          6,
+          7,
+          8,
+          9
         ]
       ]
     },
@@ -1007,15 +793,15 @@
         },
         {
           "index": 1,
-          "kind": "summary",
-          "title": "DIV",
+          "kind": "toolbar",
+          "title": "SPAN",
           "height": 280,
           "span": 2
         },
         {
           "index": 2,
-          "kind": "toolbar",
-          "title": "SPAN",
+          "kind": "summary",
+          "title": "DIV",
           "height": 280,
           "span": 2
         },
@@ -1077,16 +863,13 @@
         [
           2,
           3,
-          4
+          4,
+          5
         ],
         [
-          5,
           6,
           7,
           8
-        ],
-        [
-          9
         ]
       ]
     },
