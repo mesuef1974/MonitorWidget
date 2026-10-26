@@ -1,5 +1,5 @@
 {
-  "sourceSha256": "e0e02316facaf9fe691c4f3b2fb39c2839fd6e8c1b9a5449c034aa9193781870",
+  "sourceSha256": "d823cc5ef547d4b389f391696fe8ed5e1ebfb85611f09fb455dc695affe50e91",
   "checks": 88,
   "populatedRoutes": 14,
   "populatedControlledSections": 19,
@@ -40,7 +40,7 @@
           "index": 3,
           "kind": "chart",
           "title": "المعالج الكلي خلال ساعة",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
@@ -68,21 +68,17 @@
           "index": 7,
           "kind": "content",
           "title": "DIV",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
-          4
-        ],
-        [
+          4,
           5,
           6
         ]
@@ -115,35 +111,35 @@
           "index": 2,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 3,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 4,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 5,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 6,
           "kind": "content",
           "title": "ذاكرة الشاشة حسب البرنامج",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
@@ -171,15 +167,11 @@
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4,
-          5
-        ],
-        [
+          5,
           6,
           7,
           8,
@@ -263,15 +255,11 @@
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4,
-          5
-        ],
-        [
+          5,
           6,
           7
         ]
@@ -353,15 +341,11 @@
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4,
-          5
-        ],
-        [
+          5,
           6,
           7
         ]
@@ -394,30 +378,28 @@
           "index": 2,
           "kind": "content",
           "title": "المساحة الحرة القرص C · آخر 24 ساعة",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 3,
           "kind": "content",
           "title": "قابل للتحرير الآن",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 4,
           "kind": "content",
           "title": "الهبوط الأخير آخر 72 ساعة",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4
@@ -451,16 +433,14 @@
           "index": 2,
           "kind": "content",
           "title": "أين تذهب المساحة؟ قيست قبل قليل",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2
         ]
       ]
@@ -492,16 +472,14 @@
           "index": 2,
           "kind": "content",
           "title": "تنظيفات إضافية معاينة ثم تأكيد؛ لا يُحذف شيء دون موافقتك",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2
         ]
       ]
@@ -533,16 +511,14 @@
           "index": 2,
           "kind": "content",
           "title": "DIV",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2
         ]
       ]
@@ -574,30 +550,28 @@
           "index": 2,
           "kind": "content",
           "title": "أكبر مستهلكي الذاكرة undefined من undefined GB (undefined%)",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 3,
           "kind": "content",
           "title": "في الحجر قابل للاسترجاع",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 4,
           "kind": "content",
           "title": "آخر ما حُرّر",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4
@@ -638,37 +612,35 @@
           "index": 3,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 4,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 5,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 6,
           "kind": "chart",
           "title": "SECTION",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4,
@@ -759,15 +731,11 @@
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4,
-          5
-        ],
-        [
+          5,
           6,
           7,
           8,
@@ -858,15 +826,11 @@
       "pages": [
         [
           0,
-          1
-        ],
-        [
+          1,
           2,
           3,
           4,
-          5
-        ],
-        [
+          5,
           6,
           7,
           8
@@ -1007,21 +971,21 @@
           "index": 4,
           "kind": "content",
           "title": "الكانس",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 5,
           "kind": "content",
           "title": "عتبات التنبيه",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 6,
           "kind": "content",
           "title": "طبقات التنظيف",
-          "height": 180,
+          "height": 280,
           "span": 1
         }
       ],
@@ -1030,9 +994,7 @@
           0,
           1,
           2,
-          3
-        ],
-        [
+          3,
           4,
           5,
           6
@@ -1080,14 +1042,14 @@
           "index": 4,
           "kind": "content",
           "title": "FIELDSET",
-          "height": 180,
+          "height": 280,
           "span": 1
         },
         {
           "index": 5,
           "kind": "toolbar",
           "title": "DIV",
-          "height": 180,
+          "height": 280,
           "span": 2
         }
       ],
@@ -1096,9 +1058,7 @@
           0,
           1,
           2,
-          3
-        ],
-        [
+          3,
           4,
           5
         ]
