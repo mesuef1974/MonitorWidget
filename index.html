@@ -1660,7 +1660,7 @@ select option:disabled{background:var(--control-muted-bg);color:var(--control-mu
 /* BEGIN_FILL_LAYOUT_20261026
    After pagination is planned at natural heights, cards stretch to occupy the whole workspace (no dead space under short pages). */
 #view[data-canonical-live][data-live-fill]{align-content:start!important;align-items:stretch!important}
-#view[data-canonical-live][data-live-fill="soft"] .canonical-card[data-live-kind="summary"]{align-self:stretch!important;align-content:center}
+#view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="summary"]{align-self:stretch!important;align-content:center}
 #view[data-canonical-live][data-live-fill] .canonical-card:not([data-live-kind="toolbar"]):not([data-live-kind="summary"]){align-self:stretch!important;max-height:none!important;height:auto!important}
 #view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="records"]{max-height:none!important}
 #view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="records"] .plist{flex:1!important;height:auto!important}
@@ -1686,6 +1686,8 @@ select option:disabled{background:var(--control-muted-bg);color:var(--control-mu
 #view[data-canonical-live] .merged-card[data-live-kind="toolbar"]{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;gap:6px 14px!important}
 #view[data-canonical-live] .merged-card[data-live-kind="toolbar"]>.canonical-card{flex:0 1 auto!important;display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:center!important;gap:6px!important;padding:2px 0!important}
 #view[data-canonical-live] .canonical-card[data-roomy]>:not(h2):not(h3):not(.live-actions){margin-block:auto}
+#view[data-canonical-live] .canonical-card.hv{flex-direction:row!important;flex-wrap:wrap!important;align-content:flex-start;align-items:baseline!important;gap:6px 16px!important}
+#view[data-canonical-live][data-live-fill] .canonical-card[data-live-kind="summary"]{align-content:center}
 /* END_FOOTER_ONLY_PAGING_20261026 */
 
 
@@ -2427,7 +2429,7 @@ function makePaged(key, listEl, footEl, rowFn, o = {}) {
   const p = { key, listEl, footEl, rowFn, wheelOwner:o.wheelOwner||null, items: [], rows: [], total: 0, page: PAGEMEM[key] || 0, size: 1, remote: o.remote, empty: o.empty || "لا توجد عناصر.", tok: 0,
     rowH() { const v = parseFloat(getComputedStyle(listEl).getPropertyValue("--rowh")) || parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--rowh")) || 62; return v; },
     async paint() {
-      if(!listEl.isConnected || listEl.clientHeight<=0) return;
+      if(!listEl.isConnected) return;
       const size = p.remote ? (p.limit = Math.max(p.limit || 0, 60)) : Math.max(1, p.items.length), my = ++p.tok; p.size = size; p.page = 0;
       if (p.remote) {
         let r = await p.remote(p.page * size, size); if (my !== p.tok || PGS[key] !== p || !listEl.isConnected) return;
@@ -4612,20 +4614,27 @@ const CANONICAL_WORKSPACE=(()=>{
   const read=()=>{const cs=getComputedStyle(view);return{gap:parseFloat(cs.rowGap)||0,top:parseFloat(cs.paddingTop)||0,heights:String(cs.gridTemplateRows||'').split(' ').map(parseFloat).filter(Number.isFinite)}};
   let g=read();const sum=x=>x.heights.reduce((a,h)=>a+h,0)+x.gap*Math.max(0,x.heights.length-1);
   // Balanced columns (e.g. 2x2 instead of 3+1) are kept only when they still fit the planned page height.
-  if(flow>=1){const cols=Math.ceil(flow/Math.ceil(flow/maxCols));if(cols<maxCols){view.style.setProperty('--live-cols',cols);const alt=read();if(sum(alt)<=view.clientHeight+1)g=alt;else view.style.setProperty('--live-cols',maxCols)}}
+  if(flow>=1){const cols=Math.ceil(flow/Math.ceil(flow/maxCols));if(cols<maxCols){view.style.setProperty('--live-cols',cols);g=read()}}
   const {gap,heights}=g;if(!heights.length)return;
   const box=view.getBoundingClientRect(),tracks=[];let offset=box.top+g.top;for(const h of heights){tracks.push({start:offset,h,kinds:[]});offset+=h+gap}
   for(const n of shown){const top=n.getBoundingClientRect().top,t=tracks.reduce((best,q)=>Math.abs(q.start-top)<Math.abs(best.start-top)?q:best,tracks[0]);t.kinds.push(kindOf(n))}
   const build=soft=>tracks.map(t=>({h:t.h,fixed:!t.kinds.length||t.kinds.every(k=>k==='toolbar'||(k==='summary'&&!soft))}));
   let rows=build(false),soft=false;if(rows.every(r=>r.fixed)){rows=build(true);soft=true;if(rows.every(r=>r.fixed))return}
-  const total=rows.reduce((a,r)=>a+r.h,0)+gap*(rows.length-1),weight=rows.filter(r=>!r.fixed).reduce((a,r)=>a+r.h,0);let free=Math.floor(view.clientHeight-total);if(soft)free=Math.min(free,160*rows.filter(r=>!r.fixed).length);
-  view.dataset.liveFill=soft?'soft':'1';view.style.setProperty('grid-template-rows',rows.map(r=>r.fixed||free<=0||!weight?Math.ceil(r.h)+'px':Math.floor(r.h+free*r.h/weight)+'px').join(' '),'important')}
+  const total=rows.reduce((a,r)=>a+r.h,0)+gap*(rows.length-1);let free=Math.floor(view.clientHeight-total);const sizes=rows.map(r=>r.h);
+  if(free<0){const flex=rows.map((r,i)=>i).filter(i=>!rows[i].fixed),w=flex.reduce((a,i)=>a+rows[i].h,0);for(const i of flex)sizes[i]=Math.max(Math.min(rows[i].h,140),rows[i].h+free*rows[i].h/w)}
+  if(free>0){const live=rows.map((r,i)=>i).filter(i=>!rows[i].fixed||tracks[i].kinds.includes('summary')),cap=i=>rows[i].fixed?Math.round(rows[i].h*0.6):Infinity;let pool=live.slice(),left=free;for(let pass=0;pass<4&&pool.length&&left>1;pass++){const w=pool.reduce((a,i)=>a+rows[i].h,0),next=[];let spent=0;for(const i of pool){const give=Math.min(left*rows[i].h/w,cap(i)-(sizes[i]-rows[i].h));sizes[i]+=give;spent+=give;if(cap(i)-(sizes[i]-rows[i].h)>1)next.push(i)}left-=spent;pool=next}}
+  view.dataset.liveFill=soft?'soft':'1';view.style.setProperty('grid-template-rows',sizes.map(v=>Math.floor(v)+'px').join(' '),'important')}
   // Cards of one or two lines (and consecutive toolbars) are combined into a single card; form-owned nodes never move.
+ const SMALL_CARD=230;
  const SUBMENU='.sgc,.gp-range:has([data-iosw])';
  // Cards whose content leaves a large void spread their blocks evenly instead of leaving an unexplained gap below.
- function spreadSparse(units){for(const n of units){n.removeAttribute('data-roomy');if(n.hidden||!['content','chart'].includes(n.dataset.liveKind)||n.dataset.liveMerged)continue;const used=[...n.children].reduce((a,c)=>a+(c.hidden||c.matches('h2,h3')?0:c.getBoundingClientRect().height),0);if(n.clientHeight>0&&n.scrollHeight<=n.clientHeight+1&&used<n.clientHeight*0.55)n.dataset.roomy='1'}}
- function mergeSmall(view,units){const loose=n=>!n.closest('form')&&!n.querySelector('form,input,select,textarea'),wrap=(list,kind)=>{const w=document.createElement('section');w.className='card canonical-card merged-card';w.dataset.liveKind=kind;w.dataset.liveMerged=kind;w.dataset.liveCard=list[0].dataset.liveCard;w.dataset.liveSection=list[0].dataset.liveSection;list[0].before(w);for(const n of list){n.hidden=false;w.append(n)}return w};
-  let out=units.slice();for(const kind of ['toolbar','content']){const list=out.filter(n=>n.dataset.liveKind===kind&&!n.hidden&&loose(n)&&(kind==='toolbar'?n.matches(':not(.al-act)'):(n.getBoundingClientRect().height>0&&n.getBoundingClientRect().height<=120)));if(list.length<2)continue;const w=wrap(list,kind),at=out.indexOf(list[0]);out=out.filter(n=>!list.includes(n));out.splice(at,0,w)}
+ function spreadSparse(units){for(const n of units){n.removeAttribute('data-roomy');if(n.hidden||!['content','chart'].includes(n.dataset.liveKind)||n.dataset.liveMerged||n.matches('.hv')||n.closest('form'))continue;const used=[...n.children].reduce((a,c)=>a+(c.hidden||c.matches('h2,h3')?0:c.getBoundingClientRect().height),0);if(n.clientHeight>0&&n.scrollHeight<=n.clientHeight+1&&used<n.clientHeight*0.55)n.dataset.roomy='1'}}
+ function mergeSmall(view,units){const wrap=(list,kind)=>{const w=document.createElement('section');w.className='card canonical-card merged-card';w.dataset.liveKind=kind;w.dataset.liveMerged=kind;w.dataset.liveCard=list[0].dataset.liveCard;w.dataset.liveSection=list[0].dataset.liveSection;list[0].before(w);for(const n of list){n.hidden=false;w.append(n)}return w};
+  const natural=n=>n.getBoundingClientRect().height,owner=n=>n.closest('form')||null;
+  let out=units.slice();
+  // Members of one form may merge only with each other, so the wrapper stays inside that form and field ownership never changes.
+  for(const kind of ['toolbar','content']){const pool=out.filter(n=>n.dataset.liveKind===kind&&!n.hidden&&!n.matches('.al-act')&&!n.querySelector('form')&&(kind==='toolbar'||(natural(n)>0&&natural(n)<=SMALL_CARD)));const groups=new Map();for(const n of pool){const k=owner(n);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(n)}
+   for(const list of groups.values()){if(list.length<2)continue;const w=wrap(list,kind),at=out.indexOf(list[0]);if(kind==='content'&&natural(w)<=220){w.dataset.liveKind='toolbar';w.dataset.liveWide='1'}out=out.filter(n=>!list.includes(n));out.splice(at,0,w)}}
   out.forEach((n,i)=>{if(!n.dataset.liveMerged)n.dataset.liveCard=String(i)});return out}
  function apply(route=tab){if(running||!profiles[route]||route!==tab)return;const view=document.getElementById('view');if(!view)return;running=true;observer?.disconnect();try{for(const w of view.querySelectorAll('.merged-card')){while(w.firstChild)w.before(w.firstChild);w.remove()}delete view.dataset.liveFill;view.style.removeProperty('grid-template-rows');chrome();restorePresentation(view);const s=current(route),config=profiles[route],groups=sectionCards(view,route);s.section=Math.min(s.section,config.length-1);let units=(groups[s.section]||[]).filter(n=>!n.matches(SUBMENU));const box=view.getBoundingClientRect(),cap=capacity(box.width||view.clientWidth||900,box.height||view.clientHeight||500),budget=Math.max(120,box.height||view.clientHeight||500),anchor=s.pages?.[s.page]?.[0]??0;
    view.dataset.canonicalLive=route;view.style.setProperty('--live-cols',cap.cols);view.style.setProperty('--live-card-limit',budget+'px');const all=new Set(groups.flat());
