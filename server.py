@@ -18,7 +18,8 @@ import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-m
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
 import routes_settings      # البند 6/د: المظهر والوضع والتنبيهات وخطة الطاقة وإعدادات reaper
 import shellwin             # البند 6/هـ: نافذة التطبيق وغلافها وحالة الغلاف لصفحة الصحة وبلاغ الويدجت
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+import widgetctl            # البند 6/و: ويدجت سطح المكتب (يعمل/ظاهر، إيقاف آمن، تشغيل، إعادة إلى الشاشة)
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 from cfgjson import read_json   # البند 6/ج: ملفات JSON مع نسخة احتياطية (refresh_extra تقرأ السياسة)
 try:
@@ -291,7 +292,6 @@ def refresher():
                 errlog.swallowed()
 
 
-SETTINGS = os.path.join(ROOT, "widget.settings.json")
 def ensure_agent():
     """Start the always-on agent if its mutex is not held (idempotent; the agent also enforces a single instance)."""
     try:
@@ -551,7 +551,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/widget":
             if not self._authed():
                 return
-            self._send(200, {"running": widget_running() and widget_visible()})
+            self._send(200, widgetctl.status())
         elif path == "/api/infra":
             if not self._authed():
                 return
@@ -719,21 +719,6 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/session/logout":
                 _session_revoke(self._cookie("mw_s"))
                 return self._send(200, {"ok": True}, cookie="mw_s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
-            if route == "/api/widget":
-                want = bool(body.get("show"))
-                if want:
-                    if widget_running():
-                        widget_stop(); time.sleep(0.8)
-                    widget_fit_on_screen()
-                    widget_start()
-                    for _ in range(30):
-                        time.sleep(0.4)
-                        if widget_running() and widget_visible():
-                            break
-                else:
-                    widget_stop(); time.sleep(0.5)
-                infra.log.info("widget %s -> running=%s", "show" if want else "hide", widget_running())
-                return self._send(200, {"running": widget_running() and widget_visible()})
             if route == "/api/explain-errors":
                 import explain
                 r = explain.errors(native_metrics(), ROOT)
@@ -786,109 +771,6 @@ def watchdog():
         time.sleep(20)
         if IDLE_EXIT_SECONDS and time.time() - _last_request > IDLE_EXIT_SECONDS:
             os._exit(0)
-
-
-def widget_visible():
-    """False while the widget window is hidden (the process stays alive; the flag is written by widget.ps1)."""
-    try:
-        return json.load(open(SETTINGS, encoding="utf-8-sig")).get("visible", True) is not False
-    except Exception:
-        return True
-
-
-def widget_running():
-    import ctypes
-    h = ctypes.windll.kernel32.OpenMutexW(0x00100000, False, "Local\\Azkia-MiniWidget")
-    if h:
-        ctypes.windll.kernel32.CloseHandle(h)
-        return True
-    return False
-
-
-def _widget_process_matches(process):
-    """Match this checkout's direct -File invocation, never a substring in -Command."""
-    import ntpath
-    if not isinstance(process, dict) or str(process.get("Name", "")).casefold() not in ("pwsh.exe", "powershell.exe"):
-        return False
-    command = process.get("CommandLine")
-    if not isinstance(command, str) or not command:
-        return False
-    argc = ctypes.c_int()
-    parse = ctypes.windll.shell32.CommandLineToArgvW
-    parse.argtypes = (ctypes.c_wchar_p, ctypes.POINTER(ctypes.c_int))
-    parse.restype = ctypes.POINTER(ctypes.c_wchar_p)
-    argv = parse(command, ctypes.byref(argc))
-    if not argv:
-        return False
-    try:
-        args = [argv[i] for i in range(argc.value)]
-    finally:
-        free = ctypes.windll.kernel32.LocalFree
-        free.argtypes = (ctypes.c_void_p,)
-        free.restype = ctypes.c_void_p
-        free(ctypes.cast(argv, ctypes.c_void_p))
-    i = 1
-    while i < len(args):
-        option = args[i].casefold()
-        if option in ("-file", "/file"):
-            if i + 1 >= len(args) or not ntpath.isabs(args[i + 1]):
-                return False
-            expected = ntpath.normcase(ntpath.normpath(ntpath.join(ROOT, "widget.ps1")))
-            return ntpath.normcase(ntpath.normpath(args[i + 1])) == expected
-        if option in ("-noprofile", "-noninteractive", "-sta", "-mta", "-nologo", "-noexit"):
-            i += 1
-        elif option in ("-executionpolicy", "-windowstyle", "-workingdirectory", "-inputformat", "-outputformat") and i + 1 < len(args):
-            i += 2
-        else:
-            # Reject command/encoded-command modes and ambiguous abbreviations.
-            return False
-    return False
-
-
-def widget_stop():
-    # Query only PowerShell hosts; process command lines stay in memory and are
-    # never logged. No filesystem path or untrusted string is interpolated into PS.
-    query = "$ErrorActionPreference='Stop'; $rows=@(Get-CimInstance Win32_Process -Filter \"Name = 'pwsh.exe' OR Name = 'powershell.exe'\" | Select-Object Name,ProcessId,CommandLine,@{n='CreationTicks';e={$_.CreationDate.ToUniversalTime().Ticks.ToString()}}); ConvertTo-Json -InputObject $rows -Compress"
-    result = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-Command", query], capture_output=True, timeout=sched.remaining_timeout(20), creationflags=CNW)
-    if result.returncode != 0:
-        raise RuntimeError("widget process query failed")
-    try:
-        processes = json.loads(result.stdout.decode("utf-8-sig"))
-        if isinstance(processes, dict):
-            processes = [processes]
-        if not isinstance(processes, list):
-            raise ValueError("invalid process list")
-    except (ValueError, UnicodeError, AttributeError):
-        raise RuntimeError("widget process query invalid") from None
-    for process in processes:
-        if not _widget_process_matches(process):
-            continue
-        pid, ticks = process.get("ProcessId"), str(process.get("CreationTicks", ""))
-        if type(pid) is not int or pid <= 0 or pid == os.getpid() or not ticks.isascii() or not ticks.isdecimal():
-            raise RuntimeError("widget process identity invalid")
-        # Recheck creation time so PID reuse cannot target a replacement process.
-        stop = "$ErrorActionPreference='Stop'; $p=Get-CimInstance Win32_Process -Filter 'ProcessId = %d'; if($p){if($p.CreationDate.ToUniversalTime().Ticks.ToString() -ne '%s'){throw 'identity changed'}; Stop-Process -Id %d -Force -ErrorAction Stop}" % (pid, ticks, pid)
-        stopped = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-Command", stop], capture_output=True, timeout=sched.remaining_timeout(20), creationflags=CNW)
-        if stopped.returncode != 0:
-            raise RuntimeError("widget stop failed")
-
-
-def widget_start():
-    subprocess.Popen(["wscript.exe", os.path.join(ROOT, "launch_mini.vbs")], creationflags=CNW)
-
-
-def widget_fit_on_screen():
-    """If the saved position is off-screen, move the widget back to the top-right of the primary screen."""
-    import ctypes
-    w, h = ctypes.windll.user32.GetSystemMetrics(0), ctypes.windll.user32.GetSystemMetrics(1)
-    try:
-        st = json.load(open(SETTINGS, encoding="utf-8"))
-    except Exception:
-        st = {}
-    l, t = st.get("left"), st.get("top")
-    if l is None or t is None or l < 0 or t < 0 or l > w - 120 or t > h - 120:
-        st["left"], st["top"] = max(0, w - 372), 0  # top-right, matches the widget default
-        json.dump(st, open(SETTINGS, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
 
 
 def _timed(fn):
