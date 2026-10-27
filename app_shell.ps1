@@ -24,7 +24,8 @@ function Initialize-Vendor {
 }
 if (-not (Initialize-Vendor)) { exit 3 }
 
-Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class Dpi { [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(System.IntPtr v); [DllImport("user32.dll")] public static extern uint GetDpiForSystem(); }'
+Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class Dpi { [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(System.IntPtr v); [DllImport("user32.dll")] public static extern uint GetDpiForSystem(); [DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id); }'
+[void][Dpi]::SetCurrentProcessExplicitAppUserModelID('MonitorWidget.App')   # هوية خاصة: زر شريط المهام لا يُجمَّع مع PowerShell
 [void][Dpi]::SetProcessDpiAwarenessContext([IntPtr]-4)   # per-monitor v2: بدونه يرسم WebView2 بمقياس يخالف النافذة
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml
 Add-Type -Path (Join-Path $vend 'Microsoft.Web.WebView2.Core.dll')
@@ -53,6 +54,8 @@ $win.Background = Brush $base; $win.FlowDirection = 'LeftToRight'; $win.FontFami
 $sc = [Dpi]::GetDpiForSystem() / 96.0   # الوسائط بالبكسل الفعلي (كما يمررها الخادم والويدجت)
 $win.Left = $X / $sc; $win.Top = $Y / $sc; $win.Width = $W / $sc; $win.Height = $H / $sc; $win.MinWidth = 640; $win.MinHeight = 480
 $win.UseLayoutRounding = $true; $win.SnapsToDevicePixels = $true
+$ico = Join-Path $root 'assets\icon.ico'
+if (Test-Path $ico) { $win.Icon = [Windows.Media.Imaging.BitmapFrame]::Create((New-Object Uri $ico)) }
 $chrome = New-Object Windows.Shell.WindowChrome
 $chrome.CaptionHeight = 0; $chrome.ResizeBorderThickness = 6; $chrome.GlassFrameThickness = 0; $chrome.CornerRadius = 0; $chrome.UseAeroCaptionButtons = $false
 [Windows.Shell.WindowChrome]::SetWindowChrome($win, $chrome)
@@ -95,7 +98,7 @@ $frame.Child = $grid; $win.Content = $frame
 
 $wv.Add_CoreWebView2InitializationCompleted({
     param($s, $e)
-    if (-not $e.IsSuccess) { $win.Close(); return }
+    if (-not $e.IsSuccess) { try { Set-Content -LiteralPath (Join-Path $env:LOCALAPPDATA 'MonitorWidget\shell_error.log') -Value ([string]$e.InitializationException) } catch {}; $win.Close(); return }
     $c = $wv.CoreWebView2
     $c.Settings.AreDefaultContextMenusEnabled = $false; $c.Settings.IsStatusBarEnabled = $false; $c.Settings.AreDevToolsEnabled = $false
     $c.Settings.IsPasswordAutosaveEnabled = $false; $c.Settings.IsGeneralAutofillEnabled = $false
