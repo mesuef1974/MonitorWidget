@@ -4,9 +4,10 @@ Add-Type -AssemblyName PresentationFramework
 $root=Split-Path $PSScriptRoot -Parent;$source=Get-Content -LiteralPath (Join-Path $root 'widget.ps1') -Raw
 $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
+. (Join-Path $PSScriptRoot 'widget_test_identity.ps1')   # الهوية المشتركة من جذر المستودع قبل تحميل الدوال المستخرجة
 foreach($name in @('Get-Palette','Brush','Alpha','Normalize-WidgetOpacity','Surface-Brush','New-Text','New-Card','Gap','New-ActionButton','New-IconBtn','Set-WidgetControlTheme')){
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
-    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create($fn.Extent.Text))
+    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 }
 function Luminance($color){$v=@();foreach($part in @($color.R,$color.G,$color.B)){$n=[double]$part/255.0;$v+=if($n -le .04045){$n/12.92}else{[Math]::Pow(($n+.055)/1.055,2.4)}};return .2126*$v[0]+.7152*$v[1]+.0722*$v[2]}
 function Contrast($a,$b){$x=Luminance $a;$y=Luminance $b;return ([Math]::Max($x,$y)+.05)/([Math]::Min($x,$y)+.05)}
