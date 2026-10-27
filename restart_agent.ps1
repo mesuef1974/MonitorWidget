@@ -1,7 +1,7 @@
 ﻿# إعادة تشغيل الوكيل والخادم (لتطبيق تعديلات الخلفية). الخلفية تعمل مسؤولاً عبر المهمة MonitorWidget-Agent،
 # فلا يمكن إنهاؤها بـ Stop-Process من جلسة عادية؛ نستخدم المهمة نفسها.
 $r = $PSScriptRoot
-$ap = [regex]::Escape($r) + '[\/](agent|server)\.py'
+$ap = [regex]::Escape($r) + '[\/](agent|server)\.py'   # [\/] = شرطة عكسية أو أمامية؛ [\/] كانت تطابق الأمامية فقط
 $task = Get-ScheduledTask -TaskName 'MonitorWidget-Agent' -ErrorAction SilentlyContinue
 $before = (Get-NetTCPConnection -LocalPort 47832 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
 if ($task) { Stop-ScheduledTask -TaskName 'MonitorWidget-Agent' -ErrorAction SilentlyContinue }
