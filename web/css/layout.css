@@ -23,7 +23,7 @@
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
 .live.err i{background:var(--bad);animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
-.content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:grid;gap:var(--s4);grid-template-columns:repeat(12,minmax(0,1fr));align-content:start;align-items:stretch}
+.content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:grid;gap:var(--s4);grid-template-columns:repeat(12,minmax(0,1fr));align-content:start;align-items:start}   /* كل بطاقة بقدر محتواها: لا فراغات داخلية بسبب جار أطول */
 .btn.menu-btn{display:none}   /* .btn في components.css يأتي لاحقًا فيلزم رفع التخصيص */
 .panel,.c12{grid-column:span 12}   /* الأساس قبل الامتدادات حتى تتغلب عليه .c3…c8 */
 .c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
