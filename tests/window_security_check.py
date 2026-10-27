@@ -19,10 +19,11 @@ import os
 
 ROOT = Path(__file__).resolve().parents[1]
 TREE = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
+TREE_SHELL = ast.parse((ROOT / "shellwin.py").read_text(encoding="utf-8-sig"))   # البند 6/هـ: فتح النافذة والتذكرة في shellwin.py
 
 
-def functions(names):
-    return ast.Module(body=[n for n in TREE.body if isinstance(n, ast.FunctionDef) and n.name in names], type_ignores=[])
+def functions(names, tree=TREE):
+    return ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names], type_ignores=[])
 
 
 class WindowSecurity(unittest.TestCase):
@@ -47,14 +48,14 @@ class WindowSecurity(unittest.TestCase):
 
     def test_reopen_requests_ticket_from_running_server_not_helper_memory(self):
         namespace={"PORT":47832,"TOKEN":"synthetic-test-token","json":json}
-        exec(compile(functions({"_ticket_for_window"}),"window-ticket","exec"),namespace)
+        exec(compile(functions({"_ticket_for_window"}, TREE_SHELL),"window-ticket","exec"),namespace)
         received=[]
         def open_request(request,timeout):
             received.append((request,timeout))
             return io.BytesIO(b'{"ticket":"issued-by-running-server"}')
         opener=types.SimpleNamespace(open=open_request)
         with patch.object(urllib.request,"build_opener",return_value=opener):
-            self.assertEqual(namespace["_ticket_for_window"](),"issued-by-running-server")
+            self.assertEqual(namespace["_ticket_for_window"](namespace["TOKEN"]),"issued-by-running-server")
         request,timeout=received[0]
         self.assertEqual(request.full_url,"http://127.0.0.1:47832/api/ticket")
         self.assertEqual(request.get_method(),"POST")
@@ -63,13 +64,13 @@ class WindowSecurity(unittest.TestCase):
 
     def test_ticket_failure_never_opens_unauthenticated_page(self):
         namespace={"PORT":47832,"TOKEN":"synthetic","json":json}
-        exec(compile(functions({"_ticket_for_window"}),"window-ticket","exec"),namespace)
+        exec(compile(functions({"_ticket_for_window"}, TREE_SHELL),"window-ticket","exec"),namespace)
         opener=types.SimpleNamespace(open=lambda *a,**k:io.BytesIO(b'{}'))
         with patch.object(urllib.request,"build_opener",return_value=opener):
-            with self.assertRaises(RuntimeError):namespace["_ticket_for_window"]()
+            with self.assertRaises(RuntimeError):namespace["_ticket_for_window"](namespace["TOKEN"])
 
     def test_open_placement_survives_short_lived_helper(self):
-        function=next(n for n in TREE.body if isinstance(n,ast.FunctionDef) and n.name=="open_window")
+        function=next(n for n in TREE_SHELL.body if isinstance(n,ast.FunctionDef) and n.name=="open_window")
         workers=[n for n in ast.walk(function) if isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=="Thread"]
         self.assertTrue(any(any(k.arg=="daemon" and isinstance(k.value,ast.Constant) and k.value.value is False for k in n.keywords) for n in workers))
 
@@ -171,7 +172,7 @@ class DashboardPlacementScope(unittest.TestCase):
             create_unicode_buffer=ctypes.create_unicode_buffer, byref=ctypes.byref)
         ns = dict(ctypes=fake_ctypes, wintypes=ctypes.wintypes, os=os,
                   time=types.SimpleNamespace(sleep=lambda _:None))
-        exec(compile(functions({"_place_window"}), "dashboard-placement", "exec"), ns)
+        exec(compile(functions({"_place_window"}, TREE_SHELL), "dashboard-placement", "exec"), ns)
         ns["_place_window"]("مرصد الجهاز", 10,20,800,600)
         return events, closed, queried
 

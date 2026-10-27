@@ -226,10 +226,10 @@ class ProtectedPin(unittest.TestCase):
 
 
 class ShellStatus(unittest.TestCase):
-    """حالة الغلاف في /api/health: الجاهزية وسببها ومحرك آخر فتح، بلا تشغيل الخادم (ملف حالة مؤقت ومجلد جذر مؤقت)."""
+    """حالة الغلاف في /api/health (shellwin.py): الجاهزية وسببها ومحرك آخر فتح، بلا تشغيل الخادم (ملف حالة مؤقت ومجلد جذر مؤقت)."""
 
     def _ns(self, root, localappdata):
-        tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
+        tree = ast.parse((ROOT / "shellwin.py").read_text(encoding="utf-8-sig"))   # البند 6/هـ: دوال الغلاف في shellwin.py
         wanted = {"_shell_readiness", "_shell_ready", "_record_shell", "shell_status", "record_shell_report"}
         consts = {"SHELL_ENGINES", "SHELL_REASONS"}
         nodes = [n for n in tree.body if (isinstance(n, ast.FunctionDef) and n.name in wanted)

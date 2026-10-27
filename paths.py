@@ -14,3 +14,4 @@ RUNS = HOME + r"\Documents\Scripts\Cleanup\logs\runs.jsonl"
 MCCFG = HOME + r"\Documents\Scripts\MachineCare\machinecare.config.json"
 TIERS = ("daily", "weekly", "monthly", "quarterly")
 TIER_TASK = {t: "Cleanup_v2_" + t.capitalize() for t in TIERS}
+PORT = 47832  # منفذ الخادم المحلي (127.0.0.1 فقط)
