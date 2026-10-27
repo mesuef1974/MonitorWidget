@@ -366,7 +366,7 @@ const PAGES = {
       out += panel("الرسوميات (24 ساعة)", g ? `<div class="kpis">${kpi("الآن", nf(g.temp), "°C")}${kpi("الذروة", nf(h.gpu.max24), "°C")}${kpi("الحمل", nf(g.util), "%")}${kpi("الحالة", esc(g.pstate), "")}</div>` : `<div class="empty">لا بيانات</div>`, { cls: "c6" });
       out += panel("تسرّب الذاكرة", (h.leaks || []).length ? `<div class="list">${h.leaks.map(l => `<div class="li"><span class="t">${esc(l.name)}</span><span class="d">${esc(l.note || "")}</span></div>`).join("")}</div>` : `<div class="empty">لم تُكتشف عمليات تنمو باستمرار</div>`, { cls: "c6" });
       const ig = h.gpu?.igpu;
-      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note" style="white-space:pre-wrap;direction:ltr">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
+      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note scrollbox" style="white-space:pre-wrap;direction:ltr;max-height:300px;overflow:auto">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
       out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", Q(ig.shared_mb, "MB"), "", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
       return out;
     },
