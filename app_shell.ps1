@@ -98,7 +98,7 @@ $wv.Add_CoreWebView2InitializationCompleted({
     if (-not $e.IsSuccess) { $win.Close(); return }
     $c = $wv.CoreWebView2
     $c.Settings.AreDefaultContextMenusEnabled = $false; $c.Settings.IsStatusBarEnabled = $false; $c.Settings.AreDevToolsEnabled = $false
-    $c.Settings.IsZoomControlEnabled = $false; $c.Settings.IsPasswordAutosaveEnabled = $false; $c.Settings.IsGeneralAutofillEnabled = $false
+    $c.Settings.IsPasswordAutosaveEnabled = $false; $c.Settings.IsGeneralAutofillEnabled = $false
     # التنقل داخل المرصد فقط؛ أي رابط خارجي يُفتح في المتصفح الافتراضي
     $c.Add_NewWindowRequested({ param($s2, $a) $a.Handled = $true; if ($a.Uri -match '^https?://') { Start-Process $a.Uri } })
     $c.Add_NavigationStarting({ param($s2, $a) if ($a.Uri -notmatch '^http://127\.0\.0\.1:47832/') { $a.Cancel = $true; if ($a.Uri -match '^https?://') { Start-Process $a.Uri } } })
