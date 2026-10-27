@@ -1,0 +1,25 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>مرصد الجهاز — بطاقة التسليم</title><style>
+:root{--bg:#f4f1ea;--fg:#16211f;--mut:#5b6b67;--card:#fffdf8;--line:#d9d4c7;--acc:#0a8a6a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1413;--fg:#e6efec;--mut:#93a8a3;--card:#141e1c;--line:#27363388;--acc:#3ee6b0;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d1413;--fg:#e6efec;--mut:#93a8a3;--card:#141e1c;--line:#27363388;--acc:#3ee6b0;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.7 "Segoe UI",Tahoma,sans-serif;padding:24px 16px}
+main{max-width:760px;margin:auto;display:grid;gap:14px}
+h1{font-size:22px;margin:0}h2{font-size:15px;margin:0 0 6px;color:var(--acc)}
+p{margin:0;color:var(--mut)}
+section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+ul{margin:0;padding-inline-start:20px}li{margin:3px 0}
+code{direction:ltr;unicode-bidi:isolate;font:13px Consolas,monospace;background:color-mix(in srgb,var(--fg) 8%,transparent);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+.meta code{margin-inline-end:6px}
+</style></head><body><main><header><h1>مرصد الجهاز — بطاقة التسليم</h1><p class=meta>
+branch <code>fix/equal-rows</code>
+head <code>4bcf340</code>
+dirty <code>4</code>
+updated <code>2026-10-27T10:13:58+03:00</code>
+</p></header>
+<section><h2>الحالة</h2><ul><li>الفرع: fix/equal-rows · PR 14 مفتوح، CI ناجح، MERGEABLE؛ لا يُدمج دون طلب صريح من المالك.</li><li>main عند PR 13. PR 5–13 مدموجة، PR 4 مغلق بلا دمج.</li><li>الفحص tests/check_all.py يمرّ كله عدا delivery-optimization (وصف القاعدة يقول DISABLED وهي مفعّلة؛ متروك عمدًا حتى يقرر المالك).</li></ul></section>
+<section><h2>الخطوة الجارية</h2><ul><li>آلية التسليم الآلي بُنيت ورُبطت: docs/HANDOFF.md + ~/.claude/hooks/handoff_guard.py (Stop/SessionStart) + handoff_card.py (المرآة) + .claude/handoff.json (العتبة 190k). الملفات الجديدة غير ملتزمة بعد (تخص PR مستقل لا PR 14).</li></ul></section>
+<section><h2>الخطوة التالية (أمر قابل للتنفيذ)</h2><ul><li>كنّاس الإيقاظ handoff-wake-sweeper أُنشئ (كل 5 دقائق، وضع Auto). التالي: فرع feat/handoff-automation من main ← PR للملفات الثلاثة (CLAUDE.md، .claude/handoff.json، docs/HANDOFF.md، docs/handoff_card.html).</li></ul></section>
+<section><h2>ما بُني (مختصر)</h2><ul><li>الغلاف app_shell.ps1 (WPF بلا إطار، WebView2 من مكتبات Teams، يرجع لـ Edge).</li><li>الهوية المشتركة identity.ps1 تقرأ web/css/tokens.css للويدجت والغلاف.</li><li>الواجهة web/index.html + web/css (tokens/base/layout/components/utilities) يقدّمها server.py بـ ETag.</li></ul></section>
+<section><h2>معلّق / غير مُتحقق</h2><ul><li>قياسات كرت الشاشة الحية تحتاج الخادم بصلاحية مسؤول.</li><li>أزرار معاينة/تنظيف المساحة بعد التقسيم لم تُجرَّب فعليًا.</li><li>القائمة الجديدة للويدجت وألوانه من tokens لم تُجرَّب على الويدجت الحي؛ ولم يُفتح الغلاف من زر الويدجت.</li><li>إخفاء/تأجيل التوصيات: لم يُنقل من الصفحة القديمة إلى web/index.html.</li></ul></section>
+<section><h2>قواعد ثابتة</h2><ul><li>العربية الفصحى والإيجاز؛ لا رسائل إلى جلسة «خفيفة 0101»؛ لا دمج PR دون طلب.</li><li>فرع من main ← PR ← squash بعد CI؛ تحديث الفرع المحمي من main قبل الدمج.</li><li>الأنماط في web/css بمتغيرات tokens.css فقط؛ المضمّن للقيم القادمة من البيانات.</li><li>لا تقتل عمليات PowerShell بالجملة (قد تقتل الويدجت). إعادة التشغيل: restart_admin.ps1 بصلاحية مسؤول.</li></ul></section>
+<section><h2>أوامر التحقق</h2><ul><li>python tests/check_all.py</li><li>gh pr view 14 --json mergeStateStatus,statusCheckRollup</li><li>الاختبار الحي: python web/dev_proxy.py 47900 ثم shots/lay/tour.cjs (غير متتبَّع)</li></ul></section></main></body></html>
