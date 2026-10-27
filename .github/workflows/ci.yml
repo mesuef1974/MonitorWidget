@@ -30,3 +30,37 @@ jobs:
         shell: bash
         run: |
           if git ls-files | grep -E '(^|/)\.token|\.db$|\.dmp$|\.pem$'; then echo "tracked secret/state file"; exit 1; fi
+
+  # دوال widget.ps1 وidentity.ps1 النقية (مستخرجة عبر AST؛ لا نافذة ولا إعدادات)
+  pester:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pester
+        shell: pwsh
+        run: |
+          $mod = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $mod -or $mod.Version.Major -lt 5) { Install-Module Pester -MinimumVersion 5.5 -Scope CurrentUser -Force -SkipPublisherCheck }
+          Import-Module Pester -MinimumVersion 5.0
+          Invoke-Pester -Path tests/widget_functions.Tests.ps1 -CI
+
+  # كل صفحات web/index.html في الوضعين على خادم ثوابت (لا مرصد حيّ)؛ مبني على shots/lay/tour.cjs
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22", cache: npm, cache-dependency-path: tests/e2e/package-lock.json }
+      - name: Install
+        working-directory: tests/e2e
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Pages
+        working-directory: tests/e2e
+        run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-results, path: tests/e2e/test-results, retention-days: 7 }

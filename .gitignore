@@ -43,6 +43,11 @@ __pycache__/
 .ruff_cache/
 node_modules/
 tests/dom-runtime/node_modules/
+tests/e2e/node_modules/
+tests/e2e/test-results/
+
+# ثوابت الفحص المرئي المسجَّلة (منقّاة) تُلتزم رغم أسمائها المطابقة لملفات الحالة أعلاه
+!tests/fixtures/api/*.json
 
 # نسخ احتياطية يدوية (الإصدار عبر git بدلًا منها)
 *.bak

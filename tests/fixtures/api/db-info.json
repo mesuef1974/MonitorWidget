@@ -1,0 +1,1 @@
+{"path": "C:\\Users\\user\\Documents\\Scripts\\MonitorWidget\\monitor.db", "bytes": 45858816, "tables": {"samples": 23623, "events": 18816, "cleanup_runs": 233, "trims": 750, "procs": 71370, "gpu": 10245, "score_daily": 12}, "first": 1791002807, "last": 1793105918, "sqlite": "3.54.1", "schema": 3}
