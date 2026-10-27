@@ -4,6 +4,7 @@ $root = $PSScriptRoot
 $port = 47832
 
 $listen = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+$before = if ($listen) { $listen.OwningProcess } else { 0 }
 $all = Get-CimInstance Win32_Process
 $victims = @($all | Where-Object {
     ($_.CommandLine -match 'MonitorWidget' -and $_.CommandLine -match '(agent|server)\.py') -or
@@ -25,6 +26,9 @@ for ($i = 0; $i -lt 40 -and -not $up; $i++) {
     try { $up = (Invoke-RestMethod "http://127.0.0.1:$port/api/healthz" -Headers $h -TimeoutSec 3).ok } catch { }
 }
 if (-not $up) { throw 'الخادم لم يستجب بعد إعادة التشغيل؛ راجع monitor.log' }
+# النجاح الحقيقي = عملية مستمعة جديدة؛ وإلا فالقديمة (المرتفعة غالبًا) نجت من Stop-Process وأجابت هي على healthz
+$after = (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
+if ($before -and $after -eq $before) { throw "العملية القديمة $before ما زالت تستمع على المنفذ؛ لم تُستبدل (شغّل السكربت من نافذة مسؤول إن كانت مرتفعة)." }
 
 # النسخة المؤقتة من الصفحة لم تعد لازمة بعد أن صار الخادم يقرأ web\index.html
 $tmp = Join-Path $root 'index.html'
