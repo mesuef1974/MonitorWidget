@@ -286,8 +286,9 @@ function spaceKinds(d) {
   const add = (kind, label, o = {}) => { if (!kind || seen.has(kind)) return; seen.add(kind); rows.push({ kind, label: label || lab[kind] || kind, ...o }); };
   (d.items || []).filter(i => i.clean).forEach(i => add(i.clean, i.label, { note: i.advice }));
   (d.bulk || []).forEach(k => add(k));
-  (d.extras?.items || []).forEach(x => add(x.key, x.label, { note: x.note, blockedBy: x.blockedBy, last: x.last, admin: x.admin, job: x.job, mb: x.mb, lockedMB: x.lockedMB, monthly: x.key === "dism" ? x.monthly : undefined }));
+  (d.extras?.items || []).forEach(x => add(x.key, x.label, { note: x.note, blockedBy: x.blockedBy, last: x.last, admin: x.admin, elevated: x.elevated, job: x.job, mb: x.mb, lockedMB: x.lockedMB, monthly: x.key === "dism" ? x.monthly : undefined }));
   if (d.winold?.present) add("winold", lab.winold || "Windows.old");
+  rows.forEach(r => { const e = r.elevated || d.elevated?.[r.kind]; if (e) { r.elevated = e; r.admin = true; } });
   return rows;
 }
 function spCtl(r, d) {
@@ -303,11 +304,17 @@ function spCtl(r, d) {
   const hasAuto = d.auto && r.kind in d.auto;
   return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note">تلقائي</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`)}` : '<span class="tag">يدوي</span>'}${r.monthly !== undefined ? `<span class="note">شهري</span>${sw(!!r.monthly, 'data-sp="dismmonthly"')}` : ""}</span>`;
 }
+/* elevated kinds run only through their fixed scheduled task; the owner switches each one on/off here */
+function elevTag(r) {
+  const e = r.elevated || {}, k = esc(r.kind);
+  const st = e.ready ? "" : `<span class="tag warn" title="${esc(e.why || "")}">المهمة غير مسجّلة</span>`;
+  return ` <span class="acts"><span class="tag">مرتفع</span>${sw(!!e.on, `data-sp="elevated" data-spk="${k}" title="السماح للخادم بتشغيل المهمة المرتفعة"`)}${st}</span>`;
+}
 function spaceCleanPanel(d) {
   const rec = d.recoverableMB || {}, rows = spaceKinds(d), bulkMB = (d.bulk || []).reduce((a, k) => a + (rec[k] || 0), 0);
   const all = SPALL.s === "busy" ? '<span class="tag">جارٍ التنظيف…</span>' : `<button class="btn primary" data-sp="all">تنظيف الآمن كله (${fmtMB(bulkMB)})</button>`;
   const head = `<div class="toolbar"><button class="btn" data-sp="scan">${d.running ? "يجري قياس…" : "قياس الآن"}</button><button class="btn" data-sp="report">${d.extras?.report?.busy ? "التقرير قيد الإعداد…" : "تقرير المكرر والكبير"}</button>${all}</div>`;
-  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? ' <span class="tag">مدير</span>' : ""}</td><td class="note mw-340">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td>${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
+  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? elevTag(r) : ""}</td><td class="note mw-340">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td>${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
   return panel("تنظيف المساحة", head + body, { cls: "c12" });
 }
 function spaceReportPanel(d) {
@@ -363,6 +370,7 @@ async function spAction(t) {
       SPALL.s = null; reload();
     }
     else if (a === "auto") { await post("/api/space", { action: "auto", kind: k, on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
+    else if (a === "elevated") { await post("/api/space", { action: "elevated", kind: k, on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
     else if (a === "dismmonthly") { await post("/api/space", { action: "dismmonthly", on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
     else if (a === "scan") { await post("/api/space", { action: "scan" }); toast("بدأ القياس"); later(20000, reload); reload(); }
     else if (a === "report") { await post("/api/space", { action: "report" }); toast("بدأ إعداد التقرير"); later(15000, reload); later(45000, reload); }

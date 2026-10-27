@@ -36,7 +36,7 @@ def _g(pattern):
 
 
 # key -> spec. roots(): folders whose FILES may be removed; days: only files not modified for that long (0 = all, in-use files skipped);
-# guard: processes that must be closed first; auto: may be switched to the hourly auto-clean; admin: needs the elevated server.
+# guard: processes that must be closed first; auto: may be switched to the hourly auto-clean; admin: system folder, deleted only by its fixed elevated task (space.elevated_clean).
 LIGHT = {
     "pipcache": dict(label="ذاكرة pip", roots=lambda: [os.path.join(LA, "pip", "Cache")], days=0, guard=(), auto=True, admin=False,
                      note="حزم بايثون المنزّلة؛ تُعاد عند الحاجة."),
@@ -129,10 +129,19 @@ def _res(dry, mb, files=0, skipped=0, **kw):
 def _light(kind, dry, src):
     s = LIGHT[kind]
     blk = _blocked_by(s["guard"])
-    if s["admin"] and not dry and not space._is_admin():
-        return {"ok": False, "error": "يتطلب تشغيل الخادم بصلاحية المسؤول"}
     if blk and not dry:
         return {"ok": False, "error": "أغلق %s أولاً" % "، ".join(blk), "blocked": True}
+    if s["admin"] and not dry:
+        # system folders: this process never deletes there; the fixed elevated task does, then we audit its result
+        r = space.elevated_clean(kind)
+        if r.get("ok"):
+            threading.Thread(target=space.scan, args=(60,), daemon=True).start()
+            try:
+                with db._lock:
+                    c = space._c(); c.execute("INSERT INTO space_runs(ts,kind,mb,files,skipped,src) VALUES(?,?,?,?,?,?)", (int(time.time()), kind, r["mb"], r["files"], r["skipped"], src)); c.commit()
+            except Exception:
+                errlog.swallowed()
+        return r
     freed = n = skipped = locked = 0
     cut = time.time() - s["days"] * 86400
     for root in s["roots"]():
@@ -334,28 +343,35 @@ def _dism_analyze_bg():
 
 
 def _dismkind(dry, src):
-    e = _admin_or_err()
+    if dry:
+        st = space.elevated_state("dism")
+        if space._is_admin():
+            _dism_analyze_bg()   # AnalyzeComponentStore itself needs elevation; the limited server shows no estimate
+            note = "جارٍ التحليل…" if not _dism["t"] else ("يُنصح بالتنظيف" if _dism["recommended"] else "لا يُنصح به الآن")
+        else:
+            note = "لا تقدير بصلاحية عادية؛ التنفيذ عبر المهمة المرتفعة الثابتة" if st["ready"] else (st["why"] or "")
+        return _res(True, _dism["mb"], 0, 0, note=note, measuring=bool(space._is_admin() and not _dism["t"]), recommended=_dism["recommended"], elevated=st)
+    e = space.elevated_gate("dism")
     if e:
         return e
-    if dry:
-        _dism_analyze_bg()
-        return _res(True, _dism["mb"], 0, 0, note="جارٍ التحليل…" if not _dism["t"] else ("يُنصح بالتنظيف" if _dism["recommended"] else "لا يُنصح به الآن"),
-                    measuring=not _dism["t"], recommended=_dism["recommended"])
     if (JOBS.get("dism") or {}).get("state") == "running":
         return {"ok": False, "error": "التنظيف جارٍ"}
     threading.Thread(target=_dism_job, args=(src,), daemon=True).start()
-    return {"ok": True, "dry": False, "started": True, "gb": 0, "mb": 0, "files": 0, "skipped": 0, "note": "بدأ التنظيف في الخلفية؛ قد يستغرق دقائق"}
+    return {"ok": True, "dry": False, "started": True, "gb": 0, "mb": 0, "files": 0, "skipped": 0, "note": "بدأت المهمة المرتفعة في الخلفية؛ قد تستغرق دقائق"}
 
 
 def _dism_job(src):
+    """Background: trigger the fixed elevated DISM task and audit its result file. This process never runs dism /Cleanup-Image itself."""
     t0 = time.time(); JOBS["dism"] = {"state": "running", "ts": int(t0)}
-    fb = _free()
     try:
-        r = subprocess.run(["dism", "/Online", "/Cleanup-Image", "/StartComponentCleanup"], capture_output=True, text=True, timeout=5400, creationflags=NW)
-        ok = r.returncode == 0
-        fa = _free(); mb = round(max(0, fa - fb) / 2**20, 1)
-        _audit("dism", src, _dism["mb"], mb, 0, 0 if ok else 1, fb, fa, ok, None if ok else (r.stdout or "")[-120:].strip())
-        JOBS["dism"] = {"state": "done" if ok else "error", "mb": mb, "ts": int(time.time())}
+        out, err = space.run_fixed_task(space.secure.CLEAN_TASKS["dism"], space.secure.clean_result("dism"), 2 * 3600 + 120)
+        if out is None:
+            JOBS["dism"] = {"state": "error", "error": err, "ts": int(t0)}
+            return
+        ok = bool(out.get("ok")); mb = round(float(out.get("mb") or 0), 1)
+        fb = (out.get("freeBeforeGB") or 0) * 2**30; fa = (out.get("freeAfterGB") or 0) * 2**30
+        _audit("dism", src, _dism["mb"], mb, 0, 0 if ok else 1, fb, fa, ok, out.get("error"))
+        JOBS["dism"] = {"state": "done" if ok else "error", "mb": mb, "error": out.get("error"), "ts": int(time.time())}
         _dism["t"] = 0
     except Exception as e:
         errlog.swallowed()
@@ -365,8 +381,8 @@ def _dism_job(src):
 
 
 def dism_monthly():
-    """Agent job: StartComponentCleanup at most every 30 days, only when the owner enabled it and the server is elevated."""
-    if not space._setting("space.dism_monthly", False) or not space._is_admin():
+    """Agent job: StartComponentCleanup at most every 30 days, only when the owner enabled it and the fixed elevated task is available."""
+    if not space._setting("space.dism_monthly", False) or space.elevated_gate("dism"):
         return "off"
     with db._lock:
         r = space._c().execute("SELECT MAX(ts) FROM actions WHERE kind='dism' AND ok=1 AND actual_mb IS NOT NULL").fetchone()
@@ -660,8 +676,10 @@ def overview():
     for k, s in LIGHT.items():
         e = est.get(k) or {}
         items.append({"key": k, "label": s["label"], "note": s["note"], "mode": "light", "mb": e.get("mb"), "lockedMB": e.get("locked", 0), "blockedBy": e.get("blockedBy"),
-                      "auto": auto.get(k) if s["auto"] else None, "admin": s["admin"], "last": last.get(k)})
+                      "auto": auto.get(k) if s["auto"] else None, "admin": s["admin"], "last": last.get(k),
+                      "elevated": space.elevated_state(k) if s["admin"] else None})
     for k, (lab, note) in MANUAL_LABEL.items():
         items.append({"key": k, "label": lab, "note": note, "mode": "job" if k in JOB_KINDS else "manual", "mb": None, "auto": None, "last": last.get(k),
-                      "job": JOBS.get(k), "monthly": space._setting("space.dism_monthly", False) if k == "dism" else None})
+                      "job": JOBS.get(k), "monthly": space._setting("space.dism_monthly", False) if k == "dism" else None,
+                      "admin": k == "dism", "elevated": space.elevated_state(k) if k == "dism" else None})
     return {"items": items, "memory": memory_top(), "report": report()}

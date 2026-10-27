@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Local monitoring backend for the dashboard window and the mini desktop widget.
 Binds to 127.0.0.1 only; authenticated APIs use a local token or expiring browser session.
 The agent keeps the backend running independently of the dashboard."""
@@ -1227,6 +1227,8 @@ class Handler(BaseHTTPRequestHandler):
                 elif act == "dismmonthly":
                     space._setting_set("space.dism_monthly", bool(body.get("on")))
                     self._send(200, {"ok": True})
+                elif act == "elevated":
+                    self._send(200, {"ok": space.set_elevated(kind, bool(body.get("on")))})
                 elif act in ("cleanall", "clean") and not self._space_confirmed(route, body, act, kind):
                     return
                 elif act == "cleanall":
