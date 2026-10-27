@@ -3,9 +3,10 @@ Add-Type -AssemblyName PresentationFramework
 $tokens=$null;$errors=$null;$path=Join-Path (Split-Path $PSScriptRoot -Parent) 'widget.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
+. (Join-Path $PSScriptRoot 'widget_test_identity.ps1')   # الهوية المشتركة من جذر المستودع قبل تحميل الدوال المستخرجة
 foreach($name in @('Get-SummaryLevel','Get-WidgetPlacement','Get-WidgetDetailsLimit','Show-Toast','Update-Compact','Test-AppearanceRecord','Get-Palette','Brush','Alpha','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance')){
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
-    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create($fn.Extent.Text))
+    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 }
 if((Get-SummaryLevel @('ok','bad','ok')) -ne 'bad'){throw 'Critical RAM omitted from summary'}
 if((Get-SummaryLevel @('ok','warn','ok')) -ne 'warn'){throw 'Warning RAM omitted from summary'}
