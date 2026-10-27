@@ -8,7 +8,7 @@ ensure_sqlite()
 import ctypes, os, sys, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import db, infra, sched, space, server, cpuwatch, gpuwatch, shotwatch, insight  # noqa: E402
+import db, infra, sched, space, server, cpuwatch, gpuwatch, shotwatch, insight, memtrim  # noqa: E402
 
 log = infra.log
 _mutex = None
@@ -34,7 +34,7 @@ def j_sample():
 
 def j_trim():
     """Adaptive: skip when the auto switch is off, during the first 10 minutes after boot, and whenever memory is comfortable."""
-    if not server.auto_trim_on():
+    if not memtrim.auto_trim_on():
         return "skipped: auto trim is off"
     import ctypes
     try:
@@ -56,8 +56,8 @@ def j_trim():
     # on a machine that normally runs at 70-75%, and each trim re-read GBs from disk)
     if not (av is not None and av < 3.0 and rp is not None and rp >= 90):
         return "skipped: RAM %s%% (%.2f GB free): no pressure" % (rp, av if av is not None else -1)
-    server.trim_memory()
-    t = server._trim
+    memtrim.trim_memory()
+    t = memtrim.TRIM
     if t.get("err"):
         raise RuntimeError(t["err"])
     return "%s%% -> %s%% (%s MB)" % (t.get("before"), t.get("after"), t.get("freedMB"))
@@ -66,10 +66,10 @@ def j_trim():
 def j_trimwatch():
     """Reacts within ~30 s when RAM crosses the user's warning level, instead of waiting for the 10-minute trim job.
     trim_memory() pushes the trim job's next_run to now+AUTO_PERIOD, so 'cooldown' = no second trim within 5 minutes."""
-    if not server.auto_trim_on() or server._trim.get("running"):
+    if not memtrim.auto_trim_on() or memtrim.TRIM.get("running"):
         return None
     r = sched.next_run("trim")
-    if r and r["next_run"] > time.time() + server.AUTO_PERIOD - 300:
+    if r and r["next_run"] > time.time() + memtrim.AUTO_PERIOD - 300:
         return "cooldown"
     out = j_trim()
     return out if not str(out).startswith("skipped") else None
