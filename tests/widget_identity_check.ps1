@@ -22,8 +22,8 @@ foreach($light in @($false,$true)){foreach($palette in @('teal','blue','violet',
  Receive-Appearance ([pscustomobject]@{schemaVersion=1;revision=$revision;mode=$mode;palette=$palette})
  Set-CardOpacity .96
  $p=Get-Palette $light
- if($card.Background.Color.R -ne [Windows.Media.ColorConverter]::ConvertFromString('#'+$p.base).R -or $card.Background.Color.ToString() -ne (Surface-Brush ('#'+$p.base) .96).Color.ToString()){throw 'Main surface did not adopt canonical identity'}
- if($panel.Background.Color.ToString() -ne (Surface-Brush $p.card (.96*.94)).Color.ToString()){throw 'Section surface did not adopt canonical identity'}
+ if($card.Background.Color.R -ne [Windows.Media.ColorConverter]::ConvertFromString('#'+$p.base).R -or $card.Background.Color.ToString() -ne (Surface-Brush ('#'+$p.base) 1.0).Color.ToString()){throw 'Main surface did not adopt canonical identity'}
+ if($panel.Background.Color.ToString() -ne (Surface-Brush $p.card .94).Color.ToString()){throw 'Section surface did not adopt canonical identity'}
  if($panel.Background.Color.A -lt 220){throw 'Section identity is almost invisible'}
  if($track.Stroke.Color.ToString() -ne (Brush $p.track).Color.ToString()){throw 'Indicator track retained previous identity'}
  $bases["$mode/$palette"]=$card.Background.Color.ToString();$surfaces["$mode/$palette"]=$panel.Background.Color.ToString();$accents["$mode/$palette"]=(Brush $p.accent).Color.ToString()

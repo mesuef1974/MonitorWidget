@@ -220,8 +220,7 @@ function New-Text([string]$text, [double]$size = 12, [string]$color = $C.ink, [s
 }
 function New-Card([double]$pad = 10) {
     $b = New-Object Windows.Controls.Border
-    $opacity=Normalize-WidgetOpacity $script:S.opacity
-    $b.Background = Surface-Brush $C.card ($opacity*.94); $b.BorderBrush=Surface-Brush $C.line ($opacity*.45); $b.BorderThickness=.75
+    $b.Background = Surface-Brush $C.card .94; $b.BorderBrush=Surface-Brush $C.line .45; $b.BorderThickness=.75
     $b.CornerRadius = 10; $b.Padding = $pad
     if (-not $script:backgroundSurfaces) { $script:backgroundSurfaces=New-Object Collections.ArrayList }
     [void]$script:backgroundSurfaces.Add($b)
@@ -254,11 +253,13 @@ $card.CornerRadius = 14; $card.Padding = 14; $card.BorderThickness = 1; $card.Bo
 $shadow = New-Object Windows.Media.Effects.DropShadowEffect; $shadow.BlurRadius = 20; $shadow.ShadowDepth = 4; $shadow.Opacity = 0.22; $shadow.Color = [Windows.Media.Colors]::Black
 $card.Effect = $shadow
 function Set-CardOpacity($value) {
+    # شفافية شاملة: النافذة كلها (الخلفية والنص والأزرار والرسم والظل) تحمل العتامة؛ الأسطح بسُمكها الثابت عند 100%
     $v=Normalize-WidgetOpacity $value; $script:S.opacity=$v
-    $card.Background=Surface-Brush ('#'+$C.base) $v
-    $card.BorderBrush=Surface-Brush $C.edge ([Math]::Min(1.0,$v*.8))
-    if ($shadow) { $shadow.Opacity=.22*$v }
-    foreach ($surface in @($script:backgroundSurfaces)) { $surface.Background=Surface-Brush $C.card ($v*.94); $surface.BorderBrush=Surface-Brush $C.line ($v*.45) }
+    if ($win) { $win.Opacity=$v }
+    $card.Background=Surface-Brush ('#'+$C.base) 1.0
+    $card.BorderBrush=Surface-Brush $C.edge .8
+    if ($shadow) { $shadow.Opacity=.22 }
+    foreach ($surface in @($script:backgroundSurfaces)) { $surface.Background=Surface-Brush $C.card .94; $surface.BorderBrush=Surface-Brush $C.line .45 }
 }
 Set-CardOpacity $script:S.opacity
 $outer.Children.Add($card) | Out-Null; $win.Content = $outer
@@ -966,10 +967,10 @@ $dashTimer.Start()
 $menu = New-Object Windows.Controls.ContextMenu; $menu.FlowDirection = 'RightToLeft'
 # opacity slider 10%..100% (saved on release)
 $opPanel = New-Object Windows.Controls.StackPanel; $opPanel.Orientation = 'Horizontal'; $opPanel.FlowDirection = 'RightToLeft'
-$opLbl = New-Object Windows.Controls.TextBlock; $opLbl.Text = 'عتامة الخلفية'; $opLbl.Margin = '0,0,10,0'; $opLbl.VerticalAlignment = 'Center'
+$opLbl = New-Object Windows.Controls.TextBlock; $opLbl.Text = 'عتامة الويدجت'; $opLbl.Margin = '0,0,10,0'; $opLbl.VerticalAlignment = 'Center'
 $opSl = New-Object Windows.Controls.Slider; $opSl.Minimum = 0.1; $opSl.Maximum = 1.0; $opSl.SmallChange = 0.01; $opSl.LargeChange = 0.05; $opSl.IsMoveToPointEnabled = $true; $opSl.Width = 140; $opSl.VerticalAlignment = 'Center'
 $opSl.FlowDirection = 'LeftToRight'; $opSl.Value = [Math]::Min(1.0, [Math]::Max(0.1, [double]$script:S.opacity))
-$opSl.ToolTip='100% خلفية مصمتة، و10% أكثر شفافية. يبقى النص والأزرار واضحين دون تغيير عتامتهما.'
+$opSl.ToolTip='100% معتم تمامًا، و10% أكثر شفافية. تشمل الشفافية كل محتويات الويدجت: الخلفية والنص والأزرار والرسم.'
 $opVal = New-Object Windows.Controls.TextBlock; $opVal.Width = 44; $opVal.Margin = '8,0,0,0'; $opVal.VerticalAlignment = 'Center'; $opVal.FlowDirection = 'LeftToRight'
 $opVal.Text = ('{0}%' -f [int][Math]::Round($opSl.Value * 100))
 $opSl.Add_ValueChanged({ $v = [Math]::Round($this.Value, 2); $opVal.Text = ('{0}%' -f [int][Math]::Round($v * 100)); Set-CardOpacity $v })

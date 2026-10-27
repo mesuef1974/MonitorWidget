@@ -33,7 +33,7 @@ $script:sync.data=Fresh-Data;$script:sync.data.m.ramPct=99;Update-Widget;if($UI.
 Show-Toast ('تعذّر '+('رسالة طويلة '*100));if($UI.toast.Text.Length -gt 96 -or -not $script:lastLog){throw 'Long feedback grows compact frame or is not logged'};$script:toastUntil=[datetime]::MinValue;Update-Widget
 Write-Output 'PASS fresh/stale/missing/disconnected/critical-RAM states and bounded feedback; detailed maintenance producers absent'
 foreach($v in @([double]::NaN,[double]::PositiveInfinity,$null,$true,'invalid')){if((Normalize-WidgetOpacity $v) -ne .96){throw 'Invalid opacity accepted'}}
-foreach($v in @(.1,.25,.5,.96,1)){Set-CardOpacity $v;if($card.Background.Color.A -ne [byte][Math]::Round(255*$v) -or $win.Opacity -ne 1 -or $UI.compactcpu.Opacity -ne 1){throw 'Opacity fades content or does not follow background setting'}}
+foreach($v in @(.1,.25,.5,.96,1)){Set-CardOpacity $v;if($win.Opacity -ne $v -or $card.Background.Color.A -ne 255 -or $UI.compactcpu.Opacity -ne 1){throw 'Window opacity does not follow the slider or compounds per-element opacity'}}
 $minimum=100.0;$revision=1
 foreach($light in @($true,$false)){foreach($palette in @('teal','blue','violet','graphite')){$mode=if($light){'light'}else{'dark'};Receive-Appearance ([pscustomobject]@{schemaVersion=1;revision=$revision;mode=$mode;palette=$palette});$revision++;$null=Layout-Compact
     if($script:S.palette -ne $palette -or $script:isLight -ne $light){throw 'Shared appearance not applied'}
