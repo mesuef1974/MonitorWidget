@@ -15,6 +15,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, alertcfg, pageuse
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
+import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
+POST_MODULES = (routes_destructive, memtrim)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 try:
     import diskio_api
@@ -318,63 +320,6 @@ def set_theme(t):
     return APPEARANCE.set_mode(t)
 
 
-_gn = {"anchor": None, "period": 300, "ts": 0, "busy": False}
-
-
-def _gn_refresh():
-    try:
-        ps = ("$t=Get-ScheduledTask SchoolOS-MemoryGuard; $i=$t|Get-ScheduledTaskInfo; "
-              "$r=($t.Triggers|?{$_.Repetition.Interval}|select -First 1).Repetition.Interval; "
-              "$s=if($r){[int][Xml.XmlConvert]::ToTimeSpan($r).TotalSeconds}else{300}; "
-              "'{0}|{1}' -f ([DateTimeOffset]$i.NextRunTime).ToUnixTimeSeconds(),$s")
-        r = subprocess.run([PWSH, "-NoProfile", "-Command", ps], capture_output=True, timeout=sched.remaining_timeout(30), creationflags=CNW)
-        a, p = r.stdout.decode("utf-8", "replace").strip().split("|")
-        _gn["anchor"], _gn["period"] = int(a), max(60, int(p))
-    except Exception:
-        errlog.swallowed()
-    finally:
-        _gn["ts"] = time.time(); _gn["busy"] = False
-
-
-def _guard_task_next():
-    """ISO local time of the next MemoryGuard run, projected from the task's NextRunTime anchor."""
-    if time.time() - _gn["ts"] > 600 and not _gn["busy"]:
-        _gn["busy"] = True
-        threading.Thread(target=_gn_refresh, daemon=True).start()
-    if not _gn["anchor"]:
-        return None
-    now, per = time.time(), _gn["period"]
-    nxt = _gn["anchor"] if _gn["anchor"] > now else _gn["anchor"] + ((int(now) - _gn["anchor"]) // per + 1) * per
-    return {"next": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(nxt)), "period": per}
-
-
-AUTO_PERIOD = 600
-_cycle = {"done": time.time()}
-
-
-def auto_trim_on():
-    """Automatic memory trim runs only when the settings row 'trim.auto' is true. Manual trim is not affected."""
-    try:
-        with db._lock:
-            r = db.conn().execute("SELECT value FROM settings WHERE key='trim.auto'").fetchone()
-        return bool(r and json.loads(r[0]) is True)
-    except Exception:
-        errlog.swallowed()
-        return False
-
-
-def guard_next():
-    """Countdown to the next automatic trim: the agent's `trim` job (restarts after every trim, manual or automatic)."""
-    if _trim["running"]:  # countdown stops while a trim runs; it restarts when the trim ends (trim_memory sets the next run)
-        return {"next": None, "period": AUTO_PERIOD, "running": True, "auto": auto_trim_on()}
-    if not auto_trim_on():
-        return {"next": None, "period": AUTO_PERIOD, "running": False, "auto": False}
-    r = sched.next_run("trim")
-    nxt = r["next_run"] if r and r["next_run"] else _cycle["done"] + AUTO_PERIOD
-    running = bool(_trim["running"] or (r and r["last_start"] and (not r["last_end"] or r["last_end"] < r["last_start"]) and time.time() - r["last_start"] < 300))
-    return {"next": time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(nxt)), "period": AUTO_PERIOD, "running": running}
-
-
 MAINT_RULES = ("docker-dangling", "docker-build-cache", "claude-file-history")
 
 
@@ -410,31 +355,6 @@ def maintenance_set(on):
     with db._lock:
         c = db.conn(); c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)", (int(time.time()), "maintenance", "mode", 1, "on=" + str(bool(on)).lower())); c.commit()
     return maintenance_state()
-
-
-def set_trim_auto(on):
-    with db._lock:
-        c = db.conn()
-        c.execute("INSERT INTO settings(key,value,ts) VALUES('trim.auto',?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, ts=excluded.ts", (json.dumps(bool(on)), int(time.time())))
-        c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)", (int(time.time()), "trimauto", "setting", 1, "on=" + str(bool(on)).lower()))
-        c.commit()
-
-
-def _trim_view():
-    """Trim state for the UI: the in-process result merged with the newest row in the DB (the agent may have trimmed)."""
-    t = dict(_trim)
-    try:
-        with db._lock:
-            r = db.conn().execute("SELECT ts, before_pct, after_pct, freed_mb, ms, mode FROM trims ORDER BY ts DESC LIMIT 1").fetchone()
-        mine = time.mktime(time.strptime(t["ts"], "%Y-%m-%dT%H:%M:%S")) if t.get("ts") else 0
-        if r and r["ts"] > mine:
-            t.update(freedMB=r["freed_mb"], before=r["before_pct"], after=r["after_pct"], ms=r["ms"], mode=r["mode"], procs=0, err=None,
-                     ts=time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(r["ts"])))
-    except Exception:
-        errlog.swallowed()
-    t["running"] = guard_next()["running"]
-    t["auto"] = auto_trim_on()
-    return t
 
 
 def ensure_agent():
@@ -487,255 +407,9 @@ def mini_payload():
         "hist": {"t": [x[0] for x in h], "commit": [x[1] for x in h], "ram": [x[2] for x in h]},
         "tiers": tiers, "guard": (data or {}).get("guard"),
         "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
-        "ready": data is not None, "guardNext": guard_next(), "trim": _trim_view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
+        "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
         "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "thr": alertcfg.get(),
     }
-
-
-def _mem_status():
-    import ctypes
-    class MS(ctypes.Structure):
-        _fields_ = [("l", ctypes.c_ulong), ("load", ctypes.c_ulong), ("tp", ctypes.c_ulonglong), ("ap", ctypes.c_ulonglong),
-                    ("tv", ctypes.c_ulonglong), ("av", ctypes.c_ulonglong), ("a", ctypes.c_ulonglong), ("b", ctypes.c_ulonglong), ("c", ctypes.c_ulonglong)]
-    m = MS(); m.l = ctypes.sizeof(MS); ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))
-    return m.ap // (1024 * 1024), m.load
-
-
-def _avail_mb():
-    return _mem_status()[0]
-
-
-_trim = {"running": False, "freedMB": None, "ts": None, "err": None, "before": None, "after": None, "procs": 0, "ms": 0}
-
-
-def _trim_all_working_sets():
-    """PC-Manager style: EmptyWorkingSet on every process we may open (same user; no admin). Pages move to standby = available."""
-    import ctypes
-    from ctypes import wintypes
-    k32, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
-    k32.OpenProcess.restype = wintypes.HANDLE
-    class PE(ctypes.Structure):
-        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p),
-                    ("mod", wintypes.DWORD), ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", wintypes.LONG),
-                    ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
-    snap = k32.CreateToolhelp32Snapshot(2, 0)
-    pe = PE(); pe.dwSize = ctypes.sizeof(PE); n = 0; me = os.getpid()
-    ok = k32.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
-        if pe.pid > 4 and pe.pid != me:
-            h = k32.OpenProcess(0x0100 | 0x0400 | 0x1000, False, pe.pid)  # SET_QUOTA | QUERY_INFORMATION | QUERY_LIMITED
-            if h:
-                if psapi.EmptyWorkingSet(h):
-                    n += 1
-                k32.CloseHandle(h)
-        ok = k32.Process32NextW(snap, ctypes.byref(pe))
-    k32.CloseHandle(snap)
-    return n
-
-
-COLD_NAMES = {"node.exe", "pwsh.exe", "cmd.exe"}   # background shells and dev servers only; never browsers, editors, Claude
-COLD_MAX_PROCS = 20
-
-
-def _visible_pids():
-    """PIDs that own a visible top-level window (foreground or background apps with a window are never trimmed)."""
-    import ctypes
-    from ctypes import wintypes
-    u32 = ctypes.windll.user32
-    pids = set()
-    CB = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    def cb(hwnd, _):
-        if u32.IsWindowVisible(hwnd):
-            pid = wintypes.DWORD()
-            u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-            pids.add(pid.value)
-        return True
-    u32.EnumWindows(CB(cb), 0)
-    return pids
-
-
-def _cpu_ms(h):
-    import ctypes
-    class FT(ctypes.Structure):
-        _fields_ = [("lo", ctypes.c_uint32), ("hi", ctypes.c_uint32)]
-    c, e, k, u = FT(), FT(), FT(), FT()
-    if not ctypes.windll.kernel32.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)):
-        return None
-    tot = lambda f: (f.hi << 32) | f.lo
-    return (tot(k) + tot(u)) / 10000.0
-
-
-def _trim_cold():
-    """Empty the working set of background shells that have no window and used almost no CPU over a 2 s sample.
-    Their pages move to standby; nothing is purged from the standby list, so no system cache is thrown away."""
-    import ctypes
-    from ctypes import wintypes
-    k32, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
-    k32.OpenProcess.restype = wintypes.HANDLE
-    class PE(ctypes.Structure):
-        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p),
-                    ("mod", wintypes.DWORD), ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", wintypes.LONG),
-                    ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
-    snap = k32.CreateToolhelp32Snapshot(2, 0)
-    pe = PE(); pe.dwSize = ctypes.sizeof(PE); me = os.getpid(); cands = []
-    ok = k32.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
-        if pe.pid > 4 and pe.pid != me and pe.exe.lower() in COLD_NAMES:
-            cands.append(pe.pid)
-        ok = k32.Process32NextW(snap, ctypes.byref(pe))
-    k32.CloseHandle(snap)
-    vis = _visible_pids()
-    cands = [p for p in cands if p not in vis]
-    handles = {}
-    for p in cands:
-        h = k32.OpenProcess(0x0400 | 0x1000, False, p)   # QUERY_INFORMATION | QUERY_LIMITED
-        if h:
-            handles[p] = h
-    before = {p: _cpu_ms(h) for p, h in handles.items()}
-    time.sleep(2)
-    idle = [p for p, h in handles.items() if before[p] is not None and _cpu_ms(h) is not None and _cpu_ms(h) - before[p] < 200]
-    for h in handles.values():
-        k32.CloseHandle(h)
-    done = 0
-    for p in idle[:COLD_MAX_PROCS]:
-        h = k32.OpenProcess(0x0100 | 0x0400, False, p)   # SET_QUOTA | QUERY_INFORMATION
-        if not h:
-            continue
-        try:
-            if psapi.EmptyWorkingSet(h):
-                done += 1
-        finally:
-            k32.CloseHandle(h)
-    return done, len(cands), len(idle)
-
-
-def _trim_medium(t0):
-    b_mb, b_load = _mem_status()
-    done, cands, idle = _trim_cold()
-    try:
-        _purge_task("standby")   # elevated; purge.exe purges standby only when normal-priority standby >= 2 GB
-    except Exception:
-        errlog.swallowed()
-    time.sleep(0.5)
-    a_mb, a_load = _mem_status()
-    ms = int((time.time() - t0) * 1000)
-    ts = time.strftime("%Y-%m-%dT%H:%M:%S")
-    _trim.update(freedMB=a_mb - b_mb, before=b_load, after=a_load, procs=done, mode="medium", ms=ms, ts=ts, err=None,
-                 candidates=cands, idle=idle)
-    try:
-        db.add_trim(time.time(), b_load, a_load, a_mb - b_mb, ms, "medium")
-    except Exception:
-        errlog.swallowed()
-
-
-PURGE_TASK = "MemoryPurge-OnDemand"
-PURGE_LOCK = os.path.join(ROOT, "purge.lock")
-
-
-def _schtasks(args, timeout=10):
-    """schtasks with a hard timeout: a hung Task Scheduler must never hang the trim thread."""
-    try:
-        return subprocess.run(["schtasks"] + args, capture_output=True, creationflags=CNW, timeout=sched.remaining_timeout(timeout))
-    except subprocess.TimeoutExpired:
-        errlog.swallowed()
-        return None
-
-
-def _purge_lock_take():
-    """File lock shared by server and agent (two processes). A lock older than 120 s is stale."""
-    if os.path.exists(PURGE_LOCK) and time.time() - os.path.getmtime(PURGE_LOCK) < 120:
-        raise RuntimeError("purge already running")
-    with open(PURGE_LOCK, "w", encoding="utf-8") as fh:
-        fh.write(str(os.getpid()))
-
-
-def _purge_lock_drop():
-    try:
-        os.remove(PURGE_LOCK)
-    except OSError:
-        pass
-
-
-def _purge_task(mode="light"):
-    """Elevated on-demand purge. Returns result dict, or None if no task is installed.
-    Protected install: one task per mode with the mode as a fixed argument (no file is trusted).
-    Legacy fallback (before the owner runs the secure installer): the old task plus purge_mode.txt.
-    mode 'light' = low-priority standby pages only (default); 'deep' = working sets + standby (manual only)."""
-    expected = secure.protected_expected()
-    secure_ok = secure.installed() and mode in secure.PURGE_TASKS
-    if expected and not secure_ok:
-        raise RuntimeError("protected purge installation incomplete; repair the secure installation")
-    task = secure.PURGE_TASKS[mode] if secure_ok else PURGE_TASK
-    res = secure.PURGE_RESULT if secure_ok else os.path.join(ROOT, "purge_result.json")
-    q = _schtasks(["/query", "/tn", task])
-    if q is None:
-        raise RuntimeError("schtasks query timed out")
-    if q.returncode != 0:
-        if not secure_ok:
-            return None
-        raise RuntimeError("protected purge task missing; repair the secure installation")
-    _purge_lock_take()
-    try:
-        if not secure_ok:
-            with open(os.path.join(ROOT, "purge_mode.txt"), "w", encoding="utf-8") as fh:
-                fh.write(mode)
-        old = os.path.getmtime(res) if os.path.exists(res) else 0
-        r = _schtasks(["/run", "/tn", task])
-        if r is None or r.returncode != 0:
-            return None
-        for _ in range(90):   # bounded result wait, also respects a scheduler job deadline
-            sched.check_cancelled()
-            time.sleep(0.5)
-            if os.path.exists(res) and os.path.getmtime(res) > old:
-                for _ in range(20):
-                    sched.check_cancelled()
-                    time.sleep(0.2)
-                    try:
-                        with open(res, encoding="utf-8-sig") as fh:
-                            return json.load(fh)
-                    except ValueError:
-                        continue
-                raise RuntimeError("purge result unreadable")
-        raise RuntimeError("purge task timed out")
-    finally:
-        _purge_lock_drop()
-
-
-def trim_memory(mode="light"):
-    """One pass only (the old extra passes re-faulted pages and froze the machine)."""
-    mode = mode if mode in ("light", "medium", "deep") else "light"
-    _trim.update(running=True, err=None, mode=mode)
-    t0 = time.time()
-    try:
-        if mode == "medium":
-            _trim_medium(t0)
-            return
-        res = _purge_task(mode)
-        if res:
-            _trim.update(freedMB=res.get("freedMB"), before=res.get("beforePct"), after=res.get("afterPct"), procs=0, mode=mode,
-                         ms=int((time.time() - t0) * 1000), ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
-        elif mode == "deep":
-            b_mb, b_load = _mem_status()
-            n = _trim_all_working_sets(); time.sleep(0.6)
-            a_mb, a_load = _mem_status()
-            _trim.update(freedMB=a_mb - b_mb, before=b_load, after=a_load, procs=n, mode="user",
-                         ms=int((time.time() - t0) * 1000), ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
-        else:
-            raise RuntimeError("purge task not installed")
-    except Exception as e:
-        _trim.update(err=str(e)[:200])
-    finally:
-        _trim["running"] = False
-        _cycle["done"] = time.time()
-        try:
-            sched.set_next("trim", time.time() + AUTO_PERIOD)
-        except Exception:
-            errlog.swallowed()
-    try:
-        if _trim.get("ts") and not _trim.get("err"):
-            db.add_trim(time.time(), _trim.get("before"), _trim.get("after"), _trim.get("freedMB"), _trim.get("ms"), _trim.get("mode"))
-    except Exception:
-        errlog.swallowed()
 
 
 def task_op(op, path, name):
@@ -1037,7 +711,7 @@ class Handler(BaseHTTPRequestHandler):
                     out = insight.alerts_payload()
                 else:
                     dm = (_cache["data"] or {}).get("metrics", {})
-                    out = insight.advice_payload(native_metrics(), {"claudeGB": dm.get("claudeGB"), "wslGB": dm.get("wslGB")}, maintenance_state(), _trim_view())
+                    out = insight.advice_payload(native_metrics(), {"claudeGB": dm.get("claudeGB"), "wslGB": dm.get("wslGB")}, maintenance_state(), memtrim.view())
                 self._send(200, out)
             except Exception:
                 errlog.swallowed()
@@ -1111,9 +785,10 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 return self._send(400, {"error": "object expected"})
             route = self.path.split("?")[0]
-            reply = routes_destructive.post(route, body, invalidate=lambda: _cache.update(t=0))   # المسارات الهدّامة مع تأكيد 428 (البند 6/أ)
-            if reply is not None:
-                return self._send(*reply)
+            for module in POST_MODULES:   # وحدات المسارات (البند 6): الهدّامة مع تأكيد 428، ثم تنظيف الذاكرة
+                reply = module.post(route, body, invalidate=lambda: _cache.update(t=0))
+                if reply is not None:
+                    return self._send(*reply)
             if route == "/api/appearance":
                 try:
                     result = APPEARANCE.update(body)
@@ -1208,12 +883,6 @@ class Handler(BaseHTTPRequestHandler):
                     errlog.swallowed()
                 r = explain.health(health.score(m, tasks)["parts"], m, extra)
                 return self._send(200, r) if r.get("ok") else self._send(503, {"error": r.get("err", "failed")})
-            if route == "/api/trim-auto":
-                on = body.get("on")
-                if not isinstance(on, bool):
-                    return self._send(400, {"error": "on must be boolean"})
-                set_trim_auto(on)
-                return self._send(200, {"ok": True, "auto": on})
             if route == "/api/ticket":
                 return self._send(200, {"ticket": _issue_ticket()})
             if route == "/api/shell":   # زر الويدجت يبلّغ محرك النافذة حين يسقط إلى Edge مباشرة؛ غير هدّام
@@ -1275,11 +944,6 @@ class Handler(BaseHTTPRequestHandler):
                 except appearance.AppearanceUnavailable:
                     return self._send(409, {"error": "appearance recovery required"})
                 return self._send(200, {"ok": True, "theme": result["mode"], "appearance": result})
-            elif route == "/api/trim-memory":
-                if _trim["running"]:
-                    return self._send(409, {"error": "trim already running"})
-                mode = body.get("mode") if isinstance(body, dict) else None
-                threading.Thread(target=trim_memory, args=(mode or "light",), daemon=True).start()
             elif route == "/api/reaper":
                 key, val = body.get("key"), body.get("value")
                 if key != "killBareClaudeShells" or not isinstance(val, bool):

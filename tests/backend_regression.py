@@ -32,14 +32,14 @@ import atomic_json  # pure stdlib helper, no app initialization or side effects
 def extracted():
     tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
     wanted = {"_session_create", "_session_valid", "_session_revoke", "_reject_json_constant",
-              "_validate_json_numbers", "Handler", "LocalHTTPServer", "_purge_task"}
+              "_validate_json_numbers", "Handler", "LocalHTTPServer"}
     nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in wanted]
     ns = dict(json=json, math=math, re=re, socket=socket, time=time, secrets=secrets, hashlib=hashlib,
               hmac=hmac, os=os, threading=threading, BaseHTTPRequestHandler=BaseHTTPRequestHandler,
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
               MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, SESSION_TTL=60,
               MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(), _cache={"t": 1},
-              routes_destructive=types.SimpleNamespace(post=lambda route, body, **k: None))   # وحدة المسارات الهدّامة: لا مسار من هنا
+              POST_MODULES=())   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
     return ns
 
@@ -159,22 +159,6 @@ class BackendRequests(unittest.TestCase):
                 path, error = routes_destructive.resolve_engine()
             self.assertIsNone(path)
             self.assertTrue(error)
-
-    def test_missing_protected_purge_never_falls_back(self):
-        self.ns["secure"] = types.SimpleNamespace(protected_expected=lambda: True,
-            installed=lambda: True, PURGE_TASKS={"light": "protected"}, PURGE_RESULT="result")
-        self.ns["PURGE_TASK"] = "legacy"
-        calls = []
-        self.ns["_schtasks"] = lambda args: (calls.append(args) or types.SimpleNamespace(returncode=1))
-        with self.assertRaisesRegex(RuntimeError, "protected purge task missing"):
-            self.ns["_purge_task"]("light")
-        self.assertEqual(calls, [["/query", "/tn", "protected"]])
-
-    def test_incomplete_protected_purge_fails_before_task_query(self):
-        self.ns["secure"] = types.SimpleNamespace(protected_expected=lambda: True,
-            installed=lambda: False, PURGE_TASKS={"light": "protected"})
-        with self.assertRaisesRegex(RuntimeError, "incomplete"):
-            self.ns["_purge_task"]("light")
 
     def test_http_concurrency_slot_released_after_thread(self):
         cls = self.ns["LocalHTTPServer"]
@@ -484,6 +468,70 @@ class DestructiveRoutes(unittest.TestCase):
         with patch.object(self.rd, "resolve_engine", lambda: (None, "لا محرّك")):
             self.rd.MANUAL["proc"] = None
             self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "daily"}), (503, {"error": "لا محرّك"}))
+
+
+class MemTrim(unittest.TestCase):
+    """البند 6/ب: memtrim.py بلا خادم ولا قاعدة: مسارا trim-auto وtrim-memory بعقودهما، 409 أثناء تنظيف جارٍ، العدّ التنازلي
+    حين يكون المفتاح مطفأً، والمهمة المحمية الناقصة لا تسقط إلى المهمة القديمة أبدًا."""
+
+    def setUp(self):
+        import memtrim
+        self.mt = memtrim
+        self.mt.TRIM.update(running=False, err=None, ts=None)
+
+    def test_trim_auto_route_validates_and_persists(self):
+        saved = []
+        with patch.object(self.mt, "set_trim_auto", lambda on: saved.append(on)):
+            self.assertEqual(self.mt.post("/api/trim-auto", {"on": "yes"}), (400, {"error": "on must be boolean"}))
+            self.assertEqual(self.mt.post("/api/trim-auto", {"on": True}), (200, {"ok": True, "auto": True}))
+            self.assertEqual(self.mt.post("/api/trim-auto", {"on": False}), (200, {"ok": True, "auto": False}))
+        self.assertEqual(saved, [True, False])
+        self.assertIsNone(self.mt.post("/api/other", {}))
+        self.assertEqual(self.mt.ROUTES, ("/api/trim-memory", "/api/trim-auto"))
+
+    def test_trim_memory_route_starts_one_pass_and_refuses_overlap(self):
+        started, invalidated = [], []
+
+        class FakeThread:
+            def __init__(self, target=None, args=(), daemon=False):
+                started.append((target.__name__, args))
+
+            def start(self):
+                pass
+        with patch.object(self.mt.threading, "Thread", FakeThread):
+            self.assertEqual(self.mt.post("/api/trim-memory", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
+            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (200, {"ok": True}))
+            self.mt.TRIM["running"] = True
+            self.assertEqual(self.mt.post("/api/trim-memory", {}), (409, {"error": "trim already running"}))
+        self.assertEqual(started, [("trim_memory", ("light",)), ("trim_memory", ("deep",))])
+        self.assertEqual(invalidated, [1])   # الجولة الناجحة تعيد جمع حالة المهام كما كان
+
+    def test_guard_next_is_idle_when_auto_is_off_or_trim_runs(self):
+        with patch.object(self.mt, "auto_trim_on", lambda: False):
+            self.assertEqual(self.mt.guard_next(), {"next": None, "period": self.mt.AUTO_PERIOD, "running": False, "auto": False})
+            self.mt.TRIM["running"] = True
+            self.assertEqual(self.mt.guard_next()["running"], True)
+
+    def test_missing_protected_purge_never_falls_back(self):
+        calls = []
+        fake_secure = types.SimpleNamespace(protected_expected=lambda: True, installed=lambda: True,
+                                            PURGE_TASKS={"light": "protected"}, PURGE_RESULT="result")
+        with patch.object(self.mt, "secure", fake_secure), patch.object(self.mt, "PURGE_TASK", "legacy"), \
+                patch.object(self.mt, "_schtasks", lambda args, timeout=10: (calls.append(args) or types.SimpleNamespace(returncode=1))):
+            with self.assertRaisesRegex(RuntimeError, "protected purge task missing"):
+                self.mt._purge_task("light")
+        self.assertEqual(calls, [["/query", "/tn", "protected"]])
+
+    def test_incomplete_protected_purge_fails_before_task_query(self):
+        fake_secure = types.SimpleNamespace(protected_expected=lambda: True, installed=lambda: False, PURGE_TASKS={"light": "protected"})
+        with patch.object(self.mt, "secure", fake_secure), patch.object(self.mt, "_schtasks", lambda *a, **k: self.fail("schtasks must not run")):
+            with self.assertRaisesRegex(RuntimeError, "incomplete"):
+                self.mt._purge_task("light")
+
+    def test_trim_memory_records_error_and_releases_running_flag(self):
+        with patch.object(self.mt, "_purge_task", lambda mode: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
+            self.mt.trim_memory("light")
+        self.assertEqual((self.mt.TRIM["running"], self.mt.TRIM["err"]), (False, "purge task not installed"))
 
 
 if __name__ == "__main__":
