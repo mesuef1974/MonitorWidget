@@ -657,25 +657,36 @@ Object.assign(PAGES, {
   },
 
   space: {
-    title: "المساحة", sub: "أين ذهبت المساحة وما الذي يمكن تحريره بأمان", icon: "folder",
+    title: "المساحة", sub: "أين ذهبت المساحة وأكبر ما يشغل الأقراص", icon: "folder",
     async load() { return settle(api("/api/space")); },
     render([d]) {
       if (!d) return `<div class="banner">تعذّر قراءة المساحة.</div>`;
       const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
       let out = panel("القرص C", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c7" });
-      out += spaceCleanPanel(d) + spaceReportPanel(d);
       out += panel("المجلدات المراقبة", `<table class="tbl"><thead><tr><th>المجلد</th><th class="n">الحجم</th><th class="n">التغير</th><th class="n">ملفات</th><th>نصيحة</th></tr></thead><tbody>${(d.items || []).map(i => `<tr><td>${esc(i.label)}</td><td class="n">${Q(i.gb, "GB", 2)}</td><td class="n">${i.delta ? `<span class="tag ${i.delta > 0 ? "warn" : "ok"}">${i.delta > 0 ? "+" : ""}${Q(i.delta, "", 2)}</span>` : "—"}</td><td class="n">${Q(i.files)}</td><td class="note">${esc(i.advice || "")}</td></tr>`).join("")}</tbody></table>`);
       out += panel("المساحة الحرة", `<div id="spChart" class="grow"></div>`, { cls: "c8" });
       out += panel("أكبر الهبوط", `<div class="list">${(d.drops || []).map(x => `<div class="li"><span class="t">${when(x.from)}</span><span class="r"><span class="tag bad">−${Q(x.gb, "GB", 1)}</span></span><span class="d">من ${Q(x.hi, "GB", 1)} إلى ${Q(x.lo, "GB", 1)}</span></div>`).join("") || '<div class="empty">لا هبوط ملحوظ</div>'}</div>`, { cls: "c4" });
-      out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`);
       const vp = (parts, tot) => `${stack(parts.map(x => ({ label: x.label, v: x.gb })), PAL)}<div class="list">${parts.slice(0, 9).map((x, i) => `<div class="li"><span class="t"><i class="dot" style="background:${PAL[i % PAL.length]}"></i>${esc(x.label)}${x.partial ? ' <span class="tag">تقدير</span>' : ""}</span><span class="r">${Q(x.gb, "GB", 1)}</span><span class="d">${Q(x.gb / (tot || 1) * 100, "%")}</span></div>`).join("")}</div>`;
       out += panel("الأقراص", `<div class="list">${(d.drives || []).map(x => `<div class="li"><span class="t">${esc(x.letter)}: ${esc(x.label)}</span><span class="r">${Q(x.free, "GB", 1)} حرّ</span><span class="d">${Q(x.used, "GB", 1)} من ${Q(x.total, "GB", 1)}</span>${meter(x.used, x.total * .85, x.total * .93, x.total)}</div>`).join("")}</div>`, { cls: "c4" });
       out += panel("ما يشغله القرص C", d.volume ? vp(d.volume.parts, d.volume.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4", meta: d.volume ? `${Q(d.volume.used, "GB", 1)} مستخدم` : "" });
       out += panel("القرص D", d.dvol?.D ? vp(d.dvol.D.parts, (d.drives || []).find(x => x.letter === "D")?.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4" });
-      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c4", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
       return out;
     },
     after([d]) { if (!d?.hist?.length) return; const ix = compact(d.hist, 170), H = ix.map(i => d.hist[i]); chart($("#spChart"), { t: H.map(x => x[0]), series: [{ id: "s", name: "حرّ", color: "var(--accent)", v: H.map(x => x[1]), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...H.map(x => x[1])) * .97, height: 220, yFmt: v => nf(v, 0) }); }
+  },
+
+  spaceclean: {
+    title: "تنظيف المساحة", sub: "المعاينة والتنظيف والتقارير والحجر، بتأكيد قبل أي حذف", icon: "folder",
+    async load() { return settle(api("/api/space")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة المساحة.</div>`;
+      const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
+      let out = panel("حالة التنظيف", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c7" });
+      out += spaceCleanPanel(d) + spaceReportPanel(d);
+      out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`);
+      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c4", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
+      return out;
+    }
   },
 
   startup: {
@@ -835,7 +846,7 @@ document.addEventListener("click", async e => {
 const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
   ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL وDocker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
-  ["الصيانة", [["space", "المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
+  ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
 ];
 
@@ -888,7 +899,7 @@ async function show(first = false) {
 }
 // warm the heavy pages once the first one is on screen so opening them later is instant
 async function prefetch() {
-  for (const k of ["space", "advice", "startup", "dbx", "health", "procs", "history"]) {
+  for (const k of ["space", "spaceclean", "advice", "startup", "dbx", "health", "procs", "history"]) {
     if (CACHE[k]) continue;
     try { const data = await PAGES[k].load(); if (!data.every(x => x == null)) CACHE[k] = { data, sig: JSON.stringify(data) }; } catch { }
     await new Promise(r => setTimeout(r, 400));
