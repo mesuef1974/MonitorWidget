@@ -14,6 +14,8 @@ from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, alertcfg, pageuse
+import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
+from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 try:
     import diskio_api
 except Exception:
@@ -27,8 +29,6 @@ try:
 except Exception:
     reliab = None
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
-HOME = os.environ["USERPROFILE"]
 PORT = 47832
 # one-time tickets replace the token in URLs: the window opens with ?k=<ticket>, which is consumed once and then
 # exchanged for an HttpOnly session cookie. The long-lived token never appears on a command line.
@@ -87,8 +87,6 @@ def _validate_json_numbers(value):
             _validate_json_numbers(item)
 
 _TICKETS, _TLOCK = {}, threading.Lock()
-# server-side confirmation for destructive POSTs: the first call returns 428 + a one-time token bound to the route and
-# the exact parameters; the action runs only when the same request comes back with that token within CONFIRM_TTL.
 _HEALTH = {"t": 0.0, "ok": True}
 _HEALTH_LOCK = threading.Lock()
 
@@ -106,23 +104,6 @@ def _healthz_ok():
         return _HEALTH["ok"]
 
 
-_CONFIRMS, _CLOCK, CONFIRM_TTL = {}, threading.Lock(), 120
-def _confirm_key(route, body):
-    return route + "|" + json.dumps({k: v for k, v in body.items() if k != "confirm"}, sort_keys=True, ensure_ascii=False, allow_nan=False)
-def _confirm_issue(key):
-    t = secrets.token_urlsafe(18)
-    with _CLOCK:
-        now = time.time()
-        for k in [k for k, (_, exp) in _CONFIRMS.items() if exp < now]:
-            del _CONFIRMS[k]
-        if len(_CONFIRMS) >= 256:
-            del _CONFIRMS[next(iter(_CONFIRMS))]
-        _CONFIRMS[t] = (key, now + CONFIRM_TTL)
-    return t
-def _confirm_take(key, tok):
-    with _CLOCK:
-        got = _CONFIRMS.pop(tok, None)
-    return bool(got and got[0] == key and got[1] >= time.time())
 def _issue_ticket():
     t = secrets.token_urlsafe(24)
     with _TLOCK:
@@ -137,16 +118,7 @@ def _use_ticket(t):
     with _TLOCK:
         exp = _TICKETS.pop(t, None)
     return bool(exp and exp >= time.time())
-PWSH = r"C:\Program Files\PowerShell\7\pwsh.exe"
-CNW = 0x08000000  # CREATE_NO_WINDOW
-ENGINE = HOME + r"\Documents\Scripts\Cleanup\v2\CleanupEngine.ps1"
-POLICY = HOME + r"\Documents\Scripts\Cleanup\v2\cleanup-policy.json"
-PROT_ENGINE_DIR = os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "MonitorWidget", "cleanup")
-RUNS = HOME + r"\Documents\Scripts\Cleanup\logs\runs.jsonl"
-MCCFG = HOME + r"\Documents\Scripts\MachineCare\machinecare.config.json"
 IDLE_EXIT_SECONDS = 0  # 0 = never exit on idle; the agent's server_guard job keeps it running
-TIERS = ("daily", "weekly", "monthly", "quarterly")
-TIER_TASK = {t: "Cleanup_v2_" + t.capitalize() for t in TIERS}
 
 TOKEN_FILE = os.path.join(ROOT, ".token")
 if not os.path.exists(TOKEN_FILE):
@@ -162,7 +134,6 @@ _lock = threading.Lock()
 _cache = {"t": 0, "data": None}
 _extra = {"tiers": {}, "paused": []}
 _last_request = time.time()
-_manual = {"proc": None, "tier": None, "dry": None, "started": None}
 _backed_up = set()
 _hist = collections.deque(maxlen=360)  # one sample / 5 s = 30 min
 
@@ -297,8 +268,7 @@ def collect(force=False):
 
 
 def attach_manual(data):
-    p = _manual["proc"]
-    data["manual"] = {"running": bool(p and p.poll() is None), "tier": _manual["tier"], "dry": _manual["dry"], "started": _manual["started"]}
+    data["manual"] = routes_destructive.manual_status()   # التنظيف اليدوي تملكه وحدة المسارات الهدّامة
     data["pausedTiers"] = list(_extra["paused"])
     return data
 
@@ -495,32 +465,7 @@ def _agent_hb_age():
         return None
 
 
-def _is_admin():
-    try:
-        return bool(ctypes.windll.shell32.IsUserAnAdmin())
-    except Exception:
-        return False
-
-
-IS_ADMIN = _is_admin()
-
-
-def _resolve_engine():
-    """(path, error). النسخة المحمية في ProgramData مع تحقق SHA-256؛ نسخة المستخدم قابلة للكتابة فلا تُشغَّل بصلاحية عالية."""
-    prot = os.path.join(PROT_ENGINE_DIR, "CleanupEngine.ps1")
-    shaf = os.path.join(PROT_ENGINE_DIR, "engine.sha256")
-    if os.path.isfile(prot) and os.path.isfile(shaf):
-        try:
-            want = open(shaf, encoding="ascii").read().split()[0].lower()
-            got = hashlib.sha256(open(prot, "rb").read()).hexdigest()
-        except Exception:
-            return None, "تعذّر التحقق من نسخة المحرّك المحمية"
-        if want != got:
-            return None, "بصمة المحرّك المحمي لا تطابق engine.sha256؛ أعد تشغيل Install-ProtectedEngine.ps1 كمسؤول"
-        return prot, None
-    if IS_ADMIN or os.path.isdir(PROT_ENGINE_DIR):
-        return None, "الخادم يعمل بصلاحية مسؤول أو سبق تفعيل النسخة المحمية ولا توجد نسخة محمية من المحرّك؛ شغّل Install-ProtectedEngine.ps1 كمسؤول"
-    return ENGINE, None
+IS_ADMIN = secure.is_admin()
 
 
 def mini_payload():
@@ -535,13 +480,13 @@ def mini_payload():
     h = list(_hist)
     dm = (data or {}).get("metrics", {})
     m["claudeGB"] = dm.get("claudeGB"); m["wslGB"] = dm.get("wslGB")
-    p = _manual["proc"]
+    manual = routes_destructive.manual_status()
     appearance_state = APPEARANCE.get()
     return {
         "now": time.strftime("%Y-%m-%dT%H:%M:%S"), "m": m,
         "hist": {"t": [x[0] for x in h], "commit": [x[1] for x in h], "ram": [x[2] for x in h]},
         "tiers": tiers, "guard": (data or {}).get("guard"),
-        "manual": {"running": bool(p and p.poll() is None), "tier": _manual["tier"], "dry": _manual["dry"]},
+        "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
         "ready": data is not None, "guardNext": guard_next(), "trim": _trim_view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
         "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "thr": alertcfg.get(),
     }
@@ -1135,30 +1080,6 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._send(404, {"error": "not found"})
 
-    def _needs_confirm(self, route, body):
-        """True (and a 428 already sent) when this destructive request has no valid one-time confirmation token."""
-        key = _confirm_key(route, body)
-        tok = body.get("confirm")
-        if isinstance(tok, str) and _confirm_take(key, tok):
-            return False
-        self._send(428, {"error": "confirm_required", "confirm": _confirm_issue(key), "ttl": CONFIRM_TTL})
-        return True
-
-    def _space_confirmed(self, route, body, act, kind):
-        """Space cleanups: the token is also bound to the preview the user saw (seen_mb, part of the confirm key).
-        The dry-run is repeated after the token is accepted; a candidate set that grew past the tolerance is refused."""
-        seen = body.get("seen_mb")
-        if isinstance(seen, bool) or not isinstance(seen, (int, float)) or not 0 <= seen <= 1e12 or not math.isfinite(seen):
-            self._send(400, {"error": "seen_mb required"})
-            return False
-        if self._needs_confirm(route, body):
-            return False
-        cur = sum(space.clean(k, dry=True).get("mb", 0) for k in (space.BULK if act == "cleanall" else [kind]))
-        if cur > seen * 1.25 + 50:
-            self._send(409, {"error": "candidates_changed", "seen_mb": seen, "now_mb": round(cur, 1)})
-            return False
-        return True
-
     def do_POST(self):
         if not self._guard() or not self._authed():
             return
@@ -1190,6 +1111,9 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 return self._send(400, {"error": "object expected"})
             route = self.path.split("?")[0]
+            reply = routes_destructive.post(route, body, invalidate=lambda: _cache.update(t=0))   # المسارات الهدّامة مع تأكيد 428 (البند 6/أ)
+            if reply is not None:
+                return self._send(*reply)
             if route == "/api/appearance":
                 try:
                     result = APPEARANCE.update(body)
@@ -1210,36 +1134,6 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, {"ok": True})
                 else:
                     self._send(404, {"error": "unknown job"})
-                return
-            if route == "/api/space":
-                act, kind = body.get("action"), body.get("kind")
-                if act == "scan":
-                    threading.Thread(target=space.scan, daemon=True).start()
-                    if not space.state.get("big"):
-                        space.state["big"] = True
-                        threading.Thread(target=lambda: (space.scan_big(), space.state.update(big=False)), daemon=True).start()
-                    self._send(200, {"ok": True})
-                elif act == "qrestore":
-                    self._send(200, space.quarantine_restore(int(body.get("id", 0))))
-                elif act == "auto":
-                    self._send(200, {"ok": space.set_auto(kind, bool(body.get("on")))})
-                elif act == "report":
-                    import extras
-                    self._send(200, {"ok": extras.report_start()})
-                elif act == "dismmonthly":
-                    space._setting_set("space.dism_monthly", bool(body.get("on")))
-                    self._send(200, {"ok": True})
-                elif act == "elevated":
-                    self._send(200, {"ok": space.set_elevated(kind, bool(body.get("on")))})
-                elif act in ("cleanall", "clean") and not self._space_confirmed(route, body, act, kind):
-                    return
-                elif act == "cleanall":
-                    out = [dict(kind=k, **space.clean(k, dry=False, src="manual")) for k in space.BULK]
-                    self._send(200, {"ok": True, "mb": round(sum(o.get("mb", 0) for o in out), 1), "parts": out})
-                elif act in ("preview", "clean"):
-                    self._send(200, space.clean(kind, dry=(act == "preview"), early=(act == "clean" and kind == "winold" and body.get("early") is True)))
-                else:
-                    self._send(400, {"error": "bad action"})
                 return
             if route == "/api/widget":
                 want = bool(body.get("show"))
@@ -1269,13 +1163,6 @@ class Handler(BaseHTTPRequestHandler):
                     cfg.setdefault("reaper", {})[key] = val
 
                 return self._send(200, {"bareMin": val})
-            if route == "/api/reaper-run":
-                dry = body.get("dry")
-                if not isinstance(dry, bool):
-                    return self._send(400, {"error": "dry must be boolean"})
-                if not dry and self._needs_confirm(route, body):
-                    return
-                return self._send(200, insight.reaper_run(dry, os.path.dirname(MCCFG)))
             if route == "/api/reaper-protect":
                 import re as _re
                 nm, op = body.get("name"), body.get("op")
@@ -1400,24 +1287,6 @@ class Handler(BaseHTTPRequestHandler):
                 with edit_json(MCCFG) as (bom, cfg):
                     cfg["reaper"][key] = val
 
-            elif route == "/api/run-cleanup":
-                tier, dry = body.get("tier"), body.get("dry", True)
-                if not isinstance(dry, bool):
-                    return self._send(400, {"error": "dry must be boolean"})
-                if tier not in TIERS:
-                    return self._send(400, {"error": "bad tier"})
-                if not dry and self._needs_confirm(route, body):
-                    return
-                p = _manual["proc"]
-                if p and p.poll() is None:
-                    return self._send(409, {"error": "a manual cleanup is already running"})
-                engine, err = _resolve_engine()
-                if err:
-                    return self._send(503, {"error": err})
-                args = [PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", engine, "-Tier", tier, "-Force", "-PolicyPath", POLICY]
-                if dry:
-                    args.append("-DryRun")
-                _manual.update(proc=subprocess.Popen(args, creationflags=CNW), tier=tier, dry=dry, started=time.strftime("%Y-%m-%dT%H:%M:%S"))
             else:
                 return self._send(404, {"error": "not found"})
             _cache["t"] = 0

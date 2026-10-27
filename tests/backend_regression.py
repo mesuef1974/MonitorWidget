@@ -32,13 +32,14 @@ import atomic_json  # pure stdlib helper, no app initialization or side effects
 def extracted():
     tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
     wanted = {"_session_create", "_session_valid", "_session_revoke", "_reject_json_constant",
-              "_validate_json_numbers", "Handler", "LocalHTTPServer", "_purge_task", "_resolve_engine"}
+              "_validate_json_numbers", "Handler", "LocalHTTPServer", "_purge_task"}
     nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in wanted]
     ns = dict(json=json, math=math, re=re, socket=socket, time=time, secrets=secrets, hashlib=hashlib,
               hmac=hmac, os=os, threading=threading, BaseHTTPRequestHandler=BaseHTTPRequestHandler,
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
               MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, SESSION_TTL=60,
-              MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(), _cache={"t": 1})
+              MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(), _cache={"t": 1},
+              routes_destructive=types.SimpleNamespace(post=lambda route, body, **k: None))   # وحدة المسارات الهدّامة: لا مسار من هنا
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
     return ns
 
@@ -103,13 +104,11 @@ class BackendRequests(unittest.TestCase):
         self.assertNotIn("private-path", str(self.sends))
 
     def test_seen_rejects_nonfinite_and_huge_values_before_preview(self):
+        import routes_destructive   # البند 6/أ: فحص seen_mb انتقل إلى وحدة المسارات الهدّامة؛ يرفض قبل أي معاينة أو رمز
         for seen in (float("nan"), float("inf"), float("-inf"), 10**1000, True, -1):
             with self.subTest(seen=str(seen)[:20]):
-                self.sends.clear()
-                fake = types.SimpleNamespace(_send=lambda *a: self.sends.append(a))
-                ok = self.ns["Handler"]._space_confirmed(fake, "/api/space", {"seen_mb": seen}, "clean", "x")
-                self.assertFalse(ok)
-                self.assertEqual(self.sends[0][0], 400)
+                self.assertEqual(routes_destructive._space_confirmed("/api/space", {"seen_mb": seen}, "clean", "x"),
+                                 (400, {"error": "seen_mb required"}))
 
     def test_sessions_independent_expire_and_revoke(self):
         a, b = self.ns["_session_create"](), self.ns["_session_create"]()
@@ -153,9 +152,11 @@ class BackendRequests(unittest.TestCase):
         self.assertTrue(self.ns["_session_valid"](b))
 
     def test_partial_protected_engine_fails_closed(self):
+        import routes_destructive
         with tempfile.TemporaryDirectory(prefix="mw_backend_", dir=ROOT / "tests") as d:
-            self.ns.update(PROT_ENGINE_DIR=d, IS_ADMIN=False, ENGINE="legacy")
-            path, error = self.ns["_resolve_engine"]()
+            with patch.object(routes_destructive, "PROT_ENGINE_DIR", d), patch.object(routes_destructive, "IS_ADMIN", False), \
+                    patch.object(routes_destructive, "ENGINE", "legacy"):
+                path, error = routes_destructive.resolve_engine()
             self.assertIsNone(path)
             self.assertTrue(error)
 
@@ -371,6 +372,118 @@ class PageUse(unittest.TestCase):
         self.assertNotIn('localStorage.setItem("mw-v2-pageuse', page)   # العدّ في الخادم لا في المتصفح
         fx = json.loads((ROOT / "tests" / "fixtures" / "api" / "page-use.json").read_text(encoding="utf-8"))
         self.assertEqual(set(fx) >= {"windowDays", "since", "elapsedDays", "complete", "pages"}, True)
+
+
+class DestructiveRoutes(unittest.TestCase):
+    """البند 6/أ: routes_destructive.py بلا خادم: 428 بلا رمز لكل فعل هدّام، الرمز أحادي الاستعمال ومربوط بالمسار والمعاملات،
+    409 عند تغيّر المرشّحين، 400 بلا معاينة، والتجربة dry تمرّ بلا تأكيد. space/insight/subprocess مستبدلة بدوال وهمية."""
+
+    def setUp(self):
+        import routes_destructive
+        self.rd = routes_destructive
+        self.rd.CONFIRMS = routes_destructive.ConfirmStore()   # متجر رموز نظيف لكل اختبار
+        self.rd.MANUAL.update(proc=None, tier=None, dry=None, started=None)
+
+    def test_confirm_store_is_single_use_bound_and_expiring(self):
+        now = [1000.0]
+        store = self.rd.ConfirmStore(ttl=10, limit=2, clock=lambda: now[0])
+        key = self.rd.ConfirmStore.key("/api/x", {"a": 1, "confirm": "ignored"})
+        self.assertEqual(key, self.rd.ConfirmStore.key("/api/x", {"a": 1}))          # confirm لا يدخل في المفتاح
+        tok = store.issue(key)
+        self.assertFalse(store.take(self.rd.ConfirmStore.key("/api/x", {"a": 2}), tok))   # معاملات مختلفة: يُرفض ويُستهلك
+        tok = store.issue(key)
+        self.assertTrue(store.take(key, tok))
+        self.assertFalse(store.take(key, tok))                                          # أحادي الاستعمال
+        tok = store.issue(key)
+        now[0] += 11
+        self.assertFalse(store.take(key, tok))                                          # انتهت المدة
+        a = store.issue(key)
+        store.issue(key)
+        c = store.issue(key)                                                            # السقف 2: الأقدم يسقط
+        self.assertFalse(store.take(key, a))
+        self.assertTrue(store.take(key, c))
+
+    def test_space_clean_needs_preview_then_confirm_bound_to_params(self):
+        calls = []
+
+        def fake_clean(kind, dry=True, src="manual", early=False):
+            calls.append((kind, dry, src, early))
+            return {"mb": 10.0, "kind": kind, "dry": dry}
+        with patch.object(self.rd.space, "clean", fake_clean):
+            self.assertEqual(self.rd.post("/api/space", {"action": "clean", "kind": "temp"}), (400, {"error": "seen_mb required"}))
+            self.assertEqual(self.rd.post("/api/space", {"action": "clean", "kind": "temp", "seen_mb": True})[0], 400)
+            body = {"action": "clean", "kind": "temp", "seen_mb": 10}
+            code, rep = self.rd.post("/api/space", body)
+            self.assertEqual((code, rep["error"], rep["ttl"]), (428, "confirm_required", 120))
+            self.assertTrue(rep["confirm"])
+            self.assertEqual(calls, [])                                                 # لا معاينة ولا تنظيف قبل الرمز
+            code2, rep2 = self.rd.post("/api/space", {**body, "seen_mb": 11, "confirm": rep["confirm"]})   # معاملات مختلفة
+            self.assertEqual(code2, 428)
+            self.assertNotEqual(rep2["confirm"], rep["confirm"])
+            code3, rep3 = self.rd.post("/api/space", {**body, "confirm": "bogus"})
+            self.assertEqual(code3, 428)
+            code4, rep4 = self.rd.post("/api/space", {**body, "confirm": rep3["confirm"]})
+            self.assertEqual((code4, rep4["dry"]), (200, False))
+            self.assertEqual(calls, [("temp", True, "manual", False), ("temp", False, "manual", False)])   # تجربة بعد الرمز ثم التنفيذ
+            self.assertEqual(self.rd.post("/api/space", {**body, "confirm": rep3["confirm"]})[0], 428)    # الرمز استُهلك
+
+    def test_space_cleanall_refuses_grown_candidates(self):
+        with patch.object(self.rd.space, "clean", lambda kind, dry=True, src="manual", early=False: {"mb": 100.0}), \
+                patch.object(self.rd.space, "BULK", ("temp", "edgecache")):
+            body = {"action": "cleanall", "seen_mb": 50}                                # المعاينة رأت 50 والآن 200 > 50*1.25+50
+            code, rep = self.rd.post("/api/space", body)
+            self.assertEqual(code, 428)
+            code, rep = self.rd.post("/api/space", {**body, "confirm": rep["confirm"]})
+            self.assertEqual((code, rep["error"], rep["now_mb"]), (409, "candidates_changed", 200.0))
+
+    def test_space_safe_actions_need_no_confirm(self):
+        with patch.object(self.rd.space, "clean", lambda kind, dry=True, src="manual", early=False: {"mb": 1.0, "dry": dry}):
+            self.assertEqual(self.rd.post("/api/space", {"action": "preview", "kind": "temp"}), (200, {"mb": 1.0, "dry": True}))
+        self.assertEqual(self.rd.post("/api/space", {"action": "nope"}), (400, {"error": "bad action"}))
+        self.assertIsNone(self.rd.post("/api/other", {}))
+        self.assertEqual(self.rd.ROUTES, ("/api/space", "/api/reaper-run", "/api/run-cleanup"))
+
+    def test_reaper_run_dry_passes_and_real_requires_confirm(self):
+        seen = []
+
+        def fake_run(dry, mcdir):
+            seen.append((dry, os.path.basename(mcdir)))
+            return {"ok": True, "dry": dry}
+        with patch.object(self.rd.insight, "reaper_run", fake_run):
+            self.assertEqual(self.rd.post("/api/reaper-run", {"dry": "yes"}), (400, {"error": "dry must be boolean"}))
+            self.assertEqual(self.rd.post("/api/reaper-run", {"dry": True}), (200, {"ok": True, "dry": True}))
+            code, rep = self.rd.post("/api/reaper-run", {"dry": False})
+            self.assertEqual((code, seen), (428, [(True, "MachineCare")]))
+            self.assertEqual(self.rd.post("/api/reaper-run", {"dry": False, "confirm": rep["confirm"]}), (200, {"ok": True, "dry": False}))
+
+    def test_run_cleanup_confirm_engine_and_single_process(self):
+        popen_args, invalidated = [], []
+
+        class FakeProc:
+            def __init__(self, args, creationflags=0):
+                popen_args.append(list(args))
+                self.done = False
+
+            def poll(self):
+                return 0 if self.done else None
+        with patch.object(self.rd.subprocess, "Popen", FakeProc), patch.object(self.rd, "resolve_engine", lambda: ("engine.ps1", None)):
+            self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "daily", "dry": 1}), (400, {"error": "dry must be boolean"}))
+            self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "yearly"}), (400, {"error": "bad tier"}))
+            code, rep = self.rd.post("/api/run-cleanup", {"tier": "daily", "dry": False})
+            self.assertEqual((code, popen_args), (428, []))
+            code, rep = self.rd.post("/api/run-cleanup", {"tier": "daily", "dry": False, "confirm": rep["confirm"]},
+                                     invalidate=lambda: invalidated.append(1))
+            self.assertEqual((code, rep, invalidated), (200, {"ok": True}, [1]))
+            self.assertEqual(popen_args[0][-5:], ["-Tier", "daily", "-Force", "-PolicyPath", self.rd.POLICY])
+            st = self.rd.manual_status()
+            self.assertEqual((st["running"], st["tier"], st["dry"], bool(st["started"])), (True, "daily", False, True))
+            self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "weekly"}), (409, {"error": "a manual cleanup is already running"}))
+            self.rd.MANUAL["proc"].done = True
+            self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "weekly"}), (200, {"ok": True}))   # التجربة تمرّ بلا 428
+            self.assertEqual(popen_args[1][-1], "-DryRun")
+        with patch.object(self.rd, "resolve_engine", lambda: (None, "لا محرّك")):
+            self.rd.MANUAL["proc"] = None
+            self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "daily"}), (503, {"error": "لا محرّك"}))
 
 
 if __name__ == "__main__":
