@@ -5,13 +5,13 @@ The agent keeps the backend running independently of the dashboard."""
 
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
-import atexit, base64, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, sqlite3, subprocess, sys, threading, time, traceback
+import atexit, base64, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, subprocess, sys, threading, time, traceback
 import errlog
 import atomic_json
 import math, socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
-import db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, pageuse
+import db, health, infra, pageuse
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
 import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
@@ -19,21 +19,9 @@ import routes_settings      # البند 6/د: المظهر والوضع وال�
 import shellwin             # البند 6/هـ: نافذة التطبيق وغلافها وحالة الغلاف لصفحة الصحة وبلاغ الويدجت
 import widgetctl            # البند 6/و: ويدجت سطح المكتب (يعمل/ظاهر، إيقاف آمن، تشغيل، إعادة إلى الشاشة)
 import snapshot             # البند 6/ز: القياسات الأصلية والجامع الثقيل وذاكرته والخيوط الخلفية وحمولتا state/mini
+import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
-try:
-    import diskio_api
-except Exception:
-    diskio_api = None
-try:
-    import homeapi
-except Exception:
-    homeapi = None
-try:
-    import reliab
-except Exception:
-    reliab = None
-
 # one-time tickets replace the token in URLs: the window opens with ?k=<ticket>, which is consumed once and then
 # exchanged for an HttpOnly session cookie. The long-lived token never appears on a command line.
 try:
@@ -309,162 +297,11 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/healthz":
             ok = _healthz_ok()
             self._send(200 if ok else 503, {"ok": ok, "uptime_s": int(time.time() - infra.START), "pid": os.getpid()})
-        elif path == "/api/db":
-            if not self._authed():
-                return
-            self._send(200, dbview.overview())
-        elif path == "/api/db/rows":
-            if not self._authed():
-                return
-            q = parse_qs(urlparse(self.path).query)
-            try:
-                self._send(200, dbview.rows(q.get("table", [""])[0], q.get("limit", ["25"])[0], q.get("offset", ["0"])[0]))
-            except (ValueError, sqlite3.Error):
-                self._send(400, {"error": "bad params"})
-        elif path == "/api/jobs":
-            if not self._authed():
-                return
-            self._send(200, {"jobs": sched.listing(), "agent": space._agent_status(), "quarantine": space.quarantine_list()})
-        elif path == "/api/startup":
-            if not self._authed():
-                return
-            self._send(200, startup_mgr.list_items())
-        elif path == "/api/actions":
-            if not self._authed():
-                return
-            with db._lock:
-                rows = [dict(r) for r in db.conn().execute("SELECT * FROM actions ORDER BY ts DESC LIMIT 100")]
-            self._send(200, {"rows": rows})
-        elif path == "/api/space":
-            if not self._authed():
-                return
-            infra.log.info("space: request received")
-            _t0 = time.time()
-            d = space.overview()
-            infra.log.info("space: overview built in %.2fs" % (time.time() - _t0))
-            d['quarantine'] = space.quarantine_list()
-            self._send(200, d)
-            infra.log.info("space: response sent in %.2fs" % (time.time() - _t0))
-        elif path == "/api/widget":
-            if not self._authed():
-                return
-            self._send(200, widgetctl.status())
-        elif path == "/api/infra":
-            if not self._authed():
-                return
-            try:
-                with db.ro() as _rc:
-                    self._send(200, infra.overview(_rc))
-            except Exception as e:
-                self._send(500, {"error": str(e)[:200]})
-        elif path == "/api/state":
-            if not self._authed():
-                return
-            try:
-                self._send(200, snapshot.state())
-            except Exception as e:
-                self._send(500, {"error": "collect failed: %s" % e})
-        elif path.startswith("/api/") and path in ("/api/history", "/api/events", "/api/runs", "/api/db-info", "/api/theme", "/api/appearance", "/api/health", "/api/page-use"):
+        elif path in routes_read.ROUTES:   # البند 6/ح: المسارات القرائية المصادَق عليها، جدول واحد ومعالجة أخطاء موحّدة
             if not self._authed():
                 return
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
-            try:
-                ival = lambda k, d, lo, hi: max(lo, min(hi, int(q.get(k, d))))
-                if path == "/api/history":
-                    out = db.history(q.get("range", "24h"))
-                elif path == "/api/events":
-                    out = db.events(ival("limit", 10, 1, 100), ival("offset", 0, 0, 10**7), q.get("sev"), (q.get("q") or "")[:60] or None, q.get("range"))
-                elif path == "/api/runs":
-                    out = db.runs(ival("limit", 10, 1, 100), ival("offset", 0, 0, 10**7))
-                elif path == "/api/theme":
-                    out = {"theme": routes_settings.get_theme()}
-                elif path == "/api/appearance":
-                    out = routes_settings.APPEARANCE.get()
-                elif path == "/api/health":
-                    out = health.overview(snapshot.native_metrics(), snapshot.tasks())
-                    out["shell"] = shellwin.shell_status()
-                elif path == "/api/page-use":   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
-                    out = pageuse.stats(db.conn())
-                else:
-                    out = db.info()
-                self._send(200, out)
-            except Exception as e:
-                self._send(500, {"error": str(e)[:200]})
-        elif path == "/api/maintenance":
-            if not self._authed():
-                return
-            self._send(200, routes_policy.maintenance_state())
-        elif path == "/api/cpu":
-            if not self._authed():
-                return
-            try:
-                self._send(200, cpuwatch.api_payload())
-            except Exception:
-                errlog.swallowed()
-                self._send(500, {"error": "cpu data unavailable"})
-        elif path == "/api/gpu":
-            if not self._authed():
-                return
-            try:
-                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
-                self._send(200, gpuwatch.api_payload(q.get("range", "24h")))
-            except Exception:
-                errlog.swallowed()
-                self._send(500, {"error": "gpu data unavailable"})
-        elif path in ("/api/mem", "/api/procs", "/api/wsl", "/api/power", "/api/advice", "/api/alerts"):
-            if not self._authed():
-                return
-            try:
-                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
-                if path == "/api/mem":
-                    out = insight.mem_payload(snapshot.native_metrics(), snapshot.metrics_extra(), q.get("range", "24h"))
-                elif path == "/api/procs":
-                    out = insight.procs_payload()
-                elif path == "/api/wsl":
-                    out = insight.wsl_payload(q.get("range", "6h"))
-                elif path == "/api/power":
-                    out = insight.power_payload(q.get("range", "24h"))
-                elif path == "/api/alerts":
-                    out = insight.alerts_payload()
-                else:
-                    out = insight.advice_payload(snapshot.native_metrics(), snapshot.metrics_extra(), routes_policy.maintenance_state(), memtrim.view())
-                self._send(200, out)
-            except Exception:
-                errlog.swallowed()
-                self._send(500, {"error": "data unavailable"})
-        elif path == "/api/io":
-            if not self._authed():
-                return
-            try:
-                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
-                self._send(200, diskio_api.payload(db, q.get("range", "24h"), q.get("dev", "disk0")))
-            except Exception:
-                errlog.swallowed()
-                self._send(500, {"error": "io data unavailable"})
-        elif path == "/api/home":
-            if not self._authed():
-                return
-            if homeapi is None:   # module failed to import: answer clearly instead of hanging the request
-                self._send(503, {"error": "home module unavailable"})
-                return
-            try:
-                q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
-                self._send(200, homeapi.payload(db, q.get("range", "1h")))
-            except Exception:
-                errlog.swallowed()
-                self._send(500, {"error": "home data unavailable"})
-        elif path == "/api/reliab":
-            if not self._authed():
-                return
-            try:
-                self._send(200, reliab.snapshot(db))
-            except Exception:
-                errlog.swallowed()
-                self._send(500, {"error": "reliability data unavailable"})
-        elif path == "/api/mini":
-            if not self._authed():
-                return
-            self._send(200, snapshot.mini())
+            self._send(*routes_read.get(path, q))
         else:
             self._send(404, {"error": "not found"})
 
