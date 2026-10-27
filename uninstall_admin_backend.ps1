@@ -1,7 +1,7 @@
 ﻿# إرجاع الخلفية (الوكيل + الخادم) إلى صلاحية عادية: عكس install_admin_backend.ps1.
 # قرار المالك 27/10/2026: الخادم بصلاحية عادية دائمًا؛ ما يحتاج المسؤول يمرّ عبر مهام مجدولة مرتفعة ثابتة
 # (MemoryPurge-* وCleanup_v2_* وMonitorWidget-WinOld*) يستدعيها الخادم بـ schtasks /run.
-# يُشغَّل مرة واحدة من PowerShell «كمسؤول» لأن المهمة الحالية Highest ولا يمكن تعديلها أو إيقاف عملياتها من جلسة عادية.
+# يعمل في Windows PowerShell 5.1 (بلا -NoProxy؛ المعامل غير موجود فيها ويُسقط كل محاولة بصمت). يُشغَّل مرة واحدة من PowerShell «كمسؤول» لأن المهمة الحالية Highest ولا يمكن تعديلها أو إيقاف عملياتها من جلسة عادية.
 $ErrorActionPreference = 'Stop'
 $id = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $id.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'شغّل هذا السكربت من PowerShell بصلاحية مسؤول.' }
@@ -31,7 +31,7 @@ $tok = (Get-Content (Join-Path $root '.token') | Select-Object -First 1)
 $m = $null
 for ($i = 0; $i -lt 40 -and -not $m; $i++) {
     Start-Sleep 1
-    try { $m = Invoke-RestMethod "http://127.0.0.1:$port/api/mini" -Headers @{ 'X-Token' = $tok } -TimeoutSec 3 -NoProxy } catch {}
+    try { $m = Invoke-RestMethod "http://127.0.0.1:$port/api/mini" -Headers @{ 'X-Token' = $tok } -TimeoutSec 3 } catch {}
 }
 if (-not $m) { throw 'لم يستجب الخادم خلال 40 ثانية؛ راجع monitor.log' }
 $after = (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
