@@ -5,9 +5,9 @@
 .brand{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s2) var(--s3)}
 .brand-mark{width:42px;height:42px;display:grid;place-items:center}   /* الشعار المعتمد رسم SVG بلا مربع خلفية */
 .brand b{display:block;font:700 17px var(--f-head);letter-spacing:.2px}
-.brand small{color:var(--ink3);font-size:11.5px}
+.brand small{color:var(--ink3);font-size:12.5px}
 .nav-group{display:flex;flex-direction:column;gap:2px}
-.nav-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--ink3);padding:var(--s2) var(--s3) var(--s1)}
+.nav-label{font:600 12px var(--f-list);letter-spacing:.08em;color:var(--ink3);padding:var(--s2) var(--s3) var(--s1)}
 .nav a{display:flex;align-items:center;gap:var(--s3);padding:7px var(--s3);font:500 14px var(--f-list);border-radius:10px;color:var(--ink2);transition:background .18s var(--ease),color .18s}
 .nav a svg{width:18px;height:18px;flex:none;opacity:.85}
 .nav a:hover{background:var(--panel2);color:var(--ink)}
@@ -17,9 +17,9 @@
 .main{min-width:0;display:flex;flex-direction:column}
 .bar{position:sticky;top:0;z-index:var(--z-bar);display:flex;align-items:center;gap:var(--s4);padding:var(--s4) var(--s6);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--line)}
 .bar h1{font-size:24px;font-weight:700;letter-spacing:.1px}
-.bar .sub{color:var(--ink3);font-size:12.5px}
+.bar .sub{color:var(--ink3);font-size:13.5px}
 .bar .grow{flex:1;min-width:0}
-.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
+.live{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2);padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
 .live.err i{background:var(--bad);animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
@@ -34,4 +34,4 @@
   html[dir="rtl"] .nav{transform:translateX(100%)}.nav.open{transform:none!important}.btn.menu-btn{display:inline-flex}.bar,.content{padding-inline:var(--s4)}
   .bar{flex-wrap:wrap;gap:var(--s2) var(--s3);padding-block:var(--s3)}.bar .grow{flex:1 1 40%}.bar h1{font-size:18px}}   /* الشريط الضيق: العنوان أولًا والأزرار تلتف تحته بدل الفيض */
 .content>*{min-width:0}
-.nav-foot a{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:12.5px;padding:6px 8px;border-radius:8px}.nav-foot a:hover{background:var(--panel2);color:var(--ink)}
+.nav-foot a{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:13.5px;padding:6px 8px;border-radius:8px}.nav-foot a:hover{background:var(--panel2);color:var(--ink)}
