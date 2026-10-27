@@ -33,6 +33,15 @@ PURGE_RESULT = os.path.join(OUT, "purge_result.json")
 ADMIN_PROBE = os.path.join(OUT, "admin_probe.json")
 WINOLD_TASKS = {"normal": "MonitorWidget-WinOld", "early": "MonitorWidget-WinOld-Early"}   # fixed elevated tasks; the server never deletes Windows.old itself
 WINOLD_RESULT = os.path.join(OUT, "winold_result.json")
+# fixed elevated cleanup tasks (wintemp / swdist / dism): the limited server only triggers them and reads the result file
+CLEAN_TASKS = {"wintemp": "MonitorWidget-Clean-WinTemp", "swdist": "MonitorWidget-Clean-SwDist", "dism": "MonitorWidget-Clean-Dism"}
+CLEAN_SCRIPT = os.path.join(BIN, "elevated_clean.ps1")
+
+
+def clean_result(kind):
+    return os.path.join(OUT, "clean_%s_result.json" % kind)
+
+
 REAPER_PIN = os.path.join(OUT, "reaper_pin.json")   # {"sha256": "...", "script": "..."} written by the installer
 
 

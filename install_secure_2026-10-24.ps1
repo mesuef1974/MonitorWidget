@@ -18,6 +18,7 @@ $expected = @{
   'purge.cs' = '3586B271D8C2E1F984FC0CBDAC94868E7590F34BD98F243887183C5D3BDDB449'
   'healthprobe.ps1' = 'DFE47270DB312A709230466DD5F901E6F932F54A5A8146F241571C1E20BC3586'
   'winold_delete.ps1' = 'AE98DE987B78DFB033670A8485B352E2757E2656DBE0192000D828CE5DD7713F'
+  'elevated_clean.ps1' = 'A534E653D70B88B88651C3FF47B1DF182DBC3BB108C1B9C1AC85388ABC1F5231'
 }
 $reaper = 'C:\Users\mesue\Documents\Scripts\MachineCare\Invoke-OrphanReaper.ps1'; $reaperHash = '8104AE8B121F55E07119E070EEB014B31581E97945A3A65EF0329BB1D66F5F25'
 
@@ -42,6 +43,7 @@ foreach ($d in @($secure, $bin, $out)) {
 Copy-Item -LiteralPath (Join-Path $src 'purge.cs') -Destination (Join-Path $bin 'purge.cs') -Force
 Copy-Item -LiteralPath (Join-Path $src 'healthprobe.ps1') -Destination (Join-Path $bin 'healthprobe.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $src 'winold_delete.ps1') -Destination (Join-Path $bin 'winold_delete.ps1') -Force
+Copy-Item -LiteralPath (Join-Path $src 'elevated_clean.ps1') -Destination (Join-Path $bin 'elevated_clean.ps1') -Force
 & $csc /nologo /target:winexe /optimize+ "/out:$bin\purge.exe" "$bin\purge.cs"
 if ($LASTEXITCODE -ne 0) { throw 'csc failed' }
 foreach ($k in $expected.Keys) {
@@ -76,6 +78,15 @@ foreach ($e in @($false, $true)) {
   $arg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$bin\winold_delete.ps1`" -Result `"$out\winold_result.json`"" + $(if ($e) { ' -Early' } else { '' })
   $wa = New-ScheduledTaskAction -Execute $pwsh -Argument $arg -WorkingDirectory $bin
   Register-ScheduledTask -TaskName $name -Action $wa -Principal $pr -Settings $ws -Description 'On-demand Windows.old removal from the protected folder (fixed path, 14-day gate)' -Force | Out-Null
+}
+
+# 4c. elevated cleanups (Windows\Temp, SoftwareDistribution\Download, DISM StartComponentCleanup): one fixed on-demand task per kind,
+#     the kind is baked into the task argument; the server passes nothing. Disabled kinds are refused by the server (settings switch).
+$cs = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2) -MultipleInstances IgnoreNew -Hidden
+foreach ($k in @(@('wintemp', 'MonitorWidget-Clean-WinTemp'), @('swdist', 'MonitorWidget-Clean-SwDist'), @('dism', 'MonitorWidget-Clean-Dism'))) {
+  $arg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$bin\elevated_clean.ps1`" -Kind $($k[0]) -Result `"$out\clean_$($k[0])_result.json`""
+  $ca = New-ScheduledTaskAction -Execute $pwsh -Argument $arg -WorkingDirectory $bin
+  Register-ScheduledTask -TaskName $k[1] -Action $ca -Principal $pr -Settings $cs -Description "On-demand elevated cleanup ($($k[0])) from the protected folder; fixed kind, no path argument" -Force | Out-Null
 }
 
 # 5. optional: remove the legacy tasks that ran from the writable folder

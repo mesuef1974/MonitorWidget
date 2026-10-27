@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Disk-space explainer: periodic folder sizes, growth deltas, free-space drops, SAFE cleanup.
 Safety: cleanup is whitelisted to three disposable caches only (never projects, never user documents),
 always previewable (dry run), and deletes only files not modified for 3+ days or known cache folders."""
@@ -476,7 +476,7 @@ def overview():
     grew = [x for x in items if x["delta"] and x["delta"] >= 0.3]
     return {"free": round(free[0], 1) if free else None, "hist": hist, "drops": drops, "items": items,
             "ts": (int(max(v[2] for kk, v in LV.items() if kk in TARGETS)) if any(kk in TARGETS for kk in LV) else (snaps[0] if snaps else None)), "since": oldts, "culprit": max(grew, key=lambda x: x["delta"])["key"] if grew else None,
-            "running": state["running"], "auto": get_auto(), "recoverableMB": rec, "runs": runs, "dockerMB": (LV.get("dockercache_mb") or (None,))[0], "agent": _agent_status(), "lockedMB": _rc.get("locked", {}), "winold": winold_status(), "bulk": list(BULK), "extra": list(EXTRA), "labels": KIND_LABEL, "volume": volume, "extras": _extras_overview(),
+            "running": state["running"], "auto": get_auto(), "recoverableMB": rec, "runs": runs, "dockerMB": (LV.get("dockercache_mb") or (None,))[0], "agent": _agent_status(), "lockedMB": _rc.get("locked", {}), "winold": winold_status(), "elevated": {k: elevated_state(k) for k in ELEVATED}, "bulk": list(BULK), "extra": list(EXTRA), "labels": KIND_LABEL, "volume": volume, "extras": _extras_overview(),
             "drives": drives(), "dvol": {d["letter"]: drive_overview(d["letter"]) for d in drives() if d["letter"] != "C"}}
 
 
@@ -645,6 +645,101 @@ def _winold_task_ready():
     return ok, why
 
 
+# ---------------- fixed elevated cleanup tasks (wintemp / swdist / dism): the server never runs them itself.
+# The owner registers the tasks once with the protected installer, and switches each kind on/off here (setting "space.elevated").
+ELEVATED = ("wintemp", "swdist", "dism", "winold")
+_etask = {}   # task name -> {"t", "ok", "why"} cached 60 s
+
+
+def _task_ready(task):
+    c = _etask.get(task)
+    if c and time.time() - c["t"] < 60:
+        return c["ok"], c["why"]
+    ok, why = False, None
+    if not secure.installed():
+        why = "يلزم التثبيت المحمي: شغّل install_secure_*.ps1 كمسؤول مرة واحدة"
+    else:
+        try:
+            r = subprocess.run(["schtasks", "/query", "/tn", task], capture_output=True, timeout=10, creationflags=0x08000000)
+            ok = r.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            ok = False
+        if not ok:
+            why = "مهمة %s غير مسجّلة؛ أعد تشغيل مثبّت التثبيت المحمي كمسؤول" % task
+    _etask[task] = {"t": time.time(), "ok": ok, "why": why}
+    return ok, why
+
+
+def get_elevated():
+    """Owner switches per elevated kind (default on). Off = the server refuses to trigger that task."""
+    a = _setting("space.elevated") or {}
+    return {k: bool(a.get(k, True)) for k in ELEVATED}
+
+
+def set_elevated(kind, on):
+    if kind not in ELEVATED:
+        return False
+    a = get_elevated(); a[kind] = bool(on)
+    _setting_set("space.elevated", a)
+    return True
+
+
+def elevated_state(kind):
+    """{"on", "ready", "why", "task"} for the UI: switch state and whether the fixed task exists."""
+    task = secure.WINOLD_TASKS["normal"] if kind == "winold" else secure.CLEAN_TASKS.get(kind)
+    ok, why = (_winold_task_ready() if kind == "winold" else _task_ready(task)) if task else (False, "غير معروف")
+    return {"on": get_elevated().get(kind, False), "ready": ok, "why": why, "task": task}
+
+
+def elevated_gate(kind):
+    """None when the kind may be triggered now, else the error dict to return to the caller."""
+    if not get_elevated().get(kind, False):   # the owner's switch is checked first: nothing is queried or started
+        return {"ok": False, "error": "معطّل من الإعدادات (مفتاح الصلاحية المرتفعة)", "disabled": True}
+    st = elevated_state(kind)
+    if not st["ready"]:
+        return {"ok": False, "error": st["why"] or "المهمة غير متاحة", "task": st["task"]}
+    return None
+
+
+def run_fixed_task(task, result, timeout_s):
+    """Trigger a fixed elevated task and wait for a fresh result file (state != running). Returns (out, error)."""
+    old = os.path.getmtime(result) if os.path.exists(result) else 0
+    try:
+        r = subprocess.run(["schtasks", "/run", "/tn", task], capture_output=True, timeout=15, creationflags=0x08000000)
+    except (OSError, subprocess.TimeoutExpired):
+        return None, "تعذّر تشغيل المهمة %s" % task
+    if r.returncode != 0:
+        return None, "تعذّر تشغيل المهمة %s" % task
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        time.sleep(2)
+        if os.path.exists(result) and os.path.getmtime(result) > old:
+            try:
+                with open(result, encoding="utf-8-sig") as fh:
+                    out = json.load(fh)
+            except (OSError, ValueError):
+                continue
+            if out.get("state") != "running":
+                return out, None
+    return None, "انتهت مهلة المهمة بلا نتيجة"
+
+
+def elevated_clean(kind, timeout_s=240):
+    """Synchronous whitelisted cleanup through its fixed task (wintemp / swdist). Deletes nothing in this process."""
+    e = elevated_gate(kind)
+    if e:
+        return e
+    out, err = run_fixed_task(secure.CLEAN_TASKS[kind], secure.clean_result(kind), timeout_s)
+    if out is None:
+        return {"ok": False, "error": err}
+    r = {"ok": bool(out.get("ok")), "dry": False, "mb": round(float(out.get("mb") or 0), 1), "files": int(out.get("files") or 0), "skipped": int(out.get("skipped") or 0),
+         "lockedMB": 0, "heldMB": 0, "elevated": True}
+    r["gb"] = round(r["mb"] / 1024, 3)
+    if out.get("error"):
+        r["error"] = out.get("error")
+    return r
+
+
 def winold_status():
     """Age gate for Windows.old: deleting it removes the rollback to the previous Windows, so it is allowed only WINOLD_DAYS after creation."""
     if not os.path.isdir(WINOLD):
@@ -785,7 +880,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False):
                         else:
                             skipped += 1; locked += sz
             else:
-                freed, n, skipped = _purge_dir(SWDIST)
+                return elevated_clean("swdist")   # SYSTEM-owned files: only the fixed elevated task may delete them
     elif kind == "winold":
         st = winold_status()
         if not st.get("present"):

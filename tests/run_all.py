@@ -19,7 +19,8 @@ steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]
     ("جمع النسخة المحمية (معزول)", "deployment_agent_check.py"),
     ("حد التنفيذ المرتفع (معزول)", "elevated_execution_check.py"),
     ("ترحيل بيانات الحزمة (معزول)", "protected_installer_check.py"),
-    ("حذف Windows.old عبر المهمة المرتفعة (معزول)", "winold_task_check.py"))]
+    ("حذف Windows.old عبر المهمة المرتفعة (معزول)", "winold_task_check.py"),
+    ("تنظيفات wintemp/swdist/DISM عبر المهام المرتفعة الثابتة (معزول)", "elevated_clean_task_check.py"))]
 steps += [("عقود مهام التثبيت (معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "protected_installer_xml_check.ps1")])]
 # The full original widget is restored. The compact/balanced-only contracts
 # remain historical and are replaced by widget_restored_check.
