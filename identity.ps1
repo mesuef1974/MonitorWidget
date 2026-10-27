@@ -54,6 +54,7 @@ function Get-IdentityPalette([string]$root, [bool]$light, [string]$palette, [has
     $p['base'] = $bg.TrimStart('#')
     $edge = if ($t['--line2']) { Convert-IdentityColor $t['--line2'] $bg } else { $null }; if ($edge) { $p['edge'] = $edge }
     $line = if ($t['--line2']) { Convert-IdentityColor $t['--line2'] ($p['card']) } else { $null }; if ($line) { $p['line'] = $line }
+    $at = if ($t['--accent-text']) { Convert-IdentityColor $t['--accent-text'] $bg } else { $null }; $p['accentText'] = if ($at) { $at } else { $p['accent'] }
     $ai = if ($t['--accent-ink']) { Convert-IdentityColor $t['--accent-ink'] $bg } else { $null }; if ($ai) { $p['pilltxt'] = $ai; $p['knob'] = $ai }
     $p
 }

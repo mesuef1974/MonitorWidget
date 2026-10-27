@@ -62,6 +62,7 @@ function Get-Palette([bool]$light) {
     # Avoid token-color aliases: remapping cannot otherwise distinguish identity and composition series.
     $p.seg2 = if ($light) { '#8159B3' } else { '#C1A3E8' }; $p.seg4 = if ($light) { '#E3EBE7' } else { '#283A35' }
     $p.onWarn=if($light){'#FFFFFF'}else{'#1A1100'}
+    if(-not $p.accentText){$p.accentText=$p.accent}   # نصّ accent على البطاقة؛ من --accent-text إن وُجد
     $p.knob=if($light){'#FFFFFF'}else{'#10231F'}
     $p.swoff=if($light){'#61766E'}else{'#7C958B'}
     return $p
@@ -148,12 +149,12 @@ function Set-WidgetMenuTheme {
 }
 function Set-WidgetControlTheme {
     if(-not $UI){return}
-    if($UI.title){$UI.title.Foreground=Brush $C.accent};if($UI.logoRing){$UI.logoRing.Stroke=Brush $C.accent;$UI.logoPulse.Stroke=Brush $C.warn;$UI.logoDot.Fill=Brush $C.warn};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
-    foreach($key in @('menuBtn','closeBtn','open')){$button=$UI[$key];if($button){$button.Background=Brush $C.card;$button.BorderBrush=Brush $C.line;$button.BorderThickness=1;$button.Foreground=Brush $(if($key -eq 'open'){$C.accent}else{$C.muted});if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=$button.Foreground}}}
+    if($UI.title){$UI.title.Foreground=Brush $C.accentText};if($UI.logoRing){$UI.logoRing.Stroke=Brush $C.accent;$UI.logoPulse.Stroke=Brush $C.warn;$UI.logoDot.Fill=Brush $C.warn};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
+    foreach($key in @('menuBtn','closeBtn','open')){$button=$UI[$key];if($button){$button.Background=Brush $C.card;$button.BorderBrush=Brush $C.line;$button.BorderThickness=1;$button.Foreground=Brush $(if($key -eq 'open'){$C.accentText}else{$C.muted});if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=$button.Foreground}}}
     if($UI.toast){$UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'}
-    if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accent;$UI.trimCd.Foreground=Brush $C.muted}
+    if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accentText;$UI.trimCd.Foreground=Brush $C.muted}
     foreach($spec in @(@('cfReal',$C.warn,$C.onWarn),@('cfDry',$C.hover,$C.ink),@('cfNo',$C.card,$C.muted))){$button=$UI[$spec[0]];if($button){$button.Background=Brush $spec[1];$button.Foreground=Brush $spec[2];if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=Brush $spec[2]}}}
-    if($UI.tiers){foreach($tier in $UI.tiers.Values){if($tier.Run){$tier.Run.Background=Brush $C.card;$tier.Run.BorderBrush=Brush $C.accent;$tier.RunText.Foreground=Brush $C.accent};if($tier.Switch -and $tier.Switch.Content -is [Windows.Shapes.Ellipse]){$tier.Switch.Content.Fill=Brush $C.knob;$tier.Switch.Background=if($tier.Switch.IsChecked){Brush $C.accent}else{Brush $C.swoff}}}}
+    if($UI.tiers){foreach($tier in $UI.tiers.Values){if($tier.Run){$tier.Run.Background=Brush $C.card;$tier.Run.BorderBrush=Brush $C.accent;$tier.RunText.Foreground=Brush $C.accentText};if($tier.Switch -and $tier.Switch.Content -is [Windows.Shapes.Ellipse]){$tier.Switch.Content.Fill=Brush $C.knob;$tier.Switch.Background=if($tier.Switch.IsChecked){Brush $C.accent}else{Brush $C.swoff}}}}
 }
 function Remap-Tree($o) {
     if ($o -isnot [Windows.DependencyObject]) { return }
@@ -272,7 +273,7 @@ foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinit
 1..2 | ForEach-Object { $row=New-Object Windows.Controls.RowDefinition; $row.Height='Auto';[void]$hdr.RowDefinitions.Add($row) }
 $UI.header=$hdr
 $ttl = New-Object Windows.Controls.StackPanel
-$UI.title=New-Text 'مرصد الجهاز' 16 $C.accent 'SemiBold';$UI.title.TextTrimming='None'
+$UI.title=New-Text 'مرصد الجهاز' 16 $C.accentText 'SemiBold';$UI.title.TextTrimming='None'
 $ttl.Children.Add($UI.title) | Out-Null
 $UI.sub = New-Text 'جارٍ الاتصال…' 12 $C.muted
 $brand = New-Object Windows.Controls.StackPanel; $brand.Orientation = 'Horizontal'; $brand.VerticalAlignment = 'Center'
@@ -380,7 +381,7 @@ $chHead = New-Object Windows.Controls.Grid
 foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $chHead.ColumnDefinitions.Add($cd) }
 $chHead.Children.Add((New-Text 'آخر 30 دقيقة' 11 $C.muted)) | Out-Null
 $leg = New-Object Windows.Controls.StackPanel; $leg.Orientation = 'Horizontal'
-foreach ($it in @(@('التزام', $C.accent), @('فعلية', $C.violet))) {
+foreach ($it in @(@('التزام', $C.accentText), @('فعلية', $C.violet))) {
     $dot = New-Object Windows.Shapes.Ellipse; $dot.Width = 7; $dot.Height = 7; $dot.Fill = Brush $it[1]; $dot.Margin = '8,0,3,0'; $dot.VerticalAlignment = 'Center'
     $leg.Children.Add($dot) | Out-Null; $leg.Children.Add((New-Text $it[0] 11.5 $C.muted)) | Out-Null
 }
@@ -457,7 +458,7 @@ foreach ($t in $TIERS) {
     [Windows.Controls.Grid]::SetColumn($info, 1); $g.Children.Add($info) | Out-Null
     $run = New-ActionButton ('تشغيل تنظيف ' + $t[1]); $run.Padding = '10,3,10,4'; $run.Cursor = 'Hand'; $run.VerticalAlignment = 'Center'; $run.Tag = $key
     $run.Background = Brush (Alpha $C.accent '2A'); $run.BorderBrush = Brush (Alpha $C.accent '66'); $run.BorderThickness = 1
-    $rt = New-Text '▶ تشغيل' 12 $C.accent 'SemiBold'; $run.Content = $rt
+    $rt = New-Text '▶ تشغيل' 12 $C.accentText 'SemiBold'; $run.Content = $rt
     [Windows.Controls.Grid]::SetColumn($run, 2); $g.Children.Add($run) | Out-Null
     $row.Child = $g; $stack.Children.Add($row) | Out-Null
     $UI.tiers[$key] = @{ Switch = $sw; Name = $nm; S1 = $s1; S2 = $s2; Run = $run; RunText = $rt; Label = $t[1]; Paused = $false }
@@ -483,7 +484,7 @@ $stack.Children.Add($UI.confirm) | Out-Null
 $stack.Children.Add((Gap 2)) | Out-Null
 $UI.trim = New-ActionButton 'تنظيف الذاكرة الآن'; $UI.trim.Padding = '10,7,10,8'; $UI.trim.Cursor = 'Hand'
 $UI.trim.Background = Brush (Alpha $C.accent '26'); $UI.trim.BorderBrush = Brush (Alpha $C.accent '70'); $UI.trim.BorderThickness = 1
-$UI.trimText = New-Text '⚡ تنظيف الذاكرة الآن' 12 $C.accent 'SemiBold'; $UI.trimText.HorizontalAlignment = 'Center'; $UI.trimCd = New-Text '' 12 $C.muted; $UI.trimCd.HorizontalAlignment = 'Center'; $UI.trimCd.Margin = '0,2,0,0'
+$UI.trimText = New-Text '⚡ تنظيف الذاكرة الآن' 12 $C.accentText 'SemiBold'; $UI.trimText.HorizontalAlignment = 'Center'; $UI.trimCd = New-Text '' 12 $C.muted; $UI.trimCd.HorizontalAlignment = 'Center'; $UI.trimCd.Margin = '0,2,0,0'
 $tsp = New-Object Windows.Controls.StackPanel; [void]$tsp.Children.Add($UI.trimText); [void]$tsp.Children.Add($UI.trimCd); $UI.trim.Content = $tsp
 $stack.Children.Add($UI.trim) | Out-Null
 $stack.Children.Add((Gap 6)) | Out-Null
@@ -491,7 +492,7 @@ $stack.Children.Add((Gap 6)) | Out-Null
 $foot = New-Object Windows.Controls.Grid
 foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $foot.ColumnDefinitions.Add($cd) }
 $UI.guard = New-Text '' 12 $C.muted; $UI.guard.MaxWidth = 170; $foot.Children.Add($UI.guard) | Out-Null
-$UI.open = New-ActionButton 'فتح التطبيق أو إظهار نافذته'; $UI.open.Content = 'فتح لوحة التحكم'; $UI.open.Foreground = Brush $C.accent; $UI.open.Background = Brush '#00FFFFFF'; $UI.open.BorderThickness = 0; $UI.open.FontSize = 12; $UI.open.HorizontalContentAlignment = 'Center'; $UI.open.MinHeight = 32; $UI.open.MinWidth = 0; $UI.open.MaxWidth = [double]::PositiveInfinity; $script:txtOpen = 'فتح لوحة التحكم'; $script:txtClose = 'إظهار لوحة التحكم'
+$UI.open = New-ActionButton 'فتح التطبيق أو إظهار نافذته'; $UI.open.Content = 'فتح لوحة التحكم'; $UI.open.Foreground = Brush $C.accentText; $UI.open.Background = Brush '#00FFFFFF'; $UI.open.BorderThickness = 0; $UI.open.FontSize = 12; $UI.open.HorizontalContentAlignment = 'Center'; $UI.open.MinHeight = 32; $UI.open.MinWidth = 0; $UI.open.MaxWidth = [double]::PositiveInfinity; $script:txtOpen = 'فتح لوحة التحكم'; $script:txtClose = 'إظهار لوحة التحكم'
 [Windows.Controls.Grid]::SetColumn($UI.open, 1); $foot.Children.Add($UI.open) | Out-Null
 $stack.Children.Add((Gap 4)) | Out-Null; $stack.Children.Add($foot) | Out-Null
 
@@ -1063,10 +1064,10 @@ function Update-Countdown {
     $d = $script:sync.data; if (-not $d) { return }
     try {
         $busy = ($d.trim -and $d.trim.running) -or ($d.guardNext -and $d.guardNext.running) -or (((Get-Date) - $script:trimPendingAt).TotalSeconds -lt 8)
-        if ($busy) { $UI.trimCd.Text = 'التنظيف جارٍ · العداد متوقف'; $UI.trimCd.Foreground = Brush $C.accent; return }
+        if ($busy) { $UI.trimCd.Text = 'التنظيف جارٍ · العداد متوقف'; $UI.trimCd.Foreground = Brush $C.accentText; return }
         if ($d.guardNext -and $d.guardNext.next) {
             $rem = [int][Math]::Ceiling(([datetime]::Parse([string]$d.guardNext.next) - (Get-Date)).TotalSeconds)
-            if ($rem -le 0) { $UI.trimCd.Text = 'التنظيف التلقائي الآن…'; $UI.trimCd.Foreground = Brush $C.accent }
+            if ($rem -le 0) { $UI.trimCd.Text = 'التنظيف التلقائي الآن…'; $UI.trimCd.Foreground = Brush $C.accentText }
             else { $UI.trimCd.Text = ('التنظيف التلقائي بعد {0:00}:{1:00}' -f [Math]::Floor($rem / 60), ($rem % 60)); $UI.trimCd.Foreground = Brush $C.muted }
         } else { $UI.trimCd.Text = '' }
     } catch { $UI.trimCd.Text = '' }
