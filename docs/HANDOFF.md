@@ -1,9 +1,9 @@
 ---
-updated: 2026-10-27T10:45:56+03:00
-head: 6504a4d
+updated: 2026-10-27T10:52:18+03:00
+head: be6bf54
 branch: fix/pending-live
-dirty: 2
-dirty_files: ocs/HANDOFF.md, web/index.html
+dirty: 0
+dirty_files: 
 ---
 # مرصد الجهاز — بطاقة التسليم
 
