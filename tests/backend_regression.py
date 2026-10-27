@@ -39,7 +39,7 @@ def extracted():
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
               MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, SESSION_TTL=60,
               MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(), _cache={"t": 1},
-              POST_MODULES=())   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها
+              POST_MODULES=(), _after_mutation=lambda: None)   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
     return ns
 
@@ -50,6 +50,7 @@ class BackendRequests(unittest.TestCase):
         self.sends = []
         self.ns["startup_mgr"] = types.SimpleNamespace(toggle=lambda body: (400, {"error": "rejected"}))
         self.ns["infra"] = types.SimpleNamespace(log=types.SimpleNamespace(exception=lambda *args: None))
+        self.ns["POST_MODULES"] = (types.SimpleNamespace(post=lambda route, body, **k: self.ns["startup_mgr"].toggle(body) if route == "/api/startup" else None),)   # /api/startup صار في routes_policy؛ هنا بديل يمرّر إلى startup_mgr
 
     def request(self, body=b"{}", length=None, **headers):
         req = types.SimpleNamespace(
@@ -532,6 +533,67 @@ class MemTrim(unittest.TestCase):
         with patch.object(self.mt, "_purge_task", lambda mode: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
             self.mt.trim_memory("light")
         self.assertEqual((self.mt.TRIM["running"], self.mt.TRIM["err"]), (False, "purge task not installed"))
+
+
+class PolicyRoutes(unittest.TestCase):
+    """البند 6/ج: routes_policy.py بلا خادم: مهام الوكيل ووضع الصيانة وبدء التشغيل والمهام المجدولة بقائمة tasks.json البيضاء،
+    وتبديل القواعد والمستويات في ملف سياسة مؤقت مع نسخة احتياطية، وإعادة جمع الحالة بعد كل تعديل ناجح فقط."""
+
+    def setUp(self):
+        import routes_policy
+        self.rp = routes_policy
+        self.invalidated = []
+
+    def post(self, route, body):
+        return self.rp.post(route, body, invalidate=lambda: self.invalidated.append(route))
+
+    def test_jobs_run_maintenance_and_startup(self):
+        nxt = []
+        with patch.object(self.rp.sched, "next_run", lambda name: {"next_run": 1} if name == "trim" else None), \
+                patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
+            self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (200, {"ok": True}))
+            self.assertEqual(self.post("/api/jobs/run", {"name": "nope"}), (404, {"error": "unknown job"}))
+        self.assertEqual(nxt, ["trim"])
+        with patch.object(self.rp, "maintenance_set", lambda on: {"on": on, "rules": [], "since": 1}):
+            self.assertEqual(self.post("/api/maintenance", {"on": "x"}), (400, {"error": "on must be boolean"}))
+            self.assertEqual(self.post("/api/maintenance", {"on": True}), (200, {"on": True, "rules": [], "since": 1}))
+        with patch.object(self.rp.startup_mgr, "toggle", lambda body: (400, {"error": "rejected"})):
+            self.assertEqual(self.post("/api/startup", {}), (400, {"error": "rejected"}))
+        self.assertIsNone(self.post("/api/other", {}))
+        self.assertEqual(self.invalidated, [])   # هذه المسارات لا تعيد جمع حالة المهام
+        self.assertEqual(self.rp.ROUTES, ("/api/rule", "/api/tier-pause", "/api/maintenance", "/api/task", "/api/startup", "/api/jobs/run"))
+
+    def test_task_whitelist_and_admin_guard(self):
+        ran = []
+        wl = {("\\A", "t1"): {"canRun": True}, ("\\A", "admin"): {"needsAdmin": True}, ("\\A", "norun"): {"canRun": False}}
+        with patch.object(self.rp, "whitelist", lambda: wl), patch.object(self.rp, "task_op", lambda op, path, name: ran.append((op, path, name))):
+            self.assertEqual(self.post("/api/task", {"op": "run", "path": "\\A", "name": "zz"}), (400, {"error": "not allowed"}))
+            self.assertEqual(self.post("/api/task", {"op": "delete", "path": "\\A", "name": "t1"}), (400, {"error": "not allowed"}))
+            self.assertEqual(self.post("/api/task", {"op": "enable", "path": "\\A", "name": "admin"})[0], 400)
+            self.assertEqual(self.post("/api/task", {"op": "run", "path": "\\A", "name": "norun"}), (400, {"error": "run not allowed for this task"}))
+            self.assertEqual(self.post("/api/task", {"op": "run", "path": "\\A", "name": "t1"}), (200, {"ok": True}))
+        self.assertEqual((ran, self.invalidated), ([("run", "\\A", "t1")], ["/api/task"]))
+
+    def test_rule_and_tier_pause_edit_policy_file_with_backup(self):
+        with tempfile.TemporaryDirectory(prefix="mw_backend_", dir=ROOT / "tests") as d:
+            pol = Path(d) / "policy.json"
+            pol.write_text(json.dumps({"rules": [{"id": "r1", "enabled": True}], "pausedTiers": ["weekly"]}), encoding="utf-8")
+            logged = []
+            fake_db = types.SimpleNamespace(_lock=threading.Lock(), conn=lambda: types.SimpleNamespace(execute=lambda q, p: logged.append(p), commit=lambda: None))
+            with patch.object(self.rp, "POLICY", str(pol)), patch.object(self.rp.cfgjson, "ROOT", d), patch.object(self.rp, "db", fake_db):
+                self.assertEqual(self.post("/api/rule", {"id": "r1", "enabled": "no"}), (400, {"error": "enabled must be boolean"}))
+                self.assertEqual(self.post("/api/rule", {"id": "zz", "enabled": False}), (400, {"error": "unknown rule"}))
+                self.assertEqual(self.post("/api/rule", {"id": "r1", "enabled": False}), (200, {"ok": True}))
+                self.assertEqual(self.post("/api/tier-pause", {"tier": "yearly", "paused": True}), (400, {"error": "bad request"}))
+                self.assertEqual(self.post("/api/tier-pause", {"tier": "daily", "paused": True}), (200, {"ok": True}))
+                self.assertEqual(self.post("/api/tier-pause", {"tier": "weekly", "paused": False}), (200, {"ok": True}))
+                state = self.rp.maintenance_state()
+            data = json.loads(pol.read_text(encoding="utf-8"))
+            self.assertEqual((data["rules"][0]["enabled"], data["pausedTiers"]), (False, ["daily"]))
+            self.assertEqual(logged[0][1:3], ("rule", "r1"))
+            self.assertEqual(self.invalidated, ["/api/rule", "/api/tier-pause", "/api/tier-pause"])
+            self.assertEqual((state["on"], state["rules"]), (False, list(self.rp.MAINT_RULES)))
+            self.assertTrue(list(Path(d).glob("backups/*policy.json")))   # نسخة احتياطية واحدة قبل أول كتابة
 
 
 if __name__ == "__main__":
