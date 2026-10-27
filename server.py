@@ -941,6 +941,20 @@ class Handler(BaseHTTPRequestHandler):
                 self.end_headers()
                 return
             self._send(200, body, "text/css; charset=utf-8", cache="no-cache", etag=tag)
+        elif re.fullmatch(r"/fonts/[a-z0-9-]+\.woff2", path):
+            # خطوط الهوية (OFL) من web/fonts: ملفات ثابتة بلا أسرار؛ ETag + تخزين يومي لأن أسماءها تحمل الوزن ولا تتغيّر إلا مع الملف
+            try:
+                body = open(os.path.join(ROOT, "web", "fonts", path.rsplit("/", 1)[1]), "rb").read()
+            except OSError:
+                return self._send(404, {"error": "not found"})
+            tag = '"%s"' % hashlib.sha1(body).hexdigest()[:16]
+            if self.headers.get("If-None-Match") == tag:
+                self.send_response(304)
+                self.send_header("ETag", tag)
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                return
+            self._send(200, body, "font/woff2", cache="public, max-age=86400", etag=tag)
         elif path in _ASSETS or path == "/favicon.ico":
             fn = "favicon.ico" if path == "/favicon.ico" else path
             fp = os.path.join(ROOT, "assets", fn.lstrip("/").replace("assets/", "", 1))
