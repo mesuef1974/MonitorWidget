@@ -18,14 +18,21 @@ for f in sorted(glob.glob(os.path.join(ROOT, "*.py"))):
 
 src = open(os.path.join(ROOT, "web", "index.html"), encoding="utf-8").read()
 
-# 2) وسوم <style> متوازنة وكل كتلة CSS لها أقواس متوازنة
-styles = re.findall(r"<style[^>]*>(.*?)</style>", src, re.S)
-check("style blocks found", len(styles) >= 1)
-for i, css in enumerate(styles):
+# 2) الأنماط مركزية في web/css: لا <style> مضمَّنة، الأقواس متوازنة، والألوان لا تُعرَّف إلا في tokens.css
+check("no inline <style> blocks", "<style" not in src)
+linked = re.findall(r'<link rel="stylesheet" href="/css/([a-z0-9_-]+\.css)"', src)
+check("css files linked", len(linked) >= 4, str(linked))
+CSSDIR = os.path.join(ROOT, "web", "css")
+for name in sorted(os.listdir(CSSDIR)):
+    if not name.endswith(".css"):
+        continue
+    css = open(os.path.join(CSSDIR, name), encoding="utf-8").read()
     css_nc = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-    check(f"css braces balanced #{i}", css_nc.count("{") == css_nc.count("}"),
-          f"{css_nc.count('{')} vs {css_nc.count('}')}")
-check("style tags balanced", src.count("<style") == src.count("</style>"))
+    check(f"css linked: {name}", name in linked)
+    check(f"css braces balanced: {name}", css_nc.count("{") == css_nc.count("}"), f"{css_nc.count('{')} vs {css_nc.count('}')}")
+    if name != "tokens.css":
+        raw_colors = re.findall(r"#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)", css_nc)
+        check(f"no raw colours outside tokens: {name}", not raw_colors, ", ".join(raw_colors[:5]))
 
 # 3) أكواد JS داخل web/index.html صحيحة الصياغة
 scripts = re.findall(r"<script(?![^>]*src=)[^>]*>(.*?)</script>", src, re.S)
