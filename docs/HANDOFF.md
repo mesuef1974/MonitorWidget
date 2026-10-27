@@ -1,6 +1,6 @@
 ---
-updated: 2026-10-27T14:00:34+03:00
-head: d7fdfe4
+updated: 2026-10-27T15:20:35+03:00
+head: 6955f7f
 branch: main
 dirty: 1
 dirty_files: ocs/HANDOFF.md
@@ -8,20 +8,22 @@ dirty_files: ocs/HANDOFF.md
 # مرصد الجهاز — بطاقة التسليم
 
 ## الحالة
-- main عند d7fdfe4. اليوم 27/10 دُمجت PR 26 (الخطوط)، PR 27 (أحجام Amiri)، PR 28 (uninstall_admin_backend.ps1 لإرجاع مهمة MonitorWidget-Agent إلى Limited + تحقق حقيقي في restart_admin/restart_agent)، PR 29 (حذف Windows.old عبر مهمتَي MonitorWidget-WinOld/-Early المرتفعتين الثابتتين من المثبّت المحمي؛ الخادم لا يستدعي takeown بعد الآن). لا PR مفتوح.
-- البند 3 المعاد صياغته (الخادم بصلاحية عادية دائمًا) اكتمل في الكود. purge standby كان أصلًا مهمة MemoryPurge-Standby. المتبقي أفعال المالك كمسؤول: (أ) تشغيل install_secure_2026-10-24.ps1 المولَّد ليسجّل مهمتَي WinOld وينسخ winold_delete.ps1؛ (ب) تشغيل uninstall_admin_backend.ps1 ليعود الوكيل Limited؛ ثم التحقق أن /api/mini يعيد admin=false وأن /fonts يعيد 200.
-- ما زال يحتاج خادمًا مرتفعًا بعد ذلك (لم يُحوَّل): extras بـ admin=True (wintemp) وDISM (_admin_or_err في extras.py) وربما swdist. تُحوَّل لاحقًا على النمط نفسه إن أراد المالك.
-- الخادم الحي حتى 13:35 ما زال العملية المرتفعة من 9:22؛ restart_admin.ps1 القديم كان يعلن النجاح زورًا (أُصلح في PR 28).
-- check_all وrun_all تمرّ. origin/fix/gpu-page2-density فرع قديم غير مدمج؛ مساحة .claude/worktrees/compassionate-ptolemy-07d621 لم تُحذف. tests/report.txt وtests/live_report.json لا يُلتزمان. وكيل التطوير على 47900 قد يكون ما زال يعمل.
+- main عند 6955f7f = PR 32 (wintemp وswdist وDISM عبر مهام مجدولة مرتفعة ثابتة MonitorWidget-Clean-WinTemp/-SwDist/-Dism من elevated_clean.ps1 في المجلد المحمي، مع مفتاح تفعيل لكل فعل مرتفع في جدول تنظيف المساحة: الإعداد space.elevated، /api/space action=elevated). قبله PR 30 و31 (إصلاح سكربت الإرجاع). لا PR مفتوح. الشجرة نظيفة عدا docs/HANDOFF.md.
+- فصل الصلاحيات حيّ: الخادم بصلاحية عادية (admin=false) منذ ~15:00، أُعيد تشغيله بـ restart_agent.ps1 بعد PR 32 ويحمل الكود الجديد؛ /api/space يعيد elevated لكل نوع (winold ready=true؛ الثلاثة الجديدة ready=false لأن المثبّت لم يُشغَّل بعد). مفتاح التفعيل مُجرَّب حيًّا (تعطيل/تفعيل dism).
+- ينتظر المالك كمسؤول مرة واحدة: install_secure_2026-10-24.ps1 (المولَّد من build_secure_install.py، يحوي تجزئة elevated_clean.ps1) لتسجيل المهام الثلاث. بعدها يصبح wintemp وswdist وDISM قابلة للتنفيذ من الواجهة بلا خادم مرتفع.
+- فشلات سابقة على main (ليست من هذه التغييرات): tests/appearance_regression.py (NameError: re في do_GET المستخرج، من مسار /fonts في PR 26)، tests/widget_close_check.ps1 (سطر 10)، tests/widget_button_contrast_check.ps1 (سطر 37). تُصلح في PR مستقل.
+- ملاحظة: uninstall_admin_backend.ps1 طبع «المشغّلات: 1 (المطلوب 0)»؛ غير ضار.
+- check_all يمر. origin/fix/gpu-page2-density فرع قديم غير مدمج؛ مساحة .claude/worktrees/compassionate-ptolemy-07d621 لم تُحذف. tests/report.txt وtests/live_report.json لا يُلتزمان. وكيل التطوير على 47900 يعمل.
 ## الخطوة الجارية
-- لا عمل جارٍ؛ بانتظار المالك لتشغيل المثبّتين كمسؤول (انظر الحالة).
+- بانتظار المالك تشغيل المثبّت المحمي كمسؤول لتسجيل مهام Clean الثلاث.
 ## الخطوة التالية (أمر قابل للتنفيذ)
-- بعد تشغيل المالك للسكربتين: تحقق بـ python -c "import space;print(space._winold_task_ready())" (يجب True) وبـ /api/mini admin=false؛ ثم البند 4 من الخارطة: Pester لدوال widget.ps1 + Playwright للصفحات في CI مبني على tour.cjs. إن أراد المالك استكمال فصل الصلاحيات: wintemp وDISM في extras.py على نمط WinOld.
+- بعد تشغيل المالك للمثبّت: تحقق أن /api/space يعيد elevated.*.ready=true للثلاثة، وجرّب معاينة ثم تنفيذ wintemp من الواجهة وتأكد من صف actions وملف ProgramData\MonitorWidget\out\clean_wintemp_result.json.
+- ثم إصلاح الفشلات الثلاث السابقة في run_all (PR صغير)، ثم البند 4 من الخارطة: Pester لدوال widget.ps1 + Playwright للصفحات في CI مبني على tour.cjs.
 ## خارطة الطريق المتفق عليها (2026-10-27)
 - المنتج أداة شخصية: لا تحزيم ولا توقيع ولا ويدجت .NET.
 - 1) إغلاق المعلّق حيًّا وإصلاح ما ينكسر (أزرار المساحة، قائمة الويدجت وألوانه، فتح الغلاف من الويدجت، نقل إخفاء/تأجيل التوصيات) + إصلاح وصف delivery-optimization (القاعدة صحيحة).
 - 2) تحذير ظاهر في صفحة الصحة عند سقوط WebView2 إلى Edge.
-- 3) الخادم بصلاحية عادية دائمًا؛ الأفعال المرتفعة (purge، Windows.old، لاحقًا wintemp/DISM) مهام مجدولة ثابتة بقائمة بيضاء على نمط Cleanup_v2 (أُعيدت صياغته 27/10: nvidia-smi لا يحتاج مسؤولًا).
+- 3) مكتمل في الكود 27/10: الخادم بصلاحية عادية دائمًا؛ الأفعال المرتفعة (purge، Windows.old، wintemp، swdist، DISM) مهام مجدولة ثابتة بقائمة بيضاء مع مفتاح تفعيل لكل فعل؛ يتبقى تسجيل مهام Clean بالمثبّت.
 - 4) فحص مرئي: Pester لدوال widget.ps1 + Playwright للصفحات في CI مبني على tour.cjs.
 - 5) عدّاد فتح لكل صفحة لأسبوعين ثم قصّ غير المستخدم.
 - 6) تجزئة server.py وحدة في كل PR بدءًا بالمسارات الهدّامة مع فحص 428.
@@ -40,7 +42,7 @@ dirty_files: ocs/HANDOFF.md
 - العربية الفصحى والإيجاز؛ لا رسائل إلى جلسة «خفيفة 0101»؛ الدمج بـ squash بعد نجاح CI دون سؤال (تكليف المالك 27/10).
 - فرع من main ← PR ← squash بعد CI؛ تحديث الفرع المحمي من main قبل الدمج.
 - الأنماط في web/css بمتغيرات tokens.css فقط؛ المضمّن للقيم القادمة من البيانات.
-- لا تقتل عمليات PowerShell بالجملة (قد تقتل الويدجت). إعادة التشغيل: restart_admin.ps1 بصلاحية مسؤول.
+- لا تقتل عمليات PowerShell بالجملة (قد تقتل الويدجت). إعادة التشغيل: restart_agent.ps1 (المهمة المحدودة)؛ restart_admin.ps1 يُطلق خادمًا مرتفعًا ولا يُستعمل بعد فصل الصلاحيات.
 
 ## أوامر التحقق
 - python tests/check_all.py
