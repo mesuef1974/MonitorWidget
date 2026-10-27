@@ -12,13 +12,14 @@ code{direction:ltr;unicode-bidi:isolate;font:13px Consolas,monospace;background:
 .meta code{margin-inline-end:6px}
 </style></head><body><main><header><h1>مرصد الجهاز — بطاقة التسليم</h1><p class=meta>
 branch <code>feat/handoff-automation</code>
-head <code>0ae3f25</code>
-dirty <code>0</code>
-updated <code>2026-10-27T10:22:20+03:00</code>
+head <code>48df52f</code>
+dirty <code>1</code>
+updated <code>2026-10-27T10:24:18+03:00</code>
 </p></header>
 <section><h2>الحالة</h2><ul><li>الفرع الحالي feat/handoff-automation · PR 15 مفتوح (ملفات آلية التسليم). PR 14 (fix/equal-rows) مفتوح، CI ناجح، MERGEABLE. لا يُدمج أيّ منهما دون طلب صريح من المالك.</li><li>main عند PR 13. PR 5–13 مدموجة، PR 4 مغلق بلا دمج.</li><li>الفحص tests/check_all.py يمرّ كله عدا delivery-optimization (وصف القاعدة يقول DISABLED وهي مفعّلة؛ متروك عمدًا حتى يقرر المالك).</li></ul></section>
 <section><h2>الخطوة الجارية</h2><ul><li>تقرير SWOT docs/تقرير_SWOT_2026-10-27.html ملتزم في PR 15 (0ae3f25) ومنشور كـ Artifact.</li><li>آلية التسليم الآلي بُنيت ورُبطت: docs/HANDOFF.md + ~/.claude/hooks/handoff_guard.py (Stop/SessionStart) + handoff_card.py (المرآة) + .claude/handoff.json (العتبة 190k). الملفات الجديدة غير ملتزمة بعد (تخص PR مستقل لا PR 14).</li></ul></section>
-<section><h2>الخطوة التالية (أمر قابل للتنفيذ)</h2><ul><li>انتظار قرار المالك في PR 15 وPR 14؛ وإن طُلب الدمج: gh pr update-branch ثم squash بعد CI.</li></ul></section>
+<section><h2>الخطوة التالية (أمر قابل للتنفيذ)</h2><ul><li>بانتظار اختيار المالك نقطة البداية من خارطة الطريق أدناه؛ المرشح الأول: إغلاق المعلّق بتجربة حية على الجهاز.</li></ul></section>
+<section><h2>خارطة الطريق المتفق عليها (2026-10-27)</h2><ul><li>المنتج أداة شخصية: لا تحزيم ولا توقيع ولا ويدجت .NET.</li><li>1) إغلاق المعلّق حيًّا وإصلاح ما ينكسر (أزرار المساحة، قائمة الويدجت وألوانه، فتح الغلاف من الويدجت، نقل إخفاء/تأجيل التوصيات) + إصلاح وصف delivery-optimization (القاعدة صحيحة).</li><li>2) تحذير ظاهر في صفحة الصحة عند سقوط WebView2 إلى Edge.</li><li>3) مساعد مرتفع صغير لقياسات nvidia-smi؛ الخادم بصلاحية عادية دائمًا.</li><li>4) فحص مرئي: Pester لدوال widget.ps1 + Playwright للصفحات في CI مبني على tour.cjs.</li><li>5) عدّاد فتح لكل صفحة لأسبوعين ثم قصّ غير المستخدم.</li><li>6) تجزئة server.py وحدة في كل PR بدءًا بالمسارات الهدّامة مع فحص 428.</li></ul></section>
 <section><h2>ما بُني (مختصر)</h2><ul><li>الغلاف app_shell.ps1 (WPF بلا إطار، WebView2 من مكتبات Teams، يرجع لـ Edge).</li><li>الهوية المشتركة identity.ps1 تقرأ web/css/tokens.css للويدجت والغلاف.</li><li>الواجهة web/index.html + web/css (tokens/base/layout/components/utilities) يقدّمها server.py بـ ETag.</li></ul></section>
 <section><h2>معلّق / غير مُتحقق</h2><ul><li>قياسات كرت الشاشة الحية تحتاج الخادم بصلاحية مسؤول.</li><li>أزرار معاينة/تنظيف المساحة بعد التقسيم لم تُجرَّب فعليًا.</li><li>القائمة الجديدة للويدجت وألوانه من tokens لم تُجرَّب على الويدجت الحي؛ ولم يُفتح الغلاف من زر الويدجت.</li><li>إخفاء/تأجيل التوصيات: لم يُنقل من الصفحة القديمة إلى web/index.html.</li></ul></section>
 <section><h2>قواعد ثابتة</h2><ul><li>العربية الفصحى والإيجاز؛ لا رسائل إلى جلسة «خفيفة 0101»؛ لا دمج PR دون طلب.</li><li>فرع من main ← PR ← squash بعد CI؛ تحديث الفرع المحمي من main قبل الدمج.</li><li>الأنماط في web/css بمتغيرات tokens.css فقط؛ المضمّن للقيم القادمة من البيانات.</li><li>لا تقتل عمليات PowerShell بالجملة (قد تقتل الويدجت). إعادة التشغيل: restart_admin.ps1 بصلاحية مسؤول.</li></ul></section>
