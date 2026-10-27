@@ -45,7 +45,14 @@ public static class RoundRgn {
 
 function Brush([string]$hex) { [Windows.Media.BrushConverter]::new().ConvertFromString($hex) }
 # ألوان الويدجت الداكنة (نفس edge/base/card/ink)
-$base = '#101F1D'; $edge = '#344947'; $ink = '#E5EEED'; $muted = '#A8BFBC'; $hover = '#203D35'; $bad = '#B42318'
+. (Join-Path $root 'identity.ps1')
+# المظهر المعتمد (appearance.json) والألوان من web\css	okens.css: النافذة تطابق الصفحة والويدجت
+$mode = 'auto'; $palName = 'teal'
+try { $ap = Get-Content -LiteralPath (Join-Path $root 'appearance.json') -Raw -Encoding UTF8 | ConvertFrom-Json; if ($ap.mode) { $mode = $ap.mode }; if ($ap.palette) { $palName = $ap.palette } } catch {}
+$sysLight = $false; try { $sysLight = ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction Stop).AppsUseLightTheme -eq 1) } catch {}
+$isLight = switch ($mode) { 'light' { $true } 'dark' { $false } default { $sysLight } }
+$P = Get-IdentityPalette $root $isLight $palName @{ base = '101F1D'; edge = '#344947'; ink = '#E5EEED'; muted = '#A8BFBC'; hover = '#203D35'; bad = '#B42318' }
+$base = '#' + $P.base; $edge = $P.edge; $ink = $P.ink; $muted = $P.muted; $hover = $P.hover; $bad = $P.bad
 $R = 14
 
 $win = New-Object Windows.Window
