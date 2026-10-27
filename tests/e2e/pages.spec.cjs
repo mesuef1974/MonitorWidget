@@ -41,3 +41,29 @@ test('كل الصفحات تُعرض في الوضعين بلا أخطاء ول�
   test.info().annotations.push({ type: 'pages', description: seen.join('\n') });
   expect(errors, errors.join('\n')).toEqual([]);
 });
+
+test('صفحة الصحة: لا تحذير مع WebView2، وتحذير ظاهر بسبب السقوط وتفاصيله عند Edge', async ({ page }) => {
+  await page.goto('/#/health');
+  await page.waitForFunction(() => document.querySelector('#main .panel'));
+  expect(await page.locator('#main .banner.warn').count()).toBe(0);   // الثابت: engine=webview2 وfallback=false
+
+  // الخادم يعيد shell من سقوط الغلاف نفسه (init_failed) رغم توفر المكتبات (ready=true)
+  await page.route('**/api/health', async route => {
+    const res = await route.fetch();
+    const body = await res.json();
+    body.shell = { ready: true, reason: '', engine: 'edge', lastReason: 'init_failed', ts: 1793104155, fallback: true, detail: 'init_failed: HRESULT 0x80070002' };
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.evaluate(() => { location.hash = '#/overview'; });
+  await page.waitForFunction(() => location.hash === '#/overview' && document.querySelector('#main .panel'));
+  await page.evaluate(() => { location.hash = '#/health'; });
+  const banner = page.locator('#main .banner.warn');
+  await expect(banner).toBeVisible({ timeout: 10000 });
+  await expect(banner).toHaveAttribute('role', 'alert');
+  const text = await banner.textContent();
+  expect(text).toContain('Edge');
+  expect(text).toContain('WebView2');
+  expect(text).toContain('shell_error.log');
+  expect(text).toContain('0x80070002');
+  expect(text).not.toContain('أعد فتح النافذة');   // المكتبات متوفرة لكن التهيئة فشلت: إعادة الفتح لا تكفي
+});

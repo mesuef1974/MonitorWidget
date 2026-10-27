@@ -1,5 +1,6 @@
 ﻿# غلاف نافذة التطبيق: نافذة بلا إطار ويندوز بحواف مستديرة مثل الويدجت، تستضيف الواجهة عبر WebView2.
-# يُشغَّل بـ Windows PowerShell (STA). إن لم تتوفر مكتبات WebView2 يرجع المستدعي إلى Edge --app.
+# يُشغَّل بـ Windows PowerShell (STA). إن لم تتوفر مكتبات WebView2 أو فشلت تهيئته يسقط الغلاف بنفسه إلى Edge --app
+# بالتذكرة نفسها، ويسجّل المحرك والسبب في shell_state.json ليعرض الخادم التحذير في صفحة الصحة (/api/health → shell).
 param(
     [Parameter(Mandatory)][string]$Url,
     [int]$X = 0, [int]$Y = 0, [int]$W = 1280, [int]$H = 900,
@@ -8,6 +9,74 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $vend = Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2'
+$stateFile = Join-Path $env:LOCALAPPDATA 'MonitorWidget\shell_state.json'
+$errorLog = Join-Path $env:LOCALAPPDATA 'MonitorWidget\shell_error.log'
+$script:fallbackReason = $null
+
+function ConvertTo-ShellStateJson([string]$engine, [string]$reason, [long]$ts) {
+    # مخطط الخادم نفسه (_record_shell في server.py): engine / reason / ts
+    return ([ordered]@{ engine = $engine; reason = $reason; ts = $ts } | ConvertTo-Json -Compress)
+}
+function Write-ShellState([string]$engine, [string]$reason, [string]$path = $stateFile) {
+    # كتابة ذرية (ملف مؤقت ثم إعادة تسمية) بلا BOM؛ الخادم يقرأ الملف في /api/health. الفشل لا يعطّل النافذة.
+    try {
+        $dir = Split-Path $path -Parent; New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        $tmp = Join-Path $dir ('.shell_state.' + [IO.Path]::GetRandomFileName() + '.tmp')
+        [IO.File]::WriteAllText($tmp, (ConvertTo-ShellStateJson $engine $reason ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds())), (New-Object Text.UTF8Encoding $false))
+        Move-Item -LiteralPath $tmp -Destination $path -Force
+        return $true
+    } catch { return $false }
+}
+function Write-ShellError([string]$reason, [string]$detail, [string]$path = $errorLog) {
+    try { [IO.File]::WriteAllText($path, ('{0:s} {1}: {2}' -f (Get-Date), $reason, $detail), (New-Object Text.UTF8Encoding $false)) } catch {}
+}
+function Get-EdgeWindowHeight([int]$h) { return [Math]::Max(480, $h - 40) }   # 40: شريط العنوان الذي يضيفه Edge فوق المقاس
+function Get-EdgeFallbackArgs([string]$url, [int]$x, [int]$y, [int]$w, [int]$h, [string]$prof) {
+    # وسائط الخادم والويدجت نفسها: نافذة تطبيق بملف تعريف منفصل، بالمقاس والموضع المطلوبين بالبكسل الفعلي
+    return @("--app=$url", "--user-data-dir=$prof", ('--window-size={0},{1}' -f $w, (Get-EdgeWindowHeight $h)), ('--window-position={0},{1}' -f $x, $y))
+}
+function Find-EdgeExe {
+    foreach ($p in @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")) { if ($p -and (Test-Path $p)) { return $p } }
+    return $null
+}
+function Start-EdgeFallback([string]$reason) {
+    # السقوط إلى Edge --app بالتذكرة نفسها (لم تُستهلك لأن WebView2 لم يبحر)، مع تسجيل المحرك لصفحة الصحة وتثبيت الإطار
+    $edgeExe = Find-EdgeExe
+    if (-not $edgeExe) { [void](Write-ShellState 'browser' $reason); Start-Process $Url; return }
+    [void](Write-ShellState 'edge' $reason)
+    $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'; New-Item -ItemType Directory -Force -Path $prof | Out-Null
+    Start-Process $edgeExe -ArgumentList (Get-EdgeFallbackArgs $Url $X $Y $W $H $prof)
+    # Edge قد يتجاهل المقاس ويفتح ملء الشاشة: نثبت الإطار بعد ظهور النافذة (منطق الويدجت والخادم نفسه)
+    try {
+        Add-Type -TypeDefinition @'
+using System; using System.Diagnostics; using System.Runtime.InteropServices; using System.Text;
+public static class ShellWin {
+    public delegate bool CB(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(CB callback, IntPtr parameter);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int length);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool MoveWindow(IntPtr h, int x, int y, int width, int height, bool repaint);
+    public static bool Place(string title, int x, int y, int width, int height) {
+        IntPtr target = IntPtr.Zero;
+        EnumWindows((h, l) => {
+            if (!IsWindowVisible(h)) return true;
+            var text = new StringBuilder(1024); GetWindowText(h, text, text.Capacity);
+            if (!String.Equals(title, text.ToString(), StringComparison.Ordinal)) return true;
+            try {
+                uint pid; GetWindowThreadProcessId(h, out pid);
+                using (var p = Process.GetProcessById((int)pid)) { if (String.Equals(p.ProcessName, "msedge", StringComparison.OrdinalIgnoreCase)) { target = h; return false; } }
+            } catch { }
+            return true;
+        }, IntPtr.Zero);
+        return target != IntPtr.Zero && MoveWindow(target, x, y, width, height, true);
+    }
+}
+'@
+        $eh = Get-EdgeWindowHeight $H
+        for ($i = 0; $i -lt 40; $i++) { if ([ShellWin]::Place($Title, $X, $Y, $W, $eh)) { break }; Start-Sleep -Milliseconds 150 }
+    } catch {}
+}
 
 function Initialize-Vendor {
     if (Test-Path (Join-Path $vend 'Microsoft.Web.WebView2.Wpf.dll')) { return $true }
@@ -22,14 +91,14 @@ function Initialize-Vendor {
     if (Test-Path $ld) { Copy-Item $ld $vend -Force }
     return (Test-Path (Join-Path $vend 'WebView2Loader.dll'))
 }
-if (-not (Initialize-Vendor)) { exit 3 }
+if (-not (Initialize-Vendor)) { Write-ShellError 'no_webview2' 'مكتبات WebView2 غير متوفرة في webview2 ولا في إضافة Teams'; Start-EdgeFallback 'no_webview2'; exit 3 }
 
 Add-Type -TypeDefinition 'using System.Runtime.InteropServices; public static class Dpi { [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(System.IntPtr v); [DllImport("user32.dll")] public static extern uint GetDpiForSystem(); [DllImport("shell32.dll")] public static extern int SetCurrentProcessExplicitAppUserModelID([MarshalAs(UnmanagedType.LPWStr)] string id); }'
 [void][Dpi]::SetCurrentProcessExplicitAppUserModelID('MonitorWidget.App')   # هوية خاصة: زر شريط المهام لا يُجمَّع مع PowerShell
 [void][Dpi]::SetProcessDpiAwarenessContext([IntPtr]-4)   # per-monitor v2: بدونه يرسم WebView2 بمقياس يخالف النافذة
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Xaml
-Add-Type -Path (Join-Path $vend 'Microsoft.Web.WebView2.Core.dll')
-Add-Type -Path (Join-Path $vend 'Microsoft.Web.WebView2.Wpf.dll')
+try { Add-Type -Path (Join-Path $vend 'Microsoft.Web.WebView2.Core.dll'); Add-Type -Path (Join-Path $vend 'Microsoft.Web.WebView2.Wpf.dll') }
+catch { Write-ShellError 'no_webview2' ([string]$_.Exception.Message); Start-EdgeFallback 'no_webview2'; exit 3 }   # مكتبات تالفة
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -105,7 +174,8 @@ $frame.Child = $grid; $win.Content = $frame
 
 $wv.Add_CoreWebView2InitializationCompleted({
     param($s, $e)
-    if (-not $e.IsSuccess) { try { Set-Content -LiteralPath (Join-Path $env:LOCALAPPDATA 'MonitorWidget\shell_error.log') -Value ([string]$e.InitializationException) } catch {}; $win.Close(); return }
+    if (-not $e.IsSuccess) { Write-ShellError 'init_failed' ([string]$e.InitializationException); $script:fallbackReason = 'init_failed'; $win.Close(); return }   # السقوط بعد إغلاق النافذة
+    [void](Write-ShellState 'webview2' '')   # نجح المحرك: يزول تحذير صفحة الصحة
     $c = $wv.CoreWebView2
     $c.Settings.AreDefaultContextMenusEnabled = $false; $c.Settings.IsStatusBarEnabled = $false; $c.Settings.AreDevToolsEnabled = $false
     $c.Settings.IsPasswordAutosaveEnabled = $false; $c.Settings.IsGeneralAutofillEnabled = $false
@@ -128,6 +198,7 @@ function Set-Corners {
 $win.Add_SourceInitialized({ Set-Corners })
 $win.Add_SizeChanged({ Set-Corners })
 $win.Add_StateChanged({ Set-Corners })
-$win.Add_Loaded({ $win.Activate(); [void]$wv.EnsureCoreWebView2Async() })
+$win.Add_Loaded({ $win.Activate(); try { [void]$wv.EnsureCoreWebView2Async() } catch { Write-ShellError 'init_failed' ([string]$_.Exception.Message); $script:fallbackReason = 'init_failed'; $win.Close() } })
 $win.Add_Closed({ try { $wv.Dispose() } catch {} })
 [void]$win.ShowDialog()
+if ($script:fallbackReason) { Start-EdgeFallback $script:fallbackReason }

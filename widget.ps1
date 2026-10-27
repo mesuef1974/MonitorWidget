@@ -920,6 +920,7 @@ function Open-Dash([string]$tk) {
         $shell = Join-Path $PSScriptRoot 'app_shell.ps1'
         $vend = Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2\Microsoft.Web.WebView2.Wpf.dll'
         $haveVend = (Test-Path $vend) -or (Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in') -Recurse -Filter 'Microsoft.Web.WebView2.Wpf.dll' -ErrorAction SilentlyContinue | Select-Object -First 1)
+        $why = if (Test-Path $shell) { 'no_webview2' } else { 'no_shell' }   # سبب السقوط المباشر؛ الغلاف نفسه يسجّل سقوطه عند فشل التهيئة
         if ((Test-Path $shell) -and $haveVend) {
             # نافذة بلا إطار بحواف مستديرة مثل الويدجت (WebView2)؛ المقاس والموضع بالبكسل الفعلي
             $wa = [System.Windows.SystemParameters]::WorkArea
@@ -935,6 +936,7 @@ function Open-Dash([string]$tk) {
             $pw = [int]([Math]::Max(900, $wa.Width * $sc - 490)); $ph = [int]($wa.Height * $sc - 40)  # 40: شريط العنوان
             $px = [int]($wa.Left * $sc); $py = [int]($wa.Top * $sc)
             $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'; New-Item -ItemType Directory -Force -Path $prof | Out-Null
+            Start-Bg '/api/shell' @{ engine = 'edge'; reason = $why } {} { param($m) Log ('open: shell state ' + $m) }   # صفحة الصحة تعرض سبب السقوط
             Start-Process $edge -ArgumentList "--app=$url", "--user-data-dir=$prof", "--window-size=$pw,$ph", "--window-position=$px,$py"
             # Edge قد يتجاهل المقاس ويفتح ملء الشاشة: نثبت الإطار مباشرة بعد ظهور النافذة
             $tt = if ($script:dashTitle) { $script:dashTitle } else { 'مرصد الجهاز' }
@@ -949,7 +951,7 @@ function Open-Dash([string]$tk) {
                 if ($ok -or $placementState.Attempts -ge 40) { $this.Stop(); Log ('open: placed=' + $ok + ' at ' + $px + ',' + $py + ' size ' + $pw + 'x' + $ph) }
             }.GetNewClosure()))
             $script:dashPlaceTimer.Start()
-        } else { Start-Process $url }
+        } else { Start-Bg '/api/shell' @{ engine = 'browser'; reason = $why } {} { param($m) Log ('open: shell state ' + $m) }; Start-Process $url }
     } catch { Log ('open: '+$_.Exception.Message);Show-Toast 'تعذّر فتح التطبيق؛ تحقّق من تشغيل الخادم.' }
 }
 

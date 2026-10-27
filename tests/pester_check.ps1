@@ -9,4 +9,4 @@ if (-not $mod -or $mod.Version.Major -lt 5) {
 Import-Module Pester -MinimumVersion 5.0
 $r = Invoke-Pester -Path (Join-Path $PSScriptRoot 'widget_functions.Tests.ps1') -PassThru -Output Normal
 if ($r.FailedCount -gt 0 -or $r.TotalCount -eq 0) { Write-Output "FAIL Pester: $($r.FailedCount) فاشل من $($r.TotalCount)"; exit 1 }
-Write-Output "PASS Pester: $($r.PassedCount) اختبارًا لدوال widget.ps1 وidentity.ps1"
+Write-Output "PASS Pester: $($r.PassedCount) اختبارًا لدوال widget.ps1 وidentity.ps1 وapp_shell.ps1"
