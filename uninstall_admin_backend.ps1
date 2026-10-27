@@ -20,9 +20,21 @@ $task = New-ScheduledTask -Action $act -Principal $pr -Settings $set -Descriptio
 
 $before = (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess
 Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-$ap = [regex]::Escape($root) + '[\/](agent|server)\.py'
-Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'python.exe', 'pythonw.exe' -and $_.CommandLine -match $ap } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-if ($before) { Stop-Process -Id $before -Force -ErrorAction SilentlyContinue }   # الخادم المرتفع لا يحمل سطر أوامر مرئيًا دائمًا
+# يجب قتل الوكيل القديم أيضًا لا الخادم وحده: الوكيل يحمل mutex النسخة الواحدة فيُخرج الوكيل المحدود الجديد بصمت،
+# ثم يعيد تشغيل الخادم بصلاحيته هو (المرتفعة). restart_admin.ps1 القديم كان يطلقه بسطر «agent.py» نسبي بلا مسار،
+# لذا نطابق المسار الكامل تحت $root أو agent.py عاريًا، ونقتل كذلك أبَ العملية المستمعة إن كان بايثون.
+$all = Get-CimInstance Win32_Process
+$ap = '(' + [regex]::Escape($root) + '[\\/](agent|server)\.py)|(^(\S+|"[^"]+")\s+"?agent\.py"?\s*$)'
+$parent = if ($before) { ($all | Where-Object ProcessId -eq $before).ParentProcessId } else { 0 }
+$victims = @($all | Where-Object {
+    ($_.Name -in 'python.exe', 'pythonw.exe' -and $_.CommandLine -match $ap) -or
+    ($before -and $_.ProcessId -eq $before) -or
+    ($parent -and $_.ProcessId -eq $parent -and $_.Name -match '^pythonw?\.exe$')
+})
+$victims | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+Start-Sleep 1
+$left = @(Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'python.exe', 'pythonw.exe' -and $_.CommandLine -match $ap })
+if ($left.Count) { throw ('بقي وكيل/خادم قديم حيًّا: ' + (($left | ForEach-Object ProcessId) -join ', ')) }
 Start-Sleep 2
 Register-ScheduledTask -TaskName $name -InputObject $task -Force | Out-Null
 Start-ScheduledTask -TaskName $name

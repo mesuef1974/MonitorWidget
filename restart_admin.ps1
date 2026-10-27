@@ -16,7 +16,7 @@ if (-not $py) { $py = (Get-Command pythonw.exe).Source }
 $victims | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Start-Sleep -Seconds 2
 
-Start-Process -FilePath $py -ArgumentList 'agent.py' -WorkingDirectory $root -WindowStyle Hidden
+Start-Process -FilePath $py -ArgumentList ('"' + (Join-Path $root 'agent.py') + '"') -WorkingDirectory $root -WindowStyle Hidden   # مسار كامل كي تطابقه سكربتات الإيقاف
 
 $token = (Get-Content -LiteralPath (Join-Path $root '.token') -Raw).Trim()
 $h = @{ 'X-Token' = $token }
