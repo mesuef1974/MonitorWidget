@@ -8,7 +8,8 @@ ensure_sqlite()
 import ctypes, os, sys, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import db, infra, sched, space, server, cpuwatch, gpuwatch, shotwatch, insight, memtrim  # noqa: E402
+import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim  # noqa: E402
+from paths import PORT  # noqa: E402
 
 log = infra.log
 _mutex = None
@@ -29,7 +30,7 @@ def j_heartbeat():
 
 
 def j_sample():
-    db.add_sample(time.time(), server.native_metrics(), "live")
+    db.add_sample(time.time(), snapshot.native_metrics(), "live")
 
 
 def j_trim():
@@ -44,7 +45,7 @@ def j_trim():
         up_min = 999
     if up_min < 10:
         return "skipped: %.1f min since boot" % up_min
-    m = server.native_metrics()
+    m = snapshot.native_metrics()
     av, rp = m.get("availGB"), m.get("ramPct")
     try:
         import alertcfg
@@ -79,7 +80,7 @@ def j_server_guard():
     """Keep the local dashboard/API server running (it is started here, not by the widget)."""
     import socket, subprocess
     try:
-        with socket.create_connection(("127.0.0.1", server.PORT), timeout=1):
+        with socket.create_connection(("127.0.0.1", PORT), timeout=1):
             return "up"
     except OSError:
         pass

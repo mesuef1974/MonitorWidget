@@ -38,8 +38,8 @@ def extracted():
               hmac=hmac, os=os, threading=threading, BaseHTTPRequestHandler=BaseHTTPRequestHandler,
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
               MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, SESSION_TTL=60,
-              MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(), _cache={"t": 1},
-              POST_MODULES=(), _after_mutation=lambda: None)   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها
+              MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(),
+              POST_MODULES=(), snapshot=types.SimpleNamespace(invalidate=lambda: None))   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها؛ snapshot وهمي (البند 6/ز)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
     return ns
 
