@@ -17,13 +17,15 @@ $panel=New-Card;$text=New-Text 'نص واضح' 14 $C.ink;$panel.Child=$text
 $win=New-Object Windows.Window;$win.Opacity=1
 foreach($opacity in @(1,.96,.5,.25,.1)){
     Set-CardOpacity $opacity
-    if($script:S.opacity -ne $opacity -or $card.Background.Color.A -ne [byte][Math]::Round(255*$opacity)){throw 'Outer material opacity does not match slider'}
+    # عقد الشفافية الشاملة: النافذة كلها تحمل المنزلقة (فتشمل النص والأزرار والرسم) والأسطح بسُمكها الثابت فلا تتضاعف الشفافية
+    if($script:S.opacity -ne $opacity -or $win.Opacity -ne $opacity){throw 'Whole-widget opacity does not match slider'}
+    if($card.Background.Color.A -ne 255){throw 'Outer surface alpha must stay fixed; the window carries the slider'}
     # اللوحة الداخلية تتبع المنزلق بنسبة 94% من المادة الخارجية (عقد الهوية المشتركة في widget_identity_check) ولا تبقى مصمتة عند خفضه
-    if($panel.Background.Color.A -ne [byte][Math]::Round(255*$opacity*.94) -or $panel.Background.Color.A -gt $card.Background.Color.A){throw 'Inner panel remained opaque'}
-    if($win.Opacity -ne 1 -or $text.Opacity -ne 1 -or $text.Foreground.Color.A -ne 255 -or $panel.Opacity -ne 1){throw 'Background opacity faded text or controls'}
+    if($panel.Background.Color.A -ne [byte][Math]::Round(255*.94) -or $panel.Background.Color.A -gt $card.Background.Color.A){throw 'Inner panel alpha must stay at 94% of the outer surface'}
+    if($text.Opacity -ne 1 -or $text.Foreground.Color.A -ne 255 -or $panel.Opacity -ne 1){throw 'Per-element opacity would compound the window opacity'}
 }
-Write-Output 'PASS finite opacity normalization, saved100% preservation, actual outer/inner alpha and fully opaque text/window controls'
-if($source -notmatch "\`$opLbl.Text = 'عتامة الخلفية'" -or $source -notmatch '100% خلفية مصمتة' -or $source -notmatch '\$opSl.Add_LostKeyboardFocus'){throw 'Opacity control lacks clear meaning or keyboard persistence'}
+Write-Output 'PASS finite opacity normalization, saved100% preservation, whole-window opacity with fixed surface alphas and no per-element compounding'
+if($source -notmatch "\`$opLbl.Text = 'عتامة الويدجت'" -or $source -notmatch '100% معتم تمامًا' -or $source -notmatch '\$opSl.Add_LostKeyboardFocus'){throw 'Opacity control lacks clear meaning or keyboard persistence'}
 $stack=New-Object Windows.Controls.StackPanel;$stack.FlowDirection='RightToLeft';$UI=@{tiers=@{}}
 $start=$source.IndexOf('# ---- header');$end=$source.IndexOf('# ---- rings',$start)
 $headerSource=$source.Substring($start,$end-$start).Replace("(Join-Path `$PSScriptRoot 'assets\icon_192.png')","(Join-Path `$widgetRoot 'assets\icon_192.png')")
