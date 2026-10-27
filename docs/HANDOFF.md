@@ -1,14 +1,14 @@
 ---
-updated: 2026-10-27T10:13:58+03:00
-head: 4bcf340
-branch: fix/equal-rows
-dirty: 4
-dirty_files: .claude/, CLAUDE.md, docs/HANDOFF.md, docs/handoff_card.html
+updated: 2026-10-27T10:15:57+03:00
+head: ec544f4
+branch: feat/handoff-automation
+dirty: 0
+dirty_files: 
 ---
 # مرصد الجهاز — بطاقة التسليم
 
 ## الحالة
-- الفرع: fix/equal-rows · PR 14 مفتوح، CI ناجح، MERGEABLE؛ لا يُدمج دون طلب صريح من المالك.
+- الفرع الحالي feat/handoff-automation · PR 15 مفتوح (ملفات آلية التسليم). PR 14 (fix/equal-rows) مفتوح، CI ناجح، MERGEABLE. لا يُدمج أيّ منهما دون طلب صريح من المالك.
 - main عند PR 13. PR 5–13 مدموجة، PR 4 مغلق بلا دمج.
 - الفحص tests/check_all.py يمرّ كله عدا delivery-optimization (وصف القاعدة يقول DISABLED وهي مفعّلة؛ متروك عمدًا حتى يقرر المالك).
 
@@ -16,7 +16,7 @@ dirty_files: .claude/, CLAUDE.md, docs/HANDOFF.md, docs/handoff_card.html
 - آلية التسليم الآلي بُنيت ورُبطت: docs/HANDOFF.md + ~/.claude/hooks/handoff_guard.py (Stop/SessionStart) + handoff_card.py (المرآة) + .claude/handoff.json (العتبة 190k). الملفات الجديدة غير ملتزمة بعد (تخص PR مستقل لا PR 14).
 
 ## الخطوة التالية (أمر قابل للتنفيذ)
-- كنّاس الإيقاظ handoff-wake-sweeper أُنشئ (كل 5 دقائق، وضع Auto). التالي: فرع feat/handoff-automation من main ← PR للملفات الثلاثة (CLAUDE.md، .claude/handoff.json، docs/HANDOFF.md، docs/handoff_card.html).
+- انتظار قرار المالك في PR 15 وPR 14؛ وإن طُلب الدمج: gh pr update-branch ثم squash بعد CI.
 
 ## ما بُني (مختصر)
 - الغلاف app_shell.ps1 (WPF بلا إطار، WebView2 من مكتبات Teams، يرجع لـ Edge).
