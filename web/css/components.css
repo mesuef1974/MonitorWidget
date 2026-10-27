@@ -94,7 +94,7 @@ select.btn{appearance:none;padding-inline-end:12px}
 /* ───────── forms, switches, dialogs, toasts ───────── */
 .switch{width:42px;height:24px;border-radius:999px;background:var(--raise);border:1px solid var(--line2);position:relative;flex:none;transition:background .2s var(--ease),border-color .2s}
 .switch i{position:absolute;top:2px;inset-inline-start:2px;width:18px;height:18px;border-radius:50%;background:var(--ink2);transition:transform .2s var(--ease),background .2s}
-.switch[aria-checked="true"]{background:var(--ok-bg);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.switch[aria-checked="true"]{background:var(--accent-bg);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
 .switch[aria-checked="true"] i{background:var(--accent);transform:translateX(-18px)}
 .switch:disabled{opacity:.4;cursor:not-allowed}
 .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
@@ -122,14 +122,14 @@ textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 .scroll{overflow:auto;max-width:100%}
 .panel>.scroll.xs{overflow-x:auto}   /* جداول عريضة بطبيعتها (عارض القاعدة) */
 .scrollbox{max-height:620px;overflow-y:auto;overflow-x:hidden}
-.rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--ok-bg);color:var(--accent)}
+.rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
 .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2);border-inline-start:4px solid var(--ink3)}
 .card h3{font-size:15px}.card p{color:var(--ink2);font-size:13.5px;flex:1}
 .card.lvl-warn{border-inline-start-color:var(--warn)}.card.lvl-bad{border-inline-start-color:var(--bad)}.card.lvl-ok{border-inline-start-color:var(--ok)}
 .swatches{display:flex;gap:var(--s3);flex-wrap:wrap}
 .swatch{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:12px;background:var(--bg)}
-.swatch i{width:18px;height:18px;border-radius:50%}.swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--ok-bg)}
+.swatch i{width:18px;height:18px;border-radius:50%}.swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
 .heat{display:grid;grid-template-columns:44px repeat(24,minmax(0,1fr));gap:2px;direction:ltr;font-size:10.5px;color:var(--ink3)}
 .heat b{font-weight:400;text-align:right;padding-right:6px;line-height:16px}
 .heat i{height:16px;border-radius:3px;background:var(--raise)}
