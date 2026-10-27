@@ -148,7 +148,7 @@ function Set-WidgetMenuTheme {
 }
 function Set-WidgetControlTheme {
     if(-not $UI){return}
-    if($UI.title){$UI.title.Foreground=Brush $C.accent};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
+    if($UI.title){$UI.title.Foreground=Brush $C.accent};if($UI.logoRing){$UI.logoRing.Stroke=Brush $C.accent;$UI.logoPulse.Stroke=Brush $C.warn;$UI.logoDot.Fill=Brush $C.warn};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
     foreach($key in @('menuBtn','closeBtn','open')){$button=$UI[$key];if($button){$button.Background=Brush $C.card;$button.BorderBrush=Brush $C.line;$button.BorderThickness=1;$button.Foreground=Brush $(if($key -eq 'open'){$C.accent}else{$C.muted});if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=$button.Foreground}}}
     if($UI.toast){$UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'}
     if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accent;$UI.trimCd.Foreground=Brush $C.muted}
@@ -277,10 +277,20 @@ $ttl.Children.Add($UI.title) | Out-Null
 $UI.sub = New-Text 'جارٍ الاتصال…' 12 $C.muted
 $brand = New-Object Windows.Controls.StackPanel; $brand.Orientation = 'Horizontal'; $brand.VerticalAlignment = 'Center'
 try {
-    $bi = New-Object Windows.Media.Imaging.BitmapImage
-    $bi.BeginInit(); $bi.UriSource = New-Object Uri((Join-Path $PSScriptRoot 'assets\icon_192.png')); $bi.DecodePixelWidth = 72; $bi.CacheOption = 'OnLoad'; $bi.EndInit(); $bi.Freeze()
-    $logo = New-Object Windows.Controls.Image; $logo.Source = $bi; $logo.Width = 34; $logo.Height = 34; $logo.VerticalAlignment = 'Center'; $logo.FlowDirection = 'LeftToRight'
-    [Windows.Media.RenderOptions]::SetBitmapScalingMode($logo, 'HighQuality')
+    # الشعار رسم متجهي يتبع لوحة الهوية (الحلقة بلون --accent والنبضة بلون --warn) بدل صورة ثابتة
+    $logoCanvas = New-Object Windows.Controls.Canvas; $logoCanvas.Width = 180; $logoCanvas.Height = 180
+    $ring = New-Object Windows.Shapes.Ellipse; $ring.Width = 152; $ring.Height = 152; $ring.StrokeThickness = 14; $ring.StrokeDashCap = 'Round'
+    $ring.StrokeDashArray = New-Object Windows.Media.DoubleCollection; $ring.StrokeDashArray.Add(30.7); $ring.StrokeDashArray.Add(3.4)
+    $ring.RenderTransformOrigin = '0.5,0.5'; $ring.RenderTransform = New-Object Windows.Media.RotateTransform(-58)
+    [Windows.Controls.Canvas]::SetLeft($ring, 14); [Windows.Controls.Canvas]::SetTop($ring, 14)
+    $pulse = New-Object Windows.Shapes.Polyline; $pulse.StrokeThickness = 12; $pulse.StrokeLineJoin = 'Round'; $pulse.StrokeStartLineCap = 'Round'; $pulse.StrokeEndLineCap = 'Round'
+    $pulse.Points = [Windows.Media.PointCollection]::Parse('30,94 60,94 75,58 97,128 112,80 120,94 150,94')
+    $dot = New-Object Windows.Shapes.Ellipse; $dot.Width = 18; $dot.Height = 18
+    [Windows.Controls.Canvas]::SetLeft($dot, 100.7); [Windows.Controls.Canvas]::SetTop($dot, 7.6)
+    foreach ($shape in @($ring, $pulse, $dot)) { $logoCanvas.Children.Add($shape) | Out-Null }
+    $logo = New-Object Windows.Controls.Viewbox; $logo.Width = 34; $logo.Height = 34; $logo.VerticalAlignment = 'Center'; $logo.FlowDirection = 'LeftToRight'; $logo.Child = $logoCanvas
+    $UI.logoRing = $ring; $UI.logoPulse = $pulse; $UI.logoDot = $dot
+    $ring.Stroke = Brush $C.accent; $pulse.Stroke = Brush $C.warn; $dot.Fill = Brush $C.warn
     $gap = New-Object Windows.Controls.Border; $gap.Width = 9
     $brand.Children.Add($logo) | Out-Null; $brand.Children.Add($gap) | Out-Null
 } catch {}
@@ -328,7 +338,8 @@ $stack.Children.Add((Gap 10)) | Out-Null
 function New-Ring([string]$label) {
     $wrap = New-Object Windows.Controls.StackPanel; $wrap.HorizontalAlignment = 'Center'
     $g = New-Object Windows.Controls.Grid; $g.Width = 68; $g.Height = 68; $g.FlowDirection = 'LeftToRight'
-    $track = New-Object Windows.Shapes.Ellipse; $track.Width = 62; $track.Height = 62; $track.StrokeThickness = 6; $track.Stroke = Brush $C.track
+    # المسار قوس 270° يبدأ من أسفل اليسار كمقياس الواجهة (gauge في index.html) بدل حلقة كاملة
+    $track = New-Object Windows.Shapes.Path; $track.StrokeThickness = 6; $track.StrokeStartLineCap = 'Round'; $track.StrokeEndLineCap = 'Round'; $track.Stroke = Brush $C.track; $track.Data = Ring-Arc 100
     $cv = New-Object Windows.Controls.Canvas; $cv.Width = 68; $cv.Height = 68
     $arc = New-Object Windows.Shapes.Path; $arc.StrokeThickness = 6; $arc.StrokeStartLineCap = 'Round'; $arc.StrokeEndLineCap = 'Round'; $arc.Stroke = Brush $C.accent
     $cv.Children.Add($arc) | Out-Null
@@ -336,20 +347,25 @@ function New-Ring([string]$label) {
     $val = New-Text '—' 20 $C.ink 'SemiBold' $true; $val.HorizontalAlignment = 'Center'
     $unit = New-Text '' 12 $C.muted 'Normal' $true; $unit.HorizontalAlignment = 'Center'
     $ctr.Children.Add($val) | Out-Null; $ctr.Children.Add($unit) | Out-Null
-    $g.Children.Add($track) | Out-Null; $g.Children.Add($cv) | Out-Null; $g.Children.Add($ctr) | Out-Null
+    $trackCv = New-Object Windows.Controls.Canvas; $trackCv.Width = 68; $trackCv.Height = 68; $trackCv.Children.Add($track) | Out-Null
+    $g.Children.Add($trackCv) | Out-Null; $g.Children.Add($cv) | Out-Null; $g.Children.Add($ctr) | Out-Null
     $lab = New-Text $label 12 $C.muted; $lab.HorizontalAlignment = 'Center'; $lab.Margin = '0,2,0,0'
     $wrap.Children.Add($g) | Out-Null; $wrap.Children.Add($lab) | Out-Null
     @{ Root = $wrap; Arc = $arc; Val = $val; Unit = $unit; Grid = $g }
 }
-function Set-Ring($r, [double]$pct, [string]$lvl, [string]$val, [string]$unit, [string]$tip) {
+function Ring-Arc([double]$pct) {
+    # قوس من 135° باتجاه عقارب الساعة بطول 270°×النسبة حول مركز (34,34) ونصف قطر 31
     $cx = 34; $cy = 34; $rad = 31
-    $p = [Math]::Max(0.6, [Math]::Min(99.6, $pct)); $a = 2 * [Math]::PI * $p / 100
-    $fig = New-Object Windows.Media.PathFigure; $fig.StartPoint = [Windows.Point]::new($cx, $cy - $rad); $fig.IsClosed = $false
+    $p = [Math]::Max(0.6, [Math]::Min(100, $pct)); $sweep = 270 * $p / 100
+    $a0 = 135 * [Math]::PI / 180; $a1 = (135 + $sweep) * [Math]::PI / 180
+    $fig = New-Object Windows.Media.PathFigure; $fig.StartPoint = [Windows.Point]::new($cx + $rad * [Math]::Cos($a0), $cy + $rad * [Math]::Sin($a0)); $fig.IsClosed = $false
     $seg = New-Object Windows.Media.ArcSegment
-    $seg.Point = [Windows.Point]::new($cx + $rad * [Math]::Sin($a), $cy - $rad * [Math]::Cos($a)); $seg.Size = [Windows.Size]::new($rad, $rad)
-    $seg.SweepDirection = 'Clockwise'; $seg.IsLargeArc = ($p -gt 50)
-    $fig.Segments.Add($seg); $geo = New-Object Windows.Media.PathGeometry; $geo.Figures.Add($fig)
-    $r.Arc.Data = $geo; $r.Arc.Stroke = if ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }; $r.Val.Text = $val; $r.Unit.Text = $unit; $r.Root.ToolTip = $tip
+    $seg.Point = [Windows.Point]::new($cx + $rad * [Math]::Cos($a1), $cy + $rad * [Math]::Sin($a1)); $seg.Size = [Windows.Size]::new($rad, $rad)
+    $seg.SweepDirection = 'Clockwise'; $seg.IsLargeArc = ($sweep -gt 180)
+    $fig.Segments.Add($seg); $geo = New-Object Windows.Media.PathGeometry; $geo.Figures.Add($fig); $geo.Freeze(); $geo
+}
+function Set-Ring($r, [double]$pct, [string]$lvl, [string]$val, [string]$unit, [string]$tip) {
+    $r.Arc.Data = Ring-Arc ([Math]::Min(99.6, $pct)); $r.Arc.Stroke = if ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }; $r.Val.Text = $val; $r.Unit.Text = $unit; $r.Root.ToolTip = $tip
 }
 $ringsGrid = New-Object Windows.Controls.Primitives.UniformGrid; $ringsGrid.Columns = 3
 $UI.rCommit = New-Ring 'التزام الذاكرة'; $UI.rRam = New-Ring 'الذاكرة الفعلية'; $UI.rDisk = New-Ring 'القرص C'

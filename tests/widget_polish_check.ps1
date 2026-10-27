@@ -4,9 +4,10 @@ $widgetRoot=Split-Path $PSScriptRoot -Parent
 $source=Get-Content -LiteralPath (Join-Path $widgetRoot 'widget.ps1') -Raw
 $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
+. (Join-Path $PSScriptRoot 'widget_test_identity.ps1')   # الهوية المشتركة من جذر المستودع قبل تحميل الدوال المستخرجة
 foreach($name in @('Normalize-WidgetOpacity','Surface-Brush','Brush','Get-Palette','New-Text','New-Card','Set-CardOpacity','Gap','Update-Compact')){
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
-    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create($fn.Extent.Text))
+    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 }
 $script:S=@{opacity=1;palette='teal';muteAlerts=$true};$script:C=Get-Palette $true;$script:brushCache=@{};$script:backgroundSurfaces=New-Object Collections.ArrayList
 foreach($value in @([double]::NaN,[double]::PositiveInfinity,[double]::NegativeInfinity,$null,$true,'invalid')){if((Normalize-WidgetOpacity $value) -ne .96){throw 'Invalid opacity not safely normalized'}}

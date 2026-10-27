@@ -3,9 +3,10 @@ Add-Type -AssemblyName PresentationFramework
 $source=Get-Content -LiteralPath (Join-Path (Split-Path $PSScriptRoot -Parent) 'widget.ps1') -Raw
 $tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
+. (Join-Path $PSScriptRoot 'widget_test_identity.ps1')   # الهوية المشتركة من جذر المستودع قبل تحميل الدوال المستخرجة
 foreach($name in @('Brush','Get-Palette','New-Text','Draw-Chart')){
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
-    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create($fn.Extent.Text))
+    if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 }
 $script:S=@{palette='teal'};$script:C=Get-Palette $false;$script:brushCache=@{};$script:THR=@{cmW=85;cmB=95}
 $UI=@{chart=New-Object Windows.Controls.Canvas};$UI.chart.Height=96;$UI.chart.FlowDirection='LeftToRight'

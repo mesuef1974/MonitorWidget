@@ -11,7 +11,7 @@
 .nav a{display:flex;align-items:center;gap:var(--s3);padding:7px var(--s3);border-radius:10px;color:var(--ink2);transition:background .18s var(--ease),color .18s}
 .nav a svg{width:18px;height:18px;flex:none;opacity:.85}
 .nav a:hover{background:var(--panel2);color:var(--ink)}
-.nav a[aria-current="page"]{background:var(--ok-bg);color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.nav a[aria-current="page"]{background:var(--accent-bg);color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
 .nav a .ext{margin-inline-start:auto;opacity:.45;width:13px;height:13px}
 .nav-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--s2);padding-top:var(--s3);border-top:1px solid var(--line)}
 .main{min-width:0;display:flex;flex-direction:column}
@@ -23,12 +23,15 @@
 .live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
 .live.err i{background:var(--bad);animation:none}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
-.content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:grid;gap:var(--s4);grid-template-columns:repeat(12,minmax(0,1fr));align-content:start;align-items:start}   /* كل بطاقة بقدر محتواها: لا فراغات داخلية بسبب جار أطول */
+.content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:flex;flex-wrap:wrap;gap:var(--s4);align-content:flex-start;align-items:stretch}   /* صفوف مرنة: البطاقات تتقاسم عرض السطر، ومتحاذية بالارتفاع */
 .btn.menu-btn{display:none}   /* .btn في components.css يأتي لاحقًا فيلزم رفع التخصيص */
-.panel,.c12{grid-column:span 12}   /* الأساس قبل الامتدادات حتى تتغلب عليه .c3…c8 */
-.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
-@media(max-width:1280px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}}
-@media(max-width:860px){.c3,.c4,.c5,.c6{grid-column:span 12}.app{grid-template-columns:1fr}.nav{position:fixed;inset-block:0;inset-inline-start:0;width:min(86vw,300px);z-index:var(--z-nav);transform:translateX(100%);transition:transform .25s var(--ease);background:var(--panel)}
-  html[dir="rtl"] .nav{transform:translateX(100%)}.nav.open{transform:none!important}.btn.menu-btn{display:inline-flex}.bar,.content{padding-inline:var(--s4)}}
+/* العرض: --span من 12؛ هو أساس العرض ووزن التمدد معًا، فأي فراغ في السطر يتقاسمه ما فيه من بطاقات (بلا فراغات ميتة) */
+.panel,.card,.cards,.banner{--span:12}
+.c2{--span:2}.c3{--span:3}.c4{--span:4}.c5{--span:5}.c6{--span:6}.c7{--span:7}.c8{--span:8}.c12{--span:12}
+.content>*{flex:var(--span) 1 calc(var(--span)*100%/12 - (12 - var(--span))*var(--s4)/12)}
+@media(max-width:1280px){.c2,.c3,.c4,.c5{--span:6}.c7,.c8{--span:12}}
+@media(max-width:860px){.c2,.c3,.c4,.c5,.c6{--span:12}.app{grid-template-columns:1fr}.nav{position:fixed;inset-block:0;inset-inline-start:0;width:min(86vw,300px);z-index:var(--z-nav);transform:translateX(100%);transition:transform .25s var(--ease);background:var(--panel)}
+  html[dir="rtl"] .nav{transform:translateX(100%)}.nav.open{transform:none!important}.btn.menu-btn{display:inline-flex}.bar,.content{padding-inline:var(--s4)}
+  .bar{flex-wrap:wrap;gap:var(--s2) var(--s3);padding-block:var(--s3)}.bar .grow{flex:1 1 40%}.bar h1{font-size:18px}}   /* الشريط الضيق: العنوان أولًا والأزرار تلتف تحته بدل الفيض */
 .content>*{min-width:0}
 .nav-foot a{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:12.5px;padding:6px 8px;border-radius:8px}.nav-foot a:hover{background:var(--panel2);color:var(--ink)}

@@ -4,9 +4,10 @@ $tokens=$null;$errors=$null
 $path=Join-Path (Split-Path $PSScriptRoot -Parent) 'widget.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw ($errors.Message -join '; ') }
-foreach ($name in @('Test-AppearanceRecord','Get-Palette','Alpha','Brush','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance','Save-Settings','New-Text','New-Ring','Set-Ring','Level-Brush')) {
+. (Join-Path $PSScriptRoot 'widget_test_identity.ps1')   # الهوية المشتركة من جذر المستودع قبل تحميل الدوال المستخرجة
+foreach ($name in @('Test-AppearanceRecord','Get-Palette','Alpha','Brush','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance','Save-Settings','New-Text','New-Ring','Ring-Arc','Set-Ring','Level-Brush')) {
     $fn=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
-    if (-not $fn) { throw "Missing $name" }; . ([scriptblock]::Create($fn.Extent.Text))
+    if (-not $fn) { throw "Missing $name" }; . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 }
 function Log($m) { throw $m }
 function Show-Toast($m) { $script:lastToast=$m }
@@ -19,10 +20,11 @@ $identity=New-Object Windows.Controls.TextBlock;$identity.Foreground=Brush $C.ac
 $success=New-Object Windows.Controls.TextBlock;$success.Foreground=Brush $C.ok
 [void]$outer.Children.Add($identity);[void]$outer.Children.Add($success)
 $menu=New-Object Windows.Controls.ContextMenu;$script:appearanceMenuItems=@();$script:appearanceRevision=1
-$successBefore=$success.Foreground.Color.ToString()
+$successBefore=$success.Foreground.Color.ToString();$identityBefore=$identity.Foreground.Color.ToString()
+$script:S.palette='blue';$blueAccent=(Brush (Get-Palette $false).accent).Color.ToString();$script:S.palette='teal'   # لون الهوية الأزرق يُشتقّ من tokens.css لا من قيمة ثابتة
 Receive-Appearance ([pscustomobject]@{schemaVersion=1;revision=2;mode='dark';palette='blue'})
 if ($script:S.palette -ne 'blue' -or $script:appearanceRevision -ne 2) { throw 'Canonical appearance not applied' }
-if ($identity.Foreground.Color.ToString() -ne '#FF9EC5FF') { throw 'Identity did not update to blue' }
+if ($identity.Foreground.Color.ToString() -ne $blueAccent -or $blueAccent -eq $identityBefore) { throw 'Identity did not update to blue' }
 if ($success.Foreground.Color.ToString() -ne $successBefore) { throw 'Success meaning changed with identity' }
 Receive-Appearance ([pscustomobject]@{schemaVersion=1;revision=1;mode='light';palette='violet'})
 if ($script:S.palette -ne 'blue') { throw 'Older revision overwrote confirmed appearance' }
