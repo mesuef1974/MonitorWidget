@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Protected-location constants and integrity helpers (see CHANGES_2026-10-24.md, item 1).
 The owner runs install_secure_2026-10-24.ps1 as administrator once: it copies purge.exe and the probe scripts to
 SECURE_DIR\bin (ACL: admins/SYSTEM full, users read+execute) and registers tasks that run only from there.
@@ -31,6 +31,8 @@ PURGE_TASKS = {"light": "MemoryPurge-Light", "standby": "MemoryPurge-Standby", "
 PURGE_EXE = os.path.join(BIN, "purge.exe")
 PURGE_RESULT = os.path.join(OUT, "purge_result.json")
 ADMIN_PROBE = os.path.join(OUT, "admin_probe.json")
+WINOLD_TASKS = {"normal": "MonitorWidget-WinOld", "early": "MonitorWidget-WinOld-Early"}   # fixed elevated tasks; the server never deletes Windows.old itself
+WINOLD_RESULT = os.path.join(OUT, "winold_result.json")
 REAPER_PIN = os.path.join(OUT, "reaper_pin.json")   # {"sha256": "...", "script": "..."} written by the installer
 
 
