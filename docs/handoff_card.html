@@ -12,12 +12,12 @@ code{direction:ltr;unicode-bidi:isolate;font:13px Consolas,monospace;background:
 .meta code{margin-inline-end:6px}
 </style></head><body><main><header><h1>مرصد الجهاز — بطاقة التسليم</h1><p class=meta>
 branch <code>feat/handoff-automation</code>
-head <code>ec544f4</code>
+head <code>d8b4110</code>
 dirty <code>0</code>
-updated <code>2026-10-27T10:15:57+03:00</code>
+updated <code>2026-10-27T10:16:38+03:00</code>
 </p></header>
 <section><h2>الحالة</h2><ul><li>الفرع الحالي feat/handoff-automation · PR 15 مفتوح (ملفات آلية التسليم). PR 14 (fix/equal-rows) مفتوح، CI ناجح، MERGEABLE. لا يُدمج أيّ منهما دون طلب صريح من المالك.</li><li>main عند PR 13. PR 5–13 مدموجة، PR 4 مغلق بلا دمج.</li><li>الفحص tests/check_all.py يمرّ كله عدا delivery-optimization (وصف القاعدة يقول DISABLED وهي مفعّلة؛ متروك عمدًا حتى يقرر المالك).</li></ul></section>
-<section><h2>الخطوة الجارية</h2><ul><li>آلية التسليم الآلي بُنيت ورُبطت: docs/HANDOFF.md + ~/.claude/hooks/handoff_guard.py (Stop/SessionStart) + handoff_card.py (المرآة) + .claude/handoff.json (العتبة 190k). الملفات الجديدة غير ملتزمة بعد (تخص PR مستقل لا PR 14).</li></ul></section>
+<section><h2>الخطوة الجارية</h2><ul><li>كُتب تقرير SWOT: docs/تقرير_SWOT_2026-10-27.html (منشور كـ Artifact)، غير ملتزم بعد.</li><li>آلية التسليم الآلي بُنيت ورُبطت: docs/HANDOFF.md + ~/.claude/hooks/handoff_guard.py (Stop/SessionStart) + handoff_card.py (المرآة) + .claude/handoff.json (العتبة 190k). الملفات الجديدة غير ملتزمة بعد (تخص PR مستقل لا PR 14).</li></ul></section>
 <section><h2>الخطوة التالية (أمر قابل للتنفيذ)</h2><ul><li>انتظار قرار المالك في PR 15 وPR 14؛ وإن طُلب الدمج: gh pr update-branch ثم squash بعد CI.</li></ul></section>
 <section><h2>ما بُني (مختصر)</h2><ul><li>الغلاف app_shell.ps1 (WPF بلا إطار، WebView2 من مكتبات Teams، يرجع لـ Edge).</li><li>الهوية المشتركة identity.ps1 تقرأ web/css/tokens.css للويدجت والغلاف.</li><li>الواجهة web/index.html + web/css (tokens/base/layout/components/utilities) يقدّمها server.py بـ ETag.</li></ul></section>
 <section><h2>معلّق / غير مُتحقق</h2><ul><li>قياسات كرت الشاشة الحية تحتاج الخادم بصلاحية مسؤول.</li><li>أزرار معاينة/تنظيف المساحة بعد التقسيم لم تُجرَّب فعليًا.</li><li>القائمة الجديدة للويدجت وألوانه من tokens لم تُجرَّب على الويدجت الحي؛ ولم يُفتح الغلاف من زر الويدجت.</li><li>إخفاء/تأجيل التوصيات: لم يُنقل من الصفحة القديمة إلى web/index.html.</li></ul></section>
