@@ -148,7 +148,7 @@ function Set-WidgetMenuTheme {
 }
 function Set-WidgetControlTheme {
     if(-not $UI){return}
-    if($UI.title){$UI.title.Foreground=Brush $C.accent};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
+    if($UI.title){$UI.title.Foreground=Brush $C.accent};if($UI.logoRing){$UI.logoRing.Stroke=Brush $C.accent;$UI.logoPulse.Stroke=Brush $C.warn;$UI.logoDot.Fill=Brush $C.warn};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
     foreach($key in @('menuBtn','closeBtn','open')){$button=$UI[$key];if($button){$button.Background=Brush $C.card;$button.BorderBrush=Brush $C.line;$button.BorderThickness=1;$button.Foreground=Brush $(if($key -eq 'open'){$C.accent}else{$C.muted});if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=$button.Foreground}}}
     if($UI.toast){$UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'}
     if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accent;$UI.trimCd.Foreground=Brush $C.muted}
@@ -277,10 +277,20 @@ $ttl.Children.Add($UI.title) | Out-Null
 $UI.sub = New-Text 'جارٍ الاتصال…' 12 $C.muted
 $brand = New-Object Windows.Controls.StackPanel; $brand.Orientation = 'Horizontal'; $brand.VerticalAlignment = 'Center'
 try {
-    $bi = New-Object Windows.Media.Imaging.BitmapImage
-    $bi.BeginInit(); $bi.UriSource = New-Object Uri((Join-Path $PSScriptRoot 'assets\icon_192.png')); $bi.DecodePixelWidth = 72; $bi.CacheOption = 'OnLoad'; $bi.EndInit(); $bi.Freeze()
-    $logo = New-Object Windows.Controls.Image; $logo.Source = $bi; $logo.Width = 34; $logo.Height = 34; $logo.VerticalAlignment = 'Center'; $logo.FlowDirection = 'LeftToRight'
-    [Windows.Media.RenderOptions]::SetBitmapScalingMode($logo, 'HighQuality')
+    # الشعار رسم متجهي يتبع لوحة الهوية (الحلقة بلون --accent والنبضة بلون --warn) بدل صورة ثابتة
+    $logoCanvas = New-Object Windows.Controls.Canvas; $logoCanvas.Width = 180; $logoCanvas.Height = 180
+    $ring = New-Object Windows.Shapes.Ellipse; $ring.Width = 152; $ring.Height = 152; $ring.StrokeThickness = 14; $ring.StrokeDashCap = 'Round'
+    $ring.StrokeDashArray = New-Object Windows.Media.DoubleCollection; $ring.StrokeDashArray.Add(30.7); $ring.StrokeDashArray.Add(3.4)
+    $ring.RenderTransformOrigin = '0.5,0.5'; $ring.RenderTransform = New-Object Windows.Media.RotateTransform(-58)
+    [Windows.Controls.Canvas]::SetLeft($ring, 14); [Windows.Controls.Canvas]::SetTop($ring, 14)
+    $pulse = New-Object Windows.Shapes.Polyline; $pulse.StrokeThickness = 12; $pulse.StrokeLineJoin = 'Round'; $pulse.StrokeStartLineCap = 'Round'; $pulse.StrokeEndLineCap = 'Round'
+    $pulse.Points = [Windows.Media.PointCollection]::Parse('30,94 60,94 75,58 97,128 112,80 120,94 150,94')
+    $dot = New-Object Windows.Shapes.Ellipse; $dot.Width = 18; $dot.Height = 18
+    [Windows.Controls.Canvas]::SetLeft($dot, 100.7); [Windows.Controls.Canvas]::SetTop($dot, 7.6)
+    foreach ($shape in @($ring, $pulse, $dot)) { $logoCanvas.Children.Add($shape) | Out-Null }
+    $logo = New-Object Windows.Controls.Viewbox; $logo.Width = 34; $logo.Height = 34; $logo.VerticalAlignment = 'Center'; $logo.FlowDirection = 'LeftToRight'; $logo.Child = $logoCanvas
+    $UI.logoRing = $ring; $UI.logoPulse = $pulse; $UI.logoDot = $dot
+    $ring.Stroke = Brush $C.accent; $pulse.Stroke = Brush $C.warn; $dot.Fill = Brush $C.warn
     $gap = New-Object Windows.Controls.Border; $gap.Width = 9
     $brand.Children.Add($logo) | Out-Null; $brand.Children.Add($gap) | Out-Null
 } catch {}
