@@ -43,6 +43,13 @@
 :root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}
 *{box-sizing:border-box;margin:0}
 html{color-scheme:dark light;overflow-y:scroll;scrollbar-gutter:stable}
+:root[data-theme="dark"]{color-scheme:dark}:root[data-theme="light"]{color-scheme:light}
+/* شريط تمرير بهوية المرصد: نحيف، مستدير، بلون التمييز، ويتبع الثيم لا نظام التشغيل */
+*::-webkit-scrollbar{width:12px;height:12px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--accent) 40%,var(--line2));border-radius:10px;border:2px solid transparent;background-clip:content-box}
+*::-webkit-scrollbar-thumb:hover{background:var(--accent);background-clip:content-box}
+*::-webkit-scrollbar-button{display:none}
 body{font:400 14px/1.55 var(--f-ui);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:radial-gradient(900px 520px at 85% -10%,var(--bg-glow),transparent 70%),
@@ -99,7 +106,9 @@ select.btn{appearance:none;padding-inline-end:12px}
 .panel::before{content:"";position:absolute;inset-inline-start:var(--s5);top:-1px;width:34px;height:2px;background:var(--accent);border-radius:2px;opacity:.9}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .grow{flex:1 1 auto;min-height:0}
-.kpis{align-content:stretch}.panel>.kpis{flex:1}
+.kpis{align-content:start;grid-auto-rows:minmax(0,132px)}.panel>.kpis{flex:0 0 auto}.panel .list{max-height:460px;overflow-y:auto;overflow-x:hidden}
+/* شريط التمرير في طرف البطاقة نفسه ومدمج فيها: المنطقة القابلة للتمرير تمتد إلى الحافة والنص يحتفظ بحشوته */
+.panel .list,.panel .scrollbox{margin-inline:calc(-1*var(--s5));padding-inline:var(--s5) calc(var(--s5) - 4px)}
 .c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
 @media(max-width:1280px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}}
 @media(max-width:860px){.c3,.c4,.c5,.c6{grid-column:span 12}.app{grid-template-columns:1fr}.nav{position:fixed;inset-block:0;inset-inline-start:0;width:min(86vw,300px);z-index:50;transform:translateX(100%);transition:transform .25s var(--ease);background:var(--panel)}
@@ -134,11 +143,12 @@ select.btn{appearance:none;padding-inline-end:12px}
 .arc{transition:stroke-dashoffset .8s var(--ease),stroke .3s}
 /* tables */
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
+.panel>table.tbl{display:block;max-width:100%;overflow-x:auto}  /* عند الضيق يبقى التمرير داخل البطاقة ولا يتسع للصفحة كلها */
 .tbl th.n{text-align:end}
 .tbl th{font-size:11.5px;font-weight:600;color:var(--ink3);text-align:start;padding:6px var(--s2);border-bottom:1px solid var(--line2)}
-.tbl td{padding:8px var(--s2);border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl td{padding:8px var(--s2);border-bottom:1px solid var(--line);vertical-align:middle;overflow-wrap:anywhere}
 .tbl tr:last-child td{border-bottom:0}
-.tbl td.n{text-align:end;white-space:nowrap}
+.tbl td.n{text-align:end;white-space:nowrap}.tbl .btn{white-space:nowrap}
 .tbl tr:hover td{background:color-mix(in srgb,var(--raise) 55%,transparent)}
 .rowbar{display:flex;align-items:center;gap:var(--s2);min-width:110px}.rowbar .meter{flex:1;margin:0}
 .list{display:flex;flex-direction:column}
@@ -199,7 +209,7 @@ textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 .stackbar{display:flex;height:12px;border-radius:8px;overflow:hidden;gap:2px}
 .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:8px}
 .scroll{overflow:auto;max-width:100%}
-.scrollbox{max-height:620px;overflow-y:auto;scrollbar-width:thin;padding-inline-end:6px}
+.scrollbox{max-height:620px;overflow-y:auto;overflow-x:hidden}
 .rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--ok-bg);color:var(--accent)}
 .content>*{min-width:0}
 .cards{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
@@ -217,12 +227,12 @@ textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 .vol{display:flex;flex-direction:column;gap:6px}
 .nav-foot a{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:12.5px;padding:6px 8px;border-radius:8px}.nav-foot a:hover{background:var(--panel2);color:var(--ink)}
 td.acts{display:flex;gap:var(--s2);align-items:center;justify-content:flex-end;flex-wrap:wrap}
-dialog.dlg{border:1px solid var(--line2);border-radius:var(--r-lg);background:var(--panel);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:0 30px 80px -20px #000}
-dialog.dlg::backdrop{background:rgba(0,0,0,.55);backdrop-filter:blur(3px)}
+dialog.dlg{margin:auto;border:1.5px solid color-mix(in srgb,var(--accent) 70%,var(--line2));border-radius:var(--r-lg);background:var(--panel2);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:0 0 0 1px var(--line2),0 30px 80px -20px #000}
+dialog.dlg::backdrop{background:rgba(0,0,0,.62);backdrop-filter:blur(3px)}
 dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:var(--s2);justify-content:flex-end}
-#toasts{position:fixed;inset-block-end:20px;inset-inline-start:20px;z-index:200;display:flex;flex-direction:column;gap:8px}
-.toast{padding:10px 16px;border-radius:12px;background:var(--panel2);border:1px solid var(--line2);box-shadow:0 14px 36px -14px #000;animation:rise .3s var(--ease)}
-.toast.bad{border-color:color-mix(in srgb,var(--bad) 60%,transparent);color:var(--bad)}
+#toasts{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;padding:16px}
+.toast{pointer-events:auto;text-align:center;max-width:min(92vw,520px);padding:12px 20px;border-radius:12px;background:var(--panel2);border:1.5px solid color-mix(in srgb,var(--accent) 65%,var(--line2));box-shadow:0 14px 36px -14px #000;animation:rise .3s var(--ease)}
+.toast.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--panel2));color:var(--ink)}
 html{scroll-behavior:auto}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -366,7 +376,7 @@ const PAGES = {
       out += panel("الرسوميات (24 ساعة)", g ? `<div class="kpis">${kpi("الآن", nf(g.temp), "°C")}${kpi("الذروة", nf(h.gpu.max24), "°C")}${kpi("الحمل", nf(g.util), "%")}${kpi("الحالة", esc(g.pstate), "")}</div>` : `<div class="empty">لا بيانات</div>`, { cls: "c6" });
       out += panel("تسرّب الذاكرة", (h.leaks || []).length ? `<div class="list">${h.leaks.map(l => `<div class="li"><span class="t">${esc(l.name)}</span><span class="d">${esc(l.note || "")}</span></div>`).join("")}</div>` : `<div class="empty">لم تُكتشف عمليات تنمو باستمرار</div>`, { cls: "c6" });
       const ig = h.gpu?.igpu;
-      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note" style="white-space:pre-wrap;direction:ltr">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
+      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note scrollbox" style="white-space:pre-wrap;direction:ltr;max-height:300px;overflow:auto">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
       out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", Q(ig.shared_mb, "MB"), "", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
       return out;
     },
@@ -647,25 +657,36 @@ Object.assign(PAGES, {
   },
 
   space: {
-    title: "المساحة", sub: "أين ذهبت المساحة وما الذي يمكن تحريره بأمان", icon: "folder",
+    title: "المساحة", sub: "أين ذهبت المساحة وأكبر ما يشغل الأقراص", icon: "folder",
     async load() { return settle(api("/api/space")); },
     render([d]) {
       if (!d) return `<div class="banner">تعذّر قراءة المساحة.</div>`;
       const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
       let out = panel("القرص C", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c7" });
-      out += spaceCleanPanel(d) + spaceReportPanel(d);
       out += panel("المجلدات المراقبة", `<table class="tbl"><thead><tr><th>المجلد</th><th class="n">الحجم</th><th class="n">التغير</th><th class="n">ملفات</th><th>نصيحة</th></tr></thead><tbody>${(d.items || []).map(i => `<tr><td>${esc(i.label)}</td><td class="n">${Q(i.gb, "GB", 2)}</td><td class="n">${i.delta ? `<span class="tag ${i.delta > 0 ? "warn" : "ok"}">${i.delta > 0 ? "+" : ""}${Q(i.delta, "", 2)}</span>` : "—"}</td><td class="n">${Q(i.files)}</td><td class="note">${esc(i.advice || "")}</td></tr>`).join("")}</tbody></table>`);
       out += panel("المساحة الحرة", `<div id="spChart" class="grow"></div>`, { cls: "c8" });
       out += panel("أكبر الهبوط", `<div class="list">${(d.drops || []).map(x => `<div class="li"><span class="t">${when(x.from)}</span><span class="r"><span class="tag bad">−${Q(x.gb, "GB", 1)}</span></span><span class="d">من ${Q(x.hi, "GB", 1)} إلى ${Q(x.lo, "GB", 1)}</span></div>`).join("") || '<div class="empty">لا هبوط ملحوظ</div>'}</div>`, { cls: "c4" });
-      out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`);
       const vp = (parts, tot) => `${stack(parts.map(x => ({ label: x.label, v: x.gb })), PAL)}<div class="list">${parts.slice(0, 9).map((x, i) => `<div class="li"><span class="t"><i class="dot" style="background:${PAL[i % PAL.length]}"></i>${esc(x.label)}${x.partial ? ' <span class="tag">تقدير</span>' : ""}</span><span class="r">${Q(x.gb, "GB", 1)}</span><span class="d">${Q(x.gb / (tot || 1) * 100, "%")}</span></div>`).join("")}</div>`;
       out += panel("الأقراص", `<div class="list">${(d.drives || []).map(x => `<div class="li"><span class="t">${esc(x.letter)}: ${esc(x.label)}</span><span class="r">${Q(x.free, "GB", 1)} حرّ</span><span class="d">${Q(x.used, "GB", 1)} من ${Q(x.total, "GB", 1)}</span>${meter(x.used, x.total * .85, x.total * .93, x.total)}</div>`).join("")}</div>`, { cls: "c4" });
       out += panel("ما يشغله القرص C", d.volume ? vp(d.volume.parts, d.volume.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4", meta: d.volume ? `${Q(d.volume.used, "GB", 1)} مستخدم` : "" });
       out += panel("القرص D", d.dvol?.D ? vp(d.dvol.D.parts, (d.drives || []).find(x => x.letter === "D")?.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4" });
-      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c4", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
       return out;
     },
     after([d]) { if (!d?.hist?.length) return; const ix = compact(d.hist, 170), H = ix.map(i => d.hist[i]); chart($("#spChart"), { t: H.map(x => x[0]), series: [{ id: "s", name: "حرّ", color: "var(--accent)", v: H.map(x => x[1]), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...H.map(x => x[1])) * .97, height: 220, yFmt: v => nf(v, 0) }); }
+  },
+
+  spaceclean: {
+    title: "تنظيف المساحة", sub: "المعاينة والتنظيف والتقارير والحجر، بتأكيد قبل أي حذف", icon: "folder",
+    async load() { return settle(api("/api/space")); },
+    render([d]) {
+      if (!d) return `<div class="banner">تعذّر قراءة المساحة.</div>`;
+      const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
+      let out = panel("حالة التنظيف", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
+      out += spaceCleanPanel(d) + spaceReportPanel(d);
+      out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`, { cls: "c6" });
+      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c6", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
+      return out;
+    }
   },
 
   startup: {
@@ -825,7 +846,7 @@ document.addEventListener("click", async e => {
 const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
   ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL وDocker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
-  ["الصيانة", [["space", "المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
+  ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
 ];
 
@@ -878,7 +899,7 @@ async function show(first = false) {
 }
 // warm the heavy pages once the first one is on screen so opening them later is instant
 async function prefetch() {
-  for (const k of ["space", "advice", "startup", "dbx", "health", "procs", "history"]) {
+  for (const k of ["space", "spaceclean", "advice", "startup", "dbx", "health", "procs", "history"]) {
     if (CACHE[k]) continue;
     try { const data = await PAGES[k].load(); if (!data.every(x => x == null)) CACHE[k] = { data, sig: JSON.stringify(data) }; } catch { }
     await new Promise(r => setTimeout(r, 400));
