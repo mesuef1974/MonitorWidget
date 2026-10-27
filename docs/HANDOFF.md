@@ -1,26 +1,27 @@
 ---
-updated: 2026-10-27T12:45:34+03:00
-head: a61fb27
+updated: 2026-10-27T14:00:34+03:00
+head: d7fdfe4
 branch: main
-dirty: 3
-dirty_files: ocs/HANDOFF.md, tests/live_report.json, tests/report.txt
+dirty: 1
+dirty_files: ocs/HANDOFF.md
 ---
 # مرصد الجهاز — بطاقة التسليم
 
 ## الحالة
-- main (68d29e8) يضم PR 20 (تحذير WebView2) وPR 21 (حفظ المظهر) وPR 22 (widget_polish_check) وPR 23 (نظافة components.css) — كلها squash في 27/10 وحُذفت فروعها. PR 24 (قاعدة الدمج) وPR 25 (تدفئة أسطح الداكن: bg/panel/panel2/raise إلى صبغة الورق ≈40° بتشبع 10%، قرار المالك للبند 12 من جولة الهوية) دُمجا كذلك. main عند a61fb27. لا PR مفتوح.
-- تكليف المالك 27/10: الدمج بـ squash بعد نجاح CI دون سؤال (محفوظ في ذاكرة المشروع feedback_merge_without_asking).
-- الخادم الحي بالكود القديم (أُعيد تشغيله 9:22 كمسؤول) لكنه يقدّم web/ من القرص؛ إصلاح المظهر ونظافة CSS وتدفئة الداكن لم تُفحص مرئيًا. الويدجت الحي لم يُعَد تشغيله بعد تعديلات الهوية وشارة الصلاحية.
-- check_all وrun_all تمرّ. origin/fix/gpu-page2-density فرع قديم غير مدمج؛ مساحة العمل .claude/worktrees/compassionate-ptolemy-07d621 لم تُحذف. tests/report.txt وtests/live_report.json متغيّران ولا يُلتزمان.
+- main عند d7fdfe4. اليوم 27/10 دُمجت PR 26 (الخطوط)، PR 27 (أحجام Amiri)، PR 28 (uninstall_admin_backend.ps1 لإرجاع مهمة MonitorWidget-Agent إلى Limited + تحقق حقيقي في restart_admin/restart_agent)، PR 29 (حذف Windows.old عبر مهمتَي MonitorWidget-WinOld/-Early المرتفعتين الثابتتين من المثبّت المحمي؛ الخادم لا يستدعي takeown بعد الآن). لا PR مفتوح.
+- البند 3 المعاد صياغته (الخادم بصلاحية عادية دائمًا) اكتمل في الكود. purge standby كان أصلًا مهمة MemoryPurge-Standby. المتبقي أفعال المالك كمسؤول: (أ) تشغيل install_secure_2026-10-24.ps1 المولَّد ليسجّل مهمتَي WinOld وينسخ winold_delete.ps1؛ (ب) تشغيل uninstall_admin_backend.ps1 ليعود الوكيل Limited؛ ثم التحقق أن /api/mini يعيد admin=false وأن /fonts يعيد 200.
+- ما زال يحتاج خادمًا مرتفعًا بعد ذلك (لم يُحوَّل): extras بـ admin=True (wintemp) وDISM (_admin_or_err في extras.py) وربما swdist. تُحوَّل لاحقًا على النمط نفسه إن أراد المالك.
+- الخادم الحي حتى 13:35 ما زال العملية المرتفعة من 9:22؛ restart_admin.ps1 القديم كان يعلن النجاح زورًا (أُصلح في PR 28).
+- check_all وrun_all تمرّ. origin/fix/gpu-page2-density فرع قديم غير مدمج؛ مساحة .claude/worktrees/compassionate-ptolemy-07d621 لم تُحذف. tests/report.txt وtests/live_report.json لا يُلتزمان. وكيل التطوير على 47900 قد يكون ما زال يعمل.
 ## الخطوة الجارية
-- الجلسة مُسحت ذاتيًا عند 232k في 27/10 ~13:00 على main (a61fb27) بعد عرض ويدجت اختيار الخطوط بالأدوار (عناوين/قائمة/نصوص/أرقام؛ 9 خطوط عربية و7 للأرقام) بزر «اعتماد» يرسل الاختيار نصًا. المالك لم يختر بعد. قاعدة جديدة محفوظة في الذاكرة: لا أرقام هندية، 0-9 فقط.
+- لا عمل جارٍ؛ بانتظار المالك لتشغيل المثبّتين كمسؤول (انظر الحالة).
 ## الخطوة التالية (أمر قابل للتنفيذ)
-- اسأل المالك عن توزيع الخطوط الذي اعتمده (إن لم يصل نص «اعتمد توزيع الخطوط: …»)، ثم: git checkout -b feat/identity-fonts main؛ تنزيل woff2 (OFL) إلى web/fonts؛ @font-face في tokens.css وتحديث --f-ui/--f-num/--f-mono بالأوزان (عناوين 600، قائمة 500، نصوص 400)؛ تقديم web/fonts من server.py بـ ETag؛ التأكد أن الأرقام غربية؛ PR ← دمج آلي بعد CI. الويدجت/الغلاف WPF يحتاجان TTF مثبّتًا وإلا يبقيان على Segoe UI. بعدها البند 3 (nvidia-smi).
+- بعد تشغيل المالك للسكربتين: تحقق بـ python -c "import space;print(space._winold_task_ready())" (يجب True) وبـ /api/mini admin=false؛ ثم البند 4 من الخارطة: Pester لدوال widget.ps1 + Playwright للصفحات في CI مبني على tour.cjs. إن أراد المالك استكمال فصل الصلاحيات: wintemp وDISM في extras.py على نمط WinOld.
 ## خارطة الطريق المتفق عليها (2026-10-27)
 - المنتج أداة شخصية: لا تحزيم ولا توقيع ولا ويدجت .NET.
 - 1) إغلاق المعلّق حيًّا وإصلاح ما ينكسر (أزرار المساحة، قائمة الويدجت وألوانه، فتح الغلاف من الويدجت، نقل إخفاء/تأجيل التوصيات) + إصلاح وصف delivery-optimization (القاعدة صحيحة).
 - 2) تحذير ظاهر في صفحة الصحة عند سقوط WebView2 إلى Edge.
-- 3) مساعد مرتفع صغير لقياسات nvidia-smi؛ الخادم بصلاحية عادية دائمًا.
+- 3) الخادم بصلاحية عادية دائمًا؛ الأفعال المرتفعة (purge، Windows.old، لاحقًا wintemp/DISM) مهام مجدولة ثابتة بقائمة بيضاء على نمط Cleanup_v2 (أُعيدت صياغته 27/10: nvidia-smi لا يحتاج مسؤولًا).
 - 4) فحص مرئي: Pester لدوال widget.ps1 + Playwright للصفحات في CI مبني على tour.cjs.
 - 5) عدّاد فتح لكل صفحة لأسبوعين ثم قصّ غير المستخدم.
 - 6) تجزئة server.py وحدة في كل PR بدءًا بالمسارات الهدّامة مع فحص 428.
@@ -31,7 +32,6 @@ dirty_files: ocs/HANDOFF.md, tests/live_report.json, tests/report.txt
 - الواجهة web/index.html + web/css (tokens/base/layout/components/utilities) يقدّمها server.py بـ ETag.
 
 ## معلّق / غير مُتحقق
-- قياسات كرت الشاشة الحية تحتاج الخادم بصلاحية مسؤول.
 - أزرار معاينة/تنظيف المساحة بعد التقسيم لم تُجرَّب فعليًا.
 - القائمة الجديدة للويدجت وألوانه من tokens لم تُجرَّب على الويدجت الحي؛ ولم يُفتح الغلاف من زر الويدجت.
 - إخفاء/تأجيل التوصيات: لم يُنقل من الصفحة القديمة إلى web/index.html.

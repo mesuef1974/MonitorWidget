@@ -25,7 +25,7 @@ $tok = (Get-Content (Join-Path $root '.token') | Select-Object -First 1)
 $ok = $false
 for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
     Start-Sleep 1
-    try { $m = Invoke-RestMethod 'http://127.0.0.1:47832/api/mini' -Headers @{ 'X-Token' = $tok } -TimeoutSec 3 -NoProxy; $ok = $true } catch {}
+    try { $m = Invoke-RestMethod 'http://127.0.0.1:47832/api/mini' -Headers @{ 'X-Token' = $tok } -TimeoutSec 3; $ok = $true } catch {}
 }
 if ($ok) { "الخادم يعمل. admin = " + $m.admin } else { 'لم يستجب الخادم خلال 40 ثانية؛ راجع monitor.log' }
 (Get-ScheduledTask -TaskName $name | Select-Object -ExpandProperty Principal | Select-Object RunLevel | Out-String).Trim()
