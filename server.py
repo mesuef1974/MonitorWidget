@@ -16,8 +16,10 @@ from urllib.parse import urlparse, parse_qs
 import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, alertcfg, pageuse
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
 import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
-POST_MODULES = (routes_destructive, memtrim)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
+POST_MODULES = (routes_destructive, memtrim, routes_policy)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
+from cfgjson import read_json, edit_json   # البند 6/ج: ملفات JSON مع نسخة احتياطية (refresh_extra ومسارات reaper حتى تنتقل)
 try:
     import diskio_api
 except Exception:
@@ -129,14 +131,10 @@ if not os.path.exists(TOKEN_FILE):
 TOKEN = open(TOKEN_FILE).read().strip()
 # Browser sessions are independent, time limited, and intentionally invalidated on restart.
 
-with open(os.path.join(ROOT, "tasks.json"), encoding="utf-8") as f:
-    WHITELIST = {(t["path"], t["name"]): t for t in json.load(f)}
-
 _lock = threading.Lock()
 _cache = {"t": 0, "data": None}
 _extra = {"tiers": {}, "paused": []}
 _last_request = time.time()
-_backed_up = set()
 _hist = collections.deque(maxlen=360)  # one sample / 5 s = 30 min
 
 
@@ -219,28 +217,6 @@ def touch():
     _last_request = time.time()
 
 
-def read_json(path):
-    return atomic_json.read(path)
-
-
-def _backup_json(path):
-    if path not in _backed_up:
-        bdir = os.path.join(ROOT, "backups")
-        os.makedirs(bdir, exist_ok=True)
-        shutil.copy(path, os.path.join(bdir, time.strftime("%Y%m%d_%H%M%S_") + os.path.basename(path)))
-        _backed_up.add(path)
-
-
-def write_json(path, bom, obj):
-    with atomic_json.locked(path):
-        _backup_json(path)
-        atomic_json.write(path, bom, obj)
-
-
-def edit_json(path):
-    return atomic_json.transaction(path, before_write=_backup_json)
-
-
 # ---------------------------------------------------------------- heavy collector (PowerShell) + extras
 def _collect_ttl():
     """How long the heavy PowerShell collection may be reused. It spawns a full pwsh each time (about 1-3 s of CPU),
@@ -298,6 +274,13 @@ def refresh_extra():
     _extra["tiers"] = last
 
 
+def _after_mutation():
+    """بعد تعديل ناجح من وحدة مسارات: تُجمع حالة المهام عند الطلب التالي وتُقرأ المستويات الموقوفة من السياسة
+    (كانت _cache["t"] = 0 و_extra["paused"] = ... داخل do_POST)."""
+    _cache["t"] = 0
+    refresh_extra()
+
+
 def refresher():
     while True:
         time.sleep(20)
@@ -318,43 +301,6 @@ def get_theme():
 
 def set_theme(t):
     return APPEARANCE.set_mode(t)
-
-
-MAINT_RULES = ("docker-dangling", "docker-build-cache", "claude-file-history")
-
-
-def maintenance_state():
-    try:
-        _b, pol = read_json(POLICY)
-        m = pol.get("maintenance") or {}
-        return {"on": bool(m.get("on")), "rules": list(MAINT_RULES), "since": m.get("since")}
-    except Exception:
-        errlog.swallowed()
-        return {"on": False, "rules": list(MAINT_RULES), "since": None}
-
-
-def maintenance_set(on):
-    """Maintenance mode: switch the Docker/Claude rules off (remembering their state) and restore them exactly when it ends."""
-    with edit_json(POLICY) as (bom, pol):
-        m = pol.get("maintenance") or {}
-        if on and not m.get("on"):
-            saved = {}
-            for r in pol["rules"]:
-                if r["id"] in MAINT_RULES:
-                    saved[r["id"]] = bool(r.get("enabled")); r["enabled"] = False
-            pol["maintenance"] = {"on": True, "since": int(time.time()), "saved": saved}
-        elif (not on) and m.get("on"):
-            saved = m.get("saved") or {}
-            for r in pol["rules"]:
-                if r["id"] in saved:
-                    r["enabled"] = bool(saved[r["id"]])
-            pol["maintenance"] = {"on": False, "since": None, "saved": {}}
-        else:
-            return maintenance_state()
-
-    with db._lock:
-        c = db.conn(); c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)", (int(time.time()), "maintenance", "mode", 1, "on=" + str(bool(on)).lower())); c.commit()
-    return maintenance_state()
 
 
 def ensure_agent():
@@ -410,14 +356,6 @@ def mini_payload():
         "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
         "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "thr": alertcfg.get(),
     }
-
-
-def task_op(op, path, name):
-    r = subprocess.run(
-        [PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "ops.ps1"), "-Op", op, "-Path", path, "-Name", name],
-        capture_output=True, timeout=sched.remaining_timeout(40), creationflags=CNW)
-    if r.returncode != 0:
-        raise RuntimeError((r.stderr.decode("utf-8", "replace") or "failed").strip()[:300])
 
 
 _ASSETS = {
@@ -675,7 +613,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/maintenance":
             if not self._authed():
                 return
-            self._send(200, maintenance_state())
+            self._send(200, routes_policy.maintenance_state())
         elif path == "/api/cpu":
             if not self._authed():
                 return
@@ -711,7 +649,7 @@ class Handler(BaseHTTPRequestHandler):
                     out = insight.alerts_payload()
                 else:
                     dm = (_cache["data"] or {}).get("metrics", {})
-                    out = insight.advice_payload(native_metrics(), {"claudeGB": dm.get("claudeGB"), "wslGB": dm.get("wslGB")}, maintenance_state(), memtrim.view())
+                    out = insight.advice_payload(native_metrics(), {"claudeGB": dm.get("claudeGB"), "wslGB": dm.get("wslGB")}, routes_policy.maintenance_state(), memtrim.view())
                 self._send(200, out)
             except Exception:
                 errlog.swallowed()
@@ -786,7 +724,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "object expected"})
             route = self.path.split("?")[0]
             for module in POST_MODULES:   # وحدات المسارات (البند 6): الهدّامة مع تأكيد 428، ثم تنظيف الذاكرة
-                reply = module.post(route, body, invalidate=lambda: _cache.update(t=0))
+                reply = module.post(route, body, invalidate=_after_mutation)
                 if reply is not None:
                     return self._send(*reply)
             if route == "/api/appearance":
@@ -802,14 +740,6 @@ class Handler(BaseHTTPRequestHandler):
             if route == "/api/session/logout":
                 _session_revoke(self._cookie("mw_s"))
                 return self._send(200, {"ok": True}, cookie="mw_s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
-            if route == "/api/jobs/run":
-                name = str(body.get("name", ""))
-                if sched.next_run(name):
-                    sched.set_next(name, time.time())
-                    self._send(200, {"ok": True})
-                else:
-                    self._send(404, {"error": "unknown job"})
-                return
             if route == "/api/widget":
                 want = bool(body.get("show"))
                 if want:
@@ -857,11 +787,6 @@ class Handler(BaseHTTPRequestHandler):
                 if err:
                     return self._send(400, {"error": err})
                 return self._send(200, {"cfg": cfg})
-            if route == "/api/maintenance":
-                on = body.get("on")
-                if not isinstance(on, bool):
-                    return self._send(400, {"error": "on must be boolean"})
-                return self._send(200, maintenance_set(on))
             if route == "/api/explain-errors":
                 import explain
                 r = explain.errors(native_metrics(), ROOT)
@@ -900,42 +825,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"ok": True})
                 threading.Timer(0.4, lambda: os._exit(0)).start()
                 return
-            if route == "/api/task":
-                op, path, name = body.get("op"), body.get("path"), body.get("name")
-                entry = WHITELIST.get((path, name))
-                if not entry or op not in ("enable", "disable", "run"):
-                    return self._send(400, {"error": "not allowed"})
-                if entry.get("needsAdmin"):
-                    return self._send(400, {"error": "هذه المهمة تحتاج صلاحية مدير لتغييرها"})
-                if op == "run" and not entry.get("canRun"):
-                    return self._send(400, {"error": "run not allowed for this task"})
-                task_op(op, path, name)
-            elif route == "/api/startup":
-                return self._send(*startup_mgr.toggle(body))
-            elif route == "/api/rule":
-                rid, en = body.get("id"), body.get("enabled")
-                if not isinstance(en, bool):
-                    return self._send(400, {"error": "enabled must be boolean"})
-                with edit_json(POLICY) as (bom, pol):
-                    hit = [r for r in pol["rules"] if r["id"] == rid]
-                    if not hit:
-                        return self._send(400, {"error": "unknown rule"})
-                    hit[0]["enabled"] = en
-
-                with db._lock:  # every rule toggle goes to the action log
-                    _c = db.conn(); _c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)", (int(__import__("time").time()), "rule", str(rid), 1, "enabled=" + str(en).lower())); _c.commit()
-            elif route == "/api/tier-pause":
-                tier, paused = body.get("tier"), body.get("paused")
-                if tier not in TIERS or not isinstance(paused, bool):
-                    return self._send(400, {"error": "bad request"})
-                with edit_json(POLICY) as (bom, pol):
-                    cur = [t for t in pol.get("pausedTiers", []) if t in TIERS and t != tier]
-                    if paused:
-                        cur.append(tier)
-                    pol["pausedTiers"] = cur
-
-                _extra["paused"] = cur
-            elif route == "/api/theme":
+            if route == "/api/theme":
                 t = body.get("theme")
                 if t not in ("auto", "light", "dark"):
                     return self._send(400, {"error": "bad theme"})
