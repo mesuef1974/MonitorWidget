@@ -30,7 +30,8 @@ steps += [("أزرار نافذة الويدجت (معزول)", ["pwsh", "-NoPro
           ("انتشار الهوية على أسطح ومؤشرات الويدجت (WPF معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_identity_check.ps1")]),
           ("تباين أزرار الويدجت الكامل (WPF معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_button_contrast_check.ps1")]),
           ("هندسة الرسم الكامل وعناوين المحاور (WPF معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_chart_geometry_check.ps1")]),
-          ("تباين المنيو والقوائم الفرعية (معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_menu_contrast_check.ps1")])]
+          ("تباين المنيو والقوائم الفرعية (معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_menu_contrast_check.ps1")]),
+          ("صقل الويدجت: عتامة الأسطح ورأس بصفين وموضع معلومة الصلاحية (WPF معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_polish_check.ps1")])]
 if "--isolated" not in sys.argv:
     steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, cmd[0])] + cmd[1:]) for title, cmd in legacy_steps]
 out, bad, skipped = [], 0, 0
