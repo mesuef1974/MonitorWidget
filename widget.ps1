@@ -53,15 +53,12 @@ try { $sysLight = ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVe
 $script:isLight = switch ($script:S.theme) { 'light' { $true } 'dark' { $false } default { $sysLight } }
 # Shared identity covers surfaces, indicators and controls; warning/danger meanings stay independent.
 function Get-SysLight { try { return ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction Stop).AppsUseLightTheme -eq 1) } catch { return $false } }
+. (Join-Path $PSScriptRoot 'identity.ps1')
 function Get-Palette([bool]$light) {
     $p = if ($light) { @{ ink='#182E34'; muted='#536970'; accent='#086F64'; violet='#A33F71'; ok='#08765E'; warn='#865000'; bad='#B42318'; card='#F3FAF7'; line='#B8D9CE'; base='E4F1ED'; edge='#D6E2DE'; track='#E8EFED'; hover='#DFF1EB'; swoff='#9BAFA8'; seg2='#7042AA'; seg3='#849A94'; seg4='#E8EFED'; pilltxt='#FFFFFF' } }
          else { @{ ink='#E5EEED'; muted='#A8BFBC'; accent='#65DAC3'; violet='#EF9AC3'; ok='#58D6AF'; warn='#EFC471'; bad='#FF9B92'; card='#1B312C'; line='#3A6258'; base='101F1D'; edge='#344947'; track='#213130'; hover='#203D35'; swoff='#566D65'; seg2='#D3B0FF'; seg3='#6A827B'; seg4='#213130'; pilltxt='#10231F' } }
-    $variants = @{
-        blue = if ($light) { @{ink='#202F43';muted='#53657D';accent='#2257AA';card='#F1F6FE';line='#B4CBE9';base='E4EDF9';edge='#D4DEEC';track='#E8EEF7';hover='#E5EEFC'} } else { @{ink='#E5EDFA';muted='#AFC0D8';accent='#9EC5FF';card='#1B304D';line='#45658D';base='101D31';edge='#3C4D63';track='#29374B';hover='#24364E'} }
-        violet = if ($light) { @{ink='#352740';muted='#6B597D';accent='#7042AA';card='#F8F2FD';line='#D2BDE5';base='EDE5F6';edge='#DED6E9';track='#EEE8F5';hover='#F0E9FA'} } else { @{ink='#F0E9F7';muted='#C5B4D6';accent='#D3B0FF';card='#342746';line='#75568C';base='241A32';edge='#51445F';track='#352D43';hover='#382B4B'} }
-        graphite = if ($light) { @{ink='#26353F';muted='#596B78';accent='#445968';card='#F4F6F8';line='#BCCAD4';base='E6EBEF';edge='#D6DFE5';track='#E8EDF0';hover='#E6EDF1'} } else { @{ink='#E9EEF2';muted='#B5C2CD';accent='#C0D0DC';card='#29333D';line='#596F81';base='191F25';edge='#4B5965';track='#333D46';hover='#34414A'} }
-    }
-    $v = $variants[[string]$script:S.palette]; if ($v) { foreach ($k in $v.Keys) { $p[$k] = $v[$k] } }
+    # الألوان من web\css	okens.css (المصدر الوحيد للهوية)؛ القاموس أعلاه احتياطي إن تعذّرت القراءة
+    $p = Get-IdentityPalette $PSScriptRoot $light ([string]$script:S.palette) $p
     # Avoid token-color aliases: remapping cannot otherwise distinguish identity and composition series.
     $p.seg2 = if ($light) { '#8159B3' } else { '#C1A3E8' }; $p.seg4 = if ($light) { '#E3EBE7' } else { '#283A35' }
     $p.onWarn=if($light){'#FFFFFF'}else{'#1A1100'}
