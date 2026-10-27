@@ -1,0 +1,1 @@
+{"on": false, "rules": ["docker-dangling", "docker-build-cache", "claude-file-history"], "since": null}

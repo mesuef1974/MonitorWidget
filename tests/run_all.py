@@ -34,6 +34,8 @@ steps += [("أزرار نافذة الويدجت (معزول)", ["pwsh", "-NoPro
           ("هندسة الرسم الكامل وعناوين المحاور (WPF معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_chart_geometry_check.ps1")]),
           ("تباين المنيو والقوائم الفرعية (معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_menu_contrast_check.ps1")]),
           ("صقل الويدجت: عتامة الأسطح ورأس بصفين وموضع معلومة الصلاحية (WPF معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "widget_polish_check.ps1")])]
+steps += [("دوال الويدجت والهوية عبر Pester (معزول)", ["pwsh", "-NoProfile", "-File", os.path.join(HERE, "pester_check.ps1")]),
+          ("صفحات الواجهة في الوضعين عبر Playwright على خادم الثوابت (معزول)", [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, "e2e_check.py")])]
 if "--isolated" not in sys.argv:
     steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, cmd[0])] + cmd[1:]) for title, cmd in legacy_steps]
 out, bad, skipped = [], 0, 0
