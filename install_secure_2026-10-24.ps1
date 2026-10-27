@@ -17,6 +17,7 @@ $csc  = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $expected = @{
   'purge.cs' = '3586B271D8C2E1F984FC0CBDAC94868E7590F34BD98F243887183C5D3BDDB449'
   'healthprobe.ps1' = 'DFE47270DB312A709230466DD5F901E6F932F54A5A8146F241571C1E20BC3586'
+  'winold_delete.ps1' = 'AE98DE987B78DFB033670A8485B352E2757E2656DBE0192000D828CE5DD7713F'
 }
 $reaper = 'C:\Users\mesue\Documents\Scripts\MachineCare\Invoke-OrphanReaper.ps1'; $reaperHash = '8104AE8B121F55E07119E070EEB014B31581E97945A3A65EF0329BB1D66F5F25'
 
@@ -40,6 +41,7 @@ foreach ($d in @($secure, $bin, $out)) {
 # 3. copy and build from the protected copy, then verify what is there
 Copy-Item -LiteralPath (Join-Path $src 'purge.cs') -Destination (Join-Path $bin 'purge.cs') -Force
 Copy-Item -LiteralPath (Join-Path $src 'healthprobe.ps1') -Destination (Join-Path $bin 'healthprobe.ps1') -Force
+Copy-Item -LiteralPath (Join-Path $src 'winold_delete.ps1') -Destination (Join-Path $bin 'winold_delete.ps1') -Force
 & $csc /nologo /target:winexe /optimize+ "/out:$bin\purge.exe" "$bin\purge.cs"
 if ($LASTEXITCODE -ne 0) { throw 'csc failed' }
 foreach ($k in $expected.Keys) {
@@ -66,6 +68,15 @@ $t1 = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
 $t2 = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 30) -RepetitionDuration (New-TimeSpan -Days 3650)
 $ps = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
 Register-ScheduledTask -TaskName 'MonitorWidget-AdminProbe' -Action $a -Trigger @($t1, $t2) -Principal $pr -Settings $ps -Description 'Read-only hardware probe, runs from the protected folder' -Force | Out-Null
+
+# 4b. Windows.old: two fixed on-demand tasks (normal = 14-day gate inside the script, early = owner-confirmed override); no path argument
+$ws = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 3) -MultipleInstances IgnoreNew -Hidden
+foreach ($e in @($false, $true)) {
+  $name = if ($e) { 'MonitorWidget-WinOld-Early' } else { 'MonitorWidget-WinOld' }
+  $arg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$bin\winold_delete.ps1`" -Result `"$out\winold_result.json`"" + $(if ($e) { ' -Early' } else { '' })
+  $wa = New-ScheduledTaskAction -Execute $pwsh -Argument $arg -WorkingDirectory $bin
+  Register-ScheduledTask -TaskName $name -Action $wa -Principal $pr -Settings $ws -Description 'On-demand Windows.old removal from the protected folder (fixed path, 14-day gate)' -Force | Out-Null
+}
 
 # 5. optional: remove the legacy tasks that ran from the writable folder
 if ($RemoveLegacy) {

@@ -7,6 +7,7 @@ import errlog
 from ctypes import wintypes
 
 import db
+import secure
 
 H = os.path.expanduser("~")
 LA = os.environ.get("LOCALAPPDATA", os.path.join(H, "AppData", "Local"))
@@ -622,6 +623,28 @@ def _is_admin():
         return False
 
 
+_wtask = {"t": 0.0, "ok": False, "why": None}
+
+
+def _winold_task_ready():
+    """The fixed elevated task from the protected install. The server (limited rights) only triggers it; cached 60 s."""
+    if time.time() - _wtask["t"] < 60:
+        return _wtask["ok"], _wtask["why"]
+    ok, why = False, None
+    if not secure.installed():
+        why = "يلزم التثبيت المحمي: شغّل install_secure_*.ps1 كمسؤول مرة واحدة"
+    else:
+        try:
+            r = subprocess.run(["schtasks", "/query", "/tn", secure.WINOLD_TASKS["normal"]], capture_output=True, timeout=10, creationflags=0x08000000)
+            ok = r.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            ok = False
+        if not ok:
+            why = "مهمة %s غير مسجّلة؛ أعد تشغيل مثبّت التثبيت المحمي كمسؤول" % secure.WINOLD_TASKS["normal"]
+    _wtask.update(t=time.time(), ok=ok, why=why)
+    return ok, why
+
+
 def winold_status():
     """Age gate for Windows.old: deleting it removes the rollback to the previous Windows, so it is allowed only WINOLD_DAYS after creation."""
     if not os.path.isdir(WINOLD):
@@ -629,7 +652,7 @@ def winold_status():
     if _is_reparse(WINOLD):
         return {"present": True, "unsafe": True}
     age = (time.time() - os.stat(WINOLD).st_ctime) / 86400
-    return {"present": True, "ageDays": round(age, 1), "eligible": age >= WINOLD_DAYS, "daysLeft": max(0, int(WINOLD_DAYS - age + 0.999)), "admin": _is_admin(), "job": _wo["job"]}
+    return {"present": True, "ageDays": round(age, 1), "eligible": age >= WINOLD_DAYS, "daysLeft": max(0, int(WINOLD_DAYS - age + 0.999)), "task": _winold_task_ready()[0], "job": _wo["job"]}
 
 
 def _winold_size():
@@ -648,29 +671,52 @@ def _winold_size():
 
 
 def _winold_delete(src, early=False):
-    """Background: take ownership, grant Administrators, remove. Re-checks the gate; never follows links."""
+    """Background: trigger the fixed elevated task (normal or early) and wait for its result file. Re-checks the gate; deletes nothing itself."""
     t0 = time.time()
     try:
         st = winold_status()
         if not st.get("present") or st.get("unsafe") or not (st.get("eligible") or early):
             _wo["job"] = {"state": "refused", "ts": int(t0)}
             return
-        _wo["job"] = {"state": "running", "ts": int(t0)}
-        fb = shutil.disk_usage("C:\\").free
+        task = secure.WINOLD_TASKS["early" if early else "normal"]
+        res = secure.WINOLD_RESULT
+        old = os.path.getmtime(res) if os.path.exists(res) else 0
         nw = 0x08000000
-        subprocess.run(["takeown", "/F", WINOLD, "/R", "/D", "Y"], capture_output=True, timeout=1800, creationflags=nw)
-        subprocess.run(["icacls", WINOLD, "/grant", "*S-1-5-32-544:(OI)(CI)F", "/T", "/C", "/Q", "/L"], capture_output=True, timeout=3600, creationflags=nw)
-        subprocess.run(["cmd", "/c", "rmdir", "/s", "/q", WINOLD], capture_output=True, timeout=7200, creationflags=nw)
-        left = os.path.isdir(WINOLD)
-        fa = shutil.disk_usage("C:\\").free
-        mb = round(max(0, fa - fb) / 2**20, 1)
+        r = subprocess.run(["schtasks", "/run", "/tn", task], capture_output=True, timeout=15, creationflags=nw)
+        if r.returncode != 0:
+            _wo["job"] = {"state": "error", "error": "تعذّر تشغيل المهمة %s" % task, "ts": int(t0)}
+            return
+        _wo["job"] = {"state": "running", "ts": int(t0)}
+        out = None
+        deadline = t0 + 3 * 3600 + 120
+        while time.time() < deadline:
+            time.sleep(5)
+            if os.path.exists(res) and os.path.getmtime(res) > old:
+                try:
+                    with open(res, encoding="utf-8-sig") as fh:
+                        out = json.load(fh)
+                except (OSError, ValueError):
+                    continue
+                if out.get("state") != "running":
+                    break
+                out = None
+        if out is None:
+            _wo["job"] = {"state": "error", "error": "انتهت مهلة المهمة بلا نتيجة", "ts": int(t0)}
+            return
+        if out.get("state") == "refused":
+            _wo["job"] = {"state": "refused", "error": out.get("error"), "ts": int(t0)}
+            return
+        left = bool(out.get("left")) or out.get("state") == "partial"
+        mb = float(out.get("mb") or 0)
         with db._lock:
             c = _c()
             c.execute("INSERT INTO space_runs(ts,kind,mb,files,skipped,src) VALUES(?,?,?,?,?,?)", (int(time.time()), "winold", mb, 0, 1 if left else 0, src))
             c.execute("INSERT INTO actions(ts,kind,src,expected_mb,actual_mb,files,skipped,free_before_gb,free_after_gb,ok,detail) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                      (int(time.time()), "winold", src, round(_wo["b"] / 2**20, 1), mb, 0, 1 if left else 0, round(fb / 2**30, 2), round(fa / 2**30, 2), 0 if left else 1, "بقي جزء" if left else None))
+                      (int(time.time()), "winold", src, round(_wo["b"] / 2**20, 1), mb, 0, 1 if left else 0, out.get("freeBeforeGB"), out.get("freeAfterGB"),
+                       0 if (left or out.get("state") == "error") else 1, out.get("error")))
             c.commit()
-        _wo["job"] = {"state": "partial" if left else "done", "mb": mb, "ts": int(time.time())}
+        _wo["job"] = {"state": out.get("state") if out.get("state") in ("done", "partial", "error") else ("partial" if left else "done"), "mb": mb,
+                      "error": out.get("error"), "ts": int(time.time())}
         _wo["t"] = 0
         threading.Thread(target=scan, args=(60,), daemon=True).start()
     except Exception as e:
@@ -752,8 +798,9 @@ def _clean_impl(kind, dry=True, src="manual", early=False):
                     "note": "جارٍ القياس" if not _wo["t"] else None}
         if not st["eligible"] and not early:
             return {"ok": False, "error": "لم تمضِ %d يوماً بعد؛ متبقٍ %d" % (WINOLD_DAYS, st["daysLeft"]), "blocked": True, "winold": st}
-        if not st["admin"]:
-            return {"ok": False, "error": "يتطلب تشغيل الخادم بصلاحية المسؤول"}
+        ready, why = _winold_task_ready()
+        if not ready:
+            return {"ok": False, "error": why}
         if (_wo["job"] or {}).get("state") == "running":
             return {"ok": False, "error": "الحذف جارٍ"}
         threading.Thread(target=_winold_delete, args=(src, early), daemon=True).start()
