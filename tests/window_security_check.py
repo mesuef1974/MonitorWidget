@@ -20,6 +20,7 @@ import os
 ROOT = Path(__file__).resolve().parents[1]
 TREE = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
 TREE_SHELL = ast.parse((ROOT / "shellwin.py").read_text(encoding="utf-8-sig"))   # البند 6/هـ: فتح النافذة والتذكرة في shellwin.py
+TREE_WIDGET = ast.parse((ROOT / "widgetctl.py").read_text(encoding="utf-8-sig"))   # البند 6/و: الويدجت في widgetctl.py
 
 
 def functions(names, tree=TREE):
@@ -81,7 +82,7 @@ class WidgetProcessScope(unittest.TestCase):
                   os=os, PWSH="pwsh", CNW=0,
                   sched=types.SimpleNamespace(remaining_timeout=lambda n:n),
                   subprocess=types.SimpleNamespace(run=run))
-        exec(compile(functions({"_widget_process_matches", "widget_stop"}), "widget-scope", "exec"), ns)
+        exec(compile(functions({"_widget_process_matches", "widget_stop"}, TREE_WIDGET), "widget-scope", "exec"), ns)
         return ns
 
     def test_real_windows_argv_selects_only_checkout_file(self):
