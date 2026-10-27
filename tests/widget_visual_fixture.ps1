@@ -46,6 +46,8 @@ Replace-Required "'Local\Azkia-MiniWidget'" '"Local\Azkia-MiniWidget-VisualFixtu
 Replace-Required 'if ((Test-Path "$Root\widget.log")' 'if ($false -and (Test-Path "$Root\widget.log")'
 Replace-Required '$script:setPath = "$Root\widget.settings.json"' '$script:setPath = Join-Path $env:TEMP ("mw-fixture-no-settings-" + $PID + ".json")'
 Replace-Required "(Join-Path `$PSScriptRoot 'assets\icon_192.png')" "(Join-Path `$Root 'assets\icon_192.png')"
+Replace-Required "(Join-Path `$PSScriptRoot 'identity.ps1')" "(Join-Path `$Root 'identity.ps1')"   # الهوية المشتركة تُقرأ من جذر المستودع لا من موضع السكربت المولَّد
+Replace-Required "Get-IdentityPalette `$PSScriptRoot " "Get-IdentityPalette `$Root "
 Replace-Required "theme = 'auto'; palette = 'teal'; restorePos = `$true; expanded = `$false; showChart = `$false" ("theme = '" + $Theme + "'; palette = '" + $Palette + "'; restorePos = `$true; expanded = `$" + $Expanded.IsPresent.ToString().ToLowerInvariant() + '; showChart = $true')
 if ($BackgroundOpacity -ge 0) { Replace-Required 'opacity = 0.96;' ('opacity = ' + $BackgroundOpacity.ToString([Globalization.CultureInfo]::InvariantCulture) + ';') }
 Replace-Required "(Join-Path `$Root 'appearance.json')" '(Join-Path $env:TEMP ("mw-fixture-no-appearance-" + $PID + ".json"))'

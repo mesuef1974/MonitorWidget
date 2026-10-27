@@ -266,6 +266,10 @@ function reliabBody(r) {
 const when = ts => ts ? `<bdi dir="ltr" class="q">${new Date(ts * 1000).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
 const whenIso = iso => iso ? `<bdi dir="ltr" class="q">${new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
 const dur = s => s >= 3600 ? Q(s / 3600, "س", 1) : s >= 60 ? Q(s / 60, "د") : Q(s, "ث");
+/* تأجيل التوصيات 24 ساعة: حالة محلية لهذا المتصفح فقط (localStorage)، تسقط المنتهية عند القراءة */
+const ADV_KEY = "mw-v2-advSnooze";
+const advSnoozed = () => { try { const o = JSON.parse(localStorage.getItem(ADV_KEY) || "{}"), n = Date.now(); for (const k in o) if (!(o[k] > n)) delete o[k]; return o; } catch { return {}; } };
+const advSave = o => { try { localStorage.setItem(ADV_KEY, JSON.stringify(o)); } catch { } };
 const sw = (on, attrs) => `<button class="switch" role="switch" aria-checked="${on}" ${attrs}><i></i></button>`;
 const sev = s => /err|crit|bad|fail/.test(s) ? "bad" : /warn/.test(s) ? "warn" : /ok|success/.test(s) ? "ok" : "";
 const stack = (items, pal) => `<div class="stackbar">${items.map((c, i) => `<i title="${esc(c.label)}" style="flex:${Math.max(c.v, .001)};background:${pal[i % pal.length]}"></i>`).join("")}</div>`;
@@ -287,7 +291,7 @@ function spCtl(r, d) {
   const v = SPV[r.kind] || {}, wo = r.kind === "winold" ? d.winold : null, k = esc(r.kind);
   if (wo?.job?.state === "running" || r.job?.state === "running") return '<span class="tag warn">يعمل في الخلفية…</span>';
   if (r.blockedBy && !v.busy && !v.res) return `<span class="tag warn">أغلق ${esc(r.blockedBy)} أولاً</span>`;
-  if (v.busy) return '<span class="tag">جارٍ…</span>';
+  if (v.busy) return '<span class="tag">جارٍ…</span> <span class="note">قد تستغرق المعاينة دقيقة مع آلاف الملفات</span>';
   const res = v.res;
   if (res?.ok && res.dry) return `<span class="acts">يتحرّر <b>${fmtMB(res.mb || 0)}</b><button class="btn primary" data-sp="clean" data-spk="${k}"${wo && !wo.eligible ? ' data-early="1"' : ""}>${wo && !wo.eligible ? "تأكيد الحذف الآن" : "تأكيد"}</button><button class="btn" data-sp="cancel" data-spk="${k}">إلغاء</button></span>`;
   if (res?.ok && res.started) return '<span class="tag warn">بدأ الحذف في الخلفية</span>';
@@ -531,9 +535,10 @@ Object.assign(PAGES, {
     async load() { return settle(api("/api/advice")); },
     render([d]) {
       if (!d) return `<div class="banner">تعذّر قراءة التوصيات.</div>`;
-      const c = d.counts || {};
-      return panel("الملخص", `<div class="pill-row"><span class="tag bad">${Q(c.bad)} حرج</span><span class="tag warn">${Q(c.warn)} انتبه</span><span class="tag">${Q(c.info)} للعلم</span><span class="tag ok">${Q(c.ok)} سليم</span></div>`)
-        + `<div class="cards">${d.items.map(i => `<article class="card lvl-${esc(i.lvl)}"><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p><div class="acts">${i.go ? `<a class="btn" href="#/${esc(i.go)}">فتح الصفحة</a>` : ""}${i.action ? `<button class="btn primary" data-adv='${esc(JSON.stringify({ api: i.action.api, body: i.action.body || {}, confirm: i.action.confirm || "" }))}'>${esc(i.action.label || "تنفيذ")}</button>` : ""}</div></article>`).join("")}</div>`;
+      const sn = advSnoozed(), vis = (d.items || []).filter(i => !sn[i.id]), hid = (d.items || []).length - vis.length;
+      const c = { bad: 0, warn: 0, info: 0, ok: 0 }; vis.forEach(i => { if (i.lvl in c) c[i.lvl]++; });
+      return panel("الملخص", `<div class="pill-row"><span class="tag bad">${Q(c.bad)} حرج</span><span class="tag warn">${Q(c.warn)} انتبه</span><span class="tag">${Q(c.info)} للعلم</span><span class="tag ok">${Q(c.ok)} سليم</span>${hid ? `<button class="btn" data-advrestore="1">إظهار ${Q(hid)} مؤجّلة</button>` : ""}</div>`)
+        + `<div class="cards">${vis.map(i => `<article class="card lvl-${esc(i.lvl)}"><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p><div class="acts">${i.go ? `<a class="btn" href="#/${esc(i.go)}">فتح الصفحة</a>` : ""}${i.action ? `<button class="btn primary" data-adv='${esc(JSON.stringify({ api: i.action.api, body: i.action.body || {}, confirm: i.action.confirm || "" }))}'>${esc(i.action.label || "تنفيذ")}</button>` : ""}${i.lvl !== "ok" ? `<button class="btn" data-advsnooze="${esc(i.id)}" title="تُخفى 24 ساعة على هذا المتصفح">تأجيل 24 س</button>` : ""}</div></article>`).join("") || '<div class="empty">لا توصيات ظاهرة</div>'}</div>`;
     }
   },
 
@@ -619,6 +624,8 @@ document.addEventListener("click", async e => {
   else if (t.dataset.task) { const run = t.dataset.task === "run", on = t.getAttribute("aria-checked") === "true"; const ok = await confirmDlg(run ? `تشغيل المهمة «${t.dataset.n}» الآن؟` : on ? "إيقاف جدولة هذه المهمة؟" : "تفعيل جدولة هذه المهمة؟"); if (ok) act(() => post("/api/task", { op: run ? "run" : on ? "disable" : "enable", path: t.dataset.p, name: t.dataset.n }), run ? "بدأ التشغيل" : "تم"); }
   else if (t.dataset.tier) { const paused = t.getAttribute("aria-checked") !== "true"; if (await confirmDlg(paused ? "إيقاف هذا المستوى مؤقتًا؟ لن يُشغَّل تنظيفه المجدول." : "استئناف هذا المستوى؟")) act(() => post("/api/tier-pause", { tier: t.dataset.tier, paused }), "تم"); }
   else if (t.dataset.rule) { const on = t.getAttribute("aria-checked") === "true"; if (await confirmDlg(on ? "تعطيل هذه القاعدة؟" : "تفعيل هذه القاعدة؟")) act(() => post("/api/rule", { id: t.dataset.rule, enabled: !on }), "حُدّثت السياسة"); }
+  else if (t.dataset.advsnooze) { const o = advSnoozed(); o[t.dataset.advsnooze] = Date.now() + 86400000; advSave(o); toast("أُجّلت 24 ساعة"); redraw(); }
+  else if (t.dataset.advrestore) { advSave({}); toast("أُظهرت المؤجّلة"); redraw(); }
   else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/trim-memory", "/api/trim-auto", "/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
   else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(async () => { applyAppearance(await post("/api/appearance", next)); }, "حُفظ المظهر"); }
   else if (t.dataset.trim) { if (await confirmDlg(t.dataset.trim === "deep" ? "تنظيف عميق للذاكرة؟ قد يبطّئ التطبيقات لحظات." : "تنظيف الذاكرة الآن؟")) act(() => post("/api/trim-memory", { mode: t.dataset.trim }), "بدأ التنظيف"); }
