@@ -9,7 +9,7 @@ html{color-scheme:dark light;overflow-y:scroll;scrollbar-gutter:stable}
 *::-webkit-scrollbar-thumb:hover{background:var(--accent);background-clip:content-box}
 *::-webkit-scrollbar-button{display:none}
 h1,h2,h3,legend{font-family:var(--f-head);font-weight:700}
-body{font:400 14px/1.55 var(--f-ui);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{font:400 15px/1.6 var(--f-ui);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   background:radial-gradient(900px 520px at 85% -10%,var(--bg-glow),transparent 70%),
              linear-gradient(var(--grid) 1px,transparent 1px) 0 0/100% 56px,
