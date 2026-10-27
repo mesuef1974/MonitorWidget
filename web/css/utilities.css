@@ -1,0 +1,17 @@
+/* ═══ utilities.css — فئات مساعدة صغيرة ═══ */
+/* ───────── Utilities ─────────
+   بدائل الأنماط المضمَّنة المتكررة؛ ما بقي inline في القالب فهو قيم تأتي من البيانات (عرض نسبي، لون سلسلة…). */
+.mono{font-family:var(--f-mono);font-size:12.5px;direction:ltr;text-align:start}
+.cell-path{width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start}
+.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ta-start{text-align:start}
+.mt-2{margin-top:var(--s2)}
+.pre-wrap{white-space:pre-wrap}
+.cap-h{max-height:300px;overflow:auto}
+.end{justify-content:flex-end}
+.ltr-start{direction:ltr;text-align:start}
+.t-sm{font-size:12.5px}
+.cap-dlg{max-height:60vh;overflow:auto}
+.mw-260{max-width:260px}.mw-340{max-width:340px}.mw-360{max-width:360px}.mw-420{max-width:420px}
+.w-90{width:90px}.w-170{width:170px}
+.stack-v{flex-direction:column;justify-content:center;text-align:center}

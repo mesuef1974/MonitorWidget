@@ -6,236 +6,11 @@
 <meta name="color-scheme" content="dark light">
 <title>مرصد الجهاز</title>
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-<style>
-/* ───────── Design tokens ─────────
-   Direction: "instrument cluster" — graphite surfaces, one phosphor accent, hairline panels,
-   DIN-like numerals (Bahnschrift) against a calm Arabic UI face. Everything is a token. */
-:root{
-  --f-ui:"Segoe UI Variable Text","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
-  --f-num:"Bahnschrift","Segoe UI Variable Display","Segoe UI",Tahoma,sans-serif;
-  --f-mono:"Cascadia Mono",Consolas,monospace;
-  --r-sm:8px;--r-md:12px;--r-lg:16px;
-  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
-  --ease:cubic-bezier(.2,.7,.2,1);
-  --nav-w:248px;
-}
-:root[data-theme="dark"]{
-  --bg:#080b10;--bg-glow:rgba(62,230,176,.075);--panel:#0e131b;--panel2:#131a24;--raise:#18212d;
-  --line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.13);
-  --ink:#e9eef5;--ink2:#9ba8ba;--ink3:#69778c;
-  --accent:#3ee6b0;--accent-ink:#03231a;--accent2:#7ca6ff;--violet:#b79cff;
-  --ok:#3ee6b0;--warn:#ffb54a;--bad:#ff6b79;--ok-bg:rgba(62,230,176,.12);--warn-bg:rgba(255,181,74,.12);--bad-bg:rgba(255,107,121,.13);
-  --grid:rgba(255,255,255,.055);--shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -16px rgba(0,0,0,.7);
-}
-:root[data-theme="light"]{
-  --bg:#f2efe8;--bg-glow:rgba(10,157,116,.09);--panel:#fffdf8;--panel2:#f8f5ee;--raise:#efeadf;
-  --line:rgba(20,30,40,.09);--line2:rgba(20,30,40,.16);
-  --ink:#121c29;--ink2:#455468;--ink3:#7a8797;
-  --accent:#08a177;--accent-ink:#fff;--accent2:#2f62d6;--violet:#6f4fd0;
-  --ok:#08a177;--warn:#c27a00;--bad:#d1334a;--ok-bg:rgba(8,161,119,.1);--warn-bg:rgba(194,122,0,.1);--bad-bg:rgba(209,51,74,.1);
-  --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
-}
-:root[data-palette="blue"][data-theme="dark"]{--accent:#6aa6ff;--accent-ink:#04122b;--accent2:#3ee6b0;--bg-glow:rgba(106,166,255,.08)}
-:root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
-:root[data-palette="violet"][data-theme="dark"]{--accent:#b79cff;--accent-ink:#160a33;--accent2:#7ca6ff;--bg-glow:rgba(183,156,255,.08)}
-:root[data-palette="violet"][data-theme="light"]{--accent:#6f4fd0;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(111,79,208,.09)}
-:root[data-palette="graphite"][data-theme="dark"]{--accent:#c4ccd8;--accent-ink:#0c1118;--accent2:#7ca6ff;--bg-glow:rgba(196,204,216,.06)}
-:root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}
-*{box-sizing:border-box;margin:0}
-html{color-scheme:dark light;overflow-y:scroll;scrollbar-gutter:stable}
-:root[data-theme="dark"]{color-scheme:dark}:root[data-theme="light"]{color-scheme:light}
-/* شريط تمرير بهوية المرصد: نحيف، مستدير، بلون التمييز، ويتبع الثيم لا نظام التشغيل */
-*::-webkit-scrollbar{width:12px;height:12px}
-*::-webkit-scrollbar-track{background:transparent}
-*::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--accent) 40%,var(--line2));border-radius:10px;border:2px solid transparent;background-clip:content-box}
-*::-webkit-scrollbar-thumb:hover{background:var(--accent);background-clip:content-box}
-*::-webkit-scrollbar-button{display:none}
-body{font:400 14px/1.55 var(--f-ui);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:radial-gradient(900px 520px at 85% -10%,var(--bg-glow),transparent 70%),
-             linear-gradient(var(--grid) 1px,transparent 1px) 0 0/100% 56px,
-             linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/56px 100%;
-  -webkit-mask-image:linear-gradient(180deg,#000,transparent 70%);mask-image:linear-gradient(180deg,#000,transparent 70%)}
-a{color:inherit;text-decoration:none}
-button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-.skip{position:fixed;inset-block-start:8px;inset-inline-start:8px;z-index:100;background:var(--accent);color:var(--accent-ink);padding:8px 14px;border-radius:8px;transform:translateY(-200%)}
-.skip:focus{transform:none}
-.q{font-family:var(--f-num);font-variant-numeric:tabular-nums}
-.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:.01em;direction:ltr;unicode-bidi:isolate;display:inline-block}
-
-/* ───────── Shell ───────── */
-.app{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:100vh}
-.nav{position:sticky;top:0;height:100vh;overflow-y:auto;padding:var(--s5) var(--s4);border-inline-end:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 92%,transparent),transparent);display:flex;flex-direction:column;gap:var(--s4);scrollbar-width:thin}
-.brand{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s2) var(--s3)}
-.brand-mark{width:42px;height:42px;border-radius:0;background:none !important;box-shadow:none !important;display:grid;place-items:center;background:linear-gradient(145deg,var(--accent),color-mix(in srgb,var(--accent) 40%,var(--accent2)));color:var(--accent-ink);box-shadow:0 8px 24px -10px var(--accent)}
-.brand b{display:block;font-size:16px;letter-spacing:.2px}
-.brand small{color:var(--ink3);font-size:11.5px}
-.nav-group{display:flex;flex-direction:column;gap:2px}
-.nav-label{font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--ink3);padding:var(--s2) var(--s3) var(--s1)}
-.nav a{display:flex;align-items:center;gap:var(--s3);padding:7px var(--s3);border-radius:10px;color:var(--ink2);transition:background .18s var(--ease),color .18s}
-.nav a svg{width:18px;height:18px;flex:none;opacity:.85}
-.nav a:hover{background:var(--panel2);color:var(--ink)}
-.nav a[aria-current="page"]{background:var(--ok-bg);color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
-.nav a .ext{margin-inline-start:auto;opacity:.45;width:13px;height:13px}
-.nav-foot{margin-top:auto;display:flex;flex-direction:column;gap:var(--s2);padding-top:var(--s3);border-top:1px solid var(--line)}
-.main{min-width:0;display:flex;flex-direction:column}
-.bar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:var(--s4);padding:var(--s4) var(--s6);background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(14px) saturate(140%);border-bottom:1px solid var(--line)}
-.bar h1{font-size:22px;font-weight:650;letter-spacing:.1px}
-.bar .sub{color:var(--ink3);font-size:12.5px}
-.bar .grow{flex:1;min-width:0}
-.live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--ink2);padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
-.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
-.live.err i{background:var(--bad);animation:none}
-@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
-.tag .x{margin-inline-start:4px;padding:0 4px;border-radius:6px;color:var(--ink3);font-size:14px;line-height:1}.tag .x:hover{color:var(--bad)}
-#widgetBtn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}@media(max-width:900px){#widgetBtn span{display:none}}
-.boost{display:inline-flex;gap:6px;align-items:center}.boost .btn[disabled]{opacity:.6}#boostMode{min-width:128px}@media(max-width:760px){#boostMode{display:none}#boostTxt{display:none}}
-.btn{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--line2);border-radius:10px;background:var(--panel);color:var(--ink);font-size:13px;transition:border-color .15s,background .15s,transform .15s}
-.btn:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:var(--panel2)}
-.btn:active{transform:translateY(1px)}
-.btn svg{width:16px;height:16px}
-select.btn{appearance:none;padding-inline-end:12px}
-.content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:grid;gap:var(--s4);grid-template-columns:repeat(12,minmax(0,1fr));align-content:start;align-items:stretch}
-.menu-btn{display:none}
-
-/* ───────── Panels ───────── */
-.panel{grid-column:span 12;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:var(--s4) var(--s5) var(--s5);min-width:0;position:relative;display:flex;flex-direction:column;gap:var(--s3)}
-.enter .panel,.enter .card{animation:rise .45s var(--ease) both}
-.panel::before{content:"";position:absolute;inset-inline-start:var(--s5);top:-1px;width:34px;height:2px;background:var(--accent);border-radius:2px;opacity:.9}
-@keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.grow{flex:1 1 auto;min-height:0}
-.kpis{align-content:start;grid-auto-rows:minmax(0,132px)}.panel>.kpis{flex:0 0 auto}.panel .list{max-height:460px;overflow-y:auto;overflow-x:hidden}
-/* شريط التمرير في طرف البطاقة نفسه ومدمج فيها: المنطقة القابلة للتمرير تمتد إلى الحافة والنص يحتفظ بحشوته */
-.panel .list,.panel .scrollbox{margin-inline:calc(-1*var(--s5));padding-inline:var(--s5) calc(var(--s5) - 4px)}
-.c3{grid-column:span 3}.c4{grid-column:span 4}.c5{grid-column:span 5}.c6{grid-column:span 6}.c7{grid-column:span 7}.c8{grid-column:span 8}
-@media(max-width:1280px){.c3{grid-column:span 6}.c4,.c5{grid-column:span 6}.c7,.c8{grid-column:span 12}}
-@media(max-width:860px){.c3,.c4,.c5,.c6{grid-column:span 12}.app{grid-template-columns:1fr}.nav{position:fixed;inset-block:0;inset-inline-start:0;width:min(86vw,300px);z-index:50;transform:translateX(100%);transition:transform .25s var(--ease);background:var(--panel)}
-  html[dir="rtl"] .nav{transform:translateX(100%)}.nav.open{transform:none!important}.menu-btn{display:inline-flex}.bar,.content{padding-inline:var(--s4)}}
-.ph{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3)}
-.ph h2{font-size:12.5px;font-weight:650;letter-spacing:.06em;color:var(--ink2)}
-.ph .meta{font-size:12px;color:var(--ink3)}
-.chips{display:inline-flex;gap:4px;padding:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
-.chips button{padding:4px 11px;border-radius:7px;font-size:12px;color:var(--ink2)}
-.chips button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:0 0 0 1px var(--line2)}
-.tag{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--ink2);white-space:nowrap}
-.tag.ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}.tag.warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}.tag.bad{color:var(--bad);background:var(--bad-bg);border-color:transparent}
-
-/* stats */
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:var(--s3)}
-.kpi{padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0}
-.kpi .l{font-size:12px;color:var(--ink3)}
-.kpi .v{font-size:30px;line-height:1.05;font-weight:600;display:flex;align-items:baseline;gap:5px;direction:ltr;justify-content:flex-end}
-.kpi .v small{font-size:13px;color:var(--ink3);font-family:var(--f-ui);font-weight:400}
-.kpi .s{font-size:12px;color:var(--ink3)}
-.meter{height:5px;border-radius:5px;background:var(--raise);overflow:hidden;margin-top:4px}
-.meter>i{display:block;height:100%;border-radius:5px;background:var(--accent);transition:width .6s var(--ease)}
-.meter.warn>i{background:var(--warn)}.meter.bad>i{background:var(--bad)}
-/* gauges */
-.gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:var(--s3);align-content:center;flex:1}
-.gauge{display:flex;flex-direction:column;align-items:center;gap:6px;padding:var(--s3) var(--s2)}
-.gauge svg{width:100%;max-width:176px;height:auto;overflow:visible}
-.gauge .gv{font:600 34px/1 var(--f-num);fill:var(--ink)}
-.gauge .gu{font:500 12px var(--f-ui);fill:var(--ink3)}
-.gauge .gl{font-size:13px;color:var(--ink2)}
-.gauge .gs{font-size:11.5px;color:var(--ink3);margin-top:-2px}
-.arc{transition:stroke-dashoffset .8s var(--ease),stroke .3s}
-/* tables */
-.tbl{width:100%;border-collapse:collapse;font-size:13px}
-.panel>table.tbl{display:block;max-width:100%;overflow-x:auto}  /* عند الضيق يبقى التمرير داخل البطاقة ولا يتسع للصفحة كلها */
-.tbl th.n{text-align:end}
-.tbl th{font-size:11.5px;font-weight:600;color:var(--ink3);text-align:start;padding:6px var(--s2);border-bottom:1px solid var(--line2)}
-.tbl td{padding:8px var(--s2);border-bottom:1px solid var(--line);vertical-align:middle;overflow-wrap:anywhere}
-.tbl tr:last-child td{border-bottom:0}
-.tbl td.n{text-align:end;white-space:nowrap}.tbl .btn{white-space:nowrap}
-.tbl tr:hover td{background:color-mix(in srgb,var(--raise) 55%,transparent)}
-.rowbar{display:flex;align-items:center;gap:var(--s2);min-width:110px}.rowbar .meter{flex:1;margin:0}
-.list{display:flex;flex-direction:column}
-.li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px var(--s3);padding:10px 0;border-bottom:1px solid var(--line);align-items:center}
-.li:last-child{border-bottom:0}
-.li .t{font-weight:550}.li .d{grid-column:1;color:var(--ink3);font-size:12.5px}.li .r{grid-row:1/3;grid-column:2;text-align:end}
-.li .meter{grid-column:1/-1}
-.empty{color:var(--ink3);text-align:center;padding:var(--s5) 0}
-.note{font-size:12.5px;color:var(--ink3)}
-/* charts */
-.chart{position:relative;direction:ltr;padding-left:40px}
-.plot{position:relative}
-.chart svg{display:block;width:100%;overflow:visible}
-.chart .grid line{stroke:var(--grid);stroke-width:1;vector-effect:non-scaling-stroke}
-.chart .ln{fill:none;stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
-.chart .yl,.chart .xl{position:absolute;font:11px var(--f-num);color:var(--ink3);pointer-events:none}
-.chart .yl{left:-40px;width:34px;text-align:right;transform:translateY(-50%)}
-.chart .xl{bottom:-18px;transform:translateX(-50%)}
-.chart .cur{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);pointer-events:none;display:none}
-.chart .tip{position:absolute;z-index:5;top:6px;min-width:128px;padding:8px 10px;border-radius:10px;border:1px solid var(--line2);background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(8px);font-size:12px;pointer-events:none;display:none;box-shadow:0 10px 28px -12px #000;direction:rtl}
-.chart .tip b{display:block;font:600 11.5px var(--f-num);color:var(--ink3);margin-bottom:3px}
-.chart .tip div{display:flex;align-items:center;gap:6px;justify-content:space-between}
-.chart .tip i{width:8px;height:8px;border-radius:2px}
-.legend{display:flex;flex-wrap:wrap;gap:var(--s4);font-size:12px;color:var(--ink2)}
-.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:14px;height:3px;border-radius:2px}
-/* skeleton + toast */
-.sk{border-radius:8px;background:linear-gradient(90deg,var(--raise),var(--panel2),var(--raise));background-size:200% 100%;animation:sh 1.3s infinite linear;min-height:18px}
-@keyframes sh{to{background-position:-200% 0}}
-.banner{grid-column:1/-1;padding:var(--s3) var(--s4);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-bg);border-radius:var(--r-md);color:var(--bad);font-size:13px}
-.hero{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap}
-.hero .big{font:600 56px/1 var(--f-num)}
-.hero h3{font-size:20px;font-weight:650}
-.hero p{color:var(--ink2);max-width:60ch}
-.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--s4)}
-.pill-row{display:flex;flex-wrap:wrap;gap:var(--s2)}
-
-/* ───────── forms, switches, dialogs, toasts ───────── */
-.switch{width:42px;height:24px;border-radius:999px;background:var(--raise);border:1px solid var(--line2);position:relative;flex:none;transition:background .2s var(--ease),border-color .2s}
-.switch i{position:absolute;top:2px;inset-inline-start:2px;width:18px;height:18px;border-radius:50%;background:var(--ink2);transition:transform .2s var(--ease),background .2s}
-.switch[aria-checked="true"]{background:var(--ok-bg);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
-.switch[aria-checked="true"] i{background:var(--accent);transform:translateX(-18px)}
-.switch:disabled{opacity:.4;cursor:not-allowed}
-.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent;font-weight:600}
-.btn.primary:hover{background:color-mix(in srgb,var(--accent) 88%,#fff)}
-.btn:disabled{opacity:.45;cursor:not-allowed}
-.inp{width:100%;padding:8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
-.inp:focus{outline:2px solid var(--accent);outline-offset:1px}
-textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
-.fs{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4) var(--s4);margin:0 0 var(--s3);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s3)}
-.fs legend{padding:0 8px;font-size:12.5px;font-weight:600;color:var(--ink2)}
-.fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--ink3)}
-.toolbar{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}.toolbar .inp{flex:1;min-width:180px}
-.pager{display:flex;align-items:center;justify-content:space-between;gap:var(--s3);padding-top:var(--s2)}
-.acts{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}
-.row-sw{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:6px 0}
-.field-row{display:flex;align-items:center;justify-content:space-between;gap:var(--s4);padding:8px 0;border-bottom:1px solid var(--line)}
-.field-row:last-of-type{border-bottom:0}
-.stackbar{display:flex;height:12px;border-radius:8px;overflow:hidden;gap:2px}
-.dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:8px}
-.scroll{overflow:auto;max-width:100%}
-.scrollbox{max-height:620px;overflow-y:auto;overflow-x:hidden}
-.rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--ok-bg);color:var(--accent)}
-.content>*{min-width:0}
-.cards{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
-.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2);border-inline-start:4px solid var(--ink3)}
-.card h3{font-size:15px}.card p{color:var(--ink2);font-size:13.5px;flex:1}
-.card.lvl-warn{border-inline-start-color:var(--warn)}.card.lvl-bad{border-inline-start-color:var(--bad)}.card.lvl-ok{border-inline-start-color:var(--ok)}
-.swatches{display:flex;gap:var(--s3);flex-wrap:wrap}
-.swatch{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:12px;background:var(--bg)}
-.swatch i{width:18px;height:18px;border-radius:50%}.swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--ok-bg)}
-.c12{grid-column:span 12}
-.heat{display:grid;grid-template-columns:44px repeat(24,minmax(0,1fr));gap:2px;direction:ltr;font-size:10.5px;color:var(--ink3)}
-.heat b{font-weight:400;text-align:right;padding-right:6px;line-height:16px}
-.heat i{height:16px;border-radius:3px;background:var(--raise)}
-.heat .hh{text-align:center;line-height:14px}
-.vol{display:flex;flex-direction:column;gap:6px}
-.nav-foot a{display:flex;align-items:center;gap:8px;color:var(--ink2);font-size:12.5px;padding:6px 8px;border-radius:8px}.nav-foot a:hover{background:var(--panel2);color:var(--ink)}
-td.acts{display:flex;gap:var(--s2);align-items:center;justify-content:flex-end;flex-wrap:wrap}
-dialog.dlg{margin:auto;border:1.5px solid color-mix(in srgb,var(--accent) 70%,var(--line2));border-radius:var(--r-lg);background:var(--panel2);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:0 0 0 1px var(--line2),0 30px 80px -20px #000}
-dialog.dlg::backdrop{background:rgba(0,0,0,.62);backdrop-filter:blur(3px)}
-dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:var(--s2);justify-content:flex-end}
-#toasts{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;padding:16px}
-.toast{pointer-events:auto;text-align:center;max-width:min(92vw,520px);padding:12px 20px;border-radius:12px;background:var(--panel2);border:1.5px solid color-mix(in srgb,var(--accent) 65%,var(--line2));box-shadow:0 14px 36px -14px #000;animation:rise .3s var(--ease)}
-.toast.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--panel2));color:var(--ink)}
-html{scroll-behavior:auto}
-@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-</style>
+<link rel="stylesheet" href="/css/tokens.css">
+<link rel="stylesheet" href="/css/base.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/components.css">
+<link rel="stylesheet" href="/css/utilities.css">
 </head>
 <body>
 <a class="skip" href="#main">تخطَّ إلى المحتوى</a>
@@ -345,12 +120,11 @@ const PAGES = {
       const m = mem?.m || {}, sc = health?.score?.score, [vt, vl] = sc != null ? verdict(sc) : ["—", ""];
       const cpuPct = home?.cpu?.pct, g = home?.gpu, io = home?.io?.now;
       const ms = mem?.series, idx = ms ? compact(ms.t, 160) : [];
-      let out = panel("الحالة العامة", `<div class="hero"><div class="big num" style="color:var(--${vl === "bad" ? "bad" : vl === "warn" ? "warn" : "accent"})">${sc ?? "—"}</div><div><h3>صحة الجهاز ${vt}</h3><p>${health?.forecast ? `المساحة الحرة على C ${nf(health.forecast.freeGB, 1)} GB، والاتجاه ${esc(health.forecast.state)}${health.forecast.daysLeft ? ` — يكفي نحو ${nf(health.forecast.daysLeft)} يومًا` : ""}.` : "لا تتوفر بيانات التوقع بعد."}</p><div class="pill-row" style="margin-top:8px"><span class="tag ${vl}">${health?.score?.coveragePct ?? "—"}% تغطية القياس</span><span class="tag">${nf(m.claude)} عملية Claude</span><span class="tag">${nf(io?.stalls24 ?? home?.io?.stalls24)} توقفات قرص / 24س</span></div></div></div>`, { cls: "c12" });
-      out = out.replace('class="panel c12"', 'class="panel" style="grid-column:span 12"');
+      let out = panel("الحالة العامة", `<div class="hero"><div class="big num" style="color:var(--${vl === "bad" ? "bad" : vl === "warn" ? "warn" : "accent"})">${sc ?? "—"}</div><div><h3>صحة الجهاز ${vt}</h3><p>${health?.forecast ? `المساحة الحرة على C ${nf(health.forecast.freeGB, 1)} GB، والاتجاه ${esc(health.forecast.state)}${health.forecast.daysLeft ? ` — يكفي نحو ${nf(health.forecast.daysLeft)} يومًا` : ""}.` : "لا تتوفر بيانات التوقع بعد."}</p><div class="pill-row mt-2"><span class="tag ${vl}">${health?.score?.coveragePct ?? "—"}% تغطية القياس</span><span class="tag">${nf(m.claude)} عملية Claude</span><span class="tag">${nf(io?.stalls24 ?? home?.io?.stalls24)} توقفات قرص / 24س</span></div></div></div>`, { cls: "c12" });
       out += panel("المقاييس الحية", `<div class="gauges">${gauge({ value: cpuPct, label: "المعالج", sub: `${Q(home?.cpu?.cores, "", 1)} من ${Q(home?.cpu?.ncpu)} نواة`, warn: 70, bad: 90 })}${gauge({ value: m.ramPct, label: "الذاكرة الفعلية", sub: `${Q(m.totalGB - m.availGB, "", 1)} من ${Q(m.totalGB, "GB", 1)}`, warn: 80, bad: 92 })}${gauge({ value: m.commitPct, label: "التزام الذاكرة", sub: `${Q(m.commitGB, "", 1)} من ${Q(m.limitGB, "GB", 1)}`, warn: 85, bad: 95 })}${gauge({ value: m.diskPct, label: "القرص C", sub: `حرّ ${Q(m.diskFreeGB, "GB", 1)}`, warn: 85, bad: 93 })}</div>`, { cls: "c8" });
-      out += panel("الرسوميات", g ? `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("الحرارة", nf(g.temp), "°C", "", meter(g.temp, 75, 85))}${kpi("الحمل", nf(g.util), "%", "", meter(g.util, 80, 95))}${kpi("ذاكرة الشاشة", nf(g.vramMB / 1024, 1), "GB", `من ${Q(g.vramTotal / 1024, "GB", 1)}`, meter(g.vramMB, g.vramTotal * .8, g.vramTotal * .95, g.vramTotal))}${kpi("القدرة", nf(g.power, 1), "W")}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4", meta: `<a href="#/gpu" class="tag">التفاصيل</a>` });
+      out += panel("الرسوميات", g ? `<div class="kpis two">${kpi("الحرارة", nf(g.temp), "°C", "", meter(g.temp, 75, 85))}${kpi("الحمل", nf(g.util), "%", "", meter(g.util, 80, 95))}${kpi("ذاكرة الشاشة", nf(g.vramMB / 1024, 1), "GB", `من ${Q(g.vramTotal / 1024, "GB", 1)}`, meter(g.vramMB, g.vramTotal * .8, g.vramTotal * .95, g.vramTotal))}${kpi("القدرة", nf(g.power, 1), "W")}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4", meta: `<a href="#/gpu" class="tag">التفاصيل</a>` });
       out += panel("استخدام الذاكرة", `<div id="ovChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1]])}`, { cls: "c8", meta: "آخر 6 ساعات" });
-      out += panel("القرص", io ? `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("قراءة", rate(io.r_bps).split(" ")[0], rate(io.r_bps).split(" ")[1])}${kpi("كتابة", rate(io.w_bps).split(" ")[0], rate(io.w_bps).split(" ")[1])}${kpi("زمن الكتابة", nf(io.lat_w_ms, 2), "ms")}${kpi("الانشغال", nf(io.busy_pct, 1), "%", "", meter(io.busy_pct, 60, 85))}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4" });
+      out += panel("القرص", io ? `<div class="kpis two">${kpi("قراءة", rate(io.r_bps).split(" ")[0], rate(io.r_bps).split(" ")[1])}${kpi("كتابة", rate(io.w_bps).split(" ")[0], rate(io.w_bps).split(" ")[1])}${kpi("زمن الكتابة", nf(io.lat_w_ms, 2), "ms")}${kpi("الانشغال", nf(io.busy_pct, 1), "%", "", meter(io.busy_pct, 60, 85))}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4" });
       out += panel("أكثر العمليات استهلاكًا", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">المعالج</th><th class="n">الذاكرة</th><th class="n">القرص</th></tr></thead><tbody>${(home?.top || []).slice(0, 8).map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.cpu, "نواة", 2)}</td><td class="n">${Q(p.memMB >= 1024 ? p.memMB / 1024 : p.memMB, p.memMB >= 1024 ? "GB" : "MB", p.memMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.ioMB, "MB")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا شيء</td></tr>`}</tbody></table>`, { cls: "c8", meta: `<a href="/#procs" class="tag">كل العمليات ↗</a>` });
       out += panel("خدمات الخلفية", `<div class="list">${(home?.bg || []).map(b => `<div class="li"><span class="t">${esc(b.label)}</span><span class="r"><span class="tag ${b.state === "off" ? "" : "warn"}">${b.state === "off" ? "خامل" : "نشط"}</span></span><span class="d">${Q(b.cpu, "%", 1)} · ${Q(b.ioMB, "MB", 1)}</span></div>`).join("") || `<div class="empty">لا شيء</div>`}</div>`, { cls: "c4" });
       return out;
@@ -369,14 +143,14 @@ const PAGES = {
       if (!h) return `<div class="banner">تعذّر قراءة بيانات الصحة.</div>`;
       const s = h.score, [vt, vl] = verdict(s.score), fc = h.forecast || {}, g = h.gpu?.now;
       let out = panel("شرح بالذكاء المحلي", `<p class="note">يكتب النموذج المحلي شرحًا لحالة الجهاز أو لأخطاء السجل؛ قد يستغرق دقيقة.</p><div class="acts"><button class="btn primary" data-explain="health">اشرح صحة الجهاز</button><button class="btn" data-explain="errors">اشرح أخطاء السجل</button><button class="btn" data-explain="unload">تفريغ النموذج من الذاكرة</button></div>`, { cls: "c12" });
-      out += panel("الدرجة", `<div class="hero grow" style="flex-direction:column;justify-content:center;text-align:center">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row" style="margin-top:8px">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${p.max - p.pts}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
+      out += panel("الدرجة", `<div class="hero grow stack-v">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row mt-2">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${p.max - p.pts}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
       out += panel("المكوّنات", `<div class="list">${(s.parts || []).map(p => `<div class="li"><span class="t">${esc(p.label)}</span><span class="r">${p.pts == null ? "—" : `<bdi dir="ltr" class="q">${p.pts}/${p.max}</bdi>`}</span><span class="d">${esc(p.why || "")}</span><div class="meter ${p.pts == null ? "" : p.pts < p.max * .6 ? "bad" : p.pts < p.max ? "warn" : ""}"><i style="width:${p.pts == null ? 0 : clamp(p.pts / p.max * 100, 0, 100)}%"></i></div></div>`).join("")}</div>`, { cls: "c7" });
       out += panel("اتجاه الدرجة", `<div id="hhChart" class="grow"></div>`, { cls: "c7", meta: `آخر ${(h.history || []).length} يومًا` });
-      out += panel("توقع المساحة", `<div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("معدل التغيّر", (fc.slopeGBday > 0 ? "−" : "+") + nf(Math.abs(fc.slopeGBday), 2), "GB/يوم")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
+      out += panel("توقع المساحة", `<div class="kpis two">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("معدل التغيّر", (fc.slopeGBday > 0 ? "−" : "+") + nf(Math.abs(fc.slopeGBday), 2), "GB/يوم")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
       out += panel("الرسوميات (24 ساعة)", g ? `<div class="kpis">${kpi("الآن", nf(g.temp), "°C")}${kpi("الذروة", nf(h.gpu.max24), "°C")}${kpi("الحمل", nf(g.util), "%")}${kpi("الحالة", esc(g.pstate), "")}</div>` : `<div class="empty">لا بيانات</div>`, { cls: "c6" });
       out += panel("تسرّب الذاكرة", (h.leaks || []).length ? `<div class="list">${h.leaks.map(l => `<div class="li"><span class="t">${esc(l.name)}</span><span class="d">${esc(l.note || "")}</span></div>`).join("")}</div>` : `<div class="empty">لم تُكتشف عمليات تنمو باستمرار</div>`, { cls: "c6" });
       const ig = h.gpu?.igpu;
-      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note scrollbox" style="white-space:pre-wrap;direction:ltr;max-height:300px;overflow:auto">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
+      out += panel("الاعتمادية والأحداث", rl && rl.ok ? `<pre class="note scrollbox pre-wrap cap-h" dir="ltr">${esc(JSON.stringify(rl, null, 1).slice(0, 1800))}</pre>` : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6" });
       out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", Q(ig.shared_mb, "MB"), "", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
       return out;
     },
@@ -412,9 +186,9 @@ const PAGES = {
       const m = d.m, p = d.perf || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1, pal = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
       let out = panel("القياسات", `<div class="kpis">${kpi("الفعلية", nf(m.ramPct, 0), "%", `متاح ${Q(m.availGB, "GB", 1)}`, meter(m.ramPct, d.thr.ramWarn, d.thr.ramBad))}${kpi("الالتزام", nf(m.commitPct, 0), "%", `${Q(m.commitGB, "", 1)} / ${Q(m.limitGB, "GB", 1)}`, meter(m.commitPct, d.thr.commitWarn, d.thr.commitBad))}${kpi("كاش النظام", nf(p.cacheGB, 1), "GB")}${kpi("ذاكرة النواة", nf(p.kernelGB, 1), "GB", `مقسّمة ${Q(p.kernelPagedGB, "", 2)} · ثابتة ${Q(p.kernelNonpagedGB, "", 2)}`)}${kpi("العمليات", nf(p.procs), "", `${Q(p.threads)} خيط · ${Q(p.handles)} مقبض`)}</div>`);
       out += panel("الفعلية والالتزام", `<div id="memChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1], ["var(--accent)", "متاحة"]])}`, { cls: "c8", meta: rangeChips() });
-      out += panel("حسب الفئة", `<div style="display:flex;height:12px;border-radius:8px;overflow:hidden;gap:2px">${d.cats.map((c, i) => `<i title="${esc(c.label)}" style="flex:${c.mb};background:${pal[i % pal.length]}"></i>`).join("")}</div><div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i style="display:inline-block;width:9px;height:9px;border-radius:3px;background:${pal[i % pal.length]};margin-inline-end:8px"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${c.n} عملية · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
+      out += panel("حسب الفئة", `<div class="stackbar">${d.cats.map((c, i) => `<i title="${esc(c.label)}" style="flex:${c.mb};background:${pal[i % pal.length]}"></i>`).join("")}</div><div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i class="dot" style="background:${pal[i % pal.length]}"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${c.n} عملية · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
       out += panel("أكبر البرامج", `<table class="tbl"><thead><tr><th>البرنامج</th><th class="n">نسخ</th><th class="n">خاصة</th><th class="n">مجموعة العمل</th></tr></thead><tbody>${d.top.slice(0, 10).map(p => `<tr><td>${esc(p.name)}</td><td class="n num">${p.n}</td><td class="n">${Q(p.privMB >= 1024 ? p.privMB / 1024 : p.privMB, p.privMB >= 1024 ? "GB" : "MB", p.privMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.wsMB >= 1024 ? p.wsMB / 1024 : p.wsMB, p.wsMB >= 1024 ? "GB" : "MB", p.wsMB >= 1024 ? 1 : 0)}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
-      out += panel("إعداد WSL", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t num" style="font-family:var(--f-mono);font-size:12.5px;direction:ltr;text-align:start">${esc(k)}</span><span class="r num">${esc(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c4" });
+      out += panel("إعداد WSL", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t num mono">${esc(k)}</span><span class="r num">${esc(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c4" });
       return out;
     },
     after([d]) {
@@ -516,20 +290,20 @@ function spaceCleanPanel(d) {
   const rec = d.recoverableMB || {}, rows = spaceKinds(d), bulkMB = (d.bulk || []).reduce((a, k) => a + (rec[k] || 0), 0);
   const all = SPALL.s === "busy" ? '<span class="tag">جارٍ التنظيف…</span>' : `<button class="btn primary" data-sp="all">تنظيف الآمن كله (${fmtMB(bulkMB)})</button>`;
   const head = `<div class="toolbar"><button class="btn" data-sp="scan">${d.running ? "يجري قياس…" : "قياس الآن"}</button><button class="btn" data-sp="report">${d.extras?.report?.busy ? "التقرير قيد الإعداد…" : "تقرير المكرر والكبير"}</button>${all}</div>`;
-  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? ' <span class="tag">مدير</span>' : ""}</td><td class="note" style="max-width:340px">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td>${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
+  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? ' <span class="tag">مدير</span>' : ""}</td><td class="note mw-340">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td>${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
   return panel("تنظيف المساحة", head + body, { cls: "c12" });
 }
 function spaceReportPanel(d) {
   const R = d.extras?.report, x = R?.data;
   if (!x) return panel("المكرر والكبير", `<div class="empty">${R?.busy ? "التقرير قيد الإعداد…" : "لم يُجرَ تقرير بعد — اضغط «تقرير المكرر والكبير» في لوحة التنظيف."}</div>`, { cls: "c12" });
-  const dup = (x.dups || []).slice(0, 12).map(g => `<div class="li"><span class="t">${Q(g.n)} نسخ · ${fmtMB(g.size / 1048576)} للنسخة</span><span class="r"><span class="tag warn">هدر ${fmtMB(g.wasted / 1048576)}</span></span><span class="d" dir="ltr" style="text-align:start">${esc(g.paths[0])}</span></div>`).join("");
-  const big = (x.large || []).slice(0, 15).map(f => `<div class="li"><span class="t" dir="ltr" style="text-align:start;overflow:hidden;text-overflow:ellipsis" title="${esc(f.path)}">${esc(f.path.split("\\").pop())}</span><span class="r">${fmtMB(f.mb)}</span><span class="d" dir="ltr" style="text-align:start">${esc(f.path)}</span></div>`).join("");
+  const dup = (x.dups || []).slice(0, 12).map(g => `<div class="li"><span class="t">${Q(g.n)} نسخ · ${fmtMB(g.size / 1048576)} للنسخة</span><span class="r"><span class="tag warn">هدر ${fmtMB(g.wasted / 1048576)}</span></span><span class="d ta-start" dir="ltr">${esc(g.paths[0])}</span></div>`).join("");
+  const big = (x.large || []).slice(0, 15).map(f => `<div class="li"><span class="t ta-start ellipsis" dir="ltr" title="${esc(f.path)}">${esc(f.path.split("\\").pop())}</span><span class="r">${fmtMB(f.mb)}</span><span class="d ta-start" dir="ltr">${esc(f.path)}</span></div>`).join("");
   return panel("ملفات مكررة", `<div class="note">للعرض فقط؛ لا يحذف التطبيق منها شيئًا. المهدر الإجمالي ${fmtMB(x.dupWastedMB || 0)}</div><div class="list scrollbox">${dup || '<div class="empty">لا مكرر</div>'}</div>`, { cls: "c6", meta: when(x.ts) })
     + panel("أكبر الملفات", `<div class="list scrollbox">${big || '<div class="empty">—</div>'}</div><div class="note">${Q(x.emptyCount)} مجلدًا فارغًا</div>`, { cls: "c6" });
 }
 const infoDlg = text => new Promise(res => {
   const d = document.createElement("dialog"); d.className = "dlg";
-  d.innerHTML = `<form method="dialog"><p style="white-space:pre-wrap;max-height:60vh;overflow:auto">${esc(text)}</p><div class="dlg-act"><button class="btn primary" value="ok" autofocus>إغلاق</button></div></form>`;
+  d.innerHTML = `<form method="dialog"><p class="pre-wrap cap-dlg">${esc(text)}</p><div class="dlg-act"><button class="btn primary" value="ok" autofocus>إغلاق</button></div></form>`;
   d.addEventListener("close", () => { res(); d.remove(); }); document.body.append(d); d.showModal();
 });
 async function explainAction(t) {
@@ -593,8 +367,8 @@ Object.assign(PAGES, {
       out += panel("الأكثر استهلاكًا للمعالج", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">PID</th><th class="n">المعالج</th><th class="n">الذاكرة</th></tr></thead><tbody>${d.topCpu.map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.pid)}</td><td class="n">${Q(p.cores, "نواة", 2)}</td><td class="n">${Q(p.mb, "MB")}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
       out += panel("الشلات", `<table class="tbl"><thead><tr><th>الشل</th><th>الأب</th><th class="n">العمر</th><th class="n">الذاكرة</th><th>الحالة</th></tr></thead><tbody>${d.shells.map(s => `<tr><td>${esc(s.name)} <span class="note">${Q(s.pid)}</span></td><td>${esc(s.parent || "—")}</td><td class="n">${dur(s.age)}</td><td class="n">${Q(s.mb, "MB")}</td><td>${s.orphan ? '<span class="tag warn">يتيم</span>' : s.bare ? '<span class="tag warn">عارٍ</span>' : '<span class="tag ok">سليم</span>'}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا شلات</td></tr>`}</tbody></table>`, { cls: "c7", meta: `${Q(d.shellTotal)} شلًا` });
       out += panel("عمليات Claude", `<table class="tbl"><thead><tr><th>PID</th><th class="n">العمر</th><th class="n">الذاكرة</th><th class="n">معالج</th></tr></thead><tbody>${d.claude.map(c => `<tr><td>${Q(c.pid)}</td><td class="n">${dur(c.age)}</td><td class="n">${Q(c.mb, "MB")}</td><td class="n">${Q(c.cores, "نواة", 2)}</td></tr>`).join("")}</tbody></table>`, { cls: "c5", meta: `${Q(d.claudeTotal)} عملية` });
-      out += panel("الكانس", `<div class="pill-row"><span class="tag ${r.mode === "Apply" ? "ok" : "warn"}">${r.mode === "Apply" ? "تنفيذ فعلي" : "تجربة فقط"}</span><span class="tag">عمر أقصى ${Q(r.maxAgeMin, "د")}</span><span class="tag">معالج أقصى ${Q(r.maxCpuS, "ث")}</span><span class="tag">عارٍ بعد ${Q(r.bareMin, "د")}</span></div><div class="kpis" style="grid-template-columns:1fr 1fr">${kpi("أُنهيت / 24س", Q(r.killed24h))}${kpi("كانت ستُنهى", Q(r.would24h))}</div><div class="row-sw"><span>إنهاء الشلات العارية تلقائيًا</span>${sw(!!r.killBare, 'data-reaper="1"')}</div><div class="acts"><button class="btn" data-reaprun="dry">فحص (بلا إنهاء)</button><button class="btn primary" data-reaprun="real">تشغيل الكانس الآن</button></div><div class="field-row"><span>الشل العاري بعد (دقيقة، 60–2880)</span><span class="acts"><input class="inp" id="bareMin" type="number" dir="ltr" min="60" max="2880" value="${esc(r.bareMin ?? 240)}" style="width:90px"><button class="btn" data-baremin="1">حفظ</button></span></div><div class="list">${(r.acts || []).slice(0, 5).map(a => `<div class="li"><span class="t">${esc(a.text)}</span><span class="r note">${when(a.ts)}</span></div>`).join("")}</div>`, { cls: "c6" });
-      out += panel("عمليات محمية", `<div class="pill-row">${(r.protect || []).map(x => { const n = String(typeof x === "string" ? x : x.name || JSON.stringify(x)).replace(/\\\./g, "."); return `<span class="tag">${esc(n)} <button class="x" data-protdel="${esc(n)}" aria-label="إزالة ${esc(n)}">×</button></span>`; }).join("") || '<span class="note">لا شيء</span>'}</div><div class="field-row"><span>إضافة اسم محمي</span><span class="acts"><input class="inp" id="protIn" dir="ltr" maxlength="64" placeholder="backup.exe" style="width:170px"><button class="btn" data-protadd="1">إضافة</button></span></div>`, { cls: "c6" });
+      out += panel("الكانس", `<div class="pill-row"><span class="tag ${r.mode === "Apply" ? "ok" : "warn"}">${r.mode === "Apply" ? "تنفيذ فعلي" : "تجربة فقط"}</span><span class="tag">عمر أقصى ${Q(r.maxAgeMin, "د")}</span><span class="tag">معالج أقصى ${Q(r.maxCpuS, "ث")}</span><span class="tag">عارٍ بعد ${Q(r.bareMin, "د")}</span></div><div class="kpis two">${kpi("أُنهيت / 24س", Q(r.killed24h))}${kpi("كانت ستُنهى", Q(r.would24h))}</div><div class="row-sw"><span>إنهاء الشلات العارية تلقائيًا</span>${sw(!!r.killBare, 'data-reaper="1"')}</div><div class="acts"><button class="btn" data-reaprun="dry">فحص (بلا إنهاء)</button><button class="btn primary" data-reaprun="real">تشغيل الكانس الآن</button></div><div class="field-row"><span>الشل العاري بعد (دقيقة، 60–2880)</span><span class="acts"><input class="inp w-90" id="bareMin" type="number" dir="ltr" min="60" max="2880" value="${esc(r.bareMin ?? 240)}"><button class="btn" data-baremin="1">حفظ</button></span></div><div class="list">${(r.acts || []).slice(0, 5).map(a => `<div class="li"><span class="t">${esc(a.text)}</span><span class="r note">${when(a.ts)}</span></div>`).join("")}</div>`, { cls: "c6" });
+      out += panel("عمليات محمية", `<div class="pill-row">${(r.protect || []).map(x => { const n = String(typeof x === "string" ? x : x.name || JSON.stringify(x)).replace(/\\\./g, "."); return `<span class="tag">${esc(n)} <button class="x" data-protdel="${esc(n)}" aria-label="إزالة ${esc(n)}">×</button></span>`; }).join("") || '<span class="note">لا شيء</span>'}</div><div class="field-row"><span>إضافة اسم محمي</span><span class="acts"><input class="inp w-170" id="protIn" dir="ltr" maxlength="64" placeholder="backup.exe"><button class="btn" data-protadd="1">إضافة</button></span></div>`, { cls: "c6" });
       return out;
     }
   },
@@ -605,9 +379,9 @@ Object.assign(PAGES, {
     render([d]) {
       if (!d) return `<div class="banner">تعذّر قراءة بيانات WSL.</div>`;
       let out = panel("التوزيعات", `<table class="tbl"><thead><tr><th>الاسم</th><th>الحالة</th><th class="n">الإصدار</th><th></th></tr></thead><tbody>${d.distros.map(x => `<tr><td>${esc(x.name)}</td><td><span class="tag ${x.state === "Running" ? "ok" : ""}">${esc(x.state)}</span></td><td class="n">${Q(x.ver)}</td><td>${x.default ? '<span class="tag">افتراضي</span>' : ""}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا توزيعات</td></tr>`}</tbody></table>`, { cls: "c6", meta: rangeChips() });
-      out += panel("الأقراص الافتراضية", `<div class="list">${d.vhdx.map(v => `<div class="li"><span class="t num" style="font-family:var(--f-mono);font-size:12px;direction:ltr;text-align:start">${esc(v.path)}</span><span class="r">${Q(v.gb, "GB", 1)}</span><span class="d">آخر تعديل ${when(v.mtime)}</span></div>`).join("") || '<div class="empty">لا شيء</div>'}</div>`, { cls: "c6" });
+      out += panel("الأقراص الافتراضية", `<div class="list">${d.vhdx.map(v => `<div class="li"><span class="t num mono">${esc(v.path)}</span><span class="r">${Q(v.gb, "GB", 1)}</span><span class="d">آخر تعديل ${when(v.mtime)}</span></div>`).join("") || '<div class="empty">لا شيء</div>'}</div>`, { cls: "c6" });
       out += panel("العمليات", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">نسخ</th><th class="n">الذاكرة</th><th class="n">المعالج</th></tr></thead><tbody>${d.procs.map(p => `<tr><td>${esc(p.name)}</td><td class="n">${Q(p.n)}</td><td class="n">${Q(p.mb, "MB")}</td><td class="n">${Q(p.cores, "نواة", 2)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا عمليات</td></tr>`}</tbody></table>`, { cls: "c6" });
-      out += panel("إعداد .wslconfig", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t" style="font-family:var(--f-mono);font-size:12.5px;direction:ltr;text-align:start">${esc(k)}</span><span class="r">${Q(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c6" });
+      out += panel("إعداد .wslconfig", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t mono">${esc(k)}</span><span class="r">${Q(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c6" });
       out += panel("ملاحظات", `<div class="list">${(d.notes || []).map(n => `<div class="li"><span class="t"><span class="tag ${sev(n.lvl)}">${esc(n.lvl)}</span> ${esc(n.title)}</span><span class="d">${esc(n.text)}</span></div>`).join("") || '<div class="empty">لا ملاحظات</div>'}</div>`);
       return out;
     }
@@ -684,7 +458,7 @@ Object.assign(PAGES, {
       let out = panel("حالة التنظيف", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
       out += spaceCleanPanel(d) + spaceReportPanel(d);
       out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`, { cls: "c6" });
-      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note" style="width:100%;max-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c6", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
+      out += panel("الحجر (استرجاع خلال 7 أيام)", `<div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note cell-path" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c6", meta: `${Q((d.quarantine || []).length)} عنصرًا` });
       return out;
     }
   },
@@ -695,7 +469,7 @@ Object.assign(PAGES, {
     render([d]) {
       if (!d) return `<div class="banner">تعذّر قراءة عناصر البدء.</div>`;
       const on = d.items.filter(i => i.enabled).length;
-      return panel("العناصر", `<div class="pill-row"><span class="tag ok">${Q(on)} مفعّل</span><span class="tag">${Q(d.items.length - on)} معطّل</span></div><table class="tbl"><thead><tr><th>العنصر</th><th>المصدر</th><th>الأمر</th><th class="n">الذاكرة</th><th>الحالة</th><th></th></tr></thead><tbody>${d.items.map(i => `<tr><td>${esc(i.name)}</td><td><span class="tag">${esc(i.source)}</span></td><td class="note" style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:ltr;text-align:start" title="${esc(i.command)}">${esc(i.command)}</td><td class="n">${Q(i.memMB, "MB")}</td><td>${i.running ? '<span class="tag ok">يعمل</span>' : ""}${i.protected ? '<span class="tag">محمي</span>' : ""}${!i.writable && !i.protected ? '<span class="tag">للقراءة فقط</span>' : ""}</td><td>${i.writable && !i.protected ? sw(i.enabled, `data-st="${esc(i.id)}"`) : sw(i.enabled, "disabled")}</td></tr>`).join("")}</tbody></table>`);
+      return panel("العناصر", `<div class="pill-row"><span class="tag ok">${Q(on)} مفعّل</span><span class="tag">${Q(d.items.length - on)} معطّل</span></div><table class="tbl"><thead><tr><th>العنصر</th><th>المصدر</th><th>الأمر</th><th class="n">الذاكرة</th><th>الحالة</th><th></th></tr></thead><tbody>${d.items.map(i => `<tr><td>${esc(i.name)}</td><td><span class="tag">${esc(i.source)}</span></td><td class="note mw-360 ellipsis ltr-start" title="${esc(i.command)}">${esc(i.command)}</td><td class="n">${Q(i.memMB, "MB")}</td><td>${i.running ? '<span class="tag ok">يعمل</span>' : ""}${i.protected ? '<span class="tag">محمي</span>' : ""}${!i.writable && !i.protected ? '<span class="tag">للقراءة فقط</span>' : ""}</td><td>${i.writable && !i.protected ? sw(i.enabled, `data-st="${esc(i.id)}"`) : sw(i.enabled, "disabled")}</td></tr>`).join("")}</tbody></table>`);
     }
   },
 
@@ -706,7 +480,7 @@ Object.assign(PAGES, {
       if (!d) return `<div class="banner">تعذّر قراءة المهام.</div>`;
       const groups = {}; d.tasks.forEach(t => (groups[t.group || "other"] = groups[t.group || "other"] || []).push(t));
       const names = { clean: "التنظيف", mem: "الذاكرة والمراقبة", backup: "النسخ الاحتياطي", other: "أخرى" };
-      return Object.entries(groups).map(([g, ts]) => panel(names[g] || g, `<table class="tbl"><thead><tr><th>المهمة</th><th>الجدول</th><th>آخر تشغيل</th><th>التالي</th><th>النتيجة</th><th></th></tr></thead><tbody>${ts.map(t => `<tr><td><b>${esc(t.label || t.name)}</b><div class="note">${esc(t.name)}</div></td><td>${esc(t.schedule || "—")}</td><td class="note">${whenIso(t.last)}</td><td class="note">${whenIso(t.next)}</td><td>${t.missing ? '<span class="tag bad">مفقودة</span>' : t.result === 0 ? '<span class="tag ok">نجحت</span>' : `<span class="tag warn">${esc(t.result)}</span>`}</td><td><div class="acts" style="justify-content:flex-end">${t.needsAdmin ? '<span class="tag">تحتاج مدير</span>' : `${t.canRun ? `<button class="btn" data-task="run" data-p="${esc(t.path)}" data-n="${esc(t.name)}">تشغيل الآن</button>` : ""}${sw(t.enabled, `data-task="toggle" data-p="${esc(t.path)}" data-n="${esc(t.name)}"`)}`}</div></td></tr>`).join("")}</tbody></table>`)).join("");
+      return Object.entries(groups).map(([g, ts]) => panel(names[g] || g, `<table class="tbl"><thead><tr><th>المهمة</th><th>الجدول</th><th>آخر تشغيل</th><th>التالي</th><th>النتيجة</th><th></th></tr></thead><tbody>${ts.map(t => `<tr><td><b>${esc(t.label || t.name)}</b><div class="note">${esc(t.name)}</div></td><td>${esc(t.schedule || "—")}</td><td class="note">${whenIso(t.last)}</td><td class="note">${whenIso(t.next)}</td><td>${t.missing ? '<span class="tag bad">مفقودة</span>' : t.result === 0 ? '<span class="tag ok">نجحت</span>' : `<span class="tag warn">${esc(t.result)}</span>`}</td><td><div class="acts end">${t.needsAdmin ? '<span class="tag">تحتاج مدير</span>' : `${t.canRun ? `<button class="btn" data-task="run" data-p="${esc(t.path)}" data-n="${esc(t.name)}">تشغيل الآن</button>` : ""}${sw(t.enabled, `data-task="toggle" data-p="${esc(t.path)}" data-n="${esc(t.name)}"`)}`}</div></td></tr>`).join("")}</tbody></table>`)).join("");
     }
   },
 
@@ -716,7 +490,7 @@ Object.assign(PAGES, {
     render([d, mini]) {
       if (!d) return `<div class="banner">تعذّر قراءة القواعد.</div>`;
       const tiers = [["daily", "يومي"], ["weekly", "أسبوعي"], ["monthly", "شهري"], ["quarterly", "ربع سنوي"]], last = d.ruleLast || {};
-      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts">${d.manual?.running && d.manual.tier === k ? '<span class="tag warn">يعمل الآن</span>' : `<button class="btn" data-runtier="${k}" data-dry="1">${k === "quarterly" ? "تشغيل التقرير" : "تجربة"}</button>${k === "quarterly" ? "" : `<button class="btn primary" data-runtier="${k}" data-dry="0">تنفيذ فعلي</button>`}`}<span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id]; return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(r.action)}</span></td><td class="note" style="max-width:420px">${esc(r.description || "")}</td><td>${x ? `<span class="tag ${sev(x.status)}">${esc(x.status)}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
+      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts">${d.manual?.running && d.manual.tier === k ? '<span class="tag warn">يعمل الآن</span>' : `<button class="btn" data-runtier="${k}" data-dry="1">${k === "quarterly" ? "تشغيل التقرير" : "تجربة"}</button>${k === "quarterly" ? "" : `<button class="btn primary" data-runtier="${k}" data-dry="0">تنفيذ فعلي</button>`}`}<span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id]; return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(r.action)}</span></td><td class="note mw-420">${esc(r.description || "")}</td><td>${x ? `<span class="tag ${sev(x.status)}">${esc(x.status)}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
     }
   },
 
@@ -759,7 +533,7 @@ Object.assign(PAGES, {
     render([d]) {
       if (!d || !d.cfg || !d.limits) return `<div class="banner">تعذّر قراءة التنبيهات.</div>`;
       const F = [["mem", "الذاكرة", [["ramWarn", "تحذير الذاكرة %"], ["ramBad", "خطر الذاكرة %"], ["commitWarn", "تحذير الالتزام %"], ["commitBad", "خطر الالتزام %"]]], ["cpu", "المعالج", [["minCores", "حدّ التنبيه (نواة)"], ["windowMin", "النافذة (دقائق)"]]], ["disk", "القرص C", [["freeWarnGB", "تحذير: أقل من GB"], ["freeBadGB", "خطر: أقل من GB"]]], ["gpu", "كرت الشاشة", [["tempWarn", "تحذير الحرارة °"], ["tempBad", "خطر الحرارة °"]]]];
-      return `<form id="alForm" class="panel" style="grid-column:span 7"><div class="ph"><h2>الحدود</h2></div>${F.map(([sec, t, fs]) => `<fieldset class="fs"><legend>${t}</legend>${fs.map(([k, l]) => `<label class="fld"><span>${l}</span><input class="inp" type="number" dir="ltr" name="${sec}.${k}" value="${d.cfg[sec][k]}" step="any" min="${d.limits[sec][k][0]}" max="${d.limits[sec][k][1]}"></label>`).join("")}</fieldset>`).join("")}<fieldset class="fs"><legend>برامج لا ينبّه المعالج عنها</legend><textarea class="inp" name="cpu.ignore" rows="3" dir="ltr" placeholder="backup.exe">${esc((d.cfg.cpu.ignore || []).join("\n"))}</textarea></fieldset><div class="acts"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" id="alReset">القيم الافتراضية</button></div></form>`
+      return `<form id="alForm" class="panel c7"><div class="ph"><h2>الحدود</h2></div>${F.map(([sec, t, fs]) => `<fieldset class="fs"><legend>${t}</legend>${fs.map(([k, l]) => `<label class="fld"><span>${l}</span><input class="inp" type="number" dir="ltr" name="${sec}.${k}" value="${d.cfg[sec][k]}" step="any" min="${d.limits[sec][k][0]}" max="${d.limits[sec][k][1]}"></label>`).join("")}</fieldset>`).join("")}<fieldset class="fs"><legend>برامج لا ينبّه المعالج عنها</legend><textarea class="inp" name="cpu.ignore" rows="3" dir="ltr" placeholder="backup.exe">${esc((d.cfg.cpu.ignore || []).join("\n"))}</textarea></fieldset><div class="acts"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" id="alReset">القيم الافتراضية</button></div></form>`
         + panel("سجل التنبيهات", `<div class="list scrollbox">${d.log.map(x => `<div class="li"><span class="t"><span class="tag ${sev(x.sev)}">${esc(x.source)}</span> ${esc(x.title)}</span><span class="r note">${when(x.ts)}</span><span class="d">${esc(x.detail || "")}</span></div>`).join("") || '<div class="empty">لا تنبيهات</div>'}</div>`, { cls: "c5" });
     },
     after([d]) {
@@ -779,7 +553,7 @@ Object.assign(PAGES, {
       if (inf) {
         const sv = inf.server || {}, dbh = inf.db || {};
         out += panel("صحة الخادم وقاعدة البيانات", `<div class="kpis">${kpi("تشغيل الخادم", dur(sv.uptime_s))}${kpi("الطلبات", Q(sv.requests?.total), "", `${Q(sv.requests?.s2xx)} ناجحة`)}${kpi("زمن الاستجابة p50", Q(sv.p50_ms, "ms", 0), "", `p95 ${Q(sv.p95_ms, "ms")}`)}${kpi("سلامة القاعدة", dbh.integrity === "ok" ? "سليمة" : esc(dbh.integrity), "", `${esc(dbh.journal)} · ${Q(dbh.bytes / 1048576, "MB", 1)}`)}${kpi("الوكيل", inf.agent?.alive ? "يعمل" : "متوقف", "", inf.agent ? `نبضة قبل ${Q(Date.now() / 1000 - inf.agent.heartbeat, "ث")}` : "")}</div>${(sv.recent_errors || []).length ? `<div class="list">${sv.recent_errors.map(e => `<div class="li"><span class="t">${esc(e.text || JSON.stringify(e))}</span></div>`).join("")}</div>` : '<p class="note">لا أخطاء حديثة في الخادم.</p>'}`, { cls: "c8" });
-        out += panel("النسخ الاحتياطية", `<div class="list">${(inf.backups || []).map(b => `<div class="li"><span class="t num" style="font-size:12.5px">${esc(b.name)}</span><span class="r">${Q(b.bytes / 1048576, "MB", 1)}</span><span class="d">${when(b.ts)}</span></div>`).join("") || '<div class="empty">لا نسخ</div>'}</div>`, { cls: "c4" });
+        out += panel("النسخ الاحتياطية", `<div class="list">${(inf.backups || []).map(b => `<div class="li"><span class="t num t-sm">${esc(b.name)}</span><span class="r">${Q(b.bytes / 1048576, "MB", 1)}</span><span class="d">${when(b.ts)}</span></div>`).join("") || '<div class="empty">لا نسخ</div>'}</div>`, { cls: "c4" });
       }
       out += panel("ويدجت سطح المكتب", `<div class="row-sw"><span>${wg?.running ? "ظاهر الآن" : "مخفي"}</span>${sw(!!wg?.running, 'data-widget="1"')}</div>`, { cls: "c12" });
       out += panel("المهام الخلفية", j ? `<table class="tbl"><thead><tr><th>المهمة</th><th class="n">كل</th><th>آخر تشغيل</th><th>الحالة</th><th class="n">التالي</th><th></th></tr></thead><tbody>${j.jobs.map(x => `<tr><td><b>${esc(x.name)}</b></td><td class="n">${dur(x.interval_s)}</td><td class="note">${when(x.last_end)} · ${Q(x.last_ms / 1000, "ث", 1)}</td><td><span class="tag ${x.last_status === "ok" ? "ok" : "bad"}">${esc(x.last_status || "—")}</span> <span class="note">${Q(x.runs)} تشغيل · ${Q(x.fails)} فشل</span></td><td class="n note">${when(x.next_run)}</td><td><button class="btn" data-job="${esc(x.name)}">تشغيل</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty">غير متاح</div>');
@@ -799,7 +573,7 @@ Object.assign(PAGES, {
       let out = panel("الملف", `<div class="kpis">${kpi("الحجم", Q(db.bytes / 1048576, "MB", 1))}${kpi("سجل WAL", Q(db.walBytes / 1048576, "MB", 1))}${kpi("الجداول", Q(db.tables.length))}${kpi("الإصدار", Q(db.schema))}</div>`);
       out += panel("الجداول", `<div class="list scrollbox">${db.tables.map(t => `<button class="li rowbtn" data-tbl="${esc(t.name)}" aria-pressed="${ui.dbTable === t.name}"><span class="t">${esc(t.name)}</span><span class="r">${Q(t.rows)}</span></button>`).join("")}</div>`, { cls: "c4" });
       const cols = rows?.columns || rows?.cols || (rows?.rows?.[0] ? Object.keys(rows.rows[0]) : []);
-      out += panel(ui.dbTable || "—", rows ? `<div class="scroll"><table class="tbl"><thead><tr>${cols.map(c => `<th>${esc(c.name || c)}</th>`).join("")}</tr></thead><tbody>${(rows.rows || []).map(r => `<tr>${(Array.isArray(r) ? r : cols.map(c => r[c.name || c])).map(v => `<td class="note" style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(v)}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${pager("db", rows.total || 0, 15, ui.dbOff)}` : '<div class="empty">اختر جدولًا</div>', { cls: "c8", meta: `${Q(rows?.total)} صفًا` });
+      out += panel(ui.dbTable || "—", rows ? `<div class="scroll"><table class="tbl"><thead><tr>${cols.map(c => `<th>${esc(c.name || c)}</th>`).join("")}</tr></thead><tbody>${(rows.rows || []).map(r => `<tr>${(Array.isArray(r) ? r : cols.map(c => r[c.name || c])).map(v => `<td class="note mw-260 ellipsis" title="${esc(v)}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${pager("db", rows.total || 0, 15, ui.dbOff)}` : '<div class="empty">اختر جدولًا</div>', { cls: "c8", meta: `${Q(rows?.total)} صفًا` });
       return out;
     }
   },

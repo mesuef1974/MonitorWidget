@@ -1,0 +1,39 @@
+/* ═══ tokens.css — المصدر الوحيد للألوان والمسافات والخطوط والطبقات؛ لا قيمة لونية خارج هذا الملف ═══ */
+/* ───────── Design tokens ─────────
+   Direction: "instrument cluster" — graphite surfaces, one phosphor accent, hairline panels,
+   DIN-like numerals (Bahnschrift) against a calm Arabic UI face. Everything is a token. */
+:root{
+  --f-ui:"Segoe UI Variable Text","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
+  --f-num:"Bahnschrift","Segoe UI Variable Display","Segoe UI",Tahoma,sans-serif;
+  --f-mono:"Cascadia Mono",Consolas,monospace;
+  --r-sm:8px;--r-md:12px;--r-lg:16px;
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;
+  --ease:cubic-bezier(.2,.7,.2,1);
+  --nav-w:248px;
+  --shadow-pop:0 14px 36px -14px #000;--shadow-tip:0 10px 28px -12px #000;--shadow-dialog:0 0 0 1px var(--line2),0 30px 80px -20px #000;
+  --scrim:rgba(0,0,0,.62);--mask:#000;
+  --accent-hover:color-mix(in srgb,var(--accent) 88%,#fff);
+  --z-bar:20;--z-nav:50;--z-skip:100;--z-toast:200;
+}
+:root[data-theme="dark"]{
+  --bg:#080b10;--bg-glow:rgba(62,230,176,.075);--panel:#0e131b;--panel2:#131a24;--raise:#18212d;
+  --line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.13);
+  --ink:#e9eef5;--ink2:#9ba8ba;--ink3:#69778c;
+  --accent:#3ee6b0;--accent-ink:#03231a;--accent2:#7ca6ff;--violet:#b79cff;
+  --ok:#3ee6b0;--warn:#ffb54a;--bad:#ff6b79;--ok-bg:rgba(62,230,176,.12);--warn-bg:rgba(255,181,74,.12);--bad-bg:rgba(255,107,121,.13);
+  --grid:rgba(255,255,255,.055);--shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -16px rgba(0,0,0,.7);
+}
+:root[data-theme="light"]{
+  --bg:#f2efe8;--bg-glow:rgba(10,157,116,.09);--panel:#fffdf8;--panel2:#f8f5ee;--raise:#efeadf;
+  --line:rgba(20,30,40,.09);--line2:rgba(20,30,40,.16);
+  --ink:#121c29;--ink2:#455468;--ink3:#7a8797;
+  --accent:#08a177;--accent-ink:#fff;--accent2:#2f62d6;--violet:#6f4fd0;
+  --ok:#08a177;--warn:#c27a00;--bad:#d1334a;--ok-bg:rgba(8,161,119,.1);--warn-bg:rgba(194,122,0,.1);--bad-bg:rgba(209,51,74,.1);
+  --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
+}
+:root[data-palette="blue"][data-theme="dark"]{--accent:#6aa6ff;--accent-ink:#04122b;--accent2:#3ee6b0;--bg-glow:rgba(106,166,255,.08)}
+:root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
+:root[data-palette="violet"][data-theme="dark"]{--accent:#b79cff;--accent-ink:#160a33;--accent2:#7ca6ff;--bg-glow:rgba(183,156,255,.08)}
+:root[data-palette="violet"][data-theme="light"]{--accent:#6f4fd0;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(111,79,208,.09)}
+:root[data-palette="graphite"][data-theme="dark"]{--accent:#c4ccd8;--accent-ink:#0c1118;--accent2:#7ca6ff;--bg-glow:rgba(196,204,216,.06)}
+:root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}

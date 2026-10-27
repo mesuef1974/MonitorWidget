@@ -864,7 +864,7 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *a):
         pass
 
-    def _send(self, code, body, ctype="application/json; charset=utf-8", cache="no-store", csp=None, cookie=None):
+    def _send(self, code, body, ctype="application/json; charset=utf-8", cache="no-store", csp=None, cookie=None, etag=None):
         if isinstance(body, (dict, list)):
             body = json.dumps(body, ensure_ascii=False)
         b = body.encode("utf-8") if isinstance(body, str) else body
@@ -874,6 +874,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Cache-Control", cache)
         if cookie is not None:
             self.send_header("Set-Cookie", cookie)
+        if etag:
+            self.send_header("ETag", etag)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
@@ -925,6 +927,20 @@ class Handler(BaseHTTPRequestHandler):
                 return
             page = open(os.path.join(ROOT, "web", "index.html"), "rb").read()
             self._send(200, page, "text/html; charset=utf-8", csp=_page_csp(page))
+        elif re.fullmatch(r"/css/[a-z0-9_-]+\.css", path):
+            # أنماط الواجهة المركزية: ملفات web/css الثابتة بلا أسرار؛ ETag بدل التخزين الطويل حتى يظهر أي تعديل فورًا
+            try:
+                body = open(os.path.join(ROOT, "web", "css", path.rsplit("/", 1)[1]), "rb").read()
+            except OSError:
+                return self._send(404, {"error": "not found"})
+            tag = '"%s"' % hashlib.sha1(body).hexdigest()[:16]
+            if self.headers.get("If-None-Match") == tag:
+                self.send_response(304)
+                self.send_header("ETag", tag)
+                self.send_header("Cache-Control", "no-cache")
+                self.end_headers()
+                return
+            self._send(200, body, "text/css; charset=utf-8", cache="no-cache", etag=tag)
         elif path in _ASSETS or path == "/favicon.ico":
             fn = "favicon.ico" if path == "/favicon.ico" else path
             fp = os.path.join(ROOT, "assets", fn.lstrip("/").replace("assets/", "", 1))
