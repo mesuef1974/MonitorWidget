@@ -13,6 +13,7 @@
   --shadow-pop:0 14px 36px -14px #000;--shadow-tip:0 10px 28px -12px #000;--shadow-dialog:0 0 0 1px var(--line2),0 30px 80px -20px #000;
   --scrim:rgba(0,0,0,.62);--mask:#000;
   --accent-hover:color-mix(in srgb,var(--accent) 88%,#fff);
+  --accent-bg:color-mix(in srgb,var(--accent) 12%,transparent);   /* خلفية حالات التفعيل (الصفحة الحالية، المفاتيح، الأزرار المضغوطة) */
   --panel-max:600px;   /* سقف ارتفاع البطاقة؛ ما زاد عنه يُمرَّر داخلها */
   --z-bar:20;--z-nav:50;--z-skip:100;--z-toast:200;
 }
