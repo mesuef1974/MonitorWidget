@@ -1,0 +1,7 @@
+{
+  "card": "docs/HANDOFF.md",
+  "mirror_html": "docs/handoff_card.html",
+  "artifact_url": "https://claude.ai/artifact/2RJYqxF4iQZytBP6KACPbE",
+  "clear_at_tokens": 190000,
+  "wake_after_minutes": 2
+}

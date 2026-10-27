@@ -1,0 +1,148 @@
+<title>مرصد الجهاز — تحليل SWOT</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Tajawal:wght@500;700;800&display=swap">
+<style>
+/* التخطيط: عمود قراءة واحد؛ مصفوفة SWOT شبكة 2×2 تنهار إلى عمود على الهاتف؛ كل ربع بلون حالة لا بلون زينة */
+:root{
+  --bg:#f7f8f6;--fg:#1a2321;--mut:#5f6f6b;--card:#ffffff;--line:#d8ded9;--acc:#0a7f63;--acc-soft:#e3f3ee;
+  --s:#1f7a4d;--s-bg:#e7f4ec;--w:#a85a12;--w-bg:#fbeedd;--o:#1c5f9e;--o-bg:#e3eef9;--t:#a3262c;--t-bg:#f9e5e6;
+  --display:"Tajawal","IBM Plex Sans Arabic",Tahoma,sans-serif;--body:"IBM Plex Sans Arabic","Segoe UI",Tahoma,sans-serif;--mono:Consolas,"Courier New",monospace
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1514;--fg:#e4ece9;--mut:#97a7a2;--card:#161e1c;--line:#2a3633;--acc:#3ed4a6;--acc-soft:#17302a;
+  --s:#5fd09a;--s-bg:#15261d;--w:#f0a95a;--w-bg:#2b2114;--o:#79b4ee;--o-bg:#142234;--t:#f08a90;--t-bg:#2e181a;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1514;--fg:#e4ece9;--mut:#97a7a2;--card:#161e1c;--line:#2a3633;--acc:#3ed4a6;--acc-soft:#17302a;
+  --s:#5fd09a;--s-bg:#15261d;--w:#f0a95a;--w-bg:#2b2114;--o:#79b4ee;--o-bg:#142234;--t:#f08a90;--t-bg:#2e181a;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.8 var(--body);padding-block:28px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:880px;margin:auto;display:grid;gap:22px;min-width:0}
+header{display:grid;gap:8px}
+.eyebrow{font:600 12px/1 var(--body);letter-spacing:.08em;color:var(--acc);text-transform:uppercase}
+h1{font:800 30px/1.25 var(--display);margin:0;text-wrap:balance}
+h2{font:700 19px/1.3 var(--display);margin:0 0 8px}
+h3{font:700 15px/1.3 var(--display);margin:0 0 6px}
+p{margin:0}.mut{color:var(--mut)}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.fact{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.fact b{display:block;font:700 22px/1.2 var(--display);font-variant-numeric:tabular-nums}
+.fact span{font-size:12px;color:var(--mut)}
+.swot{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:640px){.swot{grid-template-columns:1fr}}
+.q{border-radius:12px;padding:14px 16px;min-width:0;border:1px solid var(--line);background:var(--card);border-top:4px solid var(--qc)}
+.q h2{color:var(--qc)}
+.q.s{--qc:var(--s)}.q.w{--qc:var(--w)}.q.o{--qc:var(--o)}.q.t{--qc:var(--t)}
+.q ul{margin:0;padding-inline-start:18px}.q li{margin:5px 0}
+.q li b{font-weight:600}
+.tag{display:inline-block;font:600 11px/1 var(--body);padding:3px 7px;border-radius:999px;background:var(--acc-soft);color:var(--acc);margin-inline-start:4px;vertical-align:middle}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;min-width:0}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:start;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--mut);font-size:12px;letter-spacing:.03em}
+.wrap{overflow-x:auto}
+.prio{display:grid;gap:10px}
+.prio .row{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start}
+.prio .n{width:34px;height:34px;border-radius:9px;background:var(--acc-soft);color:var(--acc);display:grid;place-items:center;font:800 16px var(--display)}
+code{font:13px var(--mono);direction:ltr;unicode-bidi:isolate;background:color-mix(in srgb,var(--fg) 8%,transparent);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+.verdict{border-inline-start:4px solid var(--acc);padding:10px 14px;background:var(--acc-soft);border-radius:8px}
+footer{font-size:12px;color:var(--mut)}
+</style>
+<main dir="rtl" lang="ar">
+<header>
+  <div class="eyebrow">تقرير تقييم · 27 أكتوبر 2026</div>
+  <h1>مرصد الجهاز: تحليل SWOT للويدجت والتطبيق</h1>
+  <p class="mut">تقييم الوضع الحالي لـ MonitorWidget (الخادم المحلي، واجهة الويب، الويدجت WPF، والغلاف WebView2) مبني على قراءة المستودع عند main بعد PR 13 مع PR 14 وPR 15 مفتوحين.</p>
+</header>
+
+<div class="facts">
+  <div class="fact"><b>46</b><span>مسار API في الخادم المحلي</span></div>
+  <div class="fact"><b>19</b><span>صفحة في واجهة الويب</span></div>
+  <div class="fact"><b>≈11.9k</b><span>سطر Python وPowerShell</span></div>
+  <div class="fact"><b>≈3.0k</b><span>سطر فحوص (7 سكربتات)</span></div>
+  <div class="fact"><b>0</b><span>اعتمادية Python خارجية</span></div>
+  <div class="fact"><b>13</b><span>PR مدموج بـ squash وCI</span></div>
+</div>
+
+<div class="verdict">
+  <b>الخلاصة التنفيذية.</b> المنتج ناضج وظيفيًا وأمنيًا بما يفوق حجم فريقه، لكن استدامته هي نقطة الضعف: ثلاثة ملفات ضخمة تحمل معظم المنطق، وطبقة الويدجت مكتوبة بلغة غير مخصصة لواجهات WPF، واعتمادية WebView2 مستعارة من تثبيت Teams. الأولوية القادمة ليست مزايا جديدة بل تثبيت ما بُني: تجزئة الخادم، فحوص للويدجت، وإغلاق البنود المعلّقة غير المُتحقَّق منها.
+</div>
+
+<div class="swot">
+  <section class="q s">
+    <h2>نقاط القوة</h2>
+    <ul>
+      <li><b>نموذج أمني محلي محكم:</b> الخادم يرتبط بـ 127.0.0.1 فقط، تذاكر لمرة واحدة تُستبدل بجلسة HttpOnly، تأكيد خادمي (428 + رمز مقيّد بالمسار والمعاملات) لكل عملية هدّامة، وقائمة عناصر محمية لا تُكتب أبدًا.</li>
+      <li><b>صفر اعتماديات:</b> Python قياسي فقط وSQLite مدمج؛ لا pip ولا حزم تُحدَّث أو تُخترق.</li>
+      <li><b>تغطية وظيفية واسعة:</b> ذاكرة، مساحة وتنظيف، عمليات، GPU/CPU/IO، طاقة، بدء التشغيل، اعتمادية، WSL، تنبيهات ومهام مجدولة.</li>
+      <li><b>هوية بصرية واحدة:</b> الويدجت والغلاف والويب تقرأ ألوانها من <code>tokens.css</code>؛ CSS مركزي بفحص آلي يمنع الأنماط المضمّنة والألوان الخام.</li>
+      <li><b>ويدجت لا يتجمد:</b> الاستطلاع في runspace خلفي، عتبات من الخادم، مفاتيح تنظيف حقيقية مع شريط تأكيد مضمّن.</li>
+      <li><b>انضباط هندسي:</b> main محمي، PR + CI، squash، Conventional Commits، وبطاقة تسليم آلية بين الجلسات.</li>
+      <li><b>عربية RTL أصيلة</b> في كل الطبقات، لا ترجمة لاحقة.</li>
+    </ul>
+  </section>
+
+  <section class="q w">
+    <h2>نقاط الضعف</h2>
+    <ul>
+      <li><b>تركّز المنطق:</b> <code>server.py</code> 1731 سطرًا، <code>widget.ps1</code> 1094، و<code>web/index.html</code> ملف واحد بكل الـ JS. كل تعديل يلمس الجميع.</li>
+      <li><b>WPF داخل PowerShell:</b> لا اختبارات وحدة للويدجت، أخطاء XAML تظهر عند التشغيل فقط، وتصحيحه بطيء.</li>
+      <li><b>اعتمادية هشة:</b> مكتبات WebView2 تُنسخ من مجلد Teams؛ إن غاب أو تغيّر يسقط الغلاف إلى Edge.</li>
+      <li><b>ديون معلّقة غير مُتحقَّق منها:</b> أزرار معاينة/تنظيف المساحة بعد التقسيم، قائمة الويدجت الجديدة وألوانه، فتح الغلاف من الويدجت، وإخفاء/تأجيل التوصيات الذي لم يُنقل من الصفحة القديمة.</li>
+      <li><b>فحص فاشل معروف:</b> قاعدة delivery-optimization وصفها يناقض حالتها.</li>
+      <li><b>الفحوص سكربتات لا إطار:</b> لا تقارير تغطية، ولا فحص لواجهة الويب في المتصفح داخل CI.</li>
+      <li><b>صلاحيات المسؤول</b> مطلوبة لبعض القياسات (nvidia-smi) وإعادة التشغيل يدوية عبر سكربت.</li>
+    </ul>
+  </section>
+
+  <section class="q o">
+    <h2>الفرص</h2>
+    <ul>
+      <li><b>تجزئة الخادم</b> إلى وحدات حسب المجال (ذاكرة، مساحة، عمليات، أمن) مع إبقاء الواجهة كما هي؛ خطوة منخفضة المخاطر عالية العائد.</li>
+      <li><b>نقل الويدجت إلى مضيف مترجَم</b> (.NET/C#) مع بقاء الهوية من tokens.css؛ يحل الاستقرار وقابلية الاختبار معًا.</li>
+      <li><b>تحزيم رسمي:</b> مثبّت موقّع أو winget، تضمين WebView2 Runtime بدل الاستعارة من Teams، وتحديث ذاتي.</li>
+      <li><b>اختبارات واجهة:</b> Pester للـ PowerShell وPlaywright لصفحات الويب التسع عشرة داخل CI، مبنية على سكربتات tour الحالية.</li>
+      <li><b>تقارير دورية:</b> DISM الشهري وتقرير الاعتمادية موجودان؛ يمكن تحويلهما إلى ملخص أسبوعي يُرسل إشعارًا.</li>
+      <li><b>تكامل نظام:</b> إشعارات Windows Toast وأيقونة شريط النظام بدل الاعتماد على الويدجت الظاهر.</li>
+    </ul>
+  </section>
+
+  <section class="q t">
+    <h2>التهديدات</h2>
+    <ul>
+      <li><b>تغيّرات المنصة:</b> تحديثات Windows أو PowerShell أو WebView2 قد تكسر الويدجت أو الغلاف دون تغيير في الكود.</li>
+      <li><b>هدف محلي عالي القيمة:</b> خادم يملك مسارات إيقاف، وحصد عمليات، وتنظيف؛ أي برمجية خبيثة محلية ستستهدفه. التأكيد الخادمي يخفف لكنه لا يلغي الخطر.</li>
+      <li><b>مضادات الفيروسات:</b> سكربتات تقتل عمليات وتحذف ملفات قد تُصنَّف مشبوهة وتُعزل.</li>
+      <li><b>زحف النطاق:</b> 46 مسارًا و19 صفحة بمطوّر واحد؛ كل ميزة جديدة تضيف سطح صيانة.</li>
+      <li><b>خطر الشخص الواحد:</b> المعرفة تعيش في جلسات العمل؛ بطاقة التسليم تخفف لكن لا توثيق معماري مستقل.</li>
+    </ul>
+  </section>
+</div>
+
+<section class="card">
+  <h2>استراتيجيات TOWS</h2>
+  <div class="wrap"><table>
+    <tr><th>التقاطع</th><th>الاستراتيجية</th><th>ما يستند إليه</th></tr>
+    <tr><td>قوة × فرصة</td><td>استغلال انضباط PR/CI لتنفيذ التجزئة على دفعات صغيرة قابلة للتراجع، وحدة في كل PR.</td><td>main محمي + squash + فحص CSS الآلي</td></tr>
+    <tr><td>قوة × تهديد</td><td>تثبيت النموذج الأمني بفحص تلقائي للمسارات الهدّامة (كل POST هدّام يجب أن يمر بـ 428) داخل check_all.</td><td>آلية التأكيد الخادمي القائمة</td></tr>
+    <tr><td>ضعف × فرصة</td><td>البدء بأعلى دين تقني أثرًا: ويدجت مترجَم، لأنه يحل الهشاشة والاختبار واعتمادية WebView2 معًا.</td><td>الهوية المشتركة تجعل النقل بلا تغيير بصري</td></tr>
+    <tr><td>ضعف × تهديد</td><td>إغلاق البنود غير المُتحقَّق منها قبل أي ميزة جديدة؛ وتجميد إضافة مسارات API حتى تكتمل التجزئة.</td><td>قائمة المعلّق في بطاقة التسليم</td></tr>
+  </table></div>
+</section>
+
+<section class="card">
+  <h2>أولويات التنفيذ المقترحة</h2>
+  <div class="prio">
+    <div class="row"><div class="n">1</div><div><h3>إغلاق المعلّق</h3><p class="mut">تجربة أزرار المساحة، قائمة الويدجت، فتح الغلاف من الويدجت، ونقل إخفاء/تأجيل التوصيات. إصلاح delivery-optimization بقرار صريح: تعديل الوصف أو القاعدة.</p></div></div>
+    <div class="row"><div class="n">2</div><div><h3>دمج PR 14 وPR 15</h3><p class="mut">كلاهما جاهز؛ يثبّتان التخطيط وآلية الاستمرارية قبل أي عمل بنيوي.</p></div></div>
+    <div class="row"><div class="n">3</div><div><h3>تجزئة server.py</h3><p class="mut">مسارات API إلى وحدات حسب المجال خلف نفس الموجّه؛ بلا تغيير في العقد أو الواجهة؛ check_all يثبت التكافؤ.</p></div></div>
+    <div class="row"><div class="n">4</div><div><h3>اختبارات الويدجت والويب</h3><p class="mut">Pester للدوال المنطقية في widget.ps1، وPlaywright لالتقاط الصفحات التسع عشرة في CI مبنيًا على tour.cjs.</p></div></div>
+    <div class="row"><div class="n">5</div><div><h3>تحزيم مستقل</h3><p class="mut">WebView2 Runtime مضمّن أو مُثبَّت رسميًا بدل نسخ مكتبات Teams، ثم مثبّت موقّع.</p></div></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>منهجية التقييم</h2>
+  <p class="mut">قُرئت الوثائق والكود مباشرة من المستودع: README، server.py (المصادقة والتأكيد الخادمي ومسارات API)، widget.ps1، app_shell.ps1، identity.ps1، web/css، tests/، وسجل PR من 1 إلى 15. الأرقام من عدّ الأسطر والمسارات وقت التقرير. البنود المعلّقة من بطاقة التسليم docs/HANDOFF.md. لم تُجرَ قياسات أداء أو اختبار اختراق؛ أحكام الأمن مبنية على قراءة الكود لا على فحص فعلي.</p>
+</section>
+
+<footer>مرصد الجهاز · المستودع mesuef1974/MonitorWidget · التقرير يعكس حالة main بعد PR 13 مع PR 14 وPR 15 مفتوحين.</footer>
+</main>
