@@ -9,7 +9,8 @@ import errlog
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, ROOT)
-import db, health, server, space  # noqa: E402
+import db, health, snapshot, space  # noqa: E402
+from paths import CNW, PWSH  # noqa: E402
 
 _mutex = None
 
@@ -59,7 +60,7 @@ def main(*, raise_errors=False):
         db.bootstrap()
         now = time.time()
         db.import_all()
-        m = server.native_metrics()
+        m = snapshot.native_metrics()
         db.add_sample(now, m, "collector")
         health.add_procs(now, health.read_procs())
         g, gp = health.read_gpu()
@@ -84,8 +85,8 @@ def main(*, raise_errors=False):
         snap = db.get_json("tasks_snapshot") or {}
         if now - snap.get("ts", 0) > 3 * 3600:
             try:
-                r = subprocess.run([server.PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "collect.ps1"), "-Root", ROOT],
-                                   capture_output=True, timeout=120, creationflags=server.CNW)
+                r = subprocess.run([PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "collect.ps1"), "-Root", ROOT],
+                                   capture_output=True, timeout=120, creationflags=CNW)
                 data = json.loads(r.stdout.decode("utf-8", "replace").strip())
                 snap = {"ts": now, "tasks": data.get("tasks", [])}
                 db.set_json("tasks_snapshot", snap)

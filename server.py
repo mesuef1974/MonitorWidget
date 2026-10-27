@@ -5,23 +5,22 @@ The agent keeps the backend running independently of the dashboard."""
 
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
-import atexit, base64, collections, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, shutil, sqlite3, subprocess, sys, threading, time, traceback
+import atexit, base64, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, sqlite3, subprocess, sys, threading, time, traceback
 import errlog
 import atomic_json
 import math, socket
-from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
-import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, alertcfg, pageuse
+import db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, pageuse
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
 import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
 import routes_settings      # البند 6/د: المظهر والوضع والتنبيهات وخطة الطاقة وإعدادات reaper
 import shellwin             # البند 6/هـ: نافذة التطبيق وغلافها وحالة الغلاف لصفحة الصحة وبلاغ الويدجت
 import widgetctl            # البند 6/و: ويدجت سطح المكتب (يعمل/ظاهر، إيقاف آمن، تشغيل، إعادة إلى الشاشة)
+import snapshot             # البند 6/ز: القياسات الأصلية والجامع الثقيل وذاكرته والخيوط الخلفية وحمولتا state/mini
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
-from cfgjson import read_json   # البند 6/ج: ملفات JSON مع نسخة احتياطية (refresh_extra تقرأ السياسة)
 try:
     import diskio_api
 except Exception:
@@ -132,166 +131,6 @@ if not os.path.exists(TOKEN_FILE):
 TOKEN = open(TOKEN_FILE).read().strip()
 # Browser sessions are independent, time limited, and intentionally invalidated on restart.
 
-_lock = threading.Lock()
-_cache = {"t": 0, "data": None}
-_extra = {"tiers": {}, "paused": []}
-_last_request = time.time()
-_hist = collections.deque(maxlen=360)  # one sample / 5 s = 30 min
-
-
-# ---------------------------------------------------------------- fast native metrics (no subprocess)
-class MEMSTAT(ctypes.Structure):
-    _fields_ = [("dwLength", wintypes.DWORD), ("dwMemoryLoad", wintypes.DWORD)] + [
-        (n, ctypes.c_ulonglong) for n in ("tp", "ap", "tpf", "apf", "tv", "av", "aev")]
-
-
-class PE32(ctypes.Structure):
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD),
-                ("heap", ctypes.c_void_p), ("mod", wintypes.DWORD), ("thr", wintypes.DWORD),
-                ("ppid", wintypes.DWORD), ("pri", ctypes.c_long), ("flags", wintypes.DWORD),
-                ("exe", ctypes.c_wchar * 260)]
-
-
-def native_metrics():
-    ms = MEMSTAT(); ms.dwLength = ctypes.sizeof(ms)
-    ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(ms))
-    gb = 1024 ** 3
-    commit_used = (ms.tpf - ms.apf) / gb
-    limit = ms.tpf / gb
-    total = ms.tp / gb
-    avail = ms.ap / gb
-    k = ctypes.windll.kernel32
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-    k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.CloseHandle.argtypes = [ctypes.c_void_p]
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)
-    counts = collections.Counter()
-    if snap and snap != ctypes.c_void_p(-1).value:
-        pe = PE32(); pe.dwSize = ctypes.sizeof(pe)
-        ok = k.Process32FirstW(snap, ctypes.byref(pe))
-        while ok:
-            counts[pe.exe.lower()] += 1
-            ok = k.Process32NextW(snap, ctypes.byref(pe))
-        k.CloseHandle(snap)
-    du = shutil.disk_usage("C:\\")
-    return {
-        "commitPct": round(100 * commit_used / limit, 1), "commitGB": round(commit_used, 1), "limitGB": round(limit, 1),
-        "totalGB": round(total, 1), "availGB": round(avail, 2), "ramPct": round(100 * (total - avail) / total, 1),
-        "diskFreeGB": round(du.free / gb, 1), "diskTotalGB": round(du.total / gb, 1),
-        "diskPct": round(100 * (du.total - du.free) / du.total, 1),
-        "claude": counts["claude.exe"], "shells": counts["pwsh.exe"] + counts["powershell.exe"], "conhost": counts["conhost.exe"],
-    }
-
-
-def sampler():
-    k = 0
-    while True:
-        try:
-            m = native_metrics()
-            _hist.append((int(time.time()), m["commitPct"], m["ramPct"]))
-            k += 1
-        except Exception:
-            errlog.swallowed()
-        time.sleep(5)
-
-
-def ingester():
-    n = 0
-    while True:
-        try:
-            db.import_all()
-            if _cache["data"]:
-                db.note_tasks(_cache["data"].get("tasks"))
-            n += 1
-            if n % 180 == 1:
-                db.prune()
-        except Exception:
-            errlog.swallowed()
-        time.sleep(120)
-
-
-# ---------------------------------------------------------------- json helpers
-def touch():
-    global _last_request
-    _last_request = time.time()
-
-
-# ---------------------------------------------------------------- heavy collector (PowerShell) + extras
-def _collect_ttl():
-    """How long the heavy PowerShell collection may be reused. It spawns a full pwsh each time (about 1-3 s of CPU),
-    and the task list changes slowly, so: 120 s during the first 4 minutes after the server starts (boot window), 45 s afterwards."""
-    return 120 if time.time() - infra.START < 240 else 45
-
-
-def collect(force=False):
-    with _lock:
-        if not force and _cache["data"] and time.time() - _cache["t"] < _collect_ttl():
-            return attach_manual(_cache["data"])
-        r = subprocess.run(
-            [PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "collect.ps1"), "-Root", ROOT],
-            capture_output=True, timeout=sched.remaining_timeout(90), creationflags=CNW)
-        data = json.loads(r.stdout.decode("utf-8", "replace").strip())
-        _cache["data"], _cache["t"] = data, time.time()
-    try:
-        db.set_json("tasks_snapshot", {"ts": time.time(), "tasks": data.get("tasks", [])})
-    except Exception:
-        errlog.swallowed()
-    try:
-        db.note_tasks(data.get("tasks"))
-    except Exception:
-        errlog.swallowed()
-    refresh_extra()
-    return attach_manual(data)
-
-
-def attach_manual(data):
-    data["manual"] = routes_destructive.manual_status()   # التنظيف اليدوي تملكه وحدة المسارات الهدّامة
-    data["pausedTiers"] = list(_extra["paused"])
-    return data
-
-
-def refresh_extra():
-    try:
-        _, pol = read_json(POLICY)
-        _extra["paused"] = [t for t in pol.get("pausedTiers", []) if t in TIERS]
-    except Exception:
-        errlog.swallowed()
-    last = {}
-    try:
-        with open(RUNS, "rb") as f:
-            f.seek(0, 2); size = f.tell(); f.seek(max(0, size - 60000))
-            lines = f.read().decode("utf-8", "replace").splitlines()
-        for ln in lines:
-            try:
-                r = json.loads(ln)
-            except Exception:
-                continue
-            if not r.get("DryRun"):
-                last[r["Tier"]] = {"ts": r.get("Started"), "failed": r.get("RulesFailed", 0), "freed": r.get("BytesFreed", 0), "files": r.get("FilesActed", 0)}
-    except Exception:
-        errlog.swallowed()
-    _extra["tiers"] = last
-
-
-def _after_mutation():
-    """بعد تعديل ناجح من وحدة مسارات: تُجمع حالة المهام عند الطلب التالي وتُقرأ المستويات الموقوفة من السياسة
-    (كانت _cache["t"] = 0 و_extra["paused"] = ... داخل do_POST)."""
-    _cache["t"] = 0
-    refresh_extra()
-
-
-def refresher():
-    while True:
-        time.sleep(20)
-        if time.time() - _last_request < 120:
-            try:
-                collect(force=True)
-            except Exception:
-                errlog.swallowed()
-
-
 def ensure_agent():
     """Start the always-on agent if its mutex is not held (idempotent; the agent also enforces a single instance)."""
     try:
@@ -304,48 +143,6 @@ def ensure_agent():
     except Exception:
         infra.log.exception("ensure_agent")
         return False
-
-def _cpu_alert_safe():
-    try:
-        return cpuwatch.alert_state()
-    except Exception:
-        return None
-
-
-def _agent_hb_age():
-    try:
-        v = db._meta_get("agent_hb", 0)
-        return max(0, int(time.time()) - int(v)) if v else None
-    except Exception:
-        return None
-
-
-IS_ADMIN = secure.is_admin()
-
-
-def mini_payload():
-    data = _cache["data"]
-    tiers = {}
-    tasks = {t["name"]: t for t in (data or {}).get("tasks", [])}
-    for t in TIERS:
-        task = tasks.get(TIER_TASK[t], {})
-        tiers[t] = {"paused": t in _extra["paused"], "last": _extra["tiers"].get(t), "next": task.get("next"),
-                    "schedule": task.get("schedule"), "taskState": task.get("state")}
-    m = native_metrics()
-    h = list(_hist)
-    dm = (data or {}).get("metrics", {})
-    m["claudeGB"] = dm.get("claudeGB"); m["wslGB"] = dm.get("wslGB")
-    manual = routes_destructive.manual_status()
-    appearance_state = routes_settings.APPEARANCE.get()
-    return {
-        "now": time.strftime("%Y-%m-%dT%H:%M:%S"), "m": m,
-        "hist": {"t": [x[0] for x in h], "commit": [x[1] for x in h], "ram": [x[2] for x in h]},
-        "tiers": tiers, "guard": (data or {}).get("guard"),
-        "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
-        "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
-        "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "thr": alertcfg.get(),
-    }
-
 
 _ASSETS = {
     "/assets/favicon.svg": "image/svg+xml", "/assets/icon.svg": "image/svg+xml",
@@ -436,7 +233,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Host", "") not in ("127.0.0.1:%d" % PORT, "localhost:%d" % PORT):
             self._send(403, {"error": "bad host"})
             return False
-        touch()
+        snapshot.touch()
         return True
 
     def _cookie(self, name):
@@ -564,10 +361,7 @@ class Handler(BaseHTTPRequestHandler):
             if not self._authed():
                 return
             try:
-                if _cache["data"] and time.time() - _cache["t"] < 30:
-                    self._send(200, attach_manual(_cache["data"]))
-                else:
-                    self._send(200, collect())
+                self._send(200, snapshot.state())
             except Exception as e:
                 self._send(500, {"error": "collect failed: %s" % e})
         elif path.startswith("/api/") and path in ("/api/history", "/api/events", "/api/runs", "/api/db-info", "/api/theme", "/api/appearance", "/api/health", "/api/page-use"):
@@ -587,10 +381,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == "/api/appearance":
                     out = routes_settings.APPEARANCE.get()
                 elif path == "/api/health":
-                    tasks = (_cache["data"] or {}).get("tasks")
-                    if not tasks:
-                        tasks = (db.get_json("tasks_snapshot") or {}).get("tasks") or []
-                    out = health.overview(native_metrics(), tasks)
+                    out = health.overview(snapshot.native_metrics(), snapshot.tasks())
                     out["shell"] = shellwin.shell_status()
                 elif path == "/api/page-use":   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
                     out = pageuse.stats(db.conn())
@@ -626,8 +417,7 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
                 if path == "/api/mem":
-                    dm = (_cache["data"] or {}).get("metrics", {})
-                    out = insight.mem_payload(native_metrics(), {"claudeGB": dm.get("claudeGB"), "wslGB": dm.get("wslGB")}, q.get("range", "24h"))
+                    out = insight.mem_payload(snapshot.native_metrics(), snapshot.metrics_extra(), q.get("range", "24h"))
                 elif path == "/api/procs":
                     out = insight.procs_payload()
                 elif path == "/api/wsl":
@@ -637,8 +427,7 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == "/api/alerts":
                     out = insight.alerts_payload()
                 else:
-                    dm = (_cache["data"] or {}).get("metrics", {})
-                    out = insight.advice_payload(native_metrics(), {"claudeGB": dm.get("claudeGB"), "wslGB": dm.get("wslGB")}, routes_policy.maintenance_state(), memtrim.view())
+                    out = insight.advice_payload(snapshot.native_metrics(), snapshot.metrics_extra(), routes_policy.maintenance_state(), memtrim.view())
                 self._send(200, out)
             except Exception:
                 errlog.swallowed()
@@ -675,9 +464,7 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/mini":
             if not self._authed():
                 return
-            if _cache["data"] is None:
-                threading.Thread(target=lambda: collect(True), daemon=True).start()
-            self._send(200, mini_payload())
+            self._send(200, snapshot.mini())
         else:
             self._send(404, {"error": "not found"})
 
@@ -713,7 +500,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(400, {"error": "object expected"})
             route = self.path.split("?")[0]
             for module in POST_MODULES:   # وحدات المسارات (البند 6): الهدّامة مع تأكيد 428، ثم تنظيف الذاكرة
-                reply = module.post(route, body, invalidate=_after_mutation)
+                reply = module.post(route, body, invalidate=snapshot.invalidate)
                 if reply is not None:
                     return self._send(*reply)
             if route == "/api/session/logout":
@@ -721,7 +508,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"ok": True}, cookie="mw_s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
             if route == "/api/explain-errors":
                 import explain
-                r = explain.errors(native_metrics(), ROOT)
+                r = explain.errors(snapshot.native_metrics(), ROOT)
                 return self._send(200, r)
             if route == "/api/llm-unload":
                 import explain
@@ -729,8 +516,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, r) if r.get("ok") else self._send(503, {"error": r.get("err", "failed")})
             if route == "/api/explain":
                 import explain
-                tasks = (_cache["data"] or {}).get("tasks") or (db.get_json("tasks_snapshot") or {}).get("tasks") or []
-                m = native_metrics()
+                tasks = snapshot.tasks()
+                m = snapshot.native_metrics()
                 extra = ["الذاكرة: التزام %s%% ومتاح %s GB" % (m.get("commitPct"), m.get("availGB"))]
                 try:
                     extra += ["أكبر العمليات: %s ×%s بذاكرة خاصة %s MB" % (x["name"], x["n"], round(x["private_mb"] or 0)) for x in health.top_procs(5)]
@@ -769,7 +556,7 @@ class Handler(BaseHTTPRequestHandler):
 def watchdog():
     while True:
         time.sleep(20)
-        if IDLE_EXIT_SECONDS and time.time() - _last_request > IDLE_EXIT_SECONDS:
+        if IDLE_EXIT_SECONDS and time.time() - snapshot.last_request() > IDLE_EXIT_SECONDS:
             os._exit(0)
 
 
@@ -839,11 +626,11 @@ if __name__ == "__main__":
                                                       "".join(traceback.format_exception(a.exc_type, a.exc_value, a.exc_traceback)))
     _mark("boot")
     infra.log.info("server boot pid=%d", os.getpid())
-    refresh_extra()
+    snapshot.refresh_extra()
     c0 = db.bootstrap(); health.init()
     infra.log.info('server start pid=%d schema=%s', os.getpid(), c0.execute('PRAGMA user_version').fetchone()[0])
     ensure_agent()
-    for fn in (watchdog, sampler, refresher, ingester, _maint):
+    for fn in (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, _maint):
         threading.Thread(target=fn, daemon=True).start()
     if "--open" in sys.argv:
         threading.Thread(target=shellwin.open_window, args=(TOKEN,), daemon=True).start()
