@@ -8,7 +8,6 @@ ensure_sqlite()
 import atexit, base64, collections, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, shutil, sqlite3, subprocess, sys, threading, time, traceback
 import errlog
 import atomic_json
-import appearance
 import math, socket
 from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,9 +16,10 @@ import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, g
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
 import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
-POST_MODULES = (routes_destructive, memtrim, routes_policy)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+import routes_settings      # البند 6/د: المظهر والوضع والتنبيهات وخطة الطاقة وإعدادات reaper
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
-from cfgjson import read_json, edit_json   # البند 6/ج: ملفات JSON مع نسخة احتياطية (refresh_extra ومسارات reaper حتى تنتقل)
+from cfgjson import read_json   # البند 6/ج: ملفات JSON مع نسخة احتياطية (refresh_extra تقرأ السياسة)
 try:
     import diskio_api
 except Exception:
@@ -292,17 +292,6 @@ def refresher():
 
 
 SETTINGS = os.path.join(ROOT, "widget.settings.json")
-APPEARANCE = appearance.AppearanceStore(ROOT)
-
-
-def get_theme():
-    return APPEARANCE.get()["mode"]
-
-
-def set_theme(t):
-    return APPEARANCE.set_mode(t)
-
-
 def ensure_agent():
     """Start the always-on agent if its mutex is not held (idempotent; the agent also enforces a single instance)."""
     try:
@@ -347,7 +336,7 @@ def mini_payload():
     dm = (data or {}).get("metrics", {})
     m["claudeGB"] = dm.get("claudeGB"); m["wslGB"] = dm.get("wslGB")
     manual = routes_destructive.manual_status()
-    appearance_state = APPEARANCE.get()
+    appearance_state = routes_settings.APPEARANCE.get()
     return {
         "now": time.strftime("%Y-%m-%dT%H:%M:%S"), "m": m,
         "hist": {"t": [x[0] for x in h], "commit": [x[1] for x in h], "ram": [x[2] for x in h]},
@@ -594,9 +583,9 @@ class Handler(BaseHTTPRequestHandler):
                 elif path == "/api/runs":
                     out = db.runs(ival("limit", 10, 1, 100), ival("offset", 0, 0, 10**7))
                 elif path == "/api/theme":
-                    out = {"theme": get_theme()}
+                    out = {"theme": routes_settings.get_theme()}
                 elif path == "/api/appearance":
-                    out = APPEARANCE.get()
+                    out = routes_settings.APPEARANCE.get()
                 elif path == "/api/health":
                     tasks = (_cache["data"] or {}).get("tasks")
                     if not tasks:
@@ -727,16 +716,6 @@ class Handler(BaseHTTPRequestHandler):
                 reply = module.post(route, body, invalidate=_after_mutation)
                 if reply is not None:
                     return self._send(*reply)
-            if route == "/api/appearance":
-                try:
-                    result = APPEARANCE.update(body)
-                except appearance.AppearanceConflict as exc:
-                    return self._send(409, {"error": "appearance changed", "appearance": exc.current})
-                except appearance.AppearanceUnavailable:
-                    return self._send(409, {"error": "appearance recovery required"})
-                except ValueError as exc:
-                    return self._send(400, {"error": str(exc)})
-                return self._send(200, {"ok": True, **result})
             if route == "/api/session/logout":
                 _session_revoke(self._cookie("mw_s"))
                 return self._send(200, {"ok": True}, cookie="mw_s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
@@ -755,38 +734,6 @@ class Handler(BaseHTTPRequestHandler):
                     widget_stop(); time.sleep(0.5)
                 infra.log.info("widget %s -> running=%s", "show" if want else "hide", widget_running())
                 return self._send(200, {"running": widget_running() and widget_visible()})
-            if route == "/api/power-plan":
-                plans, err = insight.power_set(body.get("guid"))
-                if err:
-                    return self._send(400, {"error": err})
-                return self._send(200, {"plans": plans})
-            if route == "/api/reaper-set":
-                key, val = body.get("key"), body.get("value")
-                if key != "bareClaudeShellMinutes" or isinstance(val, bool) or not isinstance(val, int) or not 60 <= val <= 2880:
-                    return self._send(400, {"error": "not allowed"})
-                with edit_json(MCCFG) as (bom, cfg):
-                    cfg.setdefault("reaper", {})[key] = val
-
-                return self._send(200, {"bareMin": val})
-            if route == "/api/reaper-protect":
-                import re as _re
-                nm, op = body.get("name"), body.get("op")
-                if op not in ("add", "remove") or not isinstance(nm, str) or not _re.match(r"^[A-Za-z0-9_.\- ]{1,64}$", nm.strip()):
-                    return self._send(400, {"error": "bad name"})
-                nm = nm.strip().replace(".", "\\.")  # entries are regex fragments joined with | by the reaper
-                with edit_json(MCCFG) as (bom, cfg):
-                    lst = cfg.setdefault("reaper", {}).setdefault("protect", [])
-                    if op == "add" and nm.lower() not in [x.lower() for x in lst]:
-                        lst.append(nm)
-                    elif op == "remove":
-                        lst[:] = [x for x in lst if x.lower() != nm.lower()]
-
-                return self._send(200, {"protect": lst})
-            if route == "/api/alerts":
-                cfg, err = insight.alerts_set(body)
-                if err:
-                    return self._send(400, {"error": err})
-                return self._send(200, {"cfg": cfg})
             if route == "/api/explain-errors":
                 import explain
                 r = explain.errors(native_metrics(), ROOT)
@@ -825,26 +772,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"ok": True})
                 threading.Timer(0.4, lambda: os._exit(0)).start()
                 return
-            if route == "/api/theme":
-                t = body.get("theme")
-                if t not in ("auto", "light", "dark"):
-                    return self._send(400, {"error": "bad theme"})
-                try:
-                    result = set_theme(t)
-                except appearance.AppearanceUnavailable:
-                    return self._send(409, {"error": "appearance recovery required"})
-                return self._send(200, {"ok": True, "theme": result["mode"], "appearance": result})
-            elif route == "/api/reaper":
-                key, val = body.get("key"), body.get("value")
-                if key != "killBareClaudeShells" or not isinstance(val, bool):
-                    return self._send(400, {"error": "not allowed"})
-                with edit_json(MCCFG) as (bom, cfg):
-                    cfg["reaper"][key] = val
-
-            else:
-                return self._send(404, {"error": "not found"})
-            _cache["t"] = 0
-            self._send(200, {"ok": True})
+            return self._send(404, {"error": "not found"})
         except (socket.timeout, TimeoutError):
             self.close_connection = True
             self._send(408, {"error": "request timed out"})

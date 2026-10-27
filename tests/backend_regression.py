@@ -596,5 +596,81 @@ class PolicyRoutes(unittest.TestCase):
             self.assertTrue(list(Path(d).glob("backups/*policy.json")))   # نسخة احتياطية واحدة قبل أول كتابة
 
 
+class SettingsRoutes(unittest.TestCase):
+    """البند 6/د: routes_settings.py بلا خادم: المظهر والوضع (409 عند التعارض أو تعذّر الاسترداد، 400 للقيم غير الصالحة)،
+    التنبيهات وخطة الطاقة عبر insight، وإعدادات reaper في ملف إعدادات مؤقت مع التحقق من المفاتيح والمدى والأسماء."""
+
+    def setUp(self):
+        import routes_settings
+        self.rs = routes_settings
+        self.invalidated = []
+
+    def post(self, route, body):
+        return self.rs.post(route, body, invalidate=lambda: self.invalidated.append(route))
+
+    def test_appearance_and_theme_contracts(self):
+        import appearance
+
+        class Store:
+            def __init__(self):
+                self.mode = "auto"
+
+            def update(self, body):
+                if body.get("conflict"):
+                    raise appearance.AppearanceConflict({"mode": "dark"})
+                if body.get("down"):
+                    raise appearance.AppearanceUnavailable()
+                if body.get("bad"):
+                    raise ValueError("bad palette")
+                return {"mode": body.get("mode", "auto"), "palette": "teal"}
+
+            def get(self):
+                return {"mode": self.mode, "palette": "teal"}
+
+            def set_mode(self, m):
+                if m == "dark":
+                    raise appearance.AppearanceUnavailable()
+                self.mode = m
+                return {"mode": m, "palette": "teal"}
+        with patch.object(self.rs, "APPEARANCE", Store()):
+            self.assertEqual(self.post("/api/appearance", {"conflict": 1}), (409, {"error": "appearance changed", "appearance": {"mode": "dark"}}))
+            self.assertEqual(self.post("/api/appearance", {"down": 1}), (409, {"error": "appearance recovery required"}))
+            self.assertEqual(self.post("/api/appearance", {"bad": 1}), (400, {"error": "bad palette"}))
+            self.assertEqual(self.post("/api/appearance", {"mode": "light"}), (200, {"ok": True, "mode": "light", "palette": "teal"}))
+            self.assertEqual(self.post("/api/theme", {"theme": "blue"}), (400, {"error": "bad theme"}))
+            self.assertEqual(self.post("/api/theme", {"theme": "dark"}), (409, {"error": "appearance recovery required"}))
+            self.assertEqual(self.post("/api/theme", {"theme": "light"}), (200, {"ok": True, "theme": "light", "appearance": {"mode": "light", "palette": "teal"}}))
+            self.assertEqual(self.rs.get_theme(), "light")
+        self.assertEqual(self.invalidated, [])
+        self.assertIsNone(self.post("/api/other", {}))
+
+    def test_alerts_and_power_plan_pass_through_insight(self):
+        with patch.object(self.rs.insight, "alerts_set", lambda body: (None, "bad threshold") if body.get("x") else ({"mem": 1}, None)), \
+                patch.object(self.rs.insight, "power_set", lambda guid: ([], "unknown plan") if guid == "zz" else ([{"guid": guid}], None)):
+            self.assertEqual(self.post("/api/alerts", {"x": 1}), (400, {"error": "bad threshold"}))
+            self.assertEqual(self.post("/api/alerts", {}), (200, {"cfg": {"mem": 1}}))
+            self.assertEqual(self.post("/api/power-plan", {"guid": "zz"}), (400, {"error": "unknown plan"}))
+            self.assertEqual(self.post("/api/power-plan", {"guid": "g1"}), (200, {"plans": [{"guid": "g1"}]}))
+
+    def test_reaper_settings_validate_and_edit_config_file(self):
+        with tempfile.TemporaryDirectory(prefix="mw_backend_", dir=ROOT / "tests") as d:
+            cfg = Path(d) / "machinecare.config.json"
+            cfg.write_text(json.dumps({"reaper": {"killBareClaudeShells": False, "protect": ["old\\.exe"]}}), encoding="utf-8")
+            with patch.object(self.rs, "MCCFG", str(cfg)), patch.object(self.rs.cfgjson, "ROOT", d):
+                self.assertEqual(self.post("/api/reaper-set", {"key": "other", "value": 100}), (400, {"error": "not allowed"}))
+                self.assertEqual(self.post("/api/reaper-set", {"key": "bareClaudeShellMinutes", "value": True}), (400, {"error": "not allowed"}))
+                self.assertEqual(self.post("/api/reaper-set", {"key": "bareClaudeShellMinutes", "value": 30}), (400, {"error": "not allowed"}))
+                self.assertEqual(self.post("/api/reaper-set", {"key": "bareClaudeShellMinutes", "value": 120}), (200, {"bareMin": 120}))
+                self.assertEqual(self.post("/api/reaper-protect", {"op": "add", "name": "bad;name"}), (400, {"error": "bad name"}))
+                self.assertEqual(self.post("/api/reaper-protect", {"op": "add", "name": "node.exe"}), (200, {"protect": ["old\\.exe", "node\\.exe"]}))
+                self.assertEqual(self.post("/api/reaper-protect", {"op": "add", "name": "NODE.exe"}), (200, {"protect": ["old\\.exe", "node\\.exe"]}))   # بلا تكرار
+                self.assertEqual(self.post("/api/reaper-protect", {"op": "remove", "name": "old.exe"}), (200, {"protect": ["node\\.exe"]}))
+                self.assertEqual(self.post("/api/reaper", {"key": "killBareClaudeShells", "value": "yes"}), (400, {"error": "not allowed"}))
+                self.assertEqual(self.post("/api/reaper", {"key": "killBareClaudeShells", "value": True}), (200, {"ok": True}))
+            data = json.loads(cfg.read_text(encoding="utf-8"))["reaper"]
+            self.assertEqual((data["bareClaudeShellMinutes"], data["protect"], data["killBareClaudeShells"]), (120, ["node\\.exe"], True))
+            self.assertEqual(self.invalidated, ["/api/reaper"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
