@@ -11,6 +11,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import secrets
 import socket
 import subprocess
@@ -33,7 +34,7 @@ def extracted():
     wanted = {"_session_create", "_session_valid", "_session_revoke", "_reject_json_constant",
               "_validate_json_numbers", "Handler", "LocalHTTPServer", "_purge_task", "_resolve_engine"}
     nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in wanted]
-    ns = dict(json=json, math=math, socket=socket, time=time, secrets=secrets, hashlib=hashlib,
+    ns = dict(json=json, math=math, re=re, socket=socket, time=time, secrets=secrets, hashlib=hashlib,
               hmac=hmac, os=os, threading=threading, BaseHTTPRequestHandler=BaseHTTPRequestHandler,
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
               MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, SESSION_TTL=60,

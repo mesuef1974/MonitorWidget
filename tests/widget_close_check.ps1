@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 $tokens=$null;$errors=$null;$path=Join-Path (Split-Path $PSScriptRoot -Parent) 'widget.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
@@ -7,7 +7,8 @@ if(-not $code){throw 'Dashboard window selector missing'}
 Add-Type -TypeDefinition $code.Value
 $title='مرصد الجهاز'
 if(-not [WF]::IsDashboardCandidate($title,$title,'msedge',$true)){throw 'Exact Edge dashboard was not matched'}
-foreach($row in @(@($title+' — الويدجت','pwsh',$true),@($title+' — الويدجت','msedge',$true),@($title+' — تقرير','msedge',$true),@('تقرير '+$title,'msedge',$true),@($title,'pwsh',$true),@($title,'python',$true),@($title,'msedgewebview2',$true),@($title,'msedge',$false))){if([WF]::IsDashboardCandidate($title,$row[0],$row[1],$row[2])){throw 'Unrelated window matched'}}
+foreach($shellProc in @('pwsh','powershell')){if(-not [WF]::IsDashboardCandidate($title,$title,$shellProc,$true)){throw "Exact app_shell ($shellProc) dashboard was not matched"}}   # الغلاف app_shell.ps1 يستضيف الواجهة
+foreach($row in @(@($title+' — الويدجت','pwsh',$true),@($title+' — الويدجت','msedge',$true),@($title+' — تقرير','msedge',$true),@('تقرير '+$title,'msedge',$true),@($title,'python',$true),@($title,'msedgewebview2',$true),@($title,'msedge',$false))){if([WF]::IsDashboardCandidate($title,$row[0],$row[1],$row[2])){throw 'Unrelated window matched'}}
 if([WF]::IsDashboardCandidate('','','msedge',$true)){throw 'Empty title matched'}
 if([WF]::PickOne([long[]]@(101,202,303),202) -ne 202){throw 'Foreground dashboard not preferred'}
 if([WF]::PickOne([long[]]@(101,202,303),999) -ne 101){throw 'Fallback did not select exactly one candidate'}
