@@ -720,7 +720,7 @@ let APPEAR = null;
 const darkMq = matchMedia("(prefers-color-scheme: dark)");
 function applyAppearance(ap) {
   if (!ap || !ap.mode) return;
-  APPEAR = ap; const root = document.documentElement;
+  APPEAR = { schemaVersion: 1, revision: ap.revision, mode: ap.mode, palette: ap.palette }; const root = document.documentElement;   // only the contract fields: the POST reply carries "ok", which the store rejects if echoed back
   root.dataset.theme = ap.mode === "auto" ? (darkMq.matches ? "dark" : "light") : ap.mode;
   root.dataset.palette = ap.palette || "teal";
   try { localStorage.setItem(AP_KEY, JSON.stringify({ mode: ap.mode, palette: ap.palette })); } catch (_) { }
@@ -729,7 +729,7 @@ try { applyAppearance(JSON.parse(localStorage.getItem(AP_KEY))); } catch (_) { }
 async function loadAppearance() { try { const ap = await api("/api/appearance"); if (!APPEAR || ap.revision !== APPEAR.revision || ap.mode !== APPEAR.mode || ap.palette !== APPEAR.palette) { applyAppearance(ap); if (page && page === PAGES.appearance || page === PAGES.ctrl) show(true); } } catch { } }
 darkMq.addEventListener("change", () => { if (APPEAR?.mode === "auto") applyAppearance(APPEAR); });
 $("#theme").onclick = async () => {
-  const cur = APPEAR || { mode: "auto", palette: "teal" }, next = { ...cur, mode: document.documentElement.dataset.theme === "dark" ? "light" : "dark" };
+  const cur = await api("/api/appearance").catch(() => APPEAR) || { mode: "auto", palette: "teal", revision: 0 }, next = { ...cur, mode: document.documentElement.dataset.theme === "dark" ? "light" : "dark" };
   applyAppearance(next);
   try { const r = await post("/api/appearance", next); applyAppearance(r); } catch (e) { toast("تعذّر حفظ المظهر: " + e.message, true); }
   show(true);
