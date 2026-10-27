@@ -13,7 +13,7 @@ import math, socket
 from ctypes import wintypes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
-import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, alertcfg
+import secure, db, dbview, health, infra, sched, space, startup_mgr, cpuwatch, gpuwatch, insight, alertcfg, pageuse
 try:
     import diskio_api
 except Exception:
@@ -1024,7 +1024,7 @@ class Handler(BaseHTTPRequestHandler):
                     self._send(200, collect())
             except Exception as e:
                 self._send(500, {"error": "collect failed: %s" % e})
-        elif path.startswith("/api/") and path in ("/api/history", "/api/events", "/api/runs", "/api/db-info", "/api/theme", "/api/appearance", "/api/health"):
+        elif path.startswith("/api/") and path in ("/api/history", "/api/events", "/api/runs", "/api/db-info", "/api/theme", "/api/appearance", "/api/health", "/api/page-use"):
             if not self._authed():
                 return
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
@@ -1046,6 +1046,8 @@ class Handler(BaseHTTPRequestHandler):
                         tasks = (db.get_json("tasks_snapshot") or {}).get("tasks") or []
                     out = health.overview(native_metrics(), tasks)
                     out["shell"] = shell_status()
+                elif path == "/api/page-use":   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
+                    out = pageuse.stats(db.conn())
                 else:
                     out = db.info()
                 self._send(200, out)
@@ -1329,6 +1331,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"ticket": _issue_ticket()})
             if route == "/api/shell":   # زر الويدجت يبلّغ محرك النافذة حين يسقط إلى Edge مباشرة؛ غير هدّام
                 code, payload = record_shell_report(body)
+                return self._send(code, payload)
+            if route == "/api/page-open":   # الواجهة تبلّغ كل انتقال إلى صفحة (البند 5)؛ صفّ يومي في SQLite، غير هدّام
+                code, payload = pageuse.record(db.conn(), body)
                 return self._send(code, payload)
             if route == "/api/shutdown":
                 infra.log.info("shutdown requested")

@@ -306,5 +306,72 @@ class ShellStatus(unittest.TestCase):
                 self.assertEqual((st["engine"], st["lastReason"], st["ts"], st["fallback"]), ("edge", "no_webview2", 5, True))
 
 
+class PageUse(unittest.TestCase):
+    """عدّاد فتح الصفحات (البند 5): pageuse.py على قاعدة sqlite في الذاكرة، بلا خادم ولا قاعدة حية."""
+
+    DAY = 86400
+    T0 = 1_800_000_000   # 2027-01-15 ~08:00 UTC: بعيد عن حدود اليوم المحلي في كل المناطق الزمنية المعقولة
+
+    def _c(self):
+        import sqlite3
+        return sqlite3.connect(":memory:")
+
+    def test_record_validates_counts_and_aggregates_per_day(self):
+        import pageuse
+        c = self._c()
+        for bad in ({}, {"page": ""}, {"page": "Overview"}, {"page": "a b"}, {"page": "x" * 33}, {"page": 5}, {"page": None}, {"page": "../x"}, []):
+            self.assertEqual(pageuse.record(c, bad, now=self.T0)[0], 400, bad)
+        self.assertEqual(pageuse.stats(c, now=self.T0)["pages"], [])   # المرفوض لا يُسجَّل ولا يفتح نافذة القياس
+        self.assertIsNone(pageuse.stats(c, now=self.T0)["since"])
+        code, out = pageuse.record(c, {"page": "overview"}, now=self.T0)
+        self.assertEqual((code, out["ok"], out["page"], out["day"]), (200, True, "overview", pageuse._day(self.T0)))
+        pageuse.record(c, {"page": "overview"}, now=self.T0 + 60)
+        pageuse.record(c, {"page": "space-clean"}, now=self.T0 + 120)
+        pageuse.record(c, {"page": "overview"}, now=self.T0 + self.DAY)   # اليوم التالي: صفّ جديد للصفحة نفسها
+        st = pageuse.stats(c, now=self.T0 + self.DAY)
+        self.assertEqual([(p["page"], p["opens"], p["days"], p["last"]) for p in st["pages"]],
+                         [("overview", 3, 2, self.T0 + self.DAY), ("space-clean", 1, 1, self.T0 + 120)])
+        self.assertEqual(c.execute("SELECT COUNT(*) FROM page_opens").fetchone()[0], 3)
+        self.assertEqual((st["windowDays"], st["since"], st["elapsedDays"], st["complete"]), (14, pageuse._day(self.T0), 2, False))
+
+    def test_window_rolls_and_completes_after_fourteen_days(self):
+        import pageuse
+        c = self._c()
+        pageuse.record(c, {"page": "health"}, now=self.T0)
+        st = pageuse.stats(c, now=self.T0)
+        self.assertEqual((st["elapsedDays"], st["complete"], st["from"], st["today"]), (1, False, pageuse._day(self.T0 - 13 * self.DAY), pageuse._day(self.T0)))
+        st = pageuse.stats(c, now=self.T0 + 13 * self.DAY)   # اليوم الرابع عشر: المدة اكتملت والصفّ الأول ما زال داخل النافذة
+        self.assertEqual((st["elapsedDays"], st["complete"], [p["opens"] for p in st["pages"]]), (14, True, [1]))
+        st = pageuse.stats(c, now=self.T0 + 14 * self.DAY)   # اليوم الخامس عشر: النافذة المتحركة تُسقط الصفّ الأول لكن بداية القياس تبقى
+        self.assertEqual((st["elapsedDays"], st["complete"], st["pages"], st["since"]), (15, True, [], pageuse._day(self.T0)))
+        pageuse.record(c, {"page": "health"}, now=self.T0 + 14 * self.DAY)
+        self.assertEqual([p["opens"] for p in pageuse.stats(c, now=self.T0 + 14 * self.DAY)["pages"]], [1])
+
+    def test_prune_old_rows_and_cap_distinct_pages(self):
+        import pageuse
+        c = self._c()
+        pageuse.record(c, {"page": "old"}, now=self.T0)
+        pageuse.record(c, {"page": "kept"}, now=self.T0 + 59 * self.DAY)
+        pageuse.record(c, {"page": "fresh"}, now=self.T0 + pageuse.KEEP_DAYS * self.DAY + self.DAY)   # أول تسجيل بعد 60 يومًا يحذف الأقدم فقط
+        self.assertEqual(sorted(r[0] for r in c.execute("SELECT page FROM page_opens")), ["fresh", "kept"])
+        for i in range(pageuse.MAX_PAGES - 2):
+            self.assertEqual(pageuse.record(c, {"page": "p%d" % i}, now=self.T0 + 70 * self.DAY)[0], 200)
+        self.assertEqual(pageuse.record(c, {"page": "one-too-many"}, now=self.T0 + 70 * self.DAY), (400, {"error": "too many pages"}))
+        self.assertEqual(pageuse.record(c, {"page": "kept"}, now=self.T0 + 70 * self.DAY)[0], 200)   # المعروف يُقبل رغم السقف
+        self.assertEqual(c.execute("SELECT COUNT(DISTINCT page) FROM page_opens").fetchone()[0], pageuse.MAX_PAGES)
+
+    def test_server_and_page_are_wired(self):
+        """المسارات في server.py والواجهة تبلّغ عند الانتقال وتعرض الملخص في صفحة الإعدادات والتحكم؛ وثابت الفحص المرئي موجود."""
+        server = (ROOT / "server.py").read_text(encoding="utf-8-sig")
+        page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        for needle in ('"/api/page-use"', "pageuse.stats(db.conn())", '"/api/page-open"', "pageuse.record(db.conn(), body)"):
+            self.assertIn(needle, server)
+        for needle in ('fetch("/api/page-open"', "track(key)", 'api("/api/page-use")', "pageUseBody(pu)"):
+            self.assertIn(needle, page)
+        self.assertNotIn('localStorage.setItem("mw-v2-pageuse', page)   # العدّ في الخادم لا في المتصفح
+        fx = json.loads((ROOT / "tests" / "fixtures" / "api" / "page-use.json").read_text(encoding="utf-8"))
+        self.assertEqual(set(fx) >= {"windowDays", "since", "elapsedDays", "complete", "pages"}, True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
