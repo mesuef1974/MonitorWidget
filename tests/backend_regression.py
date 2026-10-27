@@ -737,5 +737,77 @@ class ReadRoutes(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+class IntegrityCache(unittest.TestCase):
+    """quick_check مخزَّن (infra.integrity_cached): الطلب لا ينتظر؛ أول نداء يعيد pending ويطلق الفحص في خيط، ثم النتيجة تُعاد من الذاكرة
+    حتى انقضاء TTL، والفشل يصير ok=False برسالة error؛ وoverview و/api/healthz يقرآن الذاكرة لا القاعدة."""
+
+    def setUp(self):
+        import contextlib
+        import db
+        import infra
+        self.infra = infra
+        self.saved = dict(infra._INTEG)
+        infra._INTEG.update(t=0.0, ok=None, msg="pending", ms=None, running=False)
+        self.addCleanup(lambda: infra._INTEG.update(self.saved))
+
+        @contextlib.contextmanager
+        def ro():
+            yield None   # الاتصال لا يُستعمل: integrity مستبدلة
+        self.p = patch.object(db, "ro", ro)
+        self.p.start()
+        self.addCleanup(self.p.stop)
+
+    def _join(self):
+        t = self.infra._integ_thread
+        if t is not None:
+            t.join(5)
+            self.assertFalse(t.is_alive())
+
+    def test_first_call_is_pending_then_cached(self):
+        with patch.object(self.infra, "integrity", lambda c, full=False: (True, "ok")):
+            first = self.infra.integrity_cached()
+            self.assertEqual((first["ok"], first["msg"], first["running"]), (None, "pending", True))
+            self._join()
+            t1 = self.infra._integ_thread
+            second = self.infra.integrity_cached()
+            self.assertEqual((second["ok"], second["msg"], second["running"]), (True, "ok", False))
+            self.assertIsInstance(second["ms"], int)
+            self.assertGreater(second["t"], 0)
+            self.assertIs(self.infra._integ_thread, t1)   # ضمن TTL: لا فحص جديد
+
+    def test_stale_result_triggers_one_refresh(self):
+        self.infra._INTEG.update(t=time.time() - 10**6, ok=True, msg="ok", running=False)
+        calls, gate = [], threading.Event()
+
+        def slow(c, full=False):
+            calls.append(1)
+            gate.wait(5)   # يبقى الفحص «جاريًا» حتى نتحقق من النداء الثاني
+            return True, "ok"
+        with patch.object(self.infra, "integrity", slow):
+            a = self.infra.integrity_cached()
+            b = self.infra.integrity_cached()   # الفحص جارٍ: لا خيط ثانٍ ولا انتظار
+            gate.set()
+            self._join()
+        self.assertEqual((a["msg"], a["running"], b["running"], calls), ("ok", True, True, [1]))
+
+    def test_failure_is_visible(self):
+        with patch.object(self.infra, "integrity", lambda c, full=False: (_ for _ in ()).throw(RuntimeError("disk gone"))):
+            self.infra.integrity_cached()
+            self._join()
+        out = self.infra.integrity_cached()
+        self.assertEqual((out["ok"], out["msg"]), (False, "error: disk gone"))
+
+    def test_overview_and_healthz_read_the_cache(self):
+        import inspect
+        src = inspect.getsource(self.infra.overview)
+        self.assertIn("integrity_cached()", src)
+        self.assertNotIn("integrity(c)", src)
+        server = (ROOT / "server.py").read_text(encoding="utf-8-sig")
+        self.assertIn('infra.integrity_cached(60)["ok"] is not False', server)
+        self.assertNotIn("infra.integrity(rc)", server)
+        page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        self.assertIn('dbh.integrity === "pending" ? "قيد الفحص"', page)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

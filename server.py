@@ -79,21 +79,10 @@ def _validate_json_numbers(value):
             _validate_json_numbers(item)
 
 _TICKETS, _TLOCK = {}, threading.Lock()
-_HEALTH = {"t": 0.0, "ok": True}
-_HEALTH_LOCK = threading.Lock()
-
-
 def _healthz_ok():
-    """quick_check on a read-only connection, cached for 60 s: an unauthenticated endpoint must not be a lever on the DB."""
-    with _HEALTH_LOCK:
-        if time.time() - _HEALTH["t"] > 60:
-            try:
-                with db.ro() as rc:
-                    _HEALTH["ok"] = infra.integrity(rc)[0]
-            except Exception:
-                _HEALTH["ok"] = False
-            _HEALTH["t"] = time.time()
-        return _HEALTH["ok"]
+    """quick_check مخزَّن في infra.integrity_cached ويُجدَّد في خيط خلفي كل 60 ث على الأكثر: مسار بلا مصادقة يجب ألا يكون
+    رافعة على القاعدة ولا ينتظرها (قبل أول نتيجة يُعدّ سليمًا)."""
+    return infra.integrity_cached(60)["ok"] is not False
 
 
 def _issue_ticket():
@@ -465,6 +454,7 @@ if __name__ == "__main__":
     infra.log.info("server boot pid=%d", os.getpid())
     snapshot.refresh_extra()
     c0 = db.bootstrap(); health.init()
+    infra.integrity_cached()   # أول quick_check يبدأ الآن في خيط خلفي حتى لا تعرض صفحة التحكم «قيد الفحص» طويلًا
     infra.log.info('server start pid=%d schema=%s', os.getpid(), c0.execute('PRAGMA user_version').fetchone()[0])
     ensure_agent()
     for fn in (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, _maint):

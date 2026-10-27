@@ -93,6 +93,39 @@ def integrity(c, full=False):
     r = c.execute("PRAGMA %s" % ("integrity_check" if full else "quick_check")).fetchone()[0]
     return r == "ok", r
 
+
+# ---------- cached quick_check: no request waits for it ----------
+# quick_check يقرأ ملف القاعدة كله (نحو 50 MB؛ 0.1 ث دافئًا وحتى 5-6 ث بعد الإقلاع أو مع انشغال القرص)، وكان يُنفَّذ في كل
+# GET /api/infra فتتأخر صفحة التحكم. الآن: آخر نتيجة محفوظة في الذاكرة، وتُجدَّد في خيط خلفي عند تقادمها (TTL) فلا ينتظرها أي طلب.
+INTEGRITY_TTL = 300
+_INTEG = {"t": 0.0, "ok": None, "msg": "pending", "ms": None, "running": False}
+_INTEG_LOCK = threading.Lock()
+_integ_thread = None
+
+
+def _refresh_integrity():
+    import db
+    t0 = time.time()
+    try:
+        with db.ro() as c:
+            ok, msg = integrity(c)
+    except Exception as e:
+        ok, msg = False, ("error: %s" % e)[:200]
+    with _INTEG_LOCK:
+        _INTEG.update(t=time.time(), ok=ok, msg=msg, ms=int((time.time() - t0) * 1000), running=False)
+
+
+def integrity_cached(ttl=INTEGRITY_TTL):
+    """آخر نتيجة quick_check: {t, ok, msg, ms, running}. لا تحجب أبدًا: إن تقادمت (أقدم من ttl ثانية) ولا فحص جارٍ
+    يُطلق فحص في خيط خلفي وتُعاد النتيجة السابقة فورًا (قبل أول فحص: ok=None وmsg="pending")."""
+    global _integ_thread
+    with _INTEG_LOCK:
+        if time.time() - _INTEG["t"] > ttl and not _INTEG["running"]:
+            _INTEG["running"] = True
+            _integ_thread = threading.Thread(target=_refresh_integrity, name="integrity", daemon=True)
+            _integ_thread.start()
+        return dict(_INTEG)
+
 def _io_deadline(seconds):
     import sched
     bounded = sched.remaining_timeout(seconds) if hasattr(sched, "remaining_timeout") else seconds
@@ -246,7 +279,7 @@ def stats():
         return {"uptime_s": int(time.time() - START), "requests": dict(_cnt), "p50_ms": p(.5), "p95_ms": p(.95), "recent_errors": list(_err)}
 
 def overview(c):
-    ok, msg = integrity(c)
+    ic = integrity_cached()   # مخزَّن ويُجدَّد في الخلفية: /api/infra لا ينتظر quick_check
     row = lambda sql: c.execute(sql).fetchall()
     jobs = [dict(r) for r in row("SELECT name, ts, ok, ms, detail FROM job_runs WHERE id IN (SELECT MAX(id) FROM job_runs GROUP BY name)")]
     page, pages, free = (c.execute("PRAGMA %s" % p).fetchone()[0] for p in ("page_size", "page_count", "freelist_count"))
@@ -256,7 +289,7 @@ def overview(c):
     except Exception:
         sched_rows, hb = [], None
     agent = {"alive": bool(hb and time.time() - int(hb[0]) < 60), "heartbeat": int(hb[0]) if hb else None}
-    return {"scheduler": sched_rows, "agent": agent, "db": {"integrity": msg, "ok": ok, "schema": c.execute("PRAGMA user_version").fetchone()[0],
+    return {"scheduler": sched_rows, "agent": agent, "db": {"integrity": ic["msg"], "ok": ic["ok"], "checkedAt": int(ic["t"]) or None, "checkMs": ic["ms"], "schema": c.execute("PRAGMA user_version").fetchone()[0],
                    "journal": c.execute("PRAGMA journal_mode").fetchone()[0], "bytes": page * pages, "free_pages": free},
             "backups": backups(), "jobs": jobs, "server": stats(), "pid": os.getpid()}
 
