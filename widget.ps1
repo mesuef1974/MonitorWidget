@@ -338,7 +338,8 @@ $stack.Children.Add((Gap 10)) | Out-Null
 function New-Ring([string]$label) {
     $wrap = New-Object Windows.Controls.StackPanel; $wrap.HorizontalAlignment = 'Center'
     $g = New-Object Windows.Controls.Grid; $g.Width = 68; $g.Height = 68; $g.FlowDirection = 'LeftToRight'
-    $track = New-Object Windows.Shapes.Ellipse; $track.Width = 62; $track.Height = 62; $track.StrokeThickness = 6; $track.Stroke = Brush $C.track
+    # المسار قوس 270° يبدأ من أسفل اليسار كمقياس الواجهة (gauge في index.html) بدل حلقة كاملة
+    $track = New-Object Windows.Shapes.Path; $track.StrokeThickness = 6; $track.StrokeStartLineCap = 'Round'; $track.StrokeEndLineCap = 'Round'; $track.Stroke = Brush $C.track; $track.Data = Ring-Arc 100
     $cv = New-Object Windows.Controls.Canvas; $cv.Width = 68; $cv.Height = 68
     $arc = New-Object Windows.Shapes.Path; $arc.StrokeThickness = 6; $arc.StrokeStartLineCap = 'Round'; $arc.StrokeEndLineCap = 'Round'; $arc.Stroke = Brush $C.accent
     $cv.Children.Add($arc) | Out-Null
@@ -346,20 +347,25 @@ function New-Ring([string]$label) {
     $val = New-Text '—' 20 $C.ink 'SemiBold' $true; $val.HorizontalAlignment = 'Center'
     $unit = New-Text '' 12 $C.muted 'Normal' $true; $unit.HorizontalAlignment = 'Center'
     $ctr.Children.Add($val) | Out-Null; $ctr.Children.Add($unit) | Out-Null
-    $g.Children.Add($track) | Out-Null; $g.Children.Add($cv) | Out-Null; $g.Children.Add($ctr) | Out-Null
+    $trackCv = New-Object Windows.Controls.Canvas; $trackCv.Width = 68; $trackCv.Height = 68; $trackCv.Children.Add($track) | Out-Null
+    $g.Children.Add($trackCv) | Out-Null; $g.Children.Add($cv) | Out-Null; $g.Children.Add($ctr) | Out-Null
     $lab = New-Text $label 12 $C.muted; $lab.HorizontalAlignment = 'Center'; $lab.Margin = '0,2,0,0'
     $wrap.Children.Add($g) | Out-Null; $wrap.Children.Add($lab) | Out-Null
     @{ Root = $wrap; Arc = $arc; Val = $val; Unit = $unit; Grid = $g }
 }
-function Set-Ring($r, [double]$pct, [string]$lvl, [string]$val, [string]$unit, [string]$tip) {
+function Ring-Arc([double]$pct) {
+    # قوس من 135° باتجاه عقارب الساعة بطول 270°×النسبة حول مركز (34,34) ونصف قطر 31
     $cx = 34; $cy = 34; $rad = 31
-    $p = [Math]::Max(0.6, [Math]::Min(99.6, $pct)); $a = 2 * [Math]::PI * $p / 100
-    $fig = New-Object Windows.Media.PathFigure; $fig.StartPoint = [Windows.Point]::new($cx, $cy - $rad); $fig.IsClosed = $false
+    $p = [Math]::Max(0.6, [Math]::Min(100, $pct)); $sweep = 270 * $p / 100
+    $a0 = 135 * [Math]::PI / 180; $a1 = (135 + $sweep) * [Math]::PI / 180
+    $fig = New-Object Windows.Media.PathFigure; $fig.StartPoint = [Windows.Point]::new($cx + $rad * [Math]::Cos($a0), $cy + $rad * [Math]::Sin($a0)); $fig.IsClosed = $false
     $seg = New-Object Windows.Media.ArcSegment
-    $seg.Point = [Windows.Point]::new($cx + $rad * [Math]::Sin($a), $cy - $rad * [Math]::Cos($a)); $seg.Size = [Windows.Size]::new($rad, $rad)
-    $seg.SweepDirection = 'Clockwise'; $seg.IsLargeArc = ($p -gt 50)
-    $fig.Segments.Add($seg); $geo = New-Object Windows.Media.PathGeometry; $geo.Figures.Add($fig)
-    $r.Arc.Data = $geo; $r.Arc.Stroke = if ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }; $r.Val.Text = $val; $r.Unit.Text = $unit; $r.Root.ToolTip = $tip
+    $seg.Point = [Windows.Point]::new($cx + $rad * [Math]::Cos($a1), $cy + $rad * [Math]::Sin($a1)); $seg.Size = [Windows.Size]::new($rad, $rad)
+    $seg.SweepDirection = 'Clockwise'; $seg.IsLargeArc = ($sweep -gt 180)
+    $fig.Segments.Add($seg); $geo = New-Object Windows.Media.PathGeometry; $geo.Figures.Add($fig); $geo.Freeze(); $geo
+}
+function Set-Ring($r, [double]$pct, [string]$lvl, [string]$val, [string]$unit, [string]$tip) {
+    $r.Arc.Data = Ring-Arc ([Math]::Min(99.6, $pct)); $r.Arc.Stroke = if ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }; $r.Val.Text = $val; $r.Unit.Text = $unit; $r.Root.ToolTip = $tip
 }
 $ringsGrid = New-Object Windows.Controls.Primitives.UniformGrid; $ringsGrid.Columns = 3
 $UI.rCommit = New-Ring 'التزام الذاكرة'; $UI.rRam = New-Ring 'الذاكرة الفعلية'; $UI.rDisk = New-Ring 'القرص C'

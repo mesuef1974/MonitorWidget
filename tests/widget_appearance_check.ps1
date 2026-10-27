@@ -4,7 +4,7 @@ $tokens=$null;$errors=$null
 $path=Join-Path (Split-Path $PSScriptRoot -Parent) 'widget.ps1'
 $ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if ($errors.Count) { throw ($errors.Message -join '; ') }
-foreach ($name in @('Test-AppearanceRecord','Get-Palette','Alpha','Brush','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance','Save-Settings','New-Text','New-Ring','Set-Ring','Level-Brush')) {
+foreach ($name in @('Test-AppearanceRecord','Get-Palette','Alpha','Brush','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance','Save-Settings','New-Text','New-Ring','Ring-Arc','Set-Ring','Level-Brush')) {
     $fn=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
     if (-not $fn) { throw "Missing $name" }; . ([scriptblock]::Create($fn.Extent.Text))
 }
