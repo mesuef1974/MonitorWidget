@@ -1,4 +1,4 @@
-$ErrorActionPreference='Stop'
+﻿$ErrorActionPreference='Stop'
 Add-Type -AssemblyName PresentationFramework
 $widgetRoot=Split-Path $PSScriptRoot -Parent
 $source=Get-Content -LiteralPath (Join-Path $widgetRoot 'widget.ps1') -Raw
@@ -18,7 +18,8 @@ $win=New-Object Windows.Window;$win.Opacity=1
 foreach($opacity in @(1,.96,.5,.25,.1)){
     Set-CardOpacity $opacity
     if($script:S.opacity -ne $opacity -or $card.Background.Color.A -ne [byte][Math]::Round(255*$opacity)){throw 'Outer material opacity does not match slider'}
-    if($panel.Background.Color.A -gt [Math]::Ceiling(255*$opacity*.06)){throw 'Inner panel remained opaque'}
+    # اللوحة الداخلية تتبع المنزلق بنسبة 94% من المادة الخارجية (عقد الهوية المشتركة في widget_identity_check) ولا تبقى مصمتة عند خفضه
+    if($panel.Background.Color.A -ne [byte][Math]::Round(255*$opacity*.94) -or $panel.Background.Color.A -gt $card.Background.Color.A){throw 'Inner panel remained opaque'}
     if($win.Opacity -ne 1 -or $text.Opacity -ne 1 -or $text.Foreground.Color.A -ne 255 -or $panel.Opacity -ne 1){throw 'Background opacity faded text or controls'}
 }
 Write-Output 'PASS finite opacity normalization, saved100% preservation, actual outer/inner alpha and fully opaque text/window controls'
@@ -45,6 +46,6 @@ foreach($case in @('fresh','stale','missing')){foreach($admin in @($true,$false)
     if($natural.DesiredSize.Width -gt $UI.sub.ActualWidth+.5){throw "Connection text would be truncated in $case"}
     if([Windows.LogicalTreeHelper]::GetParent($UI.adm)){throw 'Privilege badge is still in visible header'}
 }}
-if($source -notmatch '\$details.Children.Insert\(0,\$UI.adm\)'){throw 'Privilege information was not preserved in details'}
+if($source -notmatch '\$UI.restoredMetrics.Children.Insert\(0,\$UI.adm\)'){throw 'Privilege information was not preserved in details'}
 foreach($button in @($UI.menuBtn,$UI.closeBtn)){if($button.Opacity -ne 1 -or $button.Content.Opacity -ne 1 -or $button.Content.Foreground.Color.A -ne 255){throw 'Opacity faded header controls'}}
 Write-Output 'PASS actual two-row WPF header geometry and complete connection text: fresh/stale/missing × admin/standard, no overlap or truncation; privilege information outside header'

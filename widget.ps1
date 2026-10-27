@@ -515,6 +515,8 @@ $UI.historyNotice=New-Text '' 12 $C.muted;$UI.historyNotice.TextWrapping='Wrap';
 $UI.restoredBody=New-Object Windows.Controls.Grid
 $UI.restoredMetrics=New-Object Windows.Controls.StackPanel;$UI.restoredActions=New-Object Windows.Controls.StackPanel
 foreach($n in @($compact,$ringsGrid,$chartCard,$compCard,$chips)){if($n.Parent -is [Windows.Controls.Panel]){$n.Parent.Children.Remove($n)};$n.Margin='0,0,0,8';[void]$UI.restoredMetrics.Children.Add($n)}
+# معلومة الصلاحية تبقى في تفاصيل اللوحة لا في الرأس (مطوية ما لم يعمل الخادم كمسؤول)
+[void]$UI.restoredMetrics.Children.Insert(0,$UI.adm)
 [void]$UI.restoredActions.Children.Add($cleanHead)
 foreach($n in $fullTierRows){$n.Padding='6,6,6,6';$n.Margin='0,0,0,8';$n.MinHeight=60;[void]$UI.restoredActions.Children.Add($n)}
 [void]$UI.restoredActions.Children.Add($UI.trim)
