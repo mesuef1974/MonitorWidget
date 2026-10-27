@@ -58,12 +58,14 @@ for t in sorted(set(tabs)):
     check(f"tab '{t}' has view", f"{t}:" in src or f'tab === "{t}"' in src or f"VIEWS.{t}" in src or f'"{t}"' in src)
     check(f"tab '{t}' has title", re.search(r"TITLES\s*=\s*\{[^}]*\b" + t + r"\s*:", src, re.S) is not None or ("TITLES." + t) in src)
 
-# 6) الخادم يعرّف كل المسارات التي تستدعيها الواجهة
+# 6) الخادم يعرّف كل المسارات التي تستدعيها الواجهة (في server.py أو في وحدات المسارات routes_*.py بعد التجزئة)
 server = open(os.path.join(ROOT, "server.py"), encoding="utf-8").read()
+for rf in sorted(glob.glob(os.path.join(ROOT, "routes_*.py"))):
+    server += open(rf, encoding="utf-8").read()
 called = set(re.findall(r'api\("(/api/[^"?]+)"', src)) | set(re.findall(r"api\(`(/api/[^`?]+)`", src))
 called |= set(re.findall(r"['\"](/api/[a-z\-]+)['\"]", src))
 for path in sorted(called):
-    check("server route " + path, path in server, "غير موجود في server.py")
+    check("server route " + path, path in server, "غير موجود في server.py ولا routes_*.py")
 
 
 # 7) منع تكرار خطأين أُصلحا: العنصر المحمي لا يكون قابلاً للتعديل، ولا قاعدة تقول "معطّلة" وهي مفعّلة

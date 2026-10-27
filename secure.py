@@ -99,3 +99,12 @@ def reaper_pin_state(script_path):
     if actual.lower() == str(pin.get("sha256", "")).lower():
         return "pinned-ok", actual
     return "pinned-mismatch", actual
+
+
+def is_admin():
+    """هل تعمل هذه العملية بصلاحية مسؤول؟ الخادم يجب أن يعمل عاديًا دائمًا (فصل الصلاحيات)؛ القيمة تُقرأ مرة عند بدء العملية."""
+    try:
+        import ctypes
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:
+        return False

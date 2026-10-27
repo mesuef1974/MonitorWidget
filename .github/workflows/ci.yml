@@ -30,6 +30,13 @@ jobs:
         shell: bash
         run: |
           if git ls-files | grep -E '(^|/)\.token|\.db$|\.dmp$|\.pem$'; then echo "tracked secret/state file"; exit 1; fi
+      # الاختبارات المعزولة (بلا خادم ولا نافذة): شبكة أمان تجزئة server.py (البند 6)
+      - name: Python regression (isolated)
+        shell: bash
+        run: |
+          python -X utf8 -B tests/backend_regression.py
+          python -X utf8 -B tests/window_security_check.py
+          python -X utf8 -B tests/check_all.py
 
   # دوال widget.ps1 وidentity.ps1 النقية (مستخرجة عبر AST؛ لا نافذة ولا إعدادات)
   pester:
