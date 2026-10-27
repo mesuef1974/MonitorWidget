@@ -238,5 +238,42 @@ class ProtectedPin(unittest.TestCase):
             self.assertEqual(ns["reaper_pin_state"]("unused")[0], "pinned-mismatch")
 
 
+class ShellStatus(unittest.TestCase):
+    """حالة الغلاف في /api/health: الجاهزية وسببها ومحرك آخر فتح، بلا تشغيل الخادم (ملف حالة مؤقت ومجلد جذر مؤقت)."""
+
+    def _ns(self, root, localappdata):
+        tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
+        wanted = {"_shell_readiness", "_shell_ready", "_record_shell", "shell_status"}
+        nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in wanted]
+        log = types.SimpleNamespace(exception=lambda *a, **k: None)
+        ns = dict(os=os, time=time, atomic_json=atomic_json, infra=types.SimpleNamespace(log=log), ROOT=str(root),
+                  SHELL_STATE_PATH=os.path.join(localappdata, "MonitorWidget", "shell_state.json"))
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
+        return ns
+
+    def test_fallback_reasons_and_last_engine(self):
+        with tempfile.TemporaryDirectory(prefix="mw_shell_", dir=ROOT / "tests") as d:
+            root, lad = Path(d) / "root", Path(d) / "lad"
+            root.mkdir(); lad.mkdir()
+            with patch.dict(os.environ, {"LOCALAPPDATA": str(lad)}):
+                ns = self._ns(root, str(lad))
+                self.assertEqual(ns["_shell_readiness"](), (False, "no_shell"))
+                st = ns["shell_status"]()
+                self.assertTrue(st["fallback"]); self.assertEqual(st["reason"], "no_shell"); self.assertIsNone(st["engine"])
+                (root / "app_shell.ps1").write_text("# shell", encoding="utf-8")
+                self.assertEqual(ns["_shell_readiness"](), (False, "no_webview2"))
+                ns["_record_shell"]("edge", "no_webview2")
+                st = ns["shell_status"]()
+                self.assertEqual((st["engine"], st["lastReason"], st["fallback"]), ("edge", "no_webview2", True))
+                wv = lad / "MonitorWidget" / "webview2"; wv.mkdir(parents=True, exist_ok=True)
+                (wv / "Microsoft.Web.WebView2.Wpf.dll").write_bytes(b"")
+                self.assertTrue(ns["_shell_ready"]())
+                st = ns["shell_status"]()
+                self.assertTrue(st["ready"]); self.assertTrue(st["fallback"])   # آخر فتح كان Edge: التحذير يبقى حتى يُعاد الفتح
+                ns["_record_shell"]("webview2")
+                st = ns["shell_status"]()
+                self.assertFalse(st["fallback"]); self.assertEqual(st["engine"], "webview2")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
