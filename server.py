@@ -1327,6 +1327,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"ok": True, "auto": on})
             if route == "/api/ticket":
                 return self._send(200, {"ticket": _issue_ticket()})
+            if route == "/api/shell":   # زر الويدجت يبلّغ محرك النافذة حين يسقط إلى Edge مباشرة؛ غير هدّام
+                code, payload = record_shell_report(body)
+                return self._send(code, payload)
             if route == "/api/shutdown":
                 infra.log.info("shutdown requested")
                 try:
@@ -1523,6 +1526,8 @@ def _ticket_for_window():
 
 
 SHELL_STATE_PATH = os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "MonitorWidget", "shell_state.json")
+SHELL_ENGINES = ("webview2", "edge", "browser")                     # من يكتب الحالة: open_window هنا، app_shell.ps1، وزر الويدجت
+SHELL_REASONS = ("", "no_shell", "no_webview2", "init_failed")       # مفاتيح ثابتة تفسّرها صفحة الصحة
 
 
 def _shell_readiness():
@@ -1563,8 +1568,25 @@ def shell_status():
     except Exception:
         last = {}
     engine = last.get("engine") if isinstance(last, dict) else None
-    return {"ready": ready, "reason": reason, "engine": engine, "lastReason": (last.get("reason") if isinstance(last, dict) else "") or "",
+    last_reason = (last.get("reason") if isinstance(last, dict) else "") or ""
+    detail = ""
+    if last_reason == "init_failed":   # الغلاف كتب الاستثناء في shell_error.log بجانب ملف الحالة؛ سطره الأول يكفي الصفحة
+        try:
+            with open(os.path.join(os.path.dirname(SHELL_STATE_PATH), "shell_error.log"), encoding="utf-8-sig", errors="replace") as fh:
+                detail = fh.read(400).strip()
+        except OSError:
+            detail = ""
+    return {"ready": ready, "reason": reason, "engine": engine, "lastReason": last_reason, "detail": detail,
             "ts": (last.get("ts") if isinstance(last, dict) else None), "fallback": (not ready) or (engine in ("edge", "browser"))}
+
+
+def record_shell_report(body):
+    """POST /api/shell من الويدجت: (رمز الحالة، الردّ). محرك وسبب من القائمة البيضاء فقط، ثم حالة الغلاف المحدّثة."""
+    engine, reason = body.get("engine"), body.get("reason", "")
+    if engine not in SHELL_ENGINES or reason not in SHELL_REASONS:
+        return 400, {"error": "unknown engine or reason"}
+    _record_shell(engine, reason)
+    return 200, {"ok": True, "shell": shell_status()}
 
 
 def open_window():

@@ -1,4 +1,4 @@
-﻿# اختبارات Pester (5+) للدوال النقية في widget.ps1 وidentity.ps1.
+﻿# اختبارات Pester (5+) للدوال النقية في widget.ps1 وidentity.ps1 وapp_shell.ps1.
 # الدوال تُستخرج من widget.ps1 عبر AST ولا يُشغَّل السكربت نفسه (لا نافذة ولا إعدادات ولا شبكة).
 #   Invoke-Pester -Path tests/widget_functions.Tests.ps1 -CI
 
@@ -142,4 +142,45 @@ Describe 'Read-IdentityTokens' {
         (Read-IdentityTokens $script:widgetRepoRoot $false 'teal')['--accent'] | Should -Be '#3ee6b0'
     }
     It 'يعيد null لجذر بلا رموز' { Read-IdentityTokens $env:TEMP $true 'teal' | Should -BeNullOrEmpty }
+}
+
+Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لصفحة الصحة' {
+    BeforeAll {
+        # الدوال النقية تُستخرج من app_shell.ps1 عبر AST؛ السكربت نفسه لا يُشغَّل (param إلزامي ونافذة WPF)
+        $shellSource = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'app_shell.ps1') -Raw
+        $shellTokens = $null; $shellErrors = $null
+        $shellAst = [Management.Automation.Language.Parser]::ParseInput($shellSource, [ref]$shellTokens, [ref]$shellErrors)
+        if ($shellErrors.Count) { throw ($shellErrors.Message -join '; ') }
+        foreach ($name in @('ConvertTo-ShellStateJson', 'Write-ShellState', 'Get-EdgeWindowHeight', 'Get-EdgeFallbackArgs')) {
+            $fn = $shellAst.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
+            if (-not $fn) { throw "Missing $name" }
+            . ([scriptblock]::Create($fn.Extent.Text))
+        }
+    }
+    It 'يكتب مخطط الخادم نفسه: engine / reason / ts' {
+        ConvertTo-ShellStateJson 'edge' 'init_failed' 5 | Should -Be '{"engine":"edge","reason":"init_failed","ts":5}'
+    }
+    It 'يطرح شريط عنوان Edge (40) ولا ينزل عن 480' {
+        Get-EdgeWindowHeight 1000 | Should -Be 960
+        Get-EdgeWindowHeight 100 | Should -Be 480
+    }
+    It 'وسائط Edge --app: التذكرة نفسها وملف تعريف منفصل والمقاس والموضع المطلوبان' {
+        $cmd = Get-EdgeFallbackArgs 'http://127.0.0.1:47832/?k=abc' 10 20 1200 1000 'C:\p\appwin'
+        $cmd | Should -Be @('--app=http://127.0.0.1:47832/?k=abc', '--user-data-dir=C:\p\appwin', '--window-size=1200,960', '--window-position=10,20')
+    }
+    It 'يكتب ملف الحالة ذريًّا بلا BOM ويقرؤه الخادم JSON' {
+        $p = Join-Path $TestDrive 'MonitorWidget\shell_state.json'
+        Write-ShellState 'edge' 'no_webview2' $p | Should -BeTrue
+        ([IO.File]::ReadAllBytes($p))[0] | Should -Be 0x7B   # يبدأ بـ { لا بعلامة BOM
+        $j = Get-Content -LiteralPath $p -Raw | ConvertFrom-Json
+        $j.engine | Should -Be 'edge'
+        $j.reason | Should -Be 'no_webview2'
+        $j.ts | Should -BeGreaterThan 1700000000
+        Write-ShellState 'webview2' '' $p | Should -BeTrue
+        (Get-Content -LiteralPath $p -Raw | ConvertFrom-Json).engine | Should -Be 'webview2'
+        @(Get-ChildItem (Split-Path $p -Parent) -Filter '*.tmp').Count | Should -Be 0   # لا بقايا ملفات مؤقتة
+    }
+    It 'يعيد false بدل الفشل حين يتعذّر الكتابة' {
+        Write-ShellState 'edge' 'no_shell' 'Z:\nope\<>\shell_state.json' | Should -BeFalse
+    }
 }
