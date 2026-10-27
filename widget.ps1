@@ -153,6 +153,7 @@ function Set-WidgetControlTheme {
     if(-not $UI){return}
     if($UI.title){$UI.title.Foreground=Brush $C.accent};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
     foreach($key in @('menuBtn','closeBtn','open')){$button=$UI[$key];if($button){$button.Background=Brush $C.card;$button.BorderBrush=Brush $C.line;$button.BorderThickness=1;$button.Foreground=Brush $(if($key -eq 'open'){$C.accent}else{$C.muted});if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=$button.Foreground}}}
+    if($UI.toast){$UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'}
     if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accent;$UI.trimCd.Foreground=Brush $C.muted}
     foreach($spec in @(@('cfReal',$C.warn,$C.onWarn),@('cfDry',$C.hover,$C.ink),@('cfNo',$C.card,$C.muted))){$button=$UI[$spec[0]];if($button){$button.Background=Brush $spec[1];$button.Foreground=Brush $spec[2];if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=Brush $spec[2]}}}
     if($UI.tiers){foreach($tier in $UI.tiers.Values){if($tier.Run){$tier.Run.Background=Brush $C.card;$tier.Run.BorderBrush=Brush $C.accent;$tier.RunText.Foreground=Brush $C.accent};if($tier.Switch -and $tier.Switch.Content -is [Windows.Shapes.Ellipse]){$tier.Switch.Content.Fill=Brush $C.knob;$tier.Switch.Background=if($tier.Switch.IsChecked){Brush $C.accent}else{Brush $C.swoff}}}}
@@ -495,8 +496,8 @@ foreach ($spec in @(@('cpu','المعالج'), @('ram','الذاكرة الفع�
     [Windows.Controls.Grid]::SetColumn($value,1);[void]$row.Children.Add($label);[void]$row.Children.Add($value);[void]$compact.Children.Add($row)
     $UI[('compact'+$spec[0])]=$value;$UI.approvedReadingRows+=@{Root=$row;Label=$label;Value=$value}
 }
-$UI.compactAlert=New-Text '' 12 $C.muted;$UI.compactAlert.TextWrapping='Wrap';$UI.compactAlert.Margin='0,4,0,0';[void]$compact.Children.Add($UI.compactAlert)
-foreach($n in @($hdr,$UI.cpuAlert,$UI.toast,$UI.appearanceWarning)){[void]$stack.Children.Add($n)}
+$UI.compactAlert=New-Text '' 12 $C.muted;$UI.compactAlert.TextWrapping='Wrap';$UI.compactAlert.Margin='0,4,0,0';[void]$compact.Children.Clear();[void]$compact.Children.Add($UI.compactAlert)
+foreach($n in @($hdr,$UI.cpuAlert,$UI.appearanceWarning)){[void]$stack.Children.Add($n)}
 $UI.historyNotice=New-Text '' 12 $C.muted;$UI.historyNotice.TextWrapping='Wrap';$UI.historyNotice.Visibility='Collapsed';[void]$stack.Children.Add($UI.historyNotice)
 $UI.restoredBody=New-Object Windows.Controls.Grid
 $UI.restoredMetrics=New-Object Windows.Controls.StackPanel;$UI.restoredActions=New-Object Windows.Controls.StackPanel
@@ -511,6 +512,8 @@ $UI.guard.MaxWidth=[double]::PositiveInfinity;$foot.Margin='0,4,0,0'
 [void]$UI.restoredBody.Children.Add($UI.restoredMetrics);[void]$UI.restoredBody.Children.Add($UI.restoredActions)
 # Reference confirmation is an overlay: all original confirmation handlers/buttons remain attached.
 $UI.confirm.Margin=16;$UI.confirm.VerticalAlignment='Center';$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn;[Windows.Controls.Panel]::SetZIndex($UI.confirm,10);[void]$UI.restoredBody.Children.Add($UI.confirm)
+$UI.toast.Margin=16;$UI.toast.Padding='12,9,12,9';$UI.toast.VerticalAlignment='Center';$UI.toast.HorizontalAlignment='Stretch';$UI.toast.TextAlignment='Center';$UI.toast.Background=Brush $C.card;[Windows.Controls.Panel]::SetZIndex($UI.toast,11);if($UI.toast.Parent -is [Windows.Controls.Panel]){$UI.toast.Parent.Children.Remove($UI.toast)};[void]$UI.restoredBody.Children.Add($UI.toast)
+$UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'
 [void]$stack.Children.Add($UI.restoredBody);[void]$stack.Children.Add($foot)
 function Set-RestoredLayout([double]$height=0){
  if($height -le 0){$height=if($script:widgetWorkHeightOverride){$script:widgetWorkHeightOverride}elseif(Get-Command Get-WidgetWorkArea -ErrorAction SilentlyContinue){(Get-WidgetWorkArea).Height}else{[Windows.SystemParameters]::WorkArea.Height}}
@@ -520,7 +523,7 @@ function Set-RestoredLayout([double]$height=0){
  $grid=$UI.restoredBody;$grid.ColumnDefinitions.Clear();$grid.RowDefinitions.Clear()
  if($wide){foreach($x in 1..2){$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c)};$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r);[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,1);[Windows.Controls.Grid]::SetRow($UI.restoredActions,0);$UI.restoredMetrics.Margin='0,0,14,0';$UI.chart.Height=86}
  else{$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c);foreach($x in 1..2){$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r)};[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,0);[Windows.Controls.Grid]::SetRow($UI.restoredActions,1);$UI.restoredMetrics.Margin='0';$UI.chart.Height=92}
- [Windows.Controls.Grid]::SetColumn($UI.confirm,0);[Windows.Controls.Grid]::SetColumnSpan($UI.confirm,2);[Windows.Controls.Grid]::SetRow($UI.confirm,0);[Windows.Controls.Grid]::SetRowSpan($UI.confirm,2);$chartCard.Visibility='Visible';$script:chartSig=$null
+ [Windows.Controls.Grid]::SetColumn($UI.confirm,0);[Windows.Controls.Grid]::SetColumnSpan($UI.confirm,2);[Windows.Controls.Grid]::SetRow($UI.confirm,0);[Windows.Controls.Grid]::SetRowSpan($UI.confirm,2);[Windows.Controls.Grid]::SetColumn($UI.toast,0);[Windows.Controls.Grid]::SetColumnSpan($UI.toast,2);[Windows.Controls.Grid]::SetRow($UI.toast,0);[Windows.Controls.Grid]::SetRowSpan($UI.toast,2);$chartCard.Visibility='Visible';$script:chartSig=$null
 }
 $script:alertSeen = @{}; $script:alertSeeded = $false; $script:lastCompactAlert = ''
 function Notify-Important([string]$message) {
@@ -773,16 +776,30 @@ function Start-Clean([bool]$dry) {
 }
 # trim runs in a background runspace: the UI thread never waits on the server
 $script:trimJob = $null
-$UI.trim.Add_Click({
+function Start-Trim([string]$mode) {
     if ($script:trimJob) { return }
+    if ($mode -eq 'deep' -and [Windows.MessageBox]::Show('الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟', 'مرصد الجهاز', 'YesNo', 'Warning') -ne 'Yes') { return }
     $script:trimPendingAt = Get-Date
     $UI.trimText.Text = '… جارٍ تنظيف الذاكرة'; $script:lastStamp = -1
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $ps = [powershell]::Create()
-    [void]$ps.AddScript({ param($tok) Invoke-RestMethod 'http://127.0.0.1:47832/api/trim-memory' -Method Post -Headers @{ 'X-Token' = $tok } -ContentType 'application/json' -Body '{}' -TimeoutSec 6 -NoProxy }).AddArgument($script:tok)
+    [void]$ps.AddScript({ param($tok, $body) Invoke-RestMethod 'http://127.0.0.1:47832/api/trim-memory' -Method Post -Headers @{ 'X-Token' = $tok } -ContentType 'application/json' -Body $body -TimeoutSec 6 -NoProxy }).AddArgument($script:tok).AddArgument((@{ mode = $mode } | ConvertTo-Json -Compress))
     $script:trimJob = @{ ps = $ps; ar = $ps.BeginInvoke(); sw = $sw }
     $trimTimer.Start()
-    Log 'trim: pressed'
+    Log ('trim: pressed ' + $mode)
+}
+# الزر يفتح قائمة بالأعماق الثلاثة بدل أن ينفّذ مباشرة
+$trimMenu = New-Object Windows.Controls.ContextMenu; $trimMenu.FlowDirection = 'RightToLeft'
+foreach ($m in @(@('light', 'بسيط (آمن)'), @('medium', 'متوسط (العمليات الخاملة)'), @('deep', 'عميق (بتأكيد)'))) {
+    $mi = New-Object Windows.Controls.MenuItem; $mi.Header = $m[1]; $mi.Tag = $m[0]
+    $mi.Add_Click({ param($sender, $e) Start-Trim ([string]$sender.Tag) }.GetNewClosure())
+    [void]$trimMenu.Items.Add($mi)
+}
+$UI.trim.Add_Click({
+    if ($script:trimJob) { return }
+    $r = New-WidgetMenuStyles
+    $trimMenu.Style = $r['WidgetContextMenu']; $trimMenu.Resources[[Windows.Controls.MenuItem]] = $r['WidgetMenuItem']; Set-WidgetMenuItems $trimMenu.Items $r
+    $trimMenu.PlacementTarget = $UI.trim; $trimMenu.Placement = 'Top'; $trimMenu.IsOpen = $true
 })
 $trimTimer = New-Object Windows.Threading.DispatcherTimer; $trimTimer.Interval = [TimeSpan]::FromMilliseconds(200)
 $trimTimer.Add_Tick({
@@ -821,7 +838,9 @@ public static class WF {
     public static bool IsDashboardCandidate(string expectedTitle, string actualTitle, string processName, bool visible) {
         return visible && !String.IsNullOrWhiteSpace(expectedTitle)
             && String.Equals(expectedTitle, actualTitle, StringComparison.Ordinal)
-            && String.Equals(processName, "msedge", StringComparison.OrdinalIgnoreCase);
+            && (String.Equals(processName, "msedge", StringComparison.OrdinalIgnoreCase)
+                || String.Equals(processName, "powershell", StringComparison.OrdinalIgnoreCase)
+                || String.Equals(processName, "pwsh", StringComparison.OrdinalIgnoreCase));  // الغلاف app_shell.ps1 يستضيف الواجهة
     }
     public static long PickOne(long[] candidates, long foreground) {
         if (candidates == null || candidates.Length == 0) return 0;
@@ -882,7 +901,18 @@ function Open-Dash([string]$tk) {
     $edge = @('C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', 'C:\Program Files\Microsoft\Edge\Application\msedge.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
     $UI.open.Content = $script:txtClose
     try {
-        if ($edge) {
+        $shell = Join-Path $PSScriptRoot 'app_shell.ps1'
+        $vend = Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2\Microsoft.Web.WebView2.Wpf.dll'
+        $haveVend = (Test-Path $vend) -or (Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in') -Recurse -Filter 'Microsoft.Web.WebView2.Wpf.dll' -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ((Test-Path $shell) -and $haveVend) {
+            # نافذة بلا إطار بحواف مستديرة مثل الويدجت (WebView2)؛ المقاس والموضع بالبكسل الفعلي
+            $wa = [System.Windows.SystemParameters]::WorkArea
+            $sc = [Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11
+            $pw = [int]([Math]::Max(900, $wa.Width * $sc - 490)); $ph = [int]($wa.Height * $sc)
+            $px = [int]($wa.Left * $sc); $py = [int]($wa.Top * $sc)
+            Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$shell`"", '-Url', "`"$url`"", '-X', $px, '-Y', $py, '-W', $pw, '-H', $ph
+            Log ('open: shell at ' + $px + ',' + $py + ' size ' + $pw + 'x' + $ph)
+        } elseif ($edge) {
             # نفس منطق الخادم: منطقة العمل الفعلية ناقص مساحة الويدجت، والبدء من الركن الأعلى الأيسر (بالبكسل الفعلي)
             $wa = [System.Windows.SystemParameters]::WorkArea
             $sc = [Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11

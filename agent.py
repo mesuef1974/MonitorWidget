@@ -146,6 +146,10 @@ def main():
         s.register("relia", relia.job, 3600, timeout_s=170, delay=420)
     except Exception:
         log.exception("reliability job not registered")
+    try:   # الخادم يبدأ فورًا؛ كان ينتظر تأخير الحارس (10 ثوانٍ) قبل أن يُطلَق
+        j_server_guard()
+    except Exception:
+        log.exception("immediate server start failed")
     s.loop()
 
 

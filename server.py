@@ -1489,6 +1489,20 @@ def _ticket_for_window():
     return ticket
 
 
+def _shell_ready():
+    """هل غلاف app_shell.ps1 ومكتبات WebView2 متوفران؟ وإلا نرجع إلى Edge --app."""
+    if not os.path.exists(os.path.join(ROOT, "app_shell.ps1")):
+        return False
+    base = os.environ.get("LOCALAPPDATA", "")
+    if os.path.exists(os.path.join(base, "MonitorWidget", "webview2", "Microsoft.Web.WebView2.Wpf.dll")):
+        return True
+    teams = os.path.join(base, "Microsoft", "TeamsMeetingAdd-in")
+    try:
+        return any(os.path.exists(os.path.join(teams, v, "x64", "Microsoft.Web.WebView2.Wpf.dll")) for v in os.listdir(teams))
+    except OSError:
+        return False
+
+
 def open_window():
     time.sleep(0.8)
     url = "http://127.0.0.1:%d/?k=%s" % (PORT, _ticket_for_window())
@@ -1499,6 +1513,12 @@ def open_window():
     except Exception:
         size, pos = "1280,1000", "--window-position=0,0"
         _place_args = (0, 0, 1280, 1000)
+    if _shell_ready():
+        # غلاف بلا إطار بحواف مستديرة مثل الويدجت؛ يضع نفسه بالمقاس والموضع المطلوبين فلا حاجة لـ _place_window
+        sx, sy, sw, sh = _place_args
+        subprocess.Popen(["powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "app_shell.ps1"),
+                          "-Url", url, "-X", str(sx), "-Y", str(sy), "-W", str(sw), "-H", str(sh + TITLEBAR_RESERVE)], creationflags=0x08000000)
+        return
     for edge in (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"):
         if os.path.exists(edge):
             prof = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "MonitorWidget", "appwin")  # ملف تعريف منفصل: نافذة جديدة دائماً بالمقاس الصحيح
