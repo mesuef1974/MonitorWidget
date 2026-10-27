@@ -1,6 +1,6 @@
 /* ═══ tokens.css — المصدر الوحيد للألوان والمسافات والخطوط والطبقات؛ لا قيمة لونية خارج هذا الملف ═══ */
 /* ───────── Design tokens ─────────
-   Direction: "instrument cluster" — graphite surfaces, one phosphor accent, hairline panels,
+   Direction: "instrument cluster" — warm graphite surfaces (same paper hue as the light mode, so both modes are one identity), one phosphor accent, hairline panels,
    DIN-like numerals (Bahnschrift) against a calm Arabic UI face. Everything is a token. */
 :root{
   --f-ui:"Segoe UI Variable Text","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
@@ -18,7 +18,7 @@
   --z-bar:20;--z-nav:50;--z-skip:100;--z-toast:200;
 }
 :root[data-theme="dark"]{
-  --bg:#080b10;--bg-glow:rgba(62,230,176,.075);--panel:#0e131b;--panel2:#131a24;--raise:#18212d;
+  --bg:#0d0c0b;--bg-glow:rgba(62,230,176,.075);--panel:#171512;--panel2:#1e1c19;--raise:#26241f;   /* جرافيت دافئ: صبغة الورق الفاتح نفسها (≈40°) بتشبع 10%، فالوضعان هوية واحدة (قرار المالك 2026-10-27) */
   --line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.13);
   --ink:#e9eef5;--ink2:#9ba8ba;--ink3:#69778c;
   --accent:#3ee6b0;--accent-ink:#03231a;--accent2:#7ca6ff;--violet:#b79cff;
