@@ -258,6 +258,14 @@ async function post(path, body) {
   return j;
 }
 const act = async (fn, okMsg) => { try { await fn(); toast(okMsg); await show(); } catch (e) { toast("تعذّر: " + e.message, true); } };
+function pageUseBody(pu) {   // البند 5: فتحات كل صفحة خلال أسبوعين من الخادم (لا localStorage)؛ ما لم يُفتح مرشّح للقصّ بعد اكتمال المدة
+  if (!pu) return `<div class="empty">غير متاح</div>`;
+  const seen = new Map((pu.pages || []).map(p => [p.page, p]));
+  const rows = Object.keys(PAGES).map(k => ({ key: k, title: PAGES[k].title, ...(seen.get(k) || { opens: 0, days: 0, last: null }) })).sort((a, b) => b.opens - a.opens || a.title.localeCompare(b.title, "ar"));
+  const unused = rows.filter(r => !r.opens).length, day = d => `<bdi dir="ltr" class="q">${esc(d)}</bdi>`;
+  const note = !pu.since ? "لم يُسجَّل فتح أي صفحة بعد؛ يبدأ العدّ مع أول انتقال." : pu.complete ? `اكتملت مدة القياس (${nf(pu.windowDays)} يومًا منذ ${day(pu.since)})؛ الأرقام لآخر ${nf(pu.windowDays)} يومًا، و${nf(unused)} صفحة لم تُفتح فيها مرشّحة للقصّ.` : `بدأ القياس يوم ${day(pu.since)} ومضى ${nf(pu.elapsedDays)} من ${nf(pu.windowDays)} يومًا؛ قرار القصّ بعد اكتمال المدة.`;
+  return `<p class="note">${note}</p><table class="tbl"><thead><tr><th>الصفحة</th><th class="n">مرات الفتح</th><th class="n">أيام</th><th>آخر فتح</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.title)} <span class="note num">${esc(r.key)}</span></td><td class="n num">${nf(r.opens)}</td><td class="n num">${nf(r.days)}</td><td>${r.opens ? when(r.last) : `<span class="tag ${pu.complete ? "warn" : ""}">لم تُفتح</span>`}</td></tr>`).join("")}</tbody></table>`;
+}
 function reliabBody(r) {
   const kinds = Object.entries(r.counts || {}).filter(([, c]) => c.d30 > 0).sort((x, y) => y[1].d30 - x[1].d30);
   const head = r.serious7 > 0 ? `<span class="tag bad">${Q(r.serious7)} حدثًا جسيمًا خلال 7 أيام</span>` : r.serious30 > 0 ? `<span class="tag warn">${Q(r.serious30)} حدثًا جسيمًا خلال ${Q(r.days)} يومًا</span>` : `<span class="tag ok">لا أحداث جسيمة خلال ${Q(r.days)} يومًا</span>`;
@@ -572,8 +580,8 @@ Object.assign(PAGES, {
 
   ctrl: {
     title: "الإعدادات والتحكم", sub: "المهام الخلفية وتنظيف الذاكرة والمظهر", icon: "sliders",
-    async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget")); },
-    render([j, m, ap, inf, wg]) {
+    async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget"), api("/api/page-use")); },
+    render([j, m, ap, inf, wg, pu]) {
       let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="chips" role="group">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button data-palette="${k}" aria-pressed="${ap?.palette === k}">${l}</button>`).join("")}</div></div><p class="note">يُحفظ الاختيار للواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`, { cls: "c6" });
       out += panel("الذاكرة", `<p>تقليص مجموعات عمل العمليات مؤقتًا دون إنهاء أي عملية.</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button><button class="btn" data-trim="deep">تنظيف عميق</button></div>`, { cls: "c6" });
       out += panel("وضع الصيانة المؤقت", m ? `<div class="row-sw"><span>${m.on ? "مفعّل" : "غير مفعّل"} — يوقف ${(m.rules || []).map(esc).join("، ")} أثناء عمل Claude Code</span>${sw(!!m.on, 'data-maint="1"')}</div>` : '<div class="empty">غير متاح</div>', { cls: "c12" });
@@ -583,6 +591,7 @@ Object.assign(PAGES, {
         out += panel("النسخ الاحتياطية", `<div class="list">${(inf.backups || []).map(b => `<div class="li"><span class="t num t-sm">${esc(b.name)}</span><span class="r">${Q(b.bytes / 1048576, "MB", 1)}</span><span class="d">${when(b.ts)}</span></div>`).join("") || '<div class="empty">لا نسخ</div>'}</div>`, { cls: "c4" });
       }
       out += panel("ويدجت سطح المكتب", `<div class="row-sw"><span>${wg?.running ? "ظاهر الآن" : "مخفي"}</span>${sw(!!wg?.running, 'data-widget="1"')}</div>`, { cls: "c12" });
+      out += panel("استخدام الصفحات", pageUseBody(pu), { cls: "c12", meta: pu ? (pu.complete ? `<span class="tag ok">اكتملت مدة القياس</span>` : `<span class="tag">${nf(pu.elapsedDays)} من ${nf(pu.windowDays)} يومًا</span>`) : "" });
       out += panel("المهام الخلفية", j ? `<table class="tbl"><thead><tr><th>المهمة</th><th class="n">كل</th><th>آخر تشغيل</th><th>الحالة</th><th class="n">التالي</th><th></th></tr></thead><tbody>${j.jobs.map(x => `<tr><td><b>${esc(x.name)}</b></td><td class="n">${dur(x.interval_s)}</td><td class="note">${when(x.last_end)} · ${Q(x.last_ms / 1000, "ث", 1)}</td><td><span class="tag ${x.last_status === "ok" ? "ok" : "bad"}">${esc(x.last_status || "—")}</span> <span class="note">${Q(x.runs)} تشغيل · ${Q(x.fails)} فشل</span></td><td class="n note">${when(x.next_run)}</td><td><button class="btn" data-job="${esc(x.name)}">تشغيل</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty">غير متاح</div>');
       return out;
     }
@@ -709,10 +718,15 @@ async function prefetch() {
   }
 }
 function schedule() { clearInterval(timer); const ms = +$("#every").value; if (ms) timer = setInterval(() => { if (!document.hidden) show(); }, ms); }
+let trackedKey = "";
+function track(key) {   // عدّاد فتح الصفحات (البند 5): بلاغ واحد لكل انتقال إلى صفحة مختلفة؛ يُعدّ في الخادم لا في localStorage، والفشل صامت
+  if (key === trackedKey) return; trackedKey = key;
+  fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
+}
 function route() {
   const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
-  buildNav(key); $("#nav").classList.remove("open"); curKey = key; lastSig = ""; inflight = false; ++seq;
+  buildNav(key); $("#nav").classList.remove("open"); curKey = key; lastSig = ""; inflight = false; ++seq; track(key);
   const m = $("#main"), c = CACHE[key];
   if (c) { last = c.data; lastSig = c.sig; m.innerHTML = page.render(c.data); page.after?.(c.data); } else m.innerHTML = skeleton(6);
   scrollTo(0, 0); show(!c); schedule();

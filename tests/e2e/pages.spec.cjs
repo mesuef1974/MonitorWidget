@@ -67,3 +67,35 @@ test('صفحة الصحة: لا تحذير مع WebView2، وتحذير ظاهر
   expect(text).toContain('0x80070002');
   expect(text).not.toContain('أعد فتح النافذة');   // المكتبات متوفرة لكن التهيئة فشلت: إعادة الفتح لا تكفي
 });
+
+test('عدّاد فتح الصفحات: بلاغ واحد لكل انتقال إلى صفحة مختلفة، وصفحة التحكم تعرض الاستخدام والصفحات التي لم تُفتح', async ({ page }) => {
+  const opens = [];
+  await page.route('**/api/page-open', async route => {
+    const req = route.request();
+    opens.push([req.method(), req.headers()['content-type'], req.postDataJSON().page]);
+    await route.fulfill({ json: { ok: true } });
+  });
+  await page.goto('/#/health');
+  await page.waitForFunction(() => location.hash === '#/health' && document.querySelector('#main .panel'));
+  await page.evaluate(() => { location.hash = '#/cpu'; });
+  await page.waitForFunction(() => location.hash === '#/cpu' && document.querySelector('#main .panel'));
+  await page.evaluate(() => { location.hash = '#/cpu?range=1h'; });   // الصفحة نفسها بمعاملات مختلفة: لا بلاغ ثانيًا
+  await page.waitForTimeout(400);
+  await page.evaluate(() => { location.hash = '#/ctrl'; });
+  await page.waitForFunction(() => location.hash === '#/ctrl' && document.querySelector('#main .panel'));
+  await page.waitForTimeout(400);
+  expect(opens).toEqual([['POST', 'application/json', 'health'], ['POST', 'application/json', 'cpu'], ['POST', 'application/json', 'ctrl']]);
+
+  const panel = page.locator('#main .panel', { hasText: 'استخدام الصفحات' });
+  await expect(panel).toBeVisible();
+  const text = await panel.textContent();
+  expect(text).toContain('8 من 14 يومًا');          // الثابت: since=2026-10-20 وelapsedDays=8 (المدة لم تكتمل)
+  expect(text).toContain('2026-10-20');
+  expect(text).toContain('نظرة عامة');               // overview في الثابت بـ 12 فتحة
+  expect(text).toContain('12');
+  expect(text).toContain('لم تُفتح');                // الصفحات الغائبة عن الثابت تظهر بصفر
+  const rows = await panel.locator('tbody tr').count();
+  const keys = await page.evaluate(() => Object.keys(PAGES).length);
+  expect(rows).toBe(keys);                           // كل صفحة في PAGES لها صف، مفتوحة أو لا
+  expect(await panel.locator('tbody tr').first().textContent()).toContain('نظرة عامة');   // الأكثر فتحًا أولًا
+});
