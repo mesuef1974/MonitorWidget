@@ -8,14 +8,16 @@
 .btn svg{width:16px;height:16px}
 select.btn{appearance:none;padding-inline-end:12px}
 /* ───────── Panels ───────── */
-.panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:var(--s4) var(--s5) var(--s5);min-width:0;position:relative;display:flex;flex-direction:column;gap:var(--s3)}
+.panel{container-type:inline-size;background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:var(--s4) var(--s5) var(--s5);min-width:0;position:relative;display:flex;flex-direction:column;gap:var(--s3)}
 .enter .panel,.enter .card{animation:rise .45s var(--ease) both}
 .panel::before{content:"";position:absolute;inset-inline-start:var(--s5);top:-1px;width:34px;height:2px;background:var(--accent);border-radius:2px;opacity:.9}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .grow{flex:1 1 auto;min-height:0}
-.panel>.kpis{flex:0 0 auto}.panel .list{max-height:460px;overflow-y:auto;overflow-x:hidden}
+.panel>.kpis{flex:0 0 auto}
+/* الجداول والقوائم الطويلة تُمرَّر داخل البطاقة بدل أن تطيلها: السقف من --panel-max */
+.panel>.list,.panel>.scrollbox,.panel>.scroll{min-height:0;max-height:calc(var(--panel-max) - 70px);overflow-y:auto;overflow-x:hidden}.panel .list{max-height:460px;overflow-y:auto;overflow-x:hidden}
 /* شريط التمرير في طرف البطاقة نفسه ومدمج فيها: المنطقة القابلة للتمرير تمتد إلى الحافة والنص يحتفظ بحشوته */
-.panel .list,.panel .scrollbox{margin-inline:calc(-1*var(--s5));padding-inline:var(--s5) calc(var(--s5) - 4px)}
+.panel .list,.panel .scrollbox,.panel>.scroll{margin-inline:calc(-1*var(--s5));padding-inline:var(--s5) calc(var(--s5) - 4px)}
 .ph{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3)}
 .ph h2{font-size:12.5px;font-weight:650;letter-spacing:.06em;color:var(--ink2)}
 .ph .meta{font-size:12px;color:var(--ink3)}
@@ -47,10 +49,10 @@ select.btn{appearance:none;padding-inline-end:12px}
 .arc{transition:stroke-dashoffset .8s var(--ease),stroke .3s}
 /* tables */
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
-.panel>table.tbl{display:block;max-width:100%;overflow-x:auto}  /* عند الضيق يبقى التمرير داخل البطاقة ولا يتسع للصفحة كلها */
 .tbl th.n{text-align:end}
 .tbl th{font-size:11.5px;font-weight:600;color:var(--ink3);text-align:start;padding:6px var(--s2);border-bottom:1px solid var(--line2)}
-.tbl td{padding:8px var(--s2);border-bottom:1px solid var(--line);vertical-align:middle;overflow-wrap:anywhere}
+.tbl td{padding:8px var(--s2);border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl td:not(.n):not(:has(bdi,.q,.num)){overflow-wrap:anywhere}   /* الأرقام لا تنكسر؛ النصوص الطويلة فقط */
 .tbl tr:last-child td{border-bottom:0}
 .tbl td.n{text-align:end;white-space:nowrap}.tbl .btn{white-space:nowrap}
 .tbl tr:hover td{background:color-mix(in srgb,var(--raise) 55%,transparent)}
@@ -81,7 +83,7 @@ select.btn{appearance:none;padding-inline-end:12px}
 /* skeleton + toast */
 .sk{border-radius:8px;background:linear-gradient(90deg,var(--raise),var(--panel2),var(--raise));background-size:200% 100%;animation:sh 1.3s infinite linear;min-height:18px}
 @keyframes sh{to{background-position:-200% 0}}
-.banner{grid-column:1/-1;padding:var(--s3) var(--s4);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-bg);border-radius:var(--r-md);color:var(--bad);font-size:13px}
+.banner{padding:var(--s3) var(--s4);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-bg);border-radius:var(--r-md);color:var(--bad);font-size:13px}
 .hero{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap}
 .hero .big{font:600 56px/1 var(--f-num)}
 .hero h3{font-size:20px;font-weight:650}
@@ -102,6 +104,11 @@ select.btn{appearance:none;padding-inline-end:12px}
 .inp:focus{outline:2px solid var(--accent);outline-offset:1px}
 textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 .fs{border:1px solid var(--line);border-radius:var(--r-md);padding:var(--s3) var(--s4) var(--s4);margin:0 0 var(--s3);display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:var(--s3)}
+.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:var(--s3);align-content:start}
+.form-grid>.ph,.form-grid>.acts,.form-grid>.banner{grid-column:1/-1}
+.form-grid>.fs{margin:0;grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+@media(max-width:1100px){.form-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.form-grid{grid-template-columns:1fr}}
 .fs legend{padding:0 8px;font-size:12.5px;font-weight:600;color:var(--ink2)}
 .fld{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--ink3)}
 .toolbar{display:flex;gap:var(--s2);align-items:center;flex-wrap:wrap}.toolbar .inp{flex:1;min-width:180px}
@@ -113,9 +120,10 @@ textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 .stackbar{display:flex;height:12px;border-radius:8px;overflow:hidden;gap:2px}
 .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:8px}
 .scroll{overflow:auto;max-width:100%}
+.panel>.scroll.xs{overflow-x:auto}   /* جداول عريضة بطبيعتها (عارض القاعدة) */
 .scrollbox{max-height:620px;overflow-y:auto;overflow-x:hidden}
 .rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--ok-bg);color:var(--accent)}
-.cards{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
 .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2);border-inline-start:4px solid var(--ink3)}
 .card h3{font-size:15px}.card p{color:var(--ink2);font-size:13.5px;flex:1}
 .card.lvl-warn{border-inline-start-color:var(--warn)}.card.lvl-bad{border-inline-start-color:var(--bad)}.card.lvl-ok{border-inline-start-color:var(--ok)}
@@ -134,3 +142,7 @@ dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:v
 #toasts{position:fixed;inset:0;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;padding:16px}
 .toast{pointer-events:auto;text-align:center;max-width:min(92vw,520px);padding:12px 20px;border-radius:12px;background:var(--panel2);border:1.5px solid color-mix(in srgb,var(--accent) 65%,var(--line2));box-shadow:var(--shadow-pop);animation:rise .3s var(--ease)}
 .toast.bad{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,var(--panel2));color:var(--ink)}
+
+/* بطاقة ضيقة: حشوات أصغر وحقول تتراص عموديًا بدل أن تتجاوز الحافة */
+@container (max-width:420px){.tbl th,.tbl td{padding-inline:4px;font-size:12px}}
+@container (max-width:260px){.field-row,.row-sw,.toolbar{flex-direction:column;align-items:stretch}.inp{min-width:0}}
