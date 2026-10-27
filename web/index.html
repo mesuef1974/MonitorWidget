@@ -242,9 +242,11 @@ const toast = (msg, bad = false) => {
   let h = $("#toasts"); if (!h) { h = document.createElement("div"); h.id = "toasts"; h.setAttribute("role", "status"); document.body.append(h); }
   const t = document.createElement("div"); t.className = "toast" + (bad ? " bad" : ""); t.textContent = msg; h.append(t); setTimeout(() => t.remove(), 4200);
 };
-const confirmDlg = (text, okLabel = "تأكيد") => new Promise(res => {
-  const d = document.createElement("dialog"); d.className = "dlg";
-  d.innerHTML = `<form method="dialog"><p>${esc(text)}</p><div class="dlg-act"><button class="btn" value="no">إلغاء</button><button class="btn primary" value="yes" autofocus>${esc(okLabel)}</button></div></form>`;
+let dlgSeq = 0;
+// danger: الفعل يحذف أو يُنهي ولا يُتراجع عنه، فالتركيز الابتدائي على «إلغاء» (Enter لا يُنفّذه)؛ وإلا على زر التأكيد كما كان
+const confirmDlg = (text, okLabel = "تأكيد", danger = false) => new Promise(res => {
+  const d = document.createElement("dialog"), id = "dlg" + (++dlgSeq); d.className = "dlg"; d.setAttribute("aria-labelledby", id);
+  d.innerHTML = `<form method="dialog"><p id="${id}">${esc(text)}</p><div class="dlg-act"><button class="btn" value="no"${danger ? " autofocus" : ""}>إلغاء</button><button class="btn primary" value="yes"${danger ? "" : " autofocus"}>${esc(okLabel)}</button></div></form>`;
   d.addEventListener("close", () => { res(d.returnValue === "yes"); d.remove(); }); document.body.append(d); d.showModal();
 });
 const ERR_AR = { "not allowed": "غير مسموح", "bad name": "اسم غير صالح", "bad action": "إجراء غير صالح", "bad tier": "مستوى غير صالح", confirm_required: "يلزم تأكيد العملية",
@@ -335,8 +337,8 @@ function spaceReportPanel(d) {
     + panel("أكبر الملفات", `<div class="list scrollbox">${big || '<div class="empty">—</div>'}</div><div class="note">${Q(x.emptyCount)} مجلدًا فارغًا</div>`, { cls: "c6" });
 }
 const infoDlg = text => new Promise(res => {
-  const d = document.createElement("dialog"); d.className = "dlg";
-  d.innerHTML = `<form method="dialog"><p class="pre-wrap cap-dlg">${esc(text)}</p><div class="dlg-act"><button class="btn primary" value="ok" autofocus>إغلاق</button></div></form>`;
+  const d = document.createElement("dialog"), id = "dlg" + (++dlgSeq); d.className = "dlg"; d.setAttribute("aria-labelledby", id);
+  d.innerHTML = `<form method="dialog"><p class="pre-wrap cap-dlg" id="${id}">${esc(text)}</p><div class="dlg-act"><button class="btn primary" value="ok" autofocus>إغلاق</button></div></form>`;
   d.addEventListener("close", () => { res(); d.remove(); }); document.body.append(d); d.showModal();
 });
 async function explainAction(t) {
@@ -348,17 +350,31 @@ async function explainAction(t) {
 }
 async function reaperRun(t) {
   const dry = t.dataset.reaprun === "dry";
-  if (!dry && !(await confirmDlg("تشغيل الكانس الآن فعليًا؟ يُنهي الشلات الخاملة المطابقة لشروطه، والمحميّ مستثنى. ينفّذه سكربت MachineCare نفسه."))) return;
+  if (!dry && !(await confirmDlg("تشغيل الكانس الآن فعليًا؟ يُنهي الشلات الخاملة المطابقة لشروطه، والمحميّ مستثنى. ينفّذه سكربت MachineCare نفسه.", "شغّل الكانس", true))) return;
   t.disabled = true; toast(dry ? "جارٍ فحص الشلات…" : "جارٍ تشغيل الكانس…");
   try { const r = await post("/api/reaper-run", { dry }); toast(r.ok ? (dry ? `الفحص: ${r.candidates} مرشّح، لم يُنهَ شيء` : `أُنهي ${r.killed} من ${r.candidates} مرشّح`) : "تعذّر: " + (r.error || "فشل التشغيل"), !r.ok); show(true); }
   catch (e) { toast("تعذّر: " + e.message, true); } finally { t.disabled = false; }
 }
 async function runTier(t) {
   const k = t.dataset.runtier, dry = t.dataset.dry === "1", L = { daily: "اليومي", weekly: "الأسبوعي", monthly: "الشهري", quarterly: "الربع سنوي" }[k];
-  if (!dry && !(await confirmDlg(`تنفيذ فعلي للتنظيف ${L}؟ ستُحذف الملفات المطابقة للقواعد المفعّلة.`, "نفّذ"))) return;
+  if (!dry && !(await confirmDlg(`تنفيذ فعلي للتنظيف ${L}؟ ستُحذف الملفات المطابقة للقواعد المفعّلة.`, "نفّذ", true))) return;
   act(() => post("/api/run-cleanup", { tier: k, dry }), dry ? "بدأت التجربة" : "بدأ التنفيذ");
 }
-function redraw() { if (!page || !last) return; const y = scrollY; $("#main").innerHTML = page.render(last); page.after?.(last); scrollTo(0, y); }
+// innerHTML يُسقط التركيز عن الزر المضغوط أو الحقل؛ نحفظ هوية العنصر (id ثم سمات data ثم ترتيبه بين القابلة للتركيز) ونعيده بعد الرسم
+const FOCUSABLE = "button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])";
+function focusKey(root) {
+  const a = document.activeElement; if (!a || a === root || !root.contains(a)) return null;
+  if (a.id) return "#" + CSS.escape(a.id);
+  const ds = Object.entries(a.dataset).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, m => "-" + m.toLowerCase())}="${CSS.escape(v)}"]`).join("");
+  if (ds) return a.tagName.toLowerCase() + ds;
+  const i = [...root.querySelectorAll(FOCUSABLE)].indexOf(a); return i < 0 ? null : i;
+}
+function refocus(root, key) {
+  if (key == null) return; const el = typeof key === "number" ? root.querySelectorAll(FOCUSABLE)[key] : root.querySelector(key);
+  if (el) el.focus({ preventScroll: true });
+}
+const dirtyForm = root => [...root.querySelectorAll("form input, form textarea")].some(i => i.value !== i.defaultValue);   // تعديل غير محفوظ في نموذج؛ لا يُستبدل بالتحديث
+function redraw() { if (!page || !last) return; const y = scrollY, m = $("#main"), fk = focusKey(m); m.innerHTML = page.render(last); page.after?.(last); refocus(m, fk); scrollTo(0, y); }
 async function spAction(t) {
   const a = t.dataset.sp, k = t.dataset.spk, d = last?.[0], later = (ms, f) => setTimeout(f, ms), reload = () => show(true);
   try {
@@ -366,14 +382,14 @@ async function spAction(t) {
     else if (a === "cancel") { delete SPV[k]; redraw(); }
     else if (a === "clean") {
       const early = t.dataset.early === "1";
-      if (early && !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن"))) return;
+      if (early && !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن", true))) return;
       const seen = Math.round(SPV[k]?.res?.mb || 0); SPV[k] = { busy: true }; redraw();
       try { SPV[k] = { res: await post("/api/space", { action: "clean", kind: k, seen_mb: seen, ...(early ? { early: true } : {}) }) }; } catch (e) { SPV[k] = { res: { ok: false, error: e.message } }; }
       redraw(); later(5000, reload); later(15000, () => { delete SPV[k]; redraw(); });
     }
     else if (a === "all") {
       const rec = d.recoverableMB || {}, mb = (d.bulk || []).reduce((s, x) => s + (rec[x] || 0), 0);
-      if (!(await confirmDlg(`تنظيف كل الأنواع الآمنة (${(d.bulk || []).map(x => (d.labels || {})[x] || x).join("، ")}) — المتوقع تحرير ${Math.round(mb)} MB؟`))) return;
+      if (!(await confirmDlg(`تنظيف كل الأنواع الآمنة (${(d.bulk || []).map(x => (d.labels || {})[x] || x).join("، ")}) — المتوقع تحرير ${Math.round(mb)} MB؟`, "نظّف الكل", true))) return;
       SPALL.s = "busy"; redraw();
       try { const r = await post("/api/space", { action: "cleanall", seen_mb: Math.round(mb) }); toast(`حُرّر ${Math.round(r.mb || 0)} MB`); } catch (e) { toast("تعذّر التنظيف: " + e.message, true); }
       SPALL.s = null; reload();
@@ -573,7 +589,7 @@ Object.assign(PAGES, {
     },
     after([d]) {
       const f = $("#alForm"); if (!f) return;
-      f.onsubmit = async e => { e.preventDefault(); const o = { cpu: {}, mem: {}, disk: {}, gpu: {} }; f.querySelectorAll("input[type=number]").forEach(i => { const [s, k] = i.name.split("."); o[s][k] = Number(i.value); }); o.cpu.ignore = f.querySelector("textarea").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); await act(() => post("/api/alerts", o), "حُفظت حدود التنبيه"); };
+      f.onsubmit = async e => { e.preventDefault(); const o = { cpu: {}, mem: {}, disk: {}, gpu: {} }; f.querySelectorAll("input[type=number]").forEach(i => { const [s, k] = i.name.split("."); o[s][k] = Number(i.value); }); o.cpu.ignore = f.querySelector("textarea").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); await act(async () => { await post("/api/alerts", o); f.querySelectorAll("input, textarea").forEach(i => { i.defaultValue = i.value; }); }, "حُفظت حدود التنبيه"); };   // بعد الحفظ يصير النموذج نظيفًا فيُسمح للتحديث باستبداله
       $("#alReset").onclick = () => { for (const [sec, vals] of Object.entries(d.defaults)) for (const [k, v] of Object.entries(vals)) { const i = f.querySelector(`[name="${sec}.${k}"]`); if (i && k !== "ignore") i.value = v; } };
     }
   },
@@ -637,7 +653,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.reaprun) { reaperRun(t); }
   else if (t.dataset.baremin) { const v = Math.round(Number($("#bareMin").value)); if (!(v >= 60 && v <= 2880)) return toast("بين 60 و2880 دقيقة", true); act(() => post("/api/reaper-set", { key: "bareClaudeShellMinutes", value: v }), "حُفظت المدة"); }
   else if (t.dataset.protadd) { const v = $("#protIn").value.trim(); if (!/^[A-Za-z0-9_.\- ]{1,64}$/.test(v)) return toast("حروف إنجليزية وأرقام ونقطة وشرطة فقط", true); act(() => post("/api/reaper-protect", { name: v, op: "add" }), "أُضيف إلى المحميّ"); }
-  else if (t.dataset.protdel) { if (await confirmDlg(`إزالة «${t.dataset.protdel}» من المحميّ؟ قد يصبح أي شل يحتوي سطر أمره هذه الكلمة عرضة للإنهاء.`)) act(() => post("/api/reaper-protect", { name: t.dataset.protdel, op: "remove" }), "أُزيل من المحميّ"); }
+  else if (t.dataset.protdel) { if (await confirmDlg(`إزالة «${t.dataset.protdel}» من المحميّ؟ قد يصبح أي شل يحتوي سطر أمره هذه الكلمة عرضة للإنهاء.`, "أزل", true)) act(() => post("/api/reaper-protect", { name: t.dataset.protdel, op: "remove" }), "أُزيل من المحميّ"); }
   else if (t.dataset.runtier) { runTier(t); }
   else if (t.dataset.reaper) { act(() => post("/api/reaper", { key: "killBareClaudeShells", value: t.getAttribute("aria-checked") !== "true" }), "حُدّث إعداد الكانس"); }
   else if (t.dataset.plan) { if (await confirmDlg(`تفعيل خطة الطاقة «${t.dataset.pname}»؟ تُطبَّق فورًا على الجهاز.`)) act(() => post("/api/power-plan", { guid: t.dataset.plan }), "فُعّلت الخطة"); }
@@ -690,8 +706,8 @@ let seq = 0, inflight = false, curKey = "overview";
 async function show(first = false) {
   if (!first && inflight) return;
   const live = $("#live"), main = $("#main"), pg = page, key = curKey;
-  // a refresh must never disturb what the user is doing: skip while hovering a chart, typing, or a dialog is open
-  if (!first && (main.querySelector(".chart:hover") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName))) return;
+  // a refresh must never disturb what the user is doing: skip while hovering a chart, typing, editing a form, or a dialog is open; focus on a button survives the redraw (refocus)
+  if (!first && (main.querySelector(".chart:hover") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || dirtyForm(main))) return;
   const my = ++seq; inflight = true;
   try {
     const data = await pg.load();
@@ -702,8 +718,8 @@ async function show(first = false) {
     live.classList.remove("err"); $("#liveTxt").textContent = "مباشر · " + new Date().toLocaleTimeString("en-GB");
     if (!first && sig === lastSig) return;          // nothing changed: touch nothing
     lastSig = sig; last = data;
-    const y = scrollY, boxes = [...main.querySelectorAll(".scrollbox")].map(b => b.scrollTop);
-    main.innerHTML = pg.render(data); pg.after?.(data);
+    const y = scrollY, boxes = [...main.querySelectorAll(".scrollbox")].map(b => b.scrollTop), fk = focusKey(main);
+    main.innerHTML = pg.render(data); pg.after?.(data); refocus(main, fk);
     main.querySelectorAll(".scrollbox").forEach((b, i) => { b.scrollTop = boxes[i] || 0; });
     if (!first) scrollTo(0, y);
   } catch (e) { if (my === seq && e.name !== "AbortError") { console.error("render/load failed:", e && e.stack || e); live.classList.add("err"); $("#liveTxt").textContent = "تعذّر التحديث"; if (first && !CACHE[key]) $("#main").innerHTML = `<div class="banner">تعذّر الاتصال بالخادم. تأكد من تشغيل المرصد ثم أعد المحاولة.</div>`; } }
@@ -723,13 +739,15 @@ function track(key) {   // عدّاد فتح الصفحات (البند 5): بل
   if (key === trackedKey) return; trackedKey = key;
   fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
 }
+let routed = false;
 function route() {
   const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
   buildNav(key); $("#nav").classList.remove("open"); curKey = key; lastSig = ""; inflight = false; ++seq; track(key);
   const m = $("#main"), c = CACHE[key];
   if (c) { last = c.data; lastSig = c.sig; m.innerHTML = page.render(c.data); page.after?.(c.data); } else m.innerHTML = skeleton(6);
-  scrollTo(0, 0); show(!c); schedule();
+  scrollTo(0, 0); if (routed) m.focus({ preventScroll: true }); routed = true;   // بعد الانتقال يبدأ قارئ الشاشة ولوحة المفاتيح من المحتوى لا من أول الصفحة
+  show(!c); schedule();
 }
 addEventListener("hashchange", route);
 document.addEventListener("click", e => {

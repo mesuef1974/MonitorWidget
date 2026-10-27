@@ -139,6 +139,7 @@ textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 td.acts{display:flex;gap:var(--s2);align-items:center;justify-content:flex-end;flex-wrap:wrap}
 dialog.dlg{margin:auto;border:1.5px solid color-mix(in srgb,var(--accent) 70%,var(--line2));border-radius:var(--r-lg);background:var(--panel2);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:var(--shadow-dialog)}
 dialog.dlg::backdrop{background:var(--scrim);backdrop-filter:blur(3px)}
+#main:focus-visible{outline:none}
 dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:var(--s2);justify-content:flex-end}
 #toasts{position:fixed;inset:0;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;pointer-events:none;padding:16px}
 .toast{pointer-events:auto;text-align:center;max-width:min(92vw,520px);padding:12px 20px;border-radius:12px;background:var(--panel2);border:1.5px solid color-mix(in srgb,var(--accent) 65%,var(--line2));box-shadow:var(--shadow-pop);animation:rise .3s var(--ease)}
