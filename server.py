@@ -1031,6 +1031,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not tasks:
                         tasks = (db.get_json("tasks_snapshot") or {}).get("tasks") or []
                     out = health.overview(native_metrics(), tasks)
+                    out["shell"] = shell_status()
                 else:
                     out = db.info()
                 self._send(200, out)
@@ -1505,18 +1506,49 @@ def _ticket_for_window():
     return ticket
 
 
-def _shell_ready():
-    """هل غلاف app_shell.ps1 ومكتبات WebView2 متوفران؟ وإلا نرجع إلى Edge --app."""
+SHELL_STATE_PATH = os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "MonitorWidget", "shell_state.json")
+
+
+def _shell_readiness():
+    """(ready, reason): هل غلاف app_shell.ps1 ومكتبات WebView2 متوفران؟ وإلا نرجع إلى Edge --app. السبب مفتاح ثابت للواجهة."""
     if not os.path.exists(os.path.join(ROOT, "app_shell.ps1")):
-        return False
+        return False, "no_shell"
     base = os.environ.get("LOCALAPPDATA", "")
     if os.path.exists(os.path.join(base, "MonitorWidget", "webview2", "Microsoft.Web.WebView2.Wpf.dll")):
-        return True
+        return True, ""
     teams = os.path.join(base, "Microsoft", "TeamsMeetingAdd-in")
     try:
-        return any(os.path.exists(os.path.join(teams, v, "x64", "Microsoft.Web.WebView2.Wpf.dll")) for v in os.listdir(teams))
+        if any(os.path.exists(os.path.join(teams, v, "x64", "Microsoft.Web.WebView2.Wpf.dll")) for v in os.listdir(teams)):
+            return True, ""
     except OSError:
-        return False
+        pass
+    return False, "no_webview2"
+
+
+def _shell_ready():
+    return _shell_readiness()[0]
+
+
+def _record_shell(engine, reason=""):
+    """يسجّل محرك آخر فتح للنافذة (webview2 / edge / browser) في ملف صغير؛ عملية --open المساعدة تنتهي فورًا فلا تكفي الذاكرة."""
+    try:
+        os.makedirs(os.path.dirname(SHELL_STATE_PATH), exist_ok=True)
+        atomic_json.write(SHELL_STATE_PATH, False, {"engine": engine, "reason": reason, "ts": int(time.time())})
+    except Exception:
+        infra.log.exception("shell state not recorded")
+
+
+def shell_status():
+    """حالة الغلاف لصفحة الصحة: الجاهزية الآن وسببها، ومحرك آخر فتح. fallback=True حين لا يعمل WebView2."""
+    ready, reason = _shell_readiness()
+    last = {}
+    try:
+        last = atomic_json.read(SHELL_STATE_PATH)[1] or {}
+    except Exception:
+        last = {}
+    engine = last.get("engine") if isinstance(last, dict) else None
+    return {"ready": ready, "reason": reason, "engine": engine, "lastReason": (last.get("reason") if isinstance(last, dict) else "") or "",
+            "ts": (last.get("ts") if isinstance(last, dict) else None), "fallback": (not ready) or (engine in ("edge", "browser"))}
 
 
 def open_window():
@@ -1529,7 +1561,9 @@ def open_window():
     except Exception:
         size, pos = "1280,1000", "--window-position=0,0"
         _place_args = (0, 0, 1280, 1000)
-    if _shell_ready():
+    ready, reason = _shell_readiness()
+    if ready:
+        _record_shell("webview2")
         # غلاف بلا إطار بحواف مستديرة مثل الويدجت؛ يضع نفسه بالمقاس والموضع المطلوبين فلا حاجة لـ _place_window
         sx, sy, sw, sh = _place_args
         subprocess.Popen(["powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "app_shell.ps1"),
@@ -1539,11 +1573,13 @@ def open_window():
         if os.path.exists(edge):
             prof = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "MonitorWidget", "appwin")  # ملف تعريف منفصل: نافذة جديدة دائماً بالمقاس الصحيح
             os.makedirs(prof, exist_ok=True)
+            _record_shell("edge", reason)
             subprocess.Popen([edge, "--app=" + url, "--user-data-dir=" + prof, "--window-size=" + size, pos])
             # A --open helper exits immediately afterward. Keep placement alive
             # long enough to restore the window instead of killing a daemon thread.
             threading.Thread(target=_place_window, args=("مرصد الجهاز",) + _place_args, daemon=False).start()
             return
+    _record_shell("browser", reason)
     os.startfile(url)
 
 

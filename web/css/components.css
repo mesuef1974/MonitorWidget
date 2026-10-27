@@ -84,6 +84,7 @@ select.btn{appearance:none;padding-inline-end:12px}
 .sk{border-radius:8px;background:linear-gradient(90deg,var(--raise),var(--panel2),var(--raise));background-size:200% 100%;animation:sh 1.3s infinite linear;min-height:18px}
 @keyframes sh{to{background-position:-200% 0}}
 .banner{padding:var(--s3) var(--s4);border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-bg);border-radius:var(--r-md);color:var(--bad);font-size:13px}
+.banner.warn{border-color:color-mix(in srgb,var(--warn) 40%,transparent);background:var(--warn-bg);color:var(--warn)}.banner b{font-weight:650}
 .hero{display:flex;gap:var(--s5);align-items:center;flex-wrap:wrap}
 .hero .big{font:600 56px/1 var(--f-num)}
 .hero h3{font-size:20px;font-weight:650}
