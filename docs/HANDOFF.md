@@ -1,6 +1,6 @@
 ---
-updated: 2026-10-27T10:31:09+03:00
-head: d691749
+updated: 2026-10-27T10:32:36+03:00
+head: f419ab4
 branch: feat/handoff-automation
 dirty: 1
 dirty_files: ocs/HANDOFF.md
@@ -13,6 +13,7 @@ dirty_files: ocs/HANDOFF.md
 - الفحص tests/check_all.py يمرّ كله عدا delivery-optimization (وصف القاعدة يقول DISABLED وهي مفعّلة؛ متروك عمدًا حتى يقرر المالك).
 
 ## الخطوة الجارية
+- 2026-10-27 10:33: المالك استأنف الجلسة يدويًا بعد المسح الذاتي. تحقق: مؤقّت CronCreate لم ينجُ من clear_session (CronList فارغة) فهو عديم الجدوى؛ الكنّاس handoff-wake-sweeper مفعّل (آخر تشغيل 10:30، التالي 10:35) ولم يحن موعده بعد عند الاستئناف. الإيقاظ وصل من الكنّاس 10:35. أُصلح الحارس ~/.claude/hooks/handoff_guard.py: حُذفت خطوة CronCreate (خارج المستودع، لا يحتاج commit).
 - لا عمل جارٍ؛ آخر ما أُنجز: تثبيت خارطة الطريق في البطاقة والذاكرة (d691749) ونشر المرآة.
 - تقرير SWOT docs/تقرير_SWOT_2026-10-27.html ملتزم في PR 15 (0ae3f25) ومنشور كـ Artifact.
 - آلية التسليم الآلي بُنيت ورُبطت: docs/HANDOFF.md + ~/.claude/hooks/handoff_guard.py (Stop/SessionStart) + handoff_card.py (المرآة) + .claude/handoff.json (العتبة 190k). الملفات الجديدة غير ملتزمة بعد (تخص PR مستقل لا PR 14).
