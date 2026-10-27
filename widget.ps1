@@ -59,6 +59,8 @@ function Get-Palette([bool]$light) {
          else { @{ ink='#E5EEED'; muted='#A8BFBC'; accent='#65DAC3'; violet='#EF9AC3'; ok='#58D6AF'; warn='#EFC471'; bad='#FF9B92'; card='#1B312C'; line='#3A6258'; base='101F1D'; edge='#344947'; track='#213130'; hover='#203D35'; swoff='#566D65'; seg2='#D3B0FF'; seg3='#6A827B'; seg4='#213130'; pilltxt='#10231F' } }
     # الألوان من web\css	okens.css (المصدر الوحيد للهوية)؛ القاموس أعلاه احتياطي إن تعذّرت القراءة
     $p = Get-IdentityPalette $PSScriptRoot $light ([string]$script:S.palette) $p
+    # دلالة النجاح مستقلة عن الهوية: في tokens.css يتطابق --ok مع --accent في لوحة teal، ولو أُخذ من الرموز لأعاد Remap-Tree تلوين النجاح مع كلّ تغيير لوحة؛ فيبقى للنجاح لونه الثابت في الويدجت
+    $p.ok = if ($light) { '#08765E' } else { '#58D6AF' }
     # Avoid token-color aliases: remapping cannot otherwise distinguish identity and composition series.
     $p.seg2 = if ($light) { '#8159B3' } else { '#C1A3E8' }; $p.seg4 = if ($light) { '#E3EBE7' } else { '#283A35' }
     $p.onWarn=if($light){'#FFFFFF'}else{'#1A1100'}
