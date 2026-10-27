@@ -349,8 +349,11 @@ class PageUse(unittest.TestCase):
     def test_server_and_page_are_wired(self):
         """المسارات في server.py والواجهة تبلّغ عند الانتقال وتعرض الملخص في صفحة الإعدادات والتحكم؛ وثابت الفحص المرئي موجود."""
         server = (ROOT / "server.py").read_text(encoding="utf-8-sig")
+        reads = (ROOT / "routes_read.py").read_text(encoding="utf-8-sig")   # GET صار في جدول المسارات القرائية (البند 6/ح)
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-        for needle in ('"/api/page-use"', "pageuse.stats(db.conn())", '"/api/page-open"', "pageuse.record(db.conn(), body)"):
+        for needle in ('"/api/page-use"', "pageuse.stats(db.conn())"):
+            self.assertIn(needle, reads)
+        for needle in ('"/api/page-open"', "pageuse.record(db.conn(), body)"):
             self.assertIn(needle, server)
         for needle in ('fetch("/api/page-open"', "track(key)", 'api("/api/page-use")', "pageUseBody(pu)"):
             self.assertIn(needle, page)
@@ -670,6 +673,68 @@ class SettingsRoutes(unittest.TestCase):
             data = json.loads(cfg.read_text(encoding="utf-8"))["reaper"]
             self.assertEqual((data["bareClaudeShellMinutes"], data["protect"], data["killBareClaudeShells"]), (120, ["node\\.exe"], True))
             self.assertEqual(self.invalidated, ["/api/reaper"])
+
+
+class ReadRoutes(unittest.TestCase):
+    """البند 6/ح: routes_read.py بلا خادم: جدول GET القرائية؛ 200 مع الحمولة، 400 bad params لمعاملات db/rows، 503 عند غياب homeapi،
+    500 بالنصّ القديم لكل مجموعة (data unavailable / collect failed / str(e)) مع request_id وتسجيل السبب في infra.log،
+    وNone لمسار ليس من هنا؛ وكل مسار GET كانت الواجهة تطلبه موجود في ROUTES."""
+
+    def setUp(self):
+        import routes_read
+        self.rr = routes_read
+        self.logged = []
+        self.p = patch.object(routes_read.infra, "log", types.SimpleNamespace(exception=lambda *a: self.logged.append(a), info=lambda *a: None))
+        self.p.start()
+        self.addCleanup(self.p.stop)
+
+    def test_unknown_path_is_not_ours(self):
+        self.assertIsNone(self.rr.get("/api/nope", {}))
+        self.assertNotIn("/api/healthz", self.rr.ROUTES)   # بلا مصادقة: يبقى في الخادم
+
+    def test_ok_payload_gets_200(self):
+        with patch.object(self.rr.widgetctl, "status", lambda: {"running": True}):
+            self.assertEqual(self.rr.get("/api/widget", {}), (200, {"running": True}))
+
+    def test_bad_rows_params_400(self):
+        with patch.object(self.rr.dbview, "rows", lambda *a: (_ for _ in ()).throw(ValueError("x"))):
+            self.assertEqual(self.rr.get("/api/db/rows", {"table": "zz"}), (400, {"error": "bad params"}))
+        self.assertEqual(self.logged, [])
+
+    def test_group_errors_keep_their_text_and_log_cause(self):
+        cases = [("/api/cpu", "api_payload", self.rr.cpuwatch, "cpu data unavailable"),
+                 ("/api/procs", "procs_payload", self.rr.insight, "data unavailable"),
+                 ("/api/history", "history", self.rr.db, "boom-history"),
+                 ("/api/state", "state", self.rr.snapshot, "collect failed: boom-state")]
+        for path, name, mod, text in cases:
+            with self.subTest(path=path):
+                self.logged.clear()
+                with patch.object(mod, name, lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom-" + path.rsplit("/", 1)[1]))):
+                    code, out = self.rr.get(path, {})
+                self.assertEqual(code, 500)
+                self.assertEqual(out["error"], text)
+                self.assertRegex(out["request_id"], r"^[0-9a-f]{12}$")
+                self.assertEqual(len(self.logged), 1)
+                self.assertIn(out["request_id"], self.logged[0][1:])
+
+    def test_route_without_old_handler_now_answers_500(self):
+        with patch.object(self.rr.widgetctl, "status", lambda: (_ for _ in ()).throw(RuntimeError("w"))):
+            code, out = self.rr.get("/api/widget", {})
+        self.assertEqual((code, out["error"]), (500, "internal error"))
+        self.assertEqual(len(self.logged), 1)
+
+    def test_home_without_module_503(self):
+        with patch.object(self.rr, "homeapi", None):
+            self.assertEqual(self.rr.get("/api/home", {}), (503, {"error": "home module unavailable"}))
+
+    def test_page_get_routes_are_all_in_table(self):
+        page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
+        called = set(re.findall(r'api\("(/api/[^"?]+)"', page)) | set(re.findall(r"api\(`(/api/[^`?]+)`", page))
+        posted = set()
+        for m in ("routes_destructive", "memtrim", "routes_policy", "routes_settings", "shellwin", "widgetctl"):
+            posted |= set(__import__(m).ROUTES)
+        missing = sorted(p for p in called if p not in self.rr.ROUTES and p not in posted and p not in ("/api/ticket", "/api/session/logout", "/api/page-open", "/api/explain", "/api/explain-errors", "/api/llm-unload", "/api/shutdown"))
+        self.assertEqual(missing, [])
 
 
 if __name__ == "__main__":
