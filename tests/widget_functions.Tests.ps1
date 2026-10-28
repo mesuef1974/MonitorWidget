@@ -9,7 +9,7 @@ BeforeAll {
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors.Message -join '; ') }
-    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-Palette')) {
+    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-Palette')) {
         $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
         if (-not $fn) { throw "Missing $name" }
         . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -35,6 +35,29 @@ Describe 'Normalize-WidgetOpacity' {
         Normalize-WidgetOpacity 0 | Should -Be 0.1
         Normalize-WidgetOpacity '0.5' | Should -Be 0.5
     }
+}
+
+Describe 'Get-WidgetKeyAction (لوحة مفاتيح الويدجت)' {
+    It 'Esc يخفي الويدجت والقائمة مغلقة، ويغلق القائمة إن كانت مفتوحة' {
+        Get-WidgetKeyAction 'Escape' $false | Should -Be 'hide'
+        Get-WidgetKeyAction 'Escape' $true | Should -Be 'closeMenu'
+    }
+    It 'Apps وF10 يفتحان القائمة، وسائر المفاتيح لا تُعالَج' {
+        Get-WidgetKeyAction 'Apps' $false | Should -Be 'menu'
+        Get-WidgetKeyAction 'F10' $false | Should -Be 'menu'
+        Get-WidgetKeyAction 'Tab' $false | Should -Be ''
+        Get-WidgetKeyAction 'Enter' $true | Should -Be ''
+    }
+}
+
+Describe 'Test-WidgetOpacityLow (حدّ وضوح النص 35%)' {
+    It 'دون 35% منخفضة، ومن 35% فما فوق لا' {
+        Test-WidgetOpacityLow 0.1 | Should -BeTrue
+        Test-WidgetOpacityLow '0.34' | Should -BeTrue
+        Test-WidgetOpacityLow 0.35 | Should -BeFalse
+        Test-WidgetOpacityLow 0.96 | Should -BeFalse
+    }
+    It 'القيم غير الصالحة تُطبَّع إلى 0.96 فلا تُعدّ منخفضة' { Test-WidgetOpacityLow 'abc' | Should -BeFalse }
 }
 
 Describe 'Lvl' {
@@ -220,7 +243,7 @@ Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لص
 Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF معزول، بلا نافذة)' {
     BeforeAll {
         Add-Type -AssemblyName PresentationFramework
-        foreach ($name in @('Brush', 'Surface-Brush', 'New-Text', 'New-Card', 'Gap', 'New-Ring', 'Ring-Arc', 'Set-Ring', 'Level-Brush', 'New-Chip', 'Set-Chip')) {
+        foreach ($name in @('Brush', 'Surface-Brush', 'New-Text', 'New-Card', 'Gap', 'New-Ring', 'Ring-Arc', 'Set-Ring', 'Level-Brush', 'New-Chip', 'Set-Chip', 'New-ActionButton', 'Normalize-WidgetOpacity', 'Test-WidgetOpacityLow')) {
             $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
             if (-not $fn) { throw "Missing $name" }
             . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -256,6 +279,23 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         $AP::GetLiveSetting($UI.appearanceWarning) | Should -Be 'Polite'
         $AP::GetLiveSetting($UI.cpuAlert) | Should -Be 'Assertive'
         $AP::GetLiveSetting($UI.confirmText) | Should -Be 'Assertive'
+    }
+    It 'قالب أزرار الإجراء فيه حالة تمرير (IsMouseOver) إلى جانب حالة التركيز' {
+        foreach ($toggle in @($false, $true)) {
+            $b = New-ActionButton 'اختبار' $toggle
+            $props = @($b.Template.Triggers | ForEach-Object { $_.Property.Name })
+            $props | Should -Contain 'IsMouseOver'
+            $props | Should -Contain 'IsKeyboardFocused'
+            $hover = $b.Template.Triggers | Where-Object { $_.Property.Name -eq 'IsMouseOver' }
+            @($hover.Setters | Where-Object { $_.TargetName -eq 'Frame' -and $_.Property.Name -eq 'BorderBrush' }).Count | Should -Be 1
+        }
+    }
+    It 'تنبيه حدّ العتامة يظهر دون 35% ويختفي فوقه ويُعلَن كمنطقة حية' {
+        $AP::GetLiveSetting($opHint) | Should -Be 'Polite'
+        $opHint.Text | Should -Match '35%'
+        $opSl.Value = 0.96; $opHint.Visibility | Should -Be 'Collapsed'
+        $opSl.Value = 0.2; $opHint.Visibility | Should -Be 'Visible'
+        $opSl.Value = 0.35; $opHint.Visibility | Should -Be 'Collapsed'
     }
     It 'منزلقة العتامة لها اسم ونص مساعد، وأزرار الرأس مسمّاة' {
         $AP::GetName($opSl) | Should -Be 'عتامة الويدجت'

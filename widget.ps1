@@ -78,6 +78,17 @@ function Normalize-WidgetOpacity($value) {
     if (-not [double]::TryParse([string]$value,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$number) -or [double]::IsNaN($number) -or [double]::IsInfinity($number)) { return 0.96 }
     return [Math]::Max(0.1,[Math]::Min(1.0,$number))
 }
+# قرار لوحة المفاتيح على مستوى النافذة (التقييم 27/10): Esc يغلق القائمة إن كانت مفتوحة وإلا يخفي الويدجت كزر ✕؛ Apps أو F10 يفتح القائمة
+function Get-WidgetKeyAction([string]$key, [bool]$menuOpen) {
+    switch ($key) {
+        'Escape' { if ($menuOpen) { 'closeMenu' } else { 'hide' } }
+        'Apps' { 'menu' }
+        'F10' { 'menu' }
+        default { '' }
+    }
+}
+# دون 35% تفقد الشفافية الشاملة وضوح النص (التقييم 27/10)؛ المنزلقة تبقى حتى 10% بقرار المالك لكن التنبيه يظهر تحتها
+function Test-WidgetOpacityLow($value) { (Normalize-WidgetOpacity $value) -lt 0.35 }
 function Surface-Brush([string]$color,[double]$opacity) {
     $c=[Windows.Media.ColorConverter]::ConvertFromString($color)
     $a=[byte][Math]::Round(255*[Math]::Max(0.0,[Math]::Min(1.0,$opacity)))
@@ -321,7 +332,7 @@ function New-ActionButton([string]$name, [bool]$toggle = $false) {
     $b.HorizontalContentAlignment = 'Stretch'; $b.VerticalContentAlignment = 'Center'
     [Windows.Automation.AutomationProperties]::SetName($b, $name)
     $targetType = if ($toggle) { 'ToggleButton' } else { 'Button' }
-    $template = '<ControlTemplate TargetType="__TARGET__" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"><Border x:Name="Frame" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/></Border><ControlTemplate.Triggers><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="#167CA5"/><Setter TargetName="Frame" Property="BorderThickness" Value="2"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="1"/><Setter TargetName="Frame" Property="BorderBrush" Value="#7F8C8D"/><Setter TargetName="Frame" Property="BorderThickness" Value="1"/><Setter TargetName="Frame" Property="Cursor" Value="Arrow"/></Trigger></ControlTemplate.Triggers></ControlTemplate>'
+    $template = '<ControlTemplate TargetType="__TARGET__" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"><Border x:Name="Frame" CornerRadius="8" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"><ContentPresenter Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}" HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="#167CA5"/><Setter TargetName="Frame" Property="BorderThickness" Value="1.5"/></Trigger><Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="Frame" Property="BorderBrush" Value="#167CA5"/><Setter TargetName="Frame" Property="BorderThickness" Value="2"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="1"/><Setter TargetName="Frame" Property="BorderBrush" Value="#7F8C8D"/><Setter TargetName="Frame" Property="BorderThickness" Value="1"/><Setter TargetName="Frame" Property="Cursor" Value="Arrow"/></Trigger></ControlTemplate.Triggers></ControlTemplate>'
     $b.Template = [Windows.Markup.XamlReader]::Parse($template.Replace('__TARGET__', $targetType))
     return $b
 }
@@ -982,15 +993,22 @@ $opPanel = New-Object Windows.Controls.StackPanel; $opPanel.Orientation = 'Horiz
 $opLbl = New-Object Windows.Controls.TextBlock; $opLbl.Text = 'عتامة الويدجت'; $opLbl.Margin = '0,0,10,0'; $opLbl.VerticalAlignment = 'Center'
 $opSl = New-Object Windows.Controls.Slider; $opSl.Minimum = 0.1; $opSl.Maximum = 1.0; $opSl.SmallChange = 0.01; $opSl.LargeChange = 0.05; $opSl.IsMoveToPointEnabled = $true; $opSl.Width = 140; $opSl.VerticalAlignment = 'Center'
 $opSl.FlowDirection = 'LeftToRight'; $opSl.Value = [Math]::Min(1.0, [Math]::Max(0.1, [double]$script:S.opacity))
-$opSl.ToolTip='100% معتم تمامًا، و10% أكثر شفافية. تشمل الشفافية كل محتويات الويدجت: الخلفية والنص والأزرار والرسم.'
+$opSl.ToolTip='100% معتم تمامًا، و10% أكثر شفافية. تشمل الشفافية كل محتويات الويدجت: الخلفية والنص والأزرار والرسم؛ دون 35% يصعب قراءة النص.'
 [Windows.Automation.AutomationProperties]::SetName($opSl, 'عتامة الويدجت'); [Windows.Automation.AutomationProperties]::SetHelpText($opSl, $opSl.ToolTip)
 $opVal = New-Object Windows.Controls.TextBlock; $opVal.FontFamily = $FONTS.num; $opVal.Width = 44; $opVal.Margin = '8,0,0,0'; $opVal.VerticalAlignment = 'Center'; $opVal.FlowDirection = 'LeftToRight'
 $opVal.Text = ('{0}%' -f [int][Math]::Round($opSl.Value * 100))
-$opSl.Add_ValueChanged({ $v = [Math]::Round($this.Value, 2); $opVal.Text = ('{0}%' -f [int][Math]::Round($v * 100)); Set-CardOpacity $v })
+$opSl.Add_ValueChanged({ $v = [Math]::Round($this.Value, 2); $opVal.Text = ('{0}%' -f [int][Math]::Round($v * 100)); Set-CardOpacity $v; Update-OpacityHint $v })
 $opSl.Add_PreviewMouseLeftButtonUp({ Save-Settings })
 $opSl.Add_LostKeyboardFocus({ Save-Settings })
 $opPanel.Children.Add($opLbl) | Out-Null; $opPanel.Children.Add($opSl) | Out-Null; $opPanel.Children.Add($opVal) | Out-Null
-$opItem = New-Object Windows.Controls.MenuItem; $opItem.Header = $opPanel; $menu.Items.Add($opItem) | Out-Null
+# تنبيه حدّ العتامة: يظهر تحت المنزلقة دون 35% (Test-WidgetOpacityLow) ويُعلَن كمنطقة حية مهذّبة
+$opHint = New-Object Windows.Controls.TextBlock; $opHint.Text = 'دون 35%: يصعب قراءة النص'; $opHint.FontSize = 11; $opHint.Foreground = Brush $C.warn; $opHint.Margin = '0,2,0,0'; $opHint.TextWrapping = 'Wrap'
+if ($FONTS -and $FONTS.ui) { $opHint.FontFamily = $FONTS.ui }
+[Windows.Automation.AutomationProperties]::SetLiveSetting($opHint, 'Polite')
+function Update-OpacityHint($value) { $opHint.Visibility = if (Test-WidgetOpacityLow $value) { 'Visible' } else { 'Collapsed' } }
+Update-OpacityHint $opSl.Value
+$opStack = New-Object Windows.Controls.StackPanel; $opStack.Children.Add($opPanel) | Out-Null; $opStack.Children.Add($opHint) | Out-Null
+$opItem = New-Object Windows.Controls.MenuItem; $opItem.Header = $opStack; $menu.Items.Add($opItem) | Out-Null
 $menu.Items.Add((New-Object Windows.Controls.Separator)) | Out-Null
 $miTop = New-Object Windows.Controls.MenuItem; $miTop.Header = 'فوق النوافذ'; $miTop.IsCheckable = $true; $miTop.IsChecked = [bool]$script:S.topmost
 $miTop.Add_Click({ $win.Topmost = $this.IsChecked; $script:S.topmost = $this.IsChecked; Save-Settings }); $menu.Items.Add($miTop) | Out-Null
@@ -1027,6 +1045,7 @@ $UI.menuBtn.Add_Click({ $menu.PlacementTarget = $UI.menuBtn; $menu.IsOpen = $tru
 $card.ContextMenu = $menu
 Set-WidgetMenuTheme
 # ✕ hides the widget (the process stays alive); "إغلاق الويدجت" in the menu exits it
+function Hide-Widget { $script:S.visible = $false; Save-Settings; $win.Hide() }
 $UI.closeBtn.Add_Click({ $script:S.visible = $false; Save-Settings; $win.Hide() })
 
 function Get-WidgetWorkArea {
@@ -1052,6 +1071,12 @@ function Fit-WidgetBounds {
 }
 $card.Add_MouseLeftButtonDown({ try { $win.DragMove(); Fit-WidgetBounds; Save-Settings } catch {} })
 $win.Add_SizeChanged({ Fit-WidgetBounds })
+# لوحة المفاتيح على مستوى النافذة (التقييم 27/10): Esc يغلق القائمة أو يخفي الويدجت، وApps/F10 يفتح القائمة عند زر ⋯
+$win.Add_PreviewKeyDown({
+    $e = $_; $action = Get-WidgetKeyAction ([string]$e.Key) ([bool]$menu.IsOpen)
+    switch ($action) { 'closeMenu' { $menu.IsOpen = $false } 'hide' { Hide-Widget } 'menu' { $menu.PlacementTarget = $UI.menuBtn; $menu.IsOpen = $true } default { return } }
+    $e.Handled = $true
+})
 $win.Add_LocationChanged({ $script:S.left = [int]$win.Left; $script:S.top = [int]$win.Top })
 $win.Add_SourceInitialized({
     $h = (New-Object Windows.Interop.WindowInteropHelper $win).Handle
