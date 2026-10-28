@@ -21,7 +21,7 @@ from paths import PORT, ROOT
 
 ROUTES = ("/api/shell",)
 TITLEBAR_RESERVE = 40  # شريط عنوان النافذة يُضاف فوق المقاس فيلزم طرحه حتى لا تغطي شريط المهام
-WIDGET_RESERVE = 490  # عرض الويدجت (372 وحدة منطقية) مع هامش، بالبكسل الفعلي
+WIDGET_RESERVE = 530  # عرض الويدجت (409 وحدة منطقية بعد تعريضه 10% في 28/10/2026) مع هامش، بالبكسل الفعلي
 SHELL_STATE_PATH = os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "MonitorWidget", "shell_state.json")
 SHELL_ENGINES = ("webview2", "edge", "browser")                     # من يكتب الحالة: open_window هنا، app_shell.ps1، وزر الويدجت
 SHELL_REASONS = ("", "no_shell", "no_webview2", "init_failed")       # مفاتيح ثابتة تفسّرها صفحة الصحة

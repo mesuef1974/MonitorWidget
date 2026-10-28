@@ -110,6 +110,12 @@ def static_info():
     return v
 
 
+def invalidate_live():
+    """تنسى القراءة الحية المخزّنة (3 ث) حتى يقيس النداء التالي الذاكرة فعلًا؛ يستعملها gpupurge بعد إخراج النماذج."""
+    with _lock:
+        _cache["live"] = (0.0, None)
+
+
 def live_info():
     now = time.time()
     with _lock:

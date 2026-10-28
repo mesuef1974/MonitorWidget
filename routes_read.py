@@ -15,6 +15,7 @@ import time
 import cpuwatch
 import db
 import dbview
+import gpupurge
 import gpuwatch
 import health
 import infra
@@ -112,6 +113,7 @@ _TABLE = {
     "/api/maintenance": (lambda q: routes_policy.maintenance_state(), None),
     "/api/cpu": (lambda q: cpuwatch.api_payload(), "cpu data unavailable"),
     "/api/gpu": (lambda q: gpuwatch.api_payload(q.get("range", "24h")), "gpu data unavailable"),
+    "/api/gpu-purge": (lambda q: gpupurge.view(), None),   # حالة آخر تفريغ لذاكرة الشاشة (الزر في صفحة الرسوميات)
     "/api/mem": (lambda q: insight.mem_payload(snapshot.native_metrics(), snapshot.metrics_extra(), q.get("range", "24h")), "data unavailable"),
     "/api/procs": (lambda q: insight.procs_payload(), "data unavailable"),
     "/api/wsl": (lambda q: insight.wsl_payload(q.get("range", "6h")), "data unavailable"),
