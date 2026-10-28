@@ -4,7 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0d0c0b">
 <title>مرصد الجهاز</title>
+<link rel="preload" href="/fonts/zain-400-1.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/zain-700-3.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/outfit-400-2.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/css/fonts.css">
 <link rel="stylesheet" href="/css/tokens.css">
@@ -431,6 +435,32 @@ async function spAction(t) {
 }
 
 const ui = { ioDev: "disk0", evOff: 0, evSev: "", evQ: "", runOff: 0, dbTable: "", dbOff: 0, spaceRange: "24h" };
+// حالة الصفحة في الرابط (البند ج): المدى الزمني ومرشّحات الصفحات تُقرأ من #/صفحة?… عند الدخول وتُكتب إليه عند كل تغيير (replaceState فلا تتراكم في السجل)،
+// فيصلح الرابط للنسخ والعودة؛ المدى يبقى عبر الصفحات ما لم يحدّده الرابط، وبقية المرشّحات خاصة بصفحتها فتعود إلى الافتراضي حين تغيب
+const num = v => /^\d{1,6}$/.test(v) ? +v : null;
+const RANGED = ["mem", "gpu", "wsl", "power", "io", "history"];   // الصفحات التي يُطلب بياناتها بالمدى الزمني (رقائق المدى)
+const URLSTATE = [   // [مفتاح الرابط، الكائن، الحقل، الافتراضي، المدقّق: يعيد القيمة الصالحة أو null، الصفحات التي يُكتب فيها]
+  ["range", state, "range", "24h", v => RANGES.some(([k]) => k === v) ? v : null, RANGED],
+  ["dev", ui, "ioDev", "disk0", v => /^[\w:.-]{1,64}$/.test(v) ? v : null, ["io"]],
+  ["sev", ui, "evSev", "", v => ["warn", "err", "ok"].includes(v) ? v : null, ["history"]],
+  ["q", ui, "evQ", "", v => v.trim().slice(0, 100), ["history"]],
+  ["off", ui, "evOff", 0, num, ["history"]],
+  ["roff", ui, "runOff", 0, num, ["history"]],
+  ["tbl", ui, "dbTable", "", v => /^[\w-]{1,64}$/.test(v) ? v : null, ["dbx"]],
+  ["toff", ui, "dbOff", 0, num, ["dbx"]],
+];
+function parseHash() {
+  const h = location.hash.replace(/^#\/?/, ""), i = h.indexOf("?");
+  return { key: (i < 0 ? h : h.slice(0, i)) || "overview", qs: new URLSearchParams(i < 0 ? "" : h.slice(i + 1)) };
+}
+function applyHash(qs) {
+  for (const [k, o, f, d, ok] of URLSTATE) { const raw = qs.get(k), v = raw == null ? null : ok(raw); o[f] = v != null ? v : k === "range" ? o[f] : d; }
+}
+function syncHash() {   // يكتب القيم غير الافتراضية فقط وفي الصفحات التي تستعملها، دون إطلاق hashchange ودون إدخال جديد في السجل
+  const qs = new URLSearchParams(); for (const [k, o, f, d, , pages] of URLSTATE) if (o[f] !== d && pages.includes(curKey)) qs.set(k, o[f]);
+  const s = String(qs), h = "#/" + curKey + (s ? "?" + s : ""); if (location.hash !== h) history.replaceState(history.state, "", h);
+}
+const upd = () => { syncHash(); lastSig = ""; show(); };   // تغيير مرشّح: الرابط أولًا ثم إعادة الرسم ولو تطابقت البيانات (الرقاقة المضغوطة من الحالة لا من البيانات)
 
 Object.assign(PAGES, {
   procs: {
@@ -586,8 +616,8 @@ Object.assign(PAGES, {
       return out;
     },
     after([h]) {
-      const sel = $("#evSev"); if (sel) { sel.value = ui.evSev; sel.onchange = () => { ui.evSev = sel.value; ui.evOff = 0; show(); }; }
-      const q = $("#evQ"); if (q) q.onkeydown = e => { if (e.key === "Enter") { ui.evQ = q.value.trim(); ui.evOff = 0; show(); } };
+      const sel = $("#evSev"); if (sel) { sel.value = ui.evSev; sel.onchange = () => { ui.evSev = sel.value; ui.evOff = 0; upd(); }; }
+      const q = $("#evQ"); if (q) q.onkeydown = e => { if (e.key === "Enter") { ui.evQ = q.value.trim(); ui.evOff = 0; upd(); } };
       if (!h?.series?.length) return; const ix = compact(h.series, 170), S = ix.map(i => h.series[i]);
       chart($("#hsChart"), { t: S.map(x => x.t), series: [{ id: "r", name: "فعلية", color: "var(--accent2)", v: S.map(x => x.ram), fmt: v => nf(v, 1) + "%" }, { id: "c", name: "التزام", color: "var(--violet)", v: S.map(x => x.commit), dashed: true, fill: false, fmt: v => nf(v, 1) + "%" }], min: 0, max: 100, height: 210, yFmt: v => nf(v) + "%" });
     }
@@ -672,9 +702,9 @@ Object.assign(PAGES, {
 /* delegated actions for the pages above */
 document.addEventListener("click", async e => {
   const t = e.target.closest("button, a"); if (!t) return;
-  if (t.dataset.pg) { const id = t.dataset.pg, off = +t.dataset.off; if (id === "ev") ui.evOff = off; else if (id === "run") ui.runOff = off; else ui.dbOff = off; show(); }
-  else if (t.dataset.iodev) { ui.ioDev = t.dataset.iodev; show(); }
-  else if (t.dataset.tbl) { ui.dbTable = t.dataset.tbl; ui.dbOff = 0; show(); }
+  if (t.dataset.pg) { const id = t.dataset.pg, off = +t.dataset.off; if (id === "ev") ui.evOff = off; else if (id === "run") ui.runOff = off; else ui.dbOff = off; upd(); }
+  else if (t.dataset.iodev) { ui.ioDev = t.dataset.iodev; upd(); }
+  else if (t.dataset.tbl) { ui.dbTable = t.dataset.tbl; ui.dbOff = 0; upd(); }
   else if (t.dataset.sp) { spAction(t); }
   else if (t.dataset.explain) { explainAction(t); }
   else if (t.dataset.reaprun) { reaperRun(t); }
@@ -782,9 +812,9 @@ function track(key) {   // عدّاد فتح الصفحات (البند 5): بل
 }
 let routed = false;
 function route() {
-  const k = (location.hash.replace(/^#\/?/, "") || "overview").split("?")[0]; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
+  const { key: k, qs } = parseHash(); const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
-  buildNav(key); setNav(false); curKey = key; lastSig = ""; inflight = false; ++seq; track(key);
+  buildNav(key); setNav(false); curKey = key; applyHash(qs); syncHash(); lastSig = ""; inflight = false; ++seq; track(key);
   const m = $("#main"), c = CACHE[key];
   if (c) { last = c.data; lastSig = c.sig; m.innerHTML = page.render(c.data); page.after?.(c.data); } else m.innerHTML = skeleton(6);
   scrollTo(0, 0); if (routed) m.focus({ preventScroll: true }); routed = true;   // بعد الانتقال يبدأ قارئ الشاشة ولوحة المفاتيح من المحتوى لا من أول الصفحة
@@ -792,7 +822,7 @@ function route() {
 }
 addEventListener("hashchange", route);
 document.addEventListener("click", e => {
-  const r = e.target.closest("[data-range]"); if (r) { state.range = r.dataset.range; show(); }
+  const r = e.target.closest("[data-range]"); if (r) { state.range = r.dataset.range; upd(); }
 });
 $("#refresh").onclick = () => show();
 $("#every").onchange = schedule;
@@ -809,6 +839,7 @@ function applyAppearance(ap) {
   APPEAR = { schemaVersion: 1, revision: ap.revision, mode: ap.mode, palette: ap.palette }; const root = document.documentElement;   // only the contract fields: the POST reply carries "ok", which the store rejects if echoed back
   root.dataset.theme = ap.mode === "auto" ? (darkMq.matches ? "dark" : "light") : ap.mode;
   root.dataset.palette = ap.palette || "teal";
+  const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = getComputedStyle(root).getPropertyValue("--bg").trim() || tc.content;   // شريط المتصفح بلون الخلفية من tokens.css
   try { localStorage.setItem(AP_KEY, JSON.stringify({ mode: ap.mode, palette: ap.palette })); } catch (_) { }
 }
 try { applyAppearance(JSON.parse(localStorage.getItem(AP_KEY))); } catch (_) { }   // first paint only; the server value overrides it
