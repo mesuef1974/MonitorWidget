@@ -14,7 +14,8 @@
   --nav-w:248px;
   --shadow-pop:0 14px 36px -14px #000;--shadow-tip:0 10px 28px -12px #000;--shadow-dialog:0 0 0 1px var(--line2),0 30px 80px -20px #000;
   --scrim:rgba(0,0,0,.62);--mask:#000;
-  --accent-hover:color-mix(in srgb,var(--accent) 88%,#fff);
+  --accent-solid:var(--accent);   /* سطح accent الذي يحمل نصًّا بلون accent-ink (الزر الأساسي ورابط التخطّي)؛ يُغمَّق في teal الفاتح ليبلغ 4.5:1 */
+  --accent-hover:color-mix(in srgb,var(--accent-solid) 88%,#fff);
   --accent-bg:color-mix(in srgb,var(--accent) 12%,transparent);   /* خلفية حالات التفعيل (الصفحة الحالية، المفاتيح، الأزرار المضغوطة) */
   --panel-max:600px;   /* سقف ارتفاع البطاقة؛ ما زاد عنه يُمرَّر داخلها */
   --z-bar:20;--z-nav:50;--z-skip:100;--z-toast:200;
@@ -22,7 +23,7 @@
 :root[data-theme="dark"]{
   --bg:#0d0c0b;--bg-glow:rgba(62,230,176,.075);--panel:#171512;--panel2:#1e1c19;--raise:#26241f;   /* جرافيت دافئ: صبغة الورق الفاتح نفسها (≈40°) بتشبع 10%، فالوضعان هوية واحدة (قرار المالك 2026-10-27) */
   --line:rgba(255,255,255,.065);--line2:rgba(255,255,255,.13);
-  --ink:#e9eef5;--ink2:#9ba8ba;--ink3:#69778c;
+  --ink:#e9eef5;--ink2:#9ba8ba;--ink3:#8290a5;   /* ink3 ≥4.5:1 على bg/panel/panel2/raise (كان #69778c: 3.4-4.3) */
   --accent:#3ee6b0;--accent-ink:#03231a;--accent-text:var(--accent);--accent2:#7ca6ff;--violet:#b79cff;   /* accent-text: لون accent حين يكون نصًّا على panel2 (≥4.5:1) */
   --ok:#5fdc8a;--warn:#ffb54a;--bad:#ff6b79;--ok-bg:rgba(95,220,138,.12);--warn-bg:rgba(255,181,74,.12);--bad-bg:rgba(255,107,121,.13);
   --grid:rgba(255,255,255,.055);--shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -16px rgba(0,0,0,.7);
@@ -30,14 +31,15 @@
 :root[data-theme="light"]{
   --bg:#f2efe8;--bg-glow:rgba(10,157,116,.09);--panel:#fffdf8;--panel2:#f8f5ee;--raise:#efeadf;
   --line:rgba(20,30,40,.09);--line2:rgba(20,30,40,.16);
-  --ink:#121c29;--ink2:#455468;--ink3:#5f6d7a;   /* ≥4.5:1 على الخلفية الفاتحة */
-  --accent:#08a177;--accent-ink:#fff;--accent-text:#067a5a;--accent2:#2f62d6;--violet:#6f4fd0;   /* accent-text: teal الفاتح 3.0:1 على panel2 فيُغمَّق للنصّ إلى 4.9:1 */
+  --ink:#121c29;--ink2:#455468;--ink3:#5a6875;   /* ≥4.5:1 على كل الأسطح الفاتحة بما فيها raise */
+  --accent:#08a177;--accent-ink:#fff;--accent-text:#066b4f;--accent-solid:#067a5a;--accent2:#2f62d6;--violet:#6f4fd0;   /* accent-text: teal الفاتح 3.0:1 على panel2 فيُغمَّق للنصّ إلى ≥5.0 حتى فوق accent-bg المركّب (الصفحة الحالية)؛ accent-solid: الأبيض على #08a177 يعطي 3.3 فيُغمَّق سطح الزر إلى 5.3 */
+  --accent-hover:color-mix(in srgb,var(--accent-solid) 88%,#000);   /* في الفاتح يغمق التمرير بدل أن يفتح كي لا ينزل تباين النصّ الأبيض */
   --ok:#1b7f45;--warn:#9c6200;--bad:#b8283d;--ok-bg:rgba(27,127,69,.1);--warn-bg:rgba(156,98,0,.1);--bad-bg:rgba(184,40,61,.1);   /* الدلالات ≥4.4:1 في الفاتح، وok أخضر متميّز عن accent */
   --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
 }
 :root[data-palette="blue"][data-theme="dark"]{--accent:#6aa6ff;--accent-ink:#04122b;--accent2:#3ee6b0;--bg-glow:rgba(106,166,255,.08)}
-:root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent-text:#2f62d6;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
+:root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent-text:#2654bd;--accent-solid:#2f62d6;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
 :root[data-palette="violet"][data-theme="dark"]{--accent:#b79cff;--accent-ink:#160a33;--accent2:#7ca6ff;--bg-glow:rgba(183,156,255,.08)}
-:root[data-palette="violet"][data-theme="light"]{--accent:#6f4fd0;--accent-ink:#fff;--accent-text:#6f4fd0;--accent2:#2f62d6;--bg-glow:rgba(111,79,208,.09)}
+:root[data-palette="violet"][data-theme="light"]{--accent:#6f4fd0;--accent-ink:#fff;--accent-text:#5f40b8;--accent-solid:#6f4fd0;--accent2:#2f62d6;--bg-glow:rgba(111,79,208,.09)}
 :root[data-palette="graphite"][data-theme="dark"]{--accent:#c4ccd8;--accent-ink:#0c1118;--accent2:#7ca6ff;--bg-glow:rgba(196,204,216,.06)}
-:root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent-text:#3f4a5a;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}
+:root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent-text:#3f4a5a;--accent-solid:#3f4a5a;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}   /* accent-text في الفاتح: اللوحات الأزرق والبنفسجي تُغمَّق للنصّ (4.1-4.4 فوق accent-bg) والرمادي يكفي أصلًا */

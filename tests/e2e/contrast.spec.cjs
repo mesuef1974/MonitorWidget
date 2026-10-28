@@ -1,0 +1,77 @@
+// فحص تباين الألوان في web/css/tokens.css على خادم الثوابت (الدفعة 3 من إصلاحات الإتاحة):
+// في الوضعين وفي اللوحات الأربع: ink2 وink3 وaccent-text على كل الأسطح وفوق accent-bg المركّب، وaccent-ink على accent-solid وaccent-hover ≥ 4.5:1 (WCAG 1.4.3)؛
+// والعناصر التي تكتب نصًّا بلون الهوية (الصفحة الحالية في القائمة، الزر الأساسي، رابط التخطّي) تستعمل الرموز الصحيحة.
+const { test, expect } = require('@playwright/test');
+
+const THEMES = ['dark', 'light'];
+const PALETTES = ['teal', 'blue', 'violet', 'graphite'];
+const MIN = 4.5;
+const NO_MOTION = '*{transition:none!important;animation:none!important}';
+
+// يقرأ قيمة رمز محلول عبر عنصر مجسّ (rgb أو color(srgb) مع ألفا)، ويركّب الشفاف فوق السطح، ويحسب التباين وفق WCAG 2.x
+const probe = () => {
+  const el = document.createElement('span');
+  document.body.appendChild(el);
+  const parse = s => {
+    const m = s.match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/);
+    if (m) return [+m[1] * 255, +m[2] * 255, +m[3] * 255, m[4] === undefined ? 1 : +m[4]];
+    const n = s.match(/[\d.]+/g);
+    return n && n.length >= 3 ? [+n[0], +n[1], +n[2], n[3] === undefined ? 1 : +n[3]] : null;
+  };
+  const rgb = v => { el.style.color = ''; el.style.color = `var(${v})`; return parse(getComputedStyle(el).color); };
+  const over = (fg, bg) => fg.slice(0, 3).map((c, i) => c * fg[3] + bg[i] * (1 - fg[3]));
+  const lum = ([r, g, b]) => { const f = c => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const cr = (a, b) => { const x = lum(a), y = lum(b); return Math.round(((Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)) * 100) / 100; };
+  const surfaces = ['--bg', '--panel', '--panel2', '--raise'];
+  const abg = rgb('--accent-bg');
+  const rows = [];
+  for (const ink of ['--ink2', '--ink3', '--accent-text']) for (const s of surfaces) {
+    const a = rgb(ink), b = rgb(s);
+    rows.push([`${ink} على ${s}`, a, b]);
+    if (ink === '--accent-text' && a && b && abg) rows.push([`${ink} على accent-bg فوق ${s}`, a, over(abg, b)]);
+  }
+  rows.push(['--accent-ink على --accent-solid', rgb('--accent-ink'), rgb('--accent-solid')]);
+  rows.push(['--accent-ink على --accent-hover', rgb('--accent-ink'), rgb('--accent-hover')]);
+  const out = rows.map(([n, a, b]) => ({ n, ok: !!(a && b), cr: a && b ? cr(a, b) : 0 }));
+  el.remove();
+  return out;
+};
+
+test('ink2 وink3 وaccent-text على كل الأسطح، وaccent-ink على سطح الزر الأساسي ≥ 4.5:1 في الوضعين واللوحات الأربع', async ({ page }) => {
+  await page.goto('/#/overview');
+  await page.waitForFunction(() => document.querySelector('#main .panel'));
+  await page.addStyleTag({ content: NO_MOTION });
+  const bad = [];
+  for (const theme of THEMES) for (const palette of PALETTES) {
+    await page.evaluate(([t, p]) => { document.documentElement.dataset.theme = t; document.documentElement.dataset.palette = p; }, [theme, palette]);
+    const rows = await page.evaluate(probe);
+    for (const r of rows) if (!r.ok || r.cr < MIN) bad.push(`${theme}/${palette}: ${r.n} = ${r.ok ? r.cr : 'غير محلول'}`);
+  }
+  expect(bad, bad.join('\n')).toEqual([]);
+});
+
+test('الصفحة الحالية في القائمة والزر الأساسي ورابط التخطّي يستعملون accent-text وaccent-solid', async ({ page }) => {
+  await page.goto('/#/overview');
+  await page.waitForFunction(() => document.querySelector('.nav a[aria-current="page"]'));
+  await page.addStyleTag({ content: NO_MOTION });
+  for (const theme of THEMES) {
+    await page.evaluate(t => { document.documentElement.dataset.theme = t; document.documentElement.dataset.palette = 'teal'; }, theme);
+    const r = await page.evaluate(() => {
+      const el = document.createElement('button'); el.className = 'btn primary'; document.body.appendChild(el);
+      const tok = v => { const s = document.createElement('i'); document.body.appendChild(s); s.style.color = `var(${v})`; const c = getComputedStyle(s).color; s.remove(); return c; };
+      const out = {
+        nav: getComputedStyle(document.querySelector('.nav a[aria-current="page"]')).color,
+        accentText: tok('--accent-text'),
+        btnBg: getComputedStyle(el).backgroundColor, btnFg: getComputedStyle(el).color,
+        accentSolid: tok('--accent-solid'), accentInk: tok('--accent-ink'),
+        skipBg: getComputedStyle(document.querySelector('.skip')).backgroundColor,
+      };
+      el.remove();
+      return out;
+    });
+    expect(r.nav, `${theme}: لون الصفحة الحالية`).toBe(r.accentText);
+    expect(r.btnBg, `${theme}: خلفية الزر الأساسي`).toBe(r.accentSolid);
+    expect(r.btnFg, `${theme}: نصّ الزر الأساسي`).toBe(r.accentInk);
+    expect(r.skipBg, `${theme}: خلفية رابط التخطّي`).toBe(r.accentSolid);
+  }
+});
