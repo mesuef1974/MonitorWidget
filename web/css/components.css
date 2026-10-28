@@ -18,14 +18,15 @@ select.btn{appearance:none;padding-inline-end:12px}
 .grow{flex:1 1 auto;min-height:0}
 .panel>.kpis{flex:0 0 auto}
 /* الجداول والقوائم الطويلة تُمرَّر داخل البطاقة بدل أن تطيلها: السقف من --panel-max */
-.panel .list,.panel .scrollbox,.panel>.scroll{min-height:0;max-height:calc(var(--panel-max) - 70px);overflow-y:auto;overflow-x:hidden}.panel .list{max-height:460px}
+.panel .list,.panel .scrollbox,.panel>.scroll{min-height:0;max-height:calc(var(--panel-max) - 70px);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}.panel .list{max-height:460px}
 /* شريط التمرير في طرف البطاقة نفسه ومدمج فيها: المنطقة القابلة للتمرير تمتد إلى الحافة والنص يحتفظ بحشوته */
 .panel .list,.panel .scrollbox,.panel>.scroll{margin-inline:calc(-1*var(--s5));padding-inline:var(--s5) calc(var(--s5) - 4px)}
 .ph{display:flex;align-items:baseline;justify-content:space-between;gap:var(--s3)}
 .ph h2{font-size:13.5px;font-weight:700;letter-spacing:.04em;color:var(--ink2)}
 .ph .meta{font-size:13px;color:var(--ink3)}
 .chips{display:inline-flex;gap:4px;padding:3px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
-.chips button{padding:4px 11px;border-radius:7px;font-size:13px;color:var(--ink2)}
+.chips button{padding:4px 11px;border-radius:7px;font-size:13px;color:var(--ink2);transition:background .15s,color .15s}
+.chips button:hover{background:var(--panel2);color:var(--ink)}
 .chips button[aria-pressed="true"]{background:var(--raise);color:var(--ink);box-shadow:0 0 0 1px var(--line2)}
 .tag{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line2);color:var(--ink2);white-space:nowrap}
 .tag.ok{color:var(--ok);background:var(--ok-bg);border-color:transparent}.tag.warn{color:var(--warn);background:var(--warn-bg);border-color:transparent}.tag.bad{color:var(--bad);background:var(--bad-bg);border-color:transparent}
@@ -103,6 +104,7 @@ html[dir="rtl"] .meter>i{transform-origin:100% 50%}
 .switch i{position:absolute;top:2px;inset-inline-start:2px;width:18px;height:18px;border-radius:50%;background:var(--ink2);transition:transform .2s var(--ease),background .2s}
 .switch[aria-checked="true"]{background:var(--accent-bg);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
 .switch[aria-checked="true"] i{background:var(--accent);transform:translateX(-18px)}
+.switch:hover:not(:disabled){border-color:color-mix(in srgb,var(--accent) 55%,var(--line2))}
 .switch:disabled{opacity:.4;cursor:not-allowed}
 .inp{width:100%;padding:8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
 .inp:focus{outline:2px solid var(--accent);outline-offset:1px}
@@ -125,21 +127,22 @@ textarea.inp{resize:vertical;font-family:var(--f-mono);font-size:12.5px}
 .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-inline-end:8px}
 .scroll{overflow:auto;max-width:100%}
 .panel>.scroll.xs{overflow-x:auto}   /* جداول عريضة بطبيعتها (عارض القاعدة) */
-.scrollbox{overflow-y:auto;overflow-x:hidden}   /* سقف الارتفاع من قاعدة البطاقة أعلاه */
+.scrollbox{overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}   /* سقف الارتفاع من قاعدة البطاقة أعلاه */
 .rowbtn{width:100%;text-align:start;border-radius:8px;padding-inline:8px}.rowbtn:hover{background:var(--raise)}.rowbtn[aria-pressed="true"]{background:var(--accent-bg);color:var(--accent-text)}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,340px),1fr));gap:var(--s4);min-width:0}
 .card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:var(--r-lg);padding:var(--s4) var(--s5);display:flex;flex-direction:column;gap:var(--s2);border-inline-start:4px solid var(--ink3)}
 .card h3{font-size:16px}.card p{color:var(--ink2);font-size:14.5px;flex:1}
 .card.lvl-warn{border-inline-start-color:var(--warn)}.card.lvl-bad{border-inline-start-color:var(--bad)}.card.lvl-ok{border-inline-start-color:var(--ok)}
 .swatches{display:flex;gap:var(--s3);flex-wrap:wrap}
-.swatch{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:12px;background:var(--bg)}
+.swatch{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--line2);border-radius:12px;background:var(--bg);transition:border-color .15s,background .15s}
+.swatch:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));background:var(--panel2)}
 .swatch i{width:18px;height:18px;border-radius:50%}.swatch[aria-pressed="true"]{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-bg)}
 .heat{display:grid;grid-template-columns:44px repeat(24,minmax(0,1fr));gap:2px;direction:ltr;font-size:12px;color:var(--ink3)}
 .heat b{font-weight:400;text-align:right;padding-right:6px;line-height:16px}
 .heat i{height:16px;border-radius:3px;background:var(--raise)}
 .heat .hh{text-align:center;line-height:14px}
 td.acts{display:flex;gap:var(--s2);align-items:center;justify-content:flex-end;flex-wrap:wrap}
-dialog.dlg{margin:auto;border:1.5px solid color-mix(in srgb,var(--accent) 70%,var(--line2));border-radius:var(--r-lg);background:var(--panel2);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:var(--shadow-dialog)}
+dialog.dlg{margin:auto;border:1.5px solid color-mix(in srgb,var(--accent) 70%,var(--line2));border-radius:var(--r-lg);background:var(--panel2);color:var(--ink);padding:var(--s5);max-width:min(92vw,440px);box-shadow:var(--shadow-dialog);overscroll-behavior:contain}
 dialog.dlg::backdrop{background:var(--scrim);backdrop-filter:blur(3px)}
 #main:focus-visible{outline:none}
 dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:var(--s2);justify-content:flex-end}

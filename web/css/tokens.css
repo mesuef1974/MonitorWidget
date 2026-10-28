@@ -18,6 +18,7 @@
   --accent-hover:color-mix(in srgb,var(--accent-solid) 88%,#fff);
   --accent-bg:color-mix(in srgb,var(--accent) 12%,transparent);   /* خلفية حالات التفعيل (الصفحة الحالية، المفاتيح، الأزرار المضغوطة) */
   --panel-max:600px;   /* سقف ارتفاع البطاقة؛ ما زاد عنه يُمرَّر داخلها */
+  --bar-h:72px;   /* ارتفاع الشريط اللاصق الافتراضي؛ يضبطه index.html من القياس الفعلي لهامش التمرير */
   --z-bar:20;--z-nav:50;--z-skip:100;--z-toast:200;
 }
 :root[data-theme="dark"]{

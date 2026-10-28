@@ -840,6 +840,8 @@ $("#every").onchange = schedule;
 function setNav(open) { $("#nav").classList.toggle("open", open); $("#menuBtn").setAttribute("aria-expanded", String(open)); }
 $("#menuBtn").onclick = () => { const open = !$("#nav").classList.contains("open"); setNav(open); if (open) $("#nav a")?.focus(); };
 document.addEventListener("keydown", e => { if (e.key === "Escape" && $("#nav").classList.contains("open")) { setNav(false); $("#menuBtn").focus(); } });
+// هامش التمرير يتبع ارتفاع الشريط اللاصق الفعلي (يلتفّ في العروض الضيقة) حتى لا يغطي العنصر المركَّز عند Tab
+new ResizeObserver(([e]) => document.documentElement.style.setProperty("--bar-h", Math.ceil(e.borderBoxSize?.[0]?.blockSize ?? e.target.offsetHeight) + "px")).observe($(".bar"));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) show(); });
 const AP_KEY = "mw-v2-ap";
 let APPEAR = null;
