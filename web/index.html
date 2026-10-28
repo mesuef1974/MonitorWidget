@@ -535,7 +535,7 @@ Object.assign(PAGES, {
   },
 
   wsl: {
-    title: "WSL وDocker", sub: "التوزيعات والأقراص الافتراضية واستهلاك الموارد", icon: "box",
+    title: "WSL و\u00a0Docker", sub: "التوزيعات والأقراص الافتراضية واستهلاك الموارد", icon: "box",
     async load() { return settle(api("/api/wsl?range=" + state.range)); },
     render([d]) {
       if (!d) return nodata("بيانات WSL");
@@ -789,7 +789,7 @@ document.addEventListener("click", async e => {
 
 const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
-  ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL وDocker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
+  ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
   ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
 ];
