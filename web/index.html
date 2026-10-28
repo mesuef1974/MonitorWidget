@@ -60,16 +60,17 @@ function gauge({ value, label, unit = "%", sub = "", warn = 80, bad = 92, max = 
   const R = 62, C = 2 * Math.PI * R, sweep = 0.75, len = C * sweep;
   if (value != null && !isFinite(value)) value = null;
   const pct = clamp((value ?? 0) / max, 0, 1), lv = value == null ? "ok" : level(value / max * 100, warn, bad);
-  const col = `var(--${lv === "ok" ? "accent" : lv})`;
+  const col = `var(--${lv === "ok" ? "accent" : lv})`, off = (len * (1 - pct)).toFixed(1);
   let ticks = ""; for (let i = 0; i <= 20; i++) { const a = (135 + 270 * i / 20) * Math.PI / 180, big = i % 5 === 0, r1 = 74, r2 = big ? 80 : 77; ticks += `<line x1="${(90 + r1 * Math.cos(a)).toFixed(1)}" y1="${(90 + r1 * Math.sin(a)).toFixed(1)}" x2="${(90 + r2 * Math.cos(a)).toFixed(1)}" y2="${(90 + r2 * Math.sin(a)).toFixed(1)}" stroke="var(--ink3)" stroke-width="${big ? 1.6 : 1}" opacity="${big ? .7 : .4}"/>`; }
   return `<div class="gauge"><svg viewBox="0 0 180 180" role="img" aria-label="${esc(label)} ${nf(value, decimals)}${esc(unit)}">
     ${ticks}
     <circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--raise)" stroke-width="12" stroke-linecap="round" stroke-dasharray="${len} ${C}" transform="rotate(135 90 90)"/>
-    <circle class="arc" cx="90" cy="90" r="${R}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${len} ${C}" stroke-dashoffset="${(len * (1 - pct)).toFixed(1)}" transform="rotate(135 90 90)" style="filter:drop-shadow(0 0 7px color-mix(in srgb,${col} 55%,transparent))"/>
+    <circle class="arc-glow" cx="90" cy="90" r="${R}" fill="none" stroke="${col}" stroke-dasharray="${len} ${C}" stroke-dashoffset="${off}" transform="rotate(135 90 90)"/>
+    <circle class="arc" cx="90" cy="90" r="${R}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${len} ${C}" stroke-dashoffset="${off}" transform="rotate(135 90 90)"/>
     <text class="gv" x="90" y="96" text-anchor="middle">${nf(value, decimals)}</text><text class="gu" x="90" y="118" text-anchor="middle">${esc(unit)}</text></svg>
     <div class="gl">${esc(label)}</div>${sub ? `<div class="gs">${sub}</div>` : ""}</div>`;
 }
-const meter = (v, warn = 80, bad = 92, max = 100) => `<div class="meter ${level(v / max * 100, warn, bad) === "ok" ? "" : level(v / max * 100, warn, bad)}"><i style="width:${clamp(v / max * 100, 0, 100)}%"></i></div>`;
+const meter = (v, warn = 80, bad = 92, max = 100) => `<div class="meter ${level(v / max * 100, warn, bad) === "ok" ? "" : level(v / max * 100, warn, bad)}"><i style="--p:${((clamp(v / max * 100, 0, 100)) / 100).toFixed(3)}"></i></div>`;
 const kpi = (l, v, u = "", s = "", m = "") => `<div class="kpi"><div class="l">${esc(l)}</div><div class="v"><span class="num">${v}</span>${u ? `<small>${esc(u)}</small>` : ""}</div>${m}${s ? `<div class="s">${s}</div>` : ""}</div>`;
 const tblScroll = b => b.replace(/(<div class="scroll xs">)?(<table class="tbl"[\s\S]*?<\/table>)/g, (m, wrap, t) => wrap ? m : `<div class="scroll">${t}</div>`);   // الجدول في مقدّمة البطاقة يُمرَّر داخلها
 // كل جدول داخل لوحة يحمل اسم اللوحة (ما لم يُسمَّ) ورؤوسه رؤوس أعمدة؛ الرأس الفارغ فوق عمود الأزرار يُسمّى «إجراءات» بنص مخفي
@@ -81,6 +82,7 @@ const skeleton = n => Array.from({ length: n }, (_, i) => `<section class="panel
    الإتاحة: <svg role="img"> يحمل ملخصًا نصيًا (آخر قيمة وأدناها وأعلاها لكل سلسلة والمدى الزمني)، و.plot قابل للتركيز ويصفه الملخص، وقيم النقطة المختارة بلوحة المفاتيح تُعلن في منطقة حية مخفية */
 let chartSeq = 0;
 function chart(el, { t, series, min = 0, max = null, height = 190, yFmt = v => nf(v, 0), fill = true }) {
+  const csig = JSON.stringify([t, series.map(s => [s.id, s.v, s.dashed])]); if (el.dataset.csig === csig && el.firstElementChild) return; el.dataset.csig = csig;   // اللوحة بقيت (paint) والبيانات لم تتغيّر: الرسم ومستمعاته يبقيان
   const W = 1000, pad = 6, H = Math.max(height, Math.round((el.clientHeight || 0) - 24));
   const title = el.closest(".panel")?.querySelector("h2")?.textContent || series.map(s => s.name).join(" و"), cid = "chart-" + (++chartSeq);
   const stat = s => { const v = s.v.filter(x => x != null), f = s.fmt || yFmt; return v.length ? `${s.name}: آخر قيمة ${f(v[v.length - 1])}، أدنى ${f(Math.min(...v))}، أعلى ${f(Math.max(...v))}` : `${s.name}: لا بيانات`; };
@@ -180,7 +182,7 @@ const PAGES = {
       let out = sh && sh.fallback ? `<div class="banner warn c12" role="alert"><b>نافذة التطبيق تعمل عبر ${sh.engine === "browser" ? "المتصفح الافتراضي" : "Edge"} بدل غلاف WebView2.</b> ${shText} ${sh.detail ? `<bdi dir="ltr">${esc(sh.detail)}</bdi> ` : ""}${sh.ready && shWhy !== "init_failed" ? "المكتبات متوفرة الآن؛ أعد فتح النافذة لاستخدام الغلاف." : "بدون الغلاف تفقد النافذة الحواف المستديرة والتموضع الملاصق للويدجت."}</div>` : "";
       out += panel("شرح بالذكاء المحلي", `<p class="note">يكتب النموذج المحلي شرحًا لحالة الجهاز أو لأخطاء السجل؛ قد يستغرق دقيقة.</p><div class="acts"><button class="btn primary" data-explain="health">اشرح صحة الجهاز</button><button class="btn" data-explain="errors">اشرح أخطاء السجل</button><button class="btn" data-explain="unload">تفريغ النموذج من الذاكرة</button></div>`, { cls: "c12" });
       out += panel("الدرجة", `<div class="hero grow stack-v">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row mt-2">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${p.max - p.pts}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
-      out += panel("المكوّنات", `<div class="list">${(s.parts || []).map(p => `<div class="li"><span class="t">${esc(p.label)}</span><span class="r">${p.pts == null ? "—" : `<bdi dir="ltr" class="q">${p.pts}/${p.max}</bdi>`}</span><span class="d">${esc(p.why || "")}</span><div class="meter ${p.pts == null ? "" : p.pts < p.max * .6 ? "bad" : p.pts < p.max ? "warn" : ""}"><i style="width:${p.pts == null ? 0 : clamp(p.pts / p.max * 100, 0, 100)}%"></i></div></div>`).join("")}</div>`, { cls: "c7" });
+      out += panel("المكوّنات", `<div class="list">${(s.parts || []).map(p => `<div class="li"><span class="t">${esc(p.label)}</span><span class="r">${p.pts == null ? "—" : `<bdi dir="ltr" class="q">${p.pts}/${p.max}</bdi>`}</span><span class="d">${esc(p.why || "")}</span><div class="meter ${p.pts == null ? "" : p.pts < p.max * .6 ? "bad" : p.pts < p.max ? "warn" : ""}"><i style="--p:${((p.pts == null ? 0 : clamp(p.pts / p.max * 100, 0, 100)) / 100).toFixed(3)}"></i></div></div>`).join("")}</div>`, { cls: "c7" });
       out += panel("اتجاه الدرجة", `<div id="hhChart" class="grow"></div>`, { cls: "c7", meta: `آخر ${(h.history || []).length} يومًا` });
       out += panel("توقع المساحة", `<div class="kpis two">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("معدل التغيّر", (fc.slopeGBday > 0 ? "−" : "+") + nf(Math.abs(fc.slopeGBday), 2), "GB/يوم")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
       out += panel("الرسوميات (24 ساعة)", g ? `<div class="kpis">${kpi("الآن", nf(g.temp), "°C")}${kpi("الذروة", nf(h.gpu.max24), "°C")}${kpi("الحمل", nf(g.util), "%")}${kpi("الحالة", esc(g.pstate), "")}</div>` : `<div class="empty">لا بيانات</div>`, { cls: "c6" });
@@ -203,7 +205,7 @@ const PAGES = {
     render([c]) {
       if (!c) return `<div class="banner" role="alert">تعذّر قراءة بيانات المعالج.</div>`;
       const pct = c.total / c.ncpu * 100, maxc = Math.max(...c.now.map(x => x.cores), .1);
-      const tbl = (rows, key) => `<table class="tbl"><thead><tr><th>التطبيق</th><th>الاستهلاك</th><th class="n">نسخ</th></tr></thead><tbody>${rows.slice(0, 8).map(p => `<tr><td>${esc(p.name)}</td><td><div class="rowbar"><div class="meter"><i style="width:${clamp((p[key] ?? 0) / maxc * 100, 2, 100)}%"></i></div><span class="num">${nf(p[key], 2)}</span></div></td><td class="n num">${p.n ?? ""}</td></tr>`).join("")}</tbody></table>`;
+      const tbl = (rows, key) => `<table class="tbl"><thead><tr><th>التطبيق</th><th>الاستهلاك</th><th class="n">نسخ</th></tr></thead><tbody>${rows.slice(0, 8).map(p => `<tr><td>${esc(p.name)}</td><td><div class="rowbar"><div class="meter"><i style="--p:${((clamp((p[key] ?? 0) / maxc * 100, 2, 100)) / 100).toFixed(3)}"></i></div><span class="num">${nf(p[key], 2)}</span></div></td><td class="n num">${p.n ?? ""}</td></tr>`).join("")}</tbody></table>`;
       let out = panel("الحمل الحالي", `<div class="kpis">${kpi("المجموع", nf(c.total, 1), "نواة", `من ${Q(c.ncpu)} نواة`, meter(pct, 70, 90))}${kpi("النسبة", nf(pct, 1), "%")}${kpi("متوسط 10 دقائق", nf(c.avg10?.reduce((a, x) => a + x.avg, 0), 1), "نواة")}</div>`, { cls: "c4" });
       out += panel("المعالج الكلي خلال ساعة", `<div id="cpuChart" class="grow"></div>`, { cls: "c8", meta: c.alert ? `<span class="tag warn">${esc(c.alert.text || "تنبيه")}</span>` : "" });
       out += panel("الآن", tbl(c.now, "cores"), { cls: "c4" });
@@ -404,8 +406,15 @@ function refocus(root, key) {
   if (key == null) return; const el = typeof key === "number" ? root.querySelectorAll(FOCUSABLE)[key] : root.querySelector(key);
   if (el) el.focus({ preventScroll: true });
 }
+// الرسم اللوحةَ تلو اللوحة: تُقارن كل لوحة بقالبها السابق، فما لم يتغيّر يبقى بعناصره ومستمعاته (الرسوم، التمرير، التركيز) ولا يُستبدل إلا ما تغيّر؛ innerHTML لكامل الصفحة كان يعيد بناء كل شيء مع أي تغيّر طفيف
+function paint(main, html) {
+  const tpl = document.createElement("template"); tpl.innerHTML = html;
+  const next = [...tpl.content.children], cur = [...main.children];
+  next.forEach((n, i) => { const o = cur[i], h = n.outerHTML; if (o && o.__tpl === h) return; n.__tpl = h; if (o) o.replaceWith(n); else main.appendChild(n); });
+  for (let i = cur.length - 1; i >= next.length; i--) cur[i].remove();
+}
 const dirtyForm = root => [...root.querySelectorAll("form input, form textarea")].some(i => i.value !== i.defaultValue);   // تعديل غير محفوظ في نموذج؛ لا يُستبدل بالتحديث
-function redraw() { if (!page || !last) return; const y = scrollY, m = $("#main"), fk = focusKey(m); m.innerHTML = page.render(last); page.after?.(last); refocus(m, fk); scrollTo(0, y); }
+function redraw() { if (!page || !last) return; const y = scrollY, m = $("#main"), fk = focusKey(m); paint(m, page.render(last)); page.after?.(last); refocus(m, fk); scrollTo(0, y); }
 async function spAction(t) {
   const a = t.dataset.sp, k = t.dataset.spk, d = last?.[0], later = (ms, f) => setTimeout(f, ms), reload = () => show(true);
   try {
@@ -790,7 +799,7 @@ async function show(first = false) {
     if (!first && sig === lastSig) return;          // nothing changed: touch nothing
     lastSig = sig; last = data;
     const y = scrollY, boxes = [...main.querySelectorAll(".scrollbox")].map(b => b.scrollTop), fk = focusKey(main);
-    main.innerHTML = pg.render(data); pg.after?.(data); refocus(main, fk);
+    paint(main, pg.render(data)); pg.after?.(data); refocus(main, fk);
     main.querySelectorAll(".scrollbox").forEach((b, i) => { b.scrollTop = boxes[i] || 0; });
     if (!first) scrollTo(0, y);
   } catch (e) { if (my === seq && e.name !== "AbortError") { console.error("render/load failed:", e && e.stack || e); setLive(false); $("#liveTxt").textContent = "تعذّر التحديث"; if (first && !CACHE[key]) $("#main").innerHTML = `<div class="banner" role="alert">تعذّر الاتصال بالخادم. تأكد من تشغيل المرصد ثم أعد المحاولة.</div>`; } }
@@ -816,7 +825,7 @@ function route() {
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
   buildNav(key); setNav(false); curKey = key; applyHash(qs); syncHash(); lastSig = ""; inflight = false; ++seq; track(key);
   const m = $("#main"), c = CACHE[key];
-  if (c) { last = c.data; lastSig = c.sig; m.innerHTML = page.render(c.data); page.after?.(c.data); } else m.innerHTML = skeleton(6);
+  if (c) { last = c.data; lastSig = c.sig; paint(m, page.render(c.data)); page.after?.(c.data); } else m.innerHTML = skeleton(6);
   scrollTo(0, 0); if (routed) m.focus({ preventScroll: true }); routed = true;   // بعد الانتقال يبدأ قارئ الشاشة ولوحة المفاتيح من المحتوى لا من أول الصفحة
   show(!c); schedule();
 }
