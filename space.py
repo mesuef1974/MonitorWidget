@@ -18,7 +18,7 @@ MIN_AGE_DAYS = 3
 DOCKER = r"C:\Program Files\Docker\Docker\resources\bin\docker.exe"
 TARGETS = {
     "docker":   ("Docker (قرص الحاويات)", os.path.join(LA, "Docker"), "يكبر مع الاستخدام ولا يصغر وحده. تنظيف ذاكرة البناء يحرّر داخله، وعودة المساحة للقرص تحتاج ضغطاً لاحقاً.", "dockercache"),
-    "temp":     ("الملفات المؤقتة", TEMP, "الحجم هو كل المجلد؛ يُحذف منه ما لم يتغيّر منذ 3 أيام فقط، والباقي قيد الاستخدام.", "temp"),
+    "temp":     ("الملفات المؤقتة", TEMP, "الحجم هو كل المجلد؛ يُحذف منه ما لم يتغيّر منذ يوم ومعه المجلدات الفارغة القديمة، والباقي قيد الاستخدام.", "temp"),
     "edge":     ("ذاكرة المتصفح Edge", os.path.join(LA, "Microsoft", "Edge"), "الحجم هو كل Edge (ملفات شخصية ونموذج ذكاء محلي)؛ يُمسح منه الكاشف المؤقت فقط.", "edgecache"),
     "claude":   ("أرشيف Claude", os.path.join(H, ".claude"), "جلساتك وإعداداتك؛ لا يُلمس من هنا.", None),
     "packages": ("حزم التطبيقات", os.path.join(LA, "Packages"), "بيانات تطبيقات المتجر؛ لا يُلمس.", None),
@@ -214,7 +214,7 @@ def _clean_run(key, kinds, seen, early, j):
             j["phase"] = "clean"
             out = []
             for k in kinds:
-                j.update(kind=k, dirs=0, files=0, mb=0.0)
+                j.update(kind=k, dirs=0, files=0, mb=0.0, emptyDirs=0)
                 out.append(dict(kind=k, **clean(k, dry=False, src="manual", early=early, prog=j, exp=exp[k])))
             j["res"] = out[0] if key != "all" else {"ok": True, "mb": round(sum(o.get("mb", 0) for o in out), 1), "parts": out}
             st = "done"
@@ -230,7 +230,7 @@ def clean_status(key):
     j = _cj.get(key)
     if not j:
         return {"state": "none"}
-    out = {k: j[k] for k in ("state", "phase", "kind", "dirs", "files", "mb")}
+    out = {k: j.get(k, 0) for k in ("state", "phase", "kind", "dirs", "files", "mb", "emptyDirs")}
     out["elapsed"] = round((j.get("ended") or time.time()) - j["started"], 1)
     if j["state"] == "done":
         out["res"] = j["res"]
@@ -674,9 +674,16 @@ def _walk(root, prog=None):
         yield dp, list(dn), links, fn
 
 
-def _old_files(root, days=None, prog=None):
+def _old_files(root, days=None, prog=None, dirs=None):
+    """Files under root unchanged for days, walked top-down. dirs: a list that receives (folder, mtime) for every folder walked below
+    root, the mtime read before any of its files is yielded (deleting them would make the folder look freshly changed)."""
     cut = time.time() - (MIN_AGE_DAYS if days is None else days) * 86400
     for dp, dn, _links, fn in _walk(root, prog):
+        if dirs is not None and dp != root:
+            try:
+                dirs.append((dp, os.stat(dp).st_mtime))
+            except OSError:
+                errlog.swallowed()
         for f in fn:
             p = os.path.join(dp, f)
             try:
@@ -685,6 +692,30 @@ def _old_files(root, days=None, prog=None):
                     yield p, st.st_size
             except OSError:
                 errlog.swallowed()
+
+
+TEMP_KEEP = ("Low",)   # %TEMP%\Low: the low-integrity processes' temp folder, kept even when empty
+
+
+def _rm_empty_dirs(root, dirs, days, prog=None):
+    """After the files pass: remove the folders it left empty, deepest first, only those unchanged for days (mtime read during the
+    walk), never root itself, a link (the walk never yields one) or a kept top-level name. rmdir refuses a folder that is not empty
+    or is in use, so a folder something still writes into stays. Temp gathers tens of thousands of these and every walk paid for them."""
+    cut = time.time() - days * 86400
+    keep = {os.path.normcase(os.path.join(root, k)) for k in TEMP_KEEP}
+    n = 0
+    for d, mt in reversed(dirs):   # the top-down walk order reversed puts every folder after its subfolders
+        if mt >= cut or os.path.normcase(d) in keep:
+            continue
+        try:
+            os.rmdir(d); n += 1
+        except OSError as ex:
+            # expected: still holds a file or folder that stays (WinError 145 not empty, 32 in use, 5 denied)
+            if getattr(ex, "winerror", None) not in (5, 32, 145):
+                errlog.swallowed()
+        if prog is not None:
+            prog["emptyDirs"] = n
+    return n
 
 
 def _cache_dirs():
@@ -971,10 +1002,11 @@ def _tick(prog, files, freed):
 def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped.
     prog: a dict the walks update with folders walked, files handled and MB found or freed so far (the background preview and clean jobs)."""
-    freed = n = skipped = locked = held = 0
+    freed = n = skipped = locked = held = nd = 0
     qkinds = _setting("space.quarantine_kinds", ["temp"]) if not dry else []
     if kind == "temp":
-        for p, sz in _old_files(TEMP, days=1, prog=prog):  # الملفات المؤقتة: أقدم من يوم واحد
+        dirs = None if dry else []
+        for p, sz in _old_files(TEMP, days=1, prog=prog, dirs=dirs):  # الملفات المؤقتة: أقدم من يوم واحد
             if dry:
                 if _deletable(p):
                     n += 1; freed += sz
@@ -994,6 +1026,8 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
             except OSError:
                 freed -= sz; n -= 1; skipped += 1
             _tick(prog, n + skipped, freed + held)
+        if not dry:
+            nd = _rm_empty_dirs(TEMP, dirs, 1, prog)   # ثم المجلدات الفارغة القديمة
     elif kind == "edgecache":
         for d in _cache_dirs():
             if dry:
@@ -1068,4 +1102,4 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
         except Exception:
             errlog.swallowed()
         threading.Thread(target=scan, args=(60,), daemon=True).start()
-    return {"ok": True, "dry": dry, "gb": round(freed / 2**30, 3), "mb": round(freed / 2**20, 1), "files": n, "skipped": skipped, "lockedMB": round(locked / 2**20, 1), "heldMB": round(held / 2**20, 1)}
+    return {"ok": True, "dry": dry, "gb": round(freed / 2**30, 3), "mb": round(freed / 2**20, 1), "files": n, "skipped": skipped, "lockedMB": round(locked / 2**20, 1), "heldMB": round(held / 2**20, 1), "emptyDirs": nd}
