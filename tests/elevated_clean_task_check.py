@@ -48,7 +48,7 @@ class ElevatedCleanTasks(unittest.TestCase):
 
     def test_default_switches_are_on_and_persist(self):
         ns = extracted()
-        self.assertEqual(ns["get_elevated"](), {"wintemp": True, "swdist": True, "dism": True, "winold": True})
+        self.assertEqual(ns["get_elevated"](), {"wintemp": True, "swdist": True, "dism": True, "winold": True, "dwm": True})
         self.assertTrue(ns["set_elevated"]("dism", False))
         self.assertFalse(ns["set_elevated"]("edgecache", False))
         self.assertFalse(ns["get_elevated"]()["dism"])

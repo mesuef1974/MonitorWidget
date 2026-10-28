@@ -19,6 +19,7 @@ $expected = @{
   'healthprobe.ps1' = 'DFE47270DB312A709230466DD5F901E6F932F54A5A8146F241571C1E20BC3586'
   'winold_delete.ps1' = 'AE98DE987B78DFB033670A8485B352E2757E2656DBE0192000D828CE5DD7713F'
   'elevated_clean.ps1' = 'A534E653D70B88B88651C3FF47B1DF182DBC3BB108C1B9C1AC85388ABC1F5231'
+  'gpu_dwm_restart.ps1' = 'A3E2465CE7C3CCED2FB43FA25A3F037BE1F0E8AA5AD82DED010440B8EB9945BD'
 }
 $reaper = 'C:\Users\mesue\Documents\Scripts\MachineCare\Invoke-OrphanReaper.ps1'; $reaperHash = '8104AE8B121F55E07119E070EEB014B31581E97945A3A65EF0329BB1D66F5F25'
 
@@ -44,6 +45,7 @@ Copy-Item -LiteralPath (Join-Path $src 'purge.cs') -Destination (Join-Path $bin 
 Copy-Item -LiteralPath (Join-Path $src 'healthprobe.ps1') -Destination (Join-Path $bin 'healthprobe.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $src 'winold_delete.ps1') -Destination (Join-Path $bin 'winold_delete.ps1') -Force
 Copy-Item -LiteralPath (Join-Path $src 'elevated_clean.ps1') -Destination (Join-Path $bin 'elevated_clean.ps1') -Force
+Copy-Item -LiteralPath (Join-Path $src 'gpu_dwm_restart.ps1') -Destination (Join-Path $bin 'gpu_dwm_restart.ps1') -Force
 & $csc /nologo /target:winexe /optimize+ "/out:$bin\purge.exe" "$bin\purge.cs"
 if ($LASTEXITCODE -ne 0) { throw 'csc failed' }
 foreach ($k in $expected.Keys) {
@@ -88,6 +90,13 @@ foreach ($k in @(@('wintemp', 'MonitorWidget-Clean-WinTemp'), @('swdist', 'Monit
   $ca = New-ScheduledTaskAction -Execute $pwsh -Argument $arg -WorkingDirectory $bin
   Register-ScheduledTask -TaskName $k[1] -Action $ca -Principal $pr -Settings $cs -Description "On-demand elevated cleanup ($($k[0])) from the protected folder; fixed kind, no path argument" -Force | Out-Null
 }
+
+# 4d. graphics memory: restart the desktop window manager (dwm) to release the shared GPU memory it holds (Intel driver leak).
+#     Windows restarts dwm at once; no program is closed. Fixed script, no argument from the server, 2-minute gap inside the script.
+$gs = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -MultipleInstances IgnoreNew -Hidden
+$garg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$bin\gpu_dwm_restart.ps1`" -Result `"$out\clean_dwm_result.json`""
+$ga = New-ScheduledTaskAction -Execute $pwsh -Argument $garg -WorkingDirectory $bin
+Register-ScheduledTask -TaskName 'MonitorWidget-Gpu-Dwm' -Action $ga -Principal $pr -Settings $gs -Description 'On-demand dwm restart to release shared GPU memory (protected folder, fixed script)' -Force | Out-Null
 
 # 5. optional: remove the legacy tasks that ran from the writable folder
 if ($RemoveLegacy) {

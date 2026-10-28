@@ -242,7 +242,7 @@ const PAGES = {
       if (!d) return nodata("بيانات الرسوميات");
       const s = d.static || {}, l = d.live || {}, st = d.stats || {};
       let out = panel(s.name || "كرت الرسوميات", `<div class="pill-row">${s.driver ? `<span class="tag">تعريف ${Q(s.driver)}</span>` : ""}${s.vramTotal ? `<span class="tag">${Q(s.vramTotal / 1024, "GB")}</span>` : ""}${s.powerMax ? `<span class="tag">حدّ القدرة ${Q(s.powerMax, "W")}</span>` : ""}${l.pcieGen != null ? `<span class="tag">PCIe ${Q(l.pcieGen)} ×${Q(l.pcieWidth)}</span>` : ""}${l.pstate ? `<span class="tag ${l.pstate === "P0" ? "warn" : ""}">${esc(l.pstate)}</span>` : ""}${!l.ts ? `<span class="tag warn" title="${esc(d.diag || "")}">لا قياسات حية الآن${d.diag ? " — " + esc(d.diag) : ""}</span>` : ""}</div>`, { cls: "", meta: rangeChips() });
-      out += panel("الآن", `<div class="gauges">${gauge({ value: l.temp, label: "الحرارة", unit: "°C", warn: 75, bad: 85 })}${gauge({ value: l.util, label: "الحمل", warn: 80, bad: 95 })}${gauge({ value: l.power, label: "القدرة", unit: "W", max: s.powerMax || 140, warn: 70, bad: 90, decimals: 1 })}${gauge({ value: l.vram / 1024, label: "ذاكرة الشاشة", unit: "GB", max: (l.vramTotal || 1) / 1024, warn: 80, bad: 95, decimals: 1, sub: `من ${Q(l.vramTotal / 1024, "GB", 1)}` })}</div><div class="acts"><button class="btn" data-gpupurge="1"${pg?.running ? " disabled" : ""}>${pg?.running ? "جارٍ تفريغ ذاكرة الشاشة…" : "تفريغ ذاكرة الشاشة"}</button><span class="note">يُخرج النماذج المحمّلة في LM Studio من ذاكرة الكرت ولا يُنهي أي برنامج${pg?.ts ? ` · آخر تفريغ ${when(pg.ts)}: ${pg.err ? esc(pg.err) : pg.freedMB != null ? "حُرّر " + Q(pg.freedMB, "MB") : esc(pg.text || "")}` : ""}</span></div>`, { cls: "c8" });
+      out += panel("الآن", `<div class="gauges">${gauge({ value: l.temp, label: "الحرارة", unit: "°C", warn: 75, bad: 85 })}${gauge({ value: l.util, label: "الحمل", warn: 80, bad: 95 })}${gauge({ value: l.power, label: "القدرة", unit: "W", max: s.powerMax || 140, warn: 70, bad: 90, decimals: 1 })}${gauge({ value: l.vram / 1024, label: "ذاكرة الشاشة", unit: "GB", max: (l.vramTotal || 1) / 1024, warn: 80, bad: 95, decimals: 1, sub: `من ${Q(l.vramTotal / 1024, "GB", 1)}` })}</div><div class="acts"><button class="btn" data-gpupurge="1"${pg?.running ? " disabled" : ""}>${pg?.running ? "جارٍ تفريغ ذاكرة الكروت…" : "تفريغ ذاكرة كروت الشاشة"}</button><span class="note">لكل الكروت (NVIDIA وإنتل): يُخرج نماذج الذكاء المحلية (LM Studio وOllama) ولا يُنهي أي برنامج، وإن كان مدير سطح المكتب يحجز ذاكرة كبيرة يعرض إعادة تشغيله بتأكيد منفصل${pg?.ts ? ` · آخر تفريغ ${when(pg.ts)}: ${esc(pg.err ? "تعذّر: " + pg.err : gpuPurgeText(pg))}` : ""}</span>${sw(!!pg?.dwmOn, 'data-gpudwm="1"', "السماح بإعادة تشغيل مدير سطح المكتب")}<span class="note">إعادة تشغيل مدير سطح المكتب (مهمة مسؤول ثابتة)</span></div>`, { cls: "c8" });
       out += panel("إحصاءات الفترة", `<div class="list"><div class="li"><span class="t">الحرارة</span><span class="r"><bdi dir="ltr" class="q">${nf(st.temp?.min)}–${nf(st.temp?.max)}&nbsp;°C</bdi></span><span class="d">متوسط ${Q(st.temp?.avg, "", 1)} · P95 ${Q(st.temp?.p95)}</span></div><div class="li"><span class="t">الطاقة المستهلكة</span><span class="r">${Q(st.energyWh, "Wh")}</span></div><div class="li"><span class="t">الانشغال</span><span class="r">${Q(st.busyPct, "%", 1)}</span><span class="d">خامل ${Q(st.idlePct, "%", 1)} · ثقيل ${Q(st.heavyPct, "%", 1)}</span></div><div class="li"><span class="t">ذروة ذاكرة الشاشة</span><span class="r">${Q(st.vramPeakPct, "%")}</span></div></div>`, { cls: "c4" });
       const mk = id => panel(id[1], `<div id="${id[0]}" class="grow"></div>`, { cls: "c6" });
       out += [["gT", "الحرارة"], ["gU", "الحمل على الكرت"], ["gP", "القدرة"], ["gV", "ذاكرة الشاشة"]].map(mk).join("");
@@ -783,7 +783,8 @@ document.addEventListener("click", async e => {
   else if (t.dataset.trim) { if (await confirmDlg(t.dataset.trim === "deep" ? "تنظيف عميق للذاكرة؟ قد يبطّئ التطبيقات لحظات." : "تنظيف الذاكرة الآن؟", "نظّف")) act(() => post("/api/trim-memory", { mode: t.dataset.trim }), "بدأ التنظيف"); }
   else if (t.dataset.widget) { const show = t.getAttribute("aria-checked") !== "true"; act(() => post("/api/widget", { show }), show ? "أُظهر الويدجت" : "أُخفي الويدجت"); }
   else if (t.dataset.maint) { const on = t.getAttribute("aria-checked") === "true"; act(() => post("/api/maintenance", { on: !on }), "حُدّث وضع الصيانة"); }
-  else if (t.dataset.gpupurge) { if (await confirmDlg("تفريغ ذاكرة الشاشة الآن؟ تُخرَج نماذج LM Studio المحمّلة فقط ولا يُنهى أي برنامج.", "فرّغ")) gpuPurge(); }
+  else if (t.dataset.gpupurge) { if (await confirmDlg("تفريغ ذاكرة كروت الشاشة الآن؟ تُخرَج نماذج الذكاء المحلية (LM Studio وOllama) من كل الكروت، ولا يُنهى أي برنامج.", "فرّغ")) gpuPurge(); }
+  else if (t.dataset.gpudwm) { const on = t.getAttribute("aria-checked") !== "true"; act(() => post("/api/space", { action: "elevated", kind: "dwm", on }), "حُفظ"); }
   else if (t.dataset.job) { if (await confirmDlg(`تشغيل المهمة «${t.dataset.job}» الآن؟`, "شغّل")) act(() => post("/api/jobs/run", { name: t.dataset.job }), "بدأ التشغيل"); }
 });
 
@@ -817,15 +818,17 @@ $("#boost").onclick = async () => {
   if (m && m.before != null) toast(`الذاكرة ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB`);
   show(true);
 };
-async function gpuPurge() {   // زر صفحة الرسوميات: POST يبدأ المرور في خيط، ثم نستطلع GET حتى ينتهي (نمط تنظيف الذاكرة)
-  try { await post("/api/gpu-purge", {}); } catch (e) { return toast("تعذّر: " + e.message, true); }
-  toast("بدأ تفريغ ذاكرة الشاشة"); let p = null;
-  for (let i = 0; i < 30; i++) { await new Promise(r => setTimeout(r, 700)); try { p = await api("/api/gpu-purge"); } catch { } if (p && !p.running) break; }
+const DWM_BIG_MB = 1024;   // لا يُعرض التأكيد الثاني إلا حين يحجز dwm ذاكرة تستحق وميض الشاشة
+const gpuPurgeText = p => [p.freedMB != null ? `NVIDIA: حُرّر ${nf(p.freedMB)} MB` : "", p.sharedBeforeMB != null && p.sharedAfterMB != null ? `المشتركة: ${nf(p.sharedBeforeMB)} ← ${nf(p.sharedAfterMB)} MB` : "", p.text || ""].filter(Boolean).join(" · ") || "تم";
+async function gpuPurge(dwm = false) {   // زر صفحة الرسوميات: POST يبدأ المرور في خيط، ثم نستطلع GET حتى ينتهي؛ dwm خطوة ثانية بتأكيد منفصل
+  try { await post("/api/gpu-purge", { dwm }); } catch (e) { return toast("تعذّر: " + e.message, true); }
+  toast(dwm ? "بدأت إعادة تشغيل مدير سطح المكتب؛ قد تومض الشاشة لحظة" : "بدأ تفريغ ذاكرة الكروت"); let p = null;
+  for (let i = 0; i < (dwm ? 130 : 60); i++) { await new Promise(r => setTimeout(r, 700)); try { p = await api("/api/gpu-purge"); } catch { } if (p && !p.running) break; }
   if (!p || p.running) toast("ما زال التفريغ جاريًا؛ ستظهر النتيجة في صفحة الرسوميات", true);
   else if (p.err) toast("تعذّر: " + p.err, true);
-  else if (p.freedMB != null) toast(`ذاكرة الشاشة ${nf(p.beforeMB)} ← ${nf(p.afterMB)} MB، حُرّر ${nf(p.freedMB)} MB`);
-  else toast(p.text || "تم");
+  else toast(gpuPurgeText(p));
   show(true);
+  if (!dwm && p && !p.running && p.dwmOn && p.dwmMB >= DWM_BIG_MB && await confirmDlg(`مدير سطح المكتب (dwm) يحجز ${nf(p.dwmMB / 1024, 1)} GB من ذاكرة الرسوميات المشتركة. إعادة تشغيله تحرّرها: تومض الشاشة لحظة ولا يُغلق أي برنامج. متابعة؟`, "أعد تشغيله", true)) gpuPurge(true);
 }
 // مؤشر «مباشر»: الوقت المرئي يتحدّث مع كل جولة لكنه خارج المنطقة الحية؛ قارئ الشاشة يسمع فقط الانتقال بين مباشر ومتعذّر (لا إعلان عند أول نجاح)
 let liveErr = false;
