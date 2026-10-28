@@ -839,7 +839,7 @@ class GpuPurge(unittest.TestCase):
         self.ollama = {"ok": True, "text": "لا نموذج محمّل في Ollama."}
         self.patches = [patch.object(self.gp, "_shared", lambda: next(self.shared)), patch.object(self.gp, "_ollama_unload", lambda: self.ollama),
                         patch.object(self.gp.space, "get_elevated", lambda: {"dwm": True}), patch.object(self.gp.time, "sleep", lambda s: None),
-                        patch.object(self.gp, "_today", lambda: (11604, 3))]
+                        patch.object(self.gp, "_today", lambda: (11604, 3)), patch.object(self.gp, "_last", lambda: {})]
         for p in self.patches:
             p.start()
         self.addCleanup(patch.stopall)
@@ -892,6 +892,16 @@ class GpuPurge(unittest.TestCase):
                    "before=None after=None shared=None->None dwm=0"]
         self.assertEqual(self.gp.day_total(details), (24 + 11568 + 100, 4))   # الزيادة في NVIDIA لا تُطرح، والقياس الغائب لا يُحسب
         self.assertEqual(self.gp.day_total([]), (0, 0))
+
+    def test_view_restores_last_purge_from_log_after_server_restart(self):
+        r = self.gp.restored(1793222147, "before=37.0 after=37.0 shared=2024->2012 dwm=0 LM Studio:x")
+        self.assertEqual(r, {"ts": 1793222147, "dwm": False, "beforeMB": 37.0, "afterMB": 37.0, "freedMB": 0,
+                             "sharedBeforeMB": 2024, "sharedAfterMB": 2012, "sharedFreedMB": 12})
+        self.assertTrue(self.gp.restored(1, "before=36.0 after=37.0 shared=13578->2010 dwm=1 dwm:x")["dwm"])
+        with patch.object(self.gp, "_last", lambda: r):
+            self.assertEqual((self.gp.view()["ts"], self.gp.view()["sharedFreedMB"]), (1793222147, 12))   # الحالة الفارغة تُملأ من السجل
+            self.gp.STATE.update(ts=5, sharedFreedMB=99)
+            self.assertEqual((self.gp.view()["ts"], self.gp.view()["sharedFreedMB"]), (5, 99))   # الحالة الحية تغلب السجل
 
     def test_dwm_step_runs_only_through_the_fixed_task_after_the_owner_gate(self):
         tasks = []

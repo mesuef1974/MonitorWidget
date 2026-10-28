@@ -10,6 +10,7 @@
     view()                                   حالة آخر تفريغ للواجهة ومجموع ما حُرّر اليوم (GET /api/gpu-purge)
     purge(dwm)                               المرور نفسه (يُستدعى في خيط)
     day_total(details)                       مجموع المحرَّر (NVIDIA + المشتركة) ومرّاته من نصوص سجل actions
+    restored(ts, detail)                     حقول آخر تفريغ من سطر السجل حين تبدأ الحالة فارغة بعد إعادة تشغيل الخادم
 """
 import json
 import re
@@ -177,9 +178,35 @@ def _today():
         return 0, 0
 
 
+def restored(ts, detail):
+    """حقول آخر تفريغ من سطر السجل، لتبقى نتيجته ظاهرة بعد إعادة تشغيل الخادم (STATE في الذاكرة يبدأ فارغًا)."""
+    nv, sh = _NV_RE.search(detail or ""), _SH_RE.search(detail or "")
+    out = {"ts": ts, "dwm": " dwm=1 " in (detail or "")}
+    if nv:
+        a, b = float(nv.group(1)), float(nv.group(2))
+        out.update(beforeMB=a, afterMB=b, freedMB=_freed(a, b))
+    if sh:
+        a, b = int(sh.group(1)), int(sh.group(2))
+        out.update(sharedBeforeMB=a, sharedAfterMB=b, sharedFreedMB=_freed(a, b))
+    return out
+
+
+def _last():
+    """آخر تفريغ ناجح من جدول actions، أو {} إن لم يوجد أو تعذّرت القاعدة."""
+    try:
+        with db.ro() as c:
+            r = c.execute("SELECT ts,detail FROM actions WHERE kind='gpupurge' AND ok=1 ORDER BY ts DESC LIMIT 1").fetchone()
+        return restored(r[0], r[1]) if r else {}
+    except Exception:
+        errlog.swallowed()
+        return {}
+
+
 def view():
     with _lock:
         v = dict(STATE)
+    if v["ts"] is None and not v["running"]:
+        v.update(_last())
     v["todayFreedMB"], v["todayCount"] = _today()
     v["dwmOn"] = bool(space.get_elevated().get("dwm"))   # مفتاح المالك فقط (إعداد محلي سريع)؛ الجاهزية تظهر عند المحاولة
     return v
