@@ -331,9 +331,9 @@ $btnRow.Children.Add($UI.menuBtn) | Out-Null; $btnRow.Children.Add($UI.closeBtn)
 [Windows.Controls.Grid]::SetColumn($btnRow, 1); $hdr.Children.Add($btnRow) | Out-Null
 $UI.headerButtons=$btnRow
 $stack.Children.Add($hdr) | Out-Null
-$UI.cpuAlert = New-Text '' 11.5 $C.warn; $UI.cpuAlert.TextWrapping = 'Wrap'; $UI.cpuAlert.Margin = '0,6,0,0'; $UI.cpuAlert.Visibility = 'Collapsed'; $stack.Children.Add($UI.cpuAlert) | Out-Null
-$UI.toast = New-Text '' 12 $C.ink; $UI.toast.TextWrapping = 'Wrap'; $UI.toast.TextTrimming = 'None'; $UI.toast.Margin='0,8,0,0'; $UI.toast.Visibility='Collapsed'; [void]$stack.Children.Add($UI.toast)
-$UI.appearanceWarning = New-Text '' 12 $C.warn; $UI.appearanceWarning.TextWrapping='Wrap'; $UI.appearanceWarning.TextTrimming='None'; $UI.appearanceWarning.Margin='0,8,0,0'; $UI.appearanceWarning.Visibility='Collapsed'; [void]$stack.Children.Add($UI.appearanceWarning)
+$UI.cpuAlert = New-Text '' 11.5 $C.warn; $UI.cpuAlert.TextWrapping = 'Wrap'; $UI.cpuAlert.Margin = '0,6,0,0'; $UI.cpuAlert.Visibility = 'Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.cpuAlert, 'Assertive'); $stack.Children.Add($UI.cpuAlert) | Out-Null
+$UI.toast = New-Text '' 12 $C.ink; $UI.toast.TextWrapping = 'Wrap'; $UI.toast.TextTrimming = 'None'; $UI.toast.Margin='0,8,0,0'; $UI.toast.Visibility='Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.toast, 'Polite'); [void]$stack.Children.Add($UI.toast)   # قارئ الشاشة يعلن الإشعار (يختفي بعد 7 ثوانٍ)
+$UI.appearanceWarning = New-Text '' 12 $C.warn; $UI.appearanceWarning.TextWrapping='Wrap'; $UI.appearanceWarning.TextTrimming='None'; $UI.appearanceWarning.Margin='0,8,0,0'; $UI.appearanceWarning.Visibility='Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.appearanceWarning, 'Polite'); [void]$stack.Children.Add($UI.appearanceWarning)
 $stack.Children.Add((Gap 10)) | Out-Null
 
 # ---- rings
@@ -353,7 +353,8 @@ function New-Ring([string]$label) {
     $g.Children.Add($trackCv) | Out-Null; $g.Children.Add($cv) | Out-Null; $g.Children.Add($ctr) | Out-Null
     $lab = New-Text $label 12 $C.muted; $lab.HorizontalAlignment = 'Center'; $lab.Margin = '0,2,0,0'
     $wrap.Children.Add($g) | Out-Null; $wrap.Children.Add($lab) | Out-Null
-    @{ Root = $wrap; Arc = $arc; Val = $val; Unit = $unit; Grid = $g }
+    [Windows.Automation.AutomationProperties]::SetName($val, $label)   # قارئ الشاشة يقرأ «الاسم: القيمة والوحدة» من نص القيمة؛ Set-Ring تحدّثه
+    @{ Root = $wrap; Arc = $arc; Val = $val; Unit = $unit; Grid = $g; Label = $label }
 }
 function Ring-Arc([double]$pct) {
     # قوس من 135° باتجاه عقارب الساعة بطول 270°×النسبة حول مركز (34,34) ونصف قطر 31
@@ -368,6 +369,7 @@ function Ring-Arc([double]$pct) {
 }
 function Set-Ring($r, [double]$pct, [string]$lvl, [string]$val, [string]$unit, [string]$tip) {
     $r.Arc.Data = Ring-Arc ([Math]::Min(99.6, $pct)); $r.Arc.Stroke = if ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }; $r.Val.Text = $val; $r.Unit.Text = $unit; $r.Root.ToolTip = $tip
+    [Windows.Automation.AutomationProperties]::SetName($r.Val, (($r.Label + ': ' + $val + ' ' + $unit).Trim())); [Windows.Automation.AutomationProperties]::SetHelpText($r.Val, $tip)
 }
 $ringsGrid = New-Object Windows.Controls.Primitives.UniformGrid; $ringsGrid.Columns = 3
 $UI.rCommit = New-Ring 'التزام الذاكرة'; $UI.rRam = New-Ring 'الذاكرة الفعلية'; $UI.rDisk = New-Ring 'القرص C'
@@ -421,8 +423,10 @@ function New-Chip([string]$label) {
     $v = New-Text '—' 17 $C.ink 'SemiBold' $true; $v.HorizontalAlignment = 'Center'
     $l = New-Text $label 12 $C.muted; $l.HorizontalAlignment = 'Center'
     $sp.Children.Add($v) | Out-Null; $sp.Children.Add($l) | Out-Null; $b.Child = $sp
-    @{ Root = $b; Val = $v }
+    [Windows.Automation.AutomationProperties]::SetName($v, $label)
+    @{ Root = $b; Val = $v; Label = $label }
 }
+function Set-Chip($chip, [string]$text) { $chip.Val.Text = $text; [Windows.Automation.AutomationProperties]::SetName($chip.Val, ($chip.Label + ': ' + $text)) }
 $UI.cClaude = New-Chip 'عمليات Claude'; $UI.cShell = New-Chip 'شلات'; $UI.cConhost = New-Chip 'conhost'
 $UI.cClaude.Root.Margin = '0,0,3,0'; $UI.cConhost.Root.Margin = '3,0,0,0'
 foreach ($chip in @($UI.cClaude, $UI.cShell, $UI.cConhost)) { $chips.Children.Add($chip.Root) | Out-Null }
@@ -469,7 +473,7 @@ foreach ($t in $TIERS) {
 $UI.confirm = New-Object Windows.Controls.Border; $UI.confirm.Visibility = 'Collapsed'; $UI.confirm.CornerRadius = 12; $UI.confirm.Padding = 10
 $UI.confirm.Background = Brush '#33F5B841'; $UI.confirm.BorderBrush = Brush '#88F5B841'; $UI.confirm.BorderThickness = 1; $UI.confirm.Margin = '0,0,0,6'
 $cf = New-Object Windows.Controls.StackPanel
-$UI.confirmText = New-Text '' 12 $C.ink; $UI.confirmText.TextWrapping = 'Wrap'; $UI.confirmText.TextTrimming = 'None'
+$UI.confirmText = New-Text '' 12 $C.ink; $UI.confirmText.TextWrapping = 'Wrap'; $UI.confirmText.TextTrimming = 'None'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.confirmText, 'Assertive')
 $cfBtns = New-Object Windows.Controls.StackPanel; $cfBtns.Orientation = 'Horizontal'; $cfBtns.Margin = '0,8,0,0'
 function New-TextBtn([string]$text, [string]$bg, [string]$fg) {
     $b = New-ActionButton $text; $b.Padding = '14,4,14,5'; $b.Cursor = 'Hand'; $b.Background = Brush $bg; $b.Margin = '0,0,0,0'
@@ -730,7 +734,7 @@ function Update-Widget {
     $vals = @([Math]::Max(0.2, $cl), [Math]::Max(0.1, $ws), [Math]::Max(0.1, $other), $free)
     for ($i = 0; $i -lt 4; $i++) { $UI.barCols[$i].Width = [Windows.GridLength]::new($vals[$i], 'Star') }
     $UI.compLegend.Text = ('Claude {0:N1} · WSL {1:N1} · أخرى {2:N1} · حر {3:N1}  (GB)' -f $cl, $ws, $other, ($m.limitGB - $m.commitGB))
-    $UI.cClaude.Val.Text = [string]$m.claude; $UI.cShell.Val.Text = [string]$m.shells; $UI.cConhost.Val.Text = [string]$m.conhost
+    Set-Chip $UI.cClaude ([string]$m.claude); Set-Chip $UI.cShell ([string]$m.shells); Set-Chip $UI.cConhost ([string]$m.conhost)
     $UI.cClaude.Val.Foreground = Level-Brush (Lvl $m.claude 20 30); $UI.cShell.Val.Foreground = Level-Brush (Lvl $m.shells 25 40); $UI.cConhost.Val.Foreground = Level-Brush (Lvl $m.conhost 150 250)
     # tiers
     $anyFail = $false
@@ -746,6 +750,7 @@ function Update-Widget {
         } else { $u.S1.Text = 'لم تعمل فعلياً بعد'; $u.S1.Foreground = Brush $C.muted }
         $u.S2.Text = if ($paused) { 'موقوفة بالسياسة — لن تعمل في موعدها' } elseif ($ti.next) { 'التالي: ' + ([datetime]::Parse([string]$ti.next)).ToString('dd/MM HH:mm') } else { '' }
         $u.S2.Foreground = if ($paused) { Brush $C.warn } else { Brush $C.muted }
+        $u.S1.ToolTip = $u.S1.Text; $u.S2.ToolTip = if ($u.S2.Text) { $u.S2.Text } else { $null }   # النص يُقصّ بـ CharacterEllipsis فيبقى كاملًا في التلميح
         $running = ($d.manual.running -and $d.manual.tier -eq $k)
         $u.RunText.Text = if ($running) { '… يعمل' } else { '▶ تشغيل' }
     }
@@ -971,6 +976,7 @@ $opLbl = New-Object Windows.Controls.TextBlock; $opLbl.Text = 'عتامة الو
 $opSl = New-Object Windows.Controls.Slider; $opSl.Minimum = 0.1; $opSl.Maximum = 1.0; $opSl.SmallChange = 0.01; $opSl.LargeChange = 0.05; $opSl.IsMoveToPointEnabled = $true; $opSl.Width = 140; $opSl.VerticalAlignment = 'Center'
 $opSl.FlowDirection = 'LeftToRight'; $opSl.Value = [Math]::Min(1.0, [Math]::Max(0.1, [double]$script:S.opacity))
 $opSl.ToolTip='100% معتم تمامًا، و10% أكثر شفافية. تشمل الشفافية كل محتويات الويدجت: الخلفية والنص والأزرار والرسم.'
+[Windows.Automation.AutomationProperties]::SetName($opSl, 'عتامة الويدجت'); [Windows.Automation.AutomationProperties]::SetHelpText($opSl, $opSl.ToolTip)
 $opVal = New-Object Windows.Controls.TextBlock; $opVal.Width = 44; $opVal.Margin = '8,0,0,0'; $opVal.VerticalAlignment = 'Center'; $opVal.FlowDirection = 'LeftToRight'
 $opVal.Text = ('{0}%' -f [int][Math]::Round($opSl.Value * 100))
 $opSl.Add_ValueChanged({ $v = [Math]::Round($this.Value, 2); $opVal.Text = ('{0}%' -f [int][Math]::Round($v * 100)); Set-CardOpacity $v })
