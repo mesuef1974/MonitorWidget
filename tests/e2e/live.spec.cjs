@@ -34,7 +34,8 @@ test('مؤشر «مباشر» يعلن عند تغيّر الحالة فقط؛ �
 test('بنرات الخطأ تحمل role=alert: في المصدر كلها، وحيًّا عند تعذّر الاتصال', async ({ page }) => {
   const src = await (await page.request.get('/')).text();
   expect(src.match(/<div class="banner"(?![^>]*role=)/g)).toBeNull();
-  expect((src.match(/<div class="banner" role="alert">/g) || []).length).toBeGreaterThan(15);
+  expect((src.match(/<div class="banner" role="alert">/g) || []).length).toBeGreaterThan(1);
+  expect((src.match(/return nodata\("/g) || []).length).toBeGreaterThan(15);   // بنرات «تعذّر قراءة…» عبر دالة واحدة
 
   await page.route('**/api/cpu', route => route.fulfill({ status: 500, json: { error: 'x' } }));
   await page.goto('/#/cpu');
