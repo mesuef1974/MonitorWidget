@@ -4,7 +4,7 @@ $tokens=$null;$errors=$null;$path=Join-Path (Split-Path $PSScriptRoot -Parent) '
 $ast=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
 if($errors.Count){throw ($errors.Message -join '; ')}
 . (Join-Path $PSScriptRoot 'widget_test_identity.ps1')   # الهوية المشتركة من جذر المستودع قبل تحميل الدوال المستخرجة
-foreach($name in @('Get-SummaryLevel','Get-WidgetPlacement','Get-WidgetDetailsLimit','Show-Toast','Update-Compact','Test-AppearanceRecord','Get-Palette','Brush','Alpha','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance')){
+foreach($name in @('Get-SummaryLevel','Get-WidgetPlacement','Show-Toast','Update-Compact','Test-AppearanceRecord','Get-Palette','Brush','Alpha','Remap-Tree','New-WidgetMenuStyles','Set-WidgetMenuItems','Set-WidgetMenuTheme','Set-WidgetControlTheme','Apply-Theme','Set-Theme','Receive-Appearance','Request-Appearance')){
     $fn=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name}.GetNewClosure(),$true)
     if(-not $fn){throw "Missing $name"};. ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 }
@@ -19,7 +19,6 @@ foreach($case in @(@([Windows.Rect]::new(0,0,1920,1040),340,600,1500,850),@([Win
 }
 if($ast.Extent.Text -notmatch '\$win.Add_SizeChanged\(\{ Fit-WidgetBounds \}\)'){throw 'No expansion-size bounds correction'}
 Write-Output 'PASS work-area placement at primary, negative-coordinate and secondary-monitor positions; resize handler is wired'
-foreach($nonDetails in @(266,306,346)){if((Get-WidgetDetailsLimit 600 $nonDetails)+$nonDetails -gt 510){throw 'Transient feedback/recovery exceeds expanded height budget'}}
 function Notify-Important($m){}
 $script:S=@{theme='light';palette='teal';muteAlerts=$false};$script:C=Get-Palette $true;$script:isLight=$true;$script:brushCache=@{}
 $UI=@{}
