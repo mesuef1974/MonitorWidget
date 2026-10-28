@@ -68,7 +68,8 @@ test('الدرج الضيق: الفتح ينقل التركيز إلى أول ر
   // النقر على رابط في الدرج المفتوح ينتقل ويغلقه
   await btn.click();
   await page.locator('#nav a[href="#/health"]').click();
+  // التجزئة تتغيّر عند النقر قبل معالج hashchange، ولوحات الصفحة السابقة ما زالت قائمة؛ فالانتظار على حالة الدرج نفسها
+  await expect(btn).toHaveAttribute('aria-expanded', 'false');
+  await expect(nav).not.toHaveClass(/open/);
   await page.waitForFunction(() => location.hash === '#/health' && document.querySelector('#main .panel'));
-  expect(await btn.getAttribute('aria-expanded')).toBe('false');
-  expect(await nav.evaluate(n => n.classList.contains('open'))).toBe(false);
 });
