@@ -20,9 +20,10 @@
 .bar .sub{color:var(--ink3);font-size:13.5px}
 .bar .grow{flex:1;min-width:0}
 .live{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2);padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
-.live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok);animation:pulse 2.2s infinite}
-.live.err i{background:var(--bad);animation:none}
-@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 55%,transparent)}70%,100%{box-shadow:0 0 0 8px transparent}}
+.live i{position:relative;width:7px;height:7px;border-radius:50%;background:var(--ok)}
+.live i::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--ok);opacity:.55;animation:pulse 2.2s infinite}   /* النبضة على عنصر شبه بـ transform/opacity (مركّبة) بدل box-shadow */
+.live.err i{background:var(--bad)}.live.err i::after{animation:none;opacity:0}
+@keyframes pulse{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(3.3);opacity:0}}
 .content{padding:var(--s5) var(--s6) 64px;width:100%;max-width:1760px;margin-inline:auto;display:flex;flex-wrap:wrap;gap:var(--s4);align-content:flex-start;align-items:stretch}   /* صفوف مرنة: البطاقات تتقاسم عرض السطر، ومتحاذية بالارتفاع */
 .btn.menu-btn{display:none}   /* .btn في components.css يأتي لاحقًا فيلزم رفع التخصيص */
 /* العرض: --span من 12؛ هو أساس العرض ووزن التمدد معًا، فأي فراغ في السطر يتقاسمه ما فيه من بطاقات (بلا فراغات ميتة) */

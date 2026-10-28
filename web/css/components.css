@@ -40,7 +40,8 @@ select.btn{appearance:none;padding-inline-end:12px}
 .kpi .v small{font-size:13px;color:var(--ink3);font-family:var(--f-ui);font-weight:400}
 .kpi .s{font-size:13px;color:var(--ink3)}
 .meter{height:5px;border-radius:5px;background:var(--raise);overflow:hidden;margin-top:4px}
-.meter>i{display:block;height:100%;border-radius:5px;background:var(--accent);transition:width .6s var(--ease)}
+.meter>i{display:block;height:100%;width:100%;border-radius:5px;background:var(--accent);transform:scaleX(var(--p,0));transform-origin:0 50%;transition:transform .6s var(--ease)}   /* النسبة في --p: scaleX مركّب بدل width */
+html[dir="rtl"] .meter>i{transform-origin:100% 50%}
 .meter.warn>i{background:var(--warn)}.meter.bad>i{background:var(--bad)}
 /* العدّادات */
 .gauges{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:var(--s3);align-content:center;flex:1}
@@ -51,6 +52,7 @@ select.btn{appearance:none;padding-inline-end:12px}
 .gauge .gl{font-size:13px;color:var(--ink2)}
 .gauge .gs{font-size:12.5px;color:var(--ink3);margin-top:-2px}
 .arc{transition:stroke-dashoffset .8s var(--ease),stroke .3s}
+.arc-glow{stroke-width:20;stroke-opacity:.22;stroke-linecap:round;transition:stroke-dashoffset .8s var(--ease),stroke .3s}   /* هالة القوس: حلقة أعرض شبه شفافة بدل مرشّح الظلّ المضمّن على القوس */
 /* ───────── الجداول والقوائم ───────── */
 .tbl{width:100%;border-collapse:collapse;font-size:13px}
 .tbl th.n{text-align:end}
