@@ -1,11 +1,11 @@
 /* ═══ tokens.css — المصدر الوحيد للألوان والمسافات والخطوط والطبقات؛ لا قيمة لونية خارج هذا الملف ═══ */
 /* ───────── Design tokens ─────────
    Direction: "instrument cluster" — warm graphite surfaces (same paper hue as the light mode, so both modes are one identity), one phosphor accent, hairline panels,
-   Fonts (owner's pick, 2026-10-27): Zain for headings (700), El Messiri for the nav list (500), Amiri for body text (400), Outfit for numerals (western digits only). Files local in web/fonts via fonts.css. Everything is a token. */
+   Fonts (owner's pick, 2026-10-28): Zain for every Arabic role, headings 700, nav list and body 400 (replacing El Messiri and Amiri, which read small and uneven at widget sizes), Outfit for numerals (western digits only). Files local in web/fonts via fonts.css. Everything is a token. */
 :root{
   --f-head:"Zain","Segoe UI Variable Display","Segoe UI",Tahoma,sans-serif;
-  --f-list:"El Messiri","Segoe UI Variable Text","Segoe UI",Tahoma,sans-serif;
-  --f-ui:"Amiri","Segoe UI Variable Text","Segoe UI",Tahoma,"Noto Sans Arabic",serif;
+  --f-list:"Zain","Segoe UI Variable Text","Segoe UI",Tahoma,sans-serif;
+  --f-ui:"Zain","Segoe UI Variable Text","Segoe UI",Tahoma,"Noto Sans Arabic",sans-serif;
   --f-num:"Outfit","Bahnschrift","Segoe UI Variable Display","Segoe UI",Tahoma,sans-serif;
   --f-mono:"Cascadia Mono",Consolas,monospace;
   --r-sm:8px;--r-md:12px;--r-lg:16px;
