@@ -35,6 +35,7 @@ select.btn{appearance:none;padding-inline-end:12px}
 /* ───────── المؤشرات والمقاييس ───────── */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:var(--s3);align-content:start;grid-auto-rows:minmax(0,132px)}
 .kpis.two{grid-template-columns:1fr 1fr}
+.kpis.gpu-freed{margin-block-start:var(--s3)}   /* مؤشر المحرَّر في صفحة الرسوميات بين المقاييس والزر */
 .kpi{padding:var(--s3) var(--s4);border:1px solid var(--line);border-radius:var(--r-md);background:var(--bg);display:flex;flex-direction:column;justify-content:center;gap:4px;min-width:0}
 .kpi .l{font-size:13px;color:var(--ink3)}
 .kpi .v{font-family:var(--f-num);font-variant-numeric:tabular-nums;font-size:clamp(22px,2.3vw,30px);white-space:nowrap;line-height:1.05;font-weight:600;display:flex;align-items:baseline;gap:5px;direction:ltr;justify-content:flex-end}

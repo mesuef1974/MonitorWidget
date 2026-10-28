@@ -7,10 +7,12 @@
 لا يُنهي هذا الملف أي عملية بنفسه ولا يلمس التعريف. المرور يجري في خيط لأنه يتجاوز 300 ms: POST يبدأه وGET يعرض حالته.
 
     ROUTES / post(route, body, invalidate)   POST /api/gpu-purge {"dwm": bool} يبدأ مرورًا واحدًا (409 إن كان مرور جارياً)
-    view()                                   حالة آخر تفريغ للواجهة (GET /api/gpu-purge)
+    view()                                   حالة آخر تفريغ للواجهة ومجموع ما حُرّر اليوم (GET /api/gpu-purge)
     purge(dwm)                               المرور نفسه (يُستدعى في خيط)
+    day_total(details)                       مجموع المحرَّر (NVIDIA + المشتركة) ومرّاته من نصوص سجل actions
 """
 import json
+import re
 import subprocess
 import threading
 import time
@@ -147,9 +149,38 @@ def purge(dwm=False):
             STATE["running"] = False
 
 
+_NV_RE = re.compile(r"before=([\d.]+) after=([\d.]+)")
+_SH_RE = re.compile(r"shared=(\d+)->(\d+)")
+
+
+def day_total(details):
+    """(مجموع المحرَّر بالميغابايت، عدد المرّات) من نصوص _record: NVIDIA من before/after والمشتركة من shared=a->b (السجل القديم بلا shared يُحسب NVIDIA وحدها)."""
+    total = 0
+    for d in details:
+        for rx in (_NV_RE, _SH_RE):
+            m = rx.search(d or "")
+            if m:
+                total += _freed(float(m.group(1)), float(m.group(2)))
+    return total, len(details)
+
+
+def _today():
+    """مجموع اليوم المحلي من جدول actions (قراءة خفيفة بالاتصال المستقل)؛ (0, 0) إن تعذّرت القاعدة."""
+    t = time.localtime()
+    start = int(time.mktime((t.tm_year, t.tm_mon, t.tm_mday, 0, 0, 0, 0, 0, -1)))
+    try:
+        with db.ro() as c:
+            rows = c.execute("SELECT detail FROM actions WHERE kind='gpupurge' AND ok=1 AND ts>=?", (start,)).fetchall()
+        return day_total([r[0] for r in rows])
+    except Exception:
+        errlog.swallowed()
+        return 0, 0
+
+
 def view():
     with _lock:
         v = dict(STATE)
+    v["todayFreedMB"], v["todayCount"] = _today()
     v["dwmOn"] = bool(space.get_elevated().get("dwm"))   # مفتاح المالك فقط (إعداد محلي سريع)؛ الجاهزية تظهر عند المحاولة
     return v
 

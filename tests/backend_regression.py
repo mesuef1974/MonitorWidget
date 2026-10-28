@@ -838,7 +838,8 @@ class GpuPurge(unittest.TestCase):
         self.shared = iter([(9000, 8000), (8800, 7900)])
         self.ollama = {"ok": True, "text": "لا نموذج محمّل في Ollama."}
         self.patches = [patch.object(self.gp, "_shared", lambda: next(self.shared)), patch.object(self.gp, "_ollama_unload", lambda: self.ollama),
-                        patch.object(self.gp.space, "get_elevated", lambda: {"dwm": True}), patch.object(self.gp.time, "sleep", lambda s: None)]
+                        patch.object(self.gp.space, "get_elevated", lambda: {"dwm": True}), patch.object(self.gp.time, "sleep", lambda s: None),
+                        patch.object(self.gp, "_today", lambda: (11604, 3))]
         for p in self.patches:
             p.start()
         self.addCleanup(patch.stopall)
@@ -882,6 +883,15 @@ class GpuPurge(unittest.TestCase):
         self.assertEqual(forgotten, [1])   # القياس الثاني بعد نسيان القراءة المخزّنة، لا من الذاكرة
         self.assertEqual(recorded[0][0], True)
         self.assertIn("shared=9000->8800", recorded[0][1])
+        self.assertEqual((v["todayFreedMB"], v["todayCount"]), (11604, 3))
+
+    def test_day_total_sums_nvidia_and_shared_from_action_details(self):
+        details = ["before=36.0 after=36.0 shared=13598->13574 dwm=0 LM Studio:x",
+                   "before=36.0 after=37.0 shared=13578->2010 dwm=1 dwm:أُعيد تشغيل مدير سطح المكتب.",
+                   "before=193.0 after=93.0 freed=100 LM Studio:قديم بلا مشتركة",
+                   "before=None after=None shared=None->None dwm=0"]
+        self.assertEqual(self.gp.day_total(details), (24 + 11568 + 100, 4))   # الزيادة في NVIDIA لا تُطرح، والقياس الغائب لا يُحسب
+        self.assertEqual(self.gp.day_total([]), (0, 0))
 
     def test_dwm_step_runs_only_through_the_fixed_task_after_the_owner_gate(self):
         tasks = []
