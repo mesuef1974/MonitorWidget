@@ -100,6 +100,7 @@ _TABLE = {
     "/api/actions": (_actions, None),
     "/api/space": (_space, None),
     "/api/space-preview": (lambda q: space.preview_status(q.get("kind", "")), None),   # تقدّم المعاينة الخلفية ونتيجتها
+    "/api/space-clean": (lambda q: space.clean_status(q.get("kind", "")), None),     # تقدّم التنظيف الفعلي ونتيجته (kind=all للتنظيف الجماعي)
     "/api/widget": (lambda q: widgetctl.status(), None),
     "/api/infra": (_infra, _E200),
     "/api/state": (lambda q: snapshot.state(), lambda e: "collect failed: %s" % e),

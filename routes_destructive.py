@@ -74,18 +74,13 @@ def confirm_required(route, body):
 
 
 def _space_confirmed(route, body, act, kind):
-    """تنظيف المساحة: الرمز مربوط أيضًا بالمعاينة التي رآها المستخدم (seen_mb جزء من المفتاح)، وتُعاد التجربة بعد قبول الرمز؛
-    مجموعة مرشّحين كبرت فوق التسامح تُرفض. يعيد None حين يجوز التنفيذ، وإلا ردّ الخطأ."""
+    """تنظيف المساحة: الرمز مربوط أيضًا بالمعاينة التي رآها المستخدم (seen_mb جزء من المفتاح). إعادة القياس بعد قبول الرمز
+    ورفضُ مجموعة مرشّحين كبرت فوق التسامح انتقلا إلى مهمة التنظيف الخلفية (space.clean_start) قبل أي حذف.
+    يعيد None حين يجوز البدء، وإلا ردّ الخطأ."""
     seen = body.get("seen_mb")
     if isinstance(seen, bool) or not isinstance(seen, (int, float)) or not 0 <= seen <= 1e12 or not math.isfinite(seen):
         return 400, {"error": "seen_mb required"}
-    r = confirm_required(route, body)
-    if r:
-        return r
-    cur = sum(space.dry_mb(k) for k in (space.BULK if act == "cleanall" else [kind]))   # معاينة حديثة (5 دقائق) تغني عن قياس متزامن قد يطول دقائق
-    if cur > seen * 1.25 + 50:
-        return 409, {"error": "candidates_changed", "seen_mb": seen, "now_mb": round(cur, 1)}
-    return None
+    return confirm_required(route, body)
 
 
 # ---------------------------------------------------------------- التنظيف اليدوي (محرّك CleanupEngine.ps1)
@@ -142,13 +137,12 @@ def _space(route, body):
         r = _space_confirmed(route, body, act, kind)
         if r:
             return r
-    if act == "cleanall":
-        out = [dict(kind=k, **space.clean(k, dry=False, src="manual")) for k in space.BULK]
-        return 200, {"ok": True, "mb": round(sum(o.get("mb", 0) for o in out), 1), "parts": out}
+    if act in ("cleanall", "clean"):   # الحذف في الخلفية؛ الصفحة تستطلع GET /api/space-clean
+        early = act == "clean" and kind == "winold" and body.get("early") is True
+        r = space.clean_start("all" if act == "cleanall" else kind, body["seen_mb"], early)
+        return (200 if r["ok"] else 409 if r.get("running") else 400), r
     if act == "preview":   # القياس في الخلفية؛ الصفحة تستطلع GET /api/space-preview
         return 200, space.preview_start(kind)
-    if act == "clean":
-        return 200, space.clean(kind, dry=False, early=(kind == "winold" and body.get("early") is True))
     return 400, {"error": "bad action"}
 
 

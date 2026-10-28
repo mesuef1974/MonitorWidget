@@ -394,35 +394,48 @@ class DestructiveRoutes(unittest.TestCase):
     def test_space_clean_needs_preview_then_confirm_bound_to_params(self):
         calls = []
 
-        def fake_clean(kind, dry=True, src="manual", early=False):
-            calls.append((kind, dry, src, early))
-            return {"mb": 10.0, "kind": kind, "dry": dry}
-        with patch.object(self.rd.space, "clean", fake_clean):
+        def fake_start(key, seen, early=False):
+            calls.append((key, seen, early))
+            return {"ok": True, "state": "running", "phase": "measure"}
+        with patch.object(self.rd.space, "clean_start", fake_start), \
+                patch.object(self.rd.space, "clean", lambda *a, **k: self.fail("the request must not measure or delete")):
             self.assertEqual(self.rd.post("/api/space", {"action": "clean", "kind": "temp"}), (400, {"error": "seen_mb required"}))
             self.assertEqual(self.rd.post("/api/space", {"action": "clean", "kind": "temp", "seen_mb": True})[0], 400)
             body = {"action": "clean", "kind": "temp", "seen_mb": 10}
             code, rep = self.rd.post("/api/space", body)
             self.assertEqual((code, rep["error"], rep["ttl"]), (428, "confirm_required", 120))
             self.assertTrue(rep["confirm"])
-            self.assertEqual(calls, [])                                                 # لا معاينة ولا تنظيف قبل الرمز
+            self.assertEqual(calls, [])                                                 # لا بدء قبل الرمز
             code2, rep2 = self.rd.post("/api/space", {**body, "seen_mb": 11, "confirm": rep["confirm"]})   # معاملات مختلفة
             self.assertEqual(code2, 428)
             self.assertNotEqual(rep2["confirm"], rep["confirm"])
             code3, rep3 = self.rd.post("/api/space", {**body, "confirm": "bogus"})
             self.assertEqual(code3, 428)
             code4, rep4 = self.rd.post("/api/space", {**body, "confirm": rep3["confirm"]})
-            self.assertEqual((code4, rep4["dry"]), (200, False))
-            self.assertEqual(calls, [("temp", True, "manual", False), ("temp", False, "manual", False)])   # تجربة بعد الرمز ثم التنفيذ
+            self.assertEqual((code4, rep4["state"]), (200, "running"))                 # يعود فورًا؛ القياس والحذف في المهمة
+            self.assertEqual(calls, [("temp", 10, False)])
             self.assertEqual(self.rd.post("/api/space", {**body, "confirm": rep3["confirm"]})[0], 428)    # الرمز استُهلك
 
-    def test_space_cleanall_refuses_grown_candidates(self):
-        with patch.object(self.rd.space, "clean", lambda kind, dry=True, src="manual", early=False: {"mb": 100.0}), \
-                patch.object(self.rd.space, "BULK", ("temp", "edgecache")):
-            body = {"action": "cleanall", "seen_mb": 50}                                # المعاينة رأت 50 والآن 200 > 50*1.25+50
+    def test_space_clean_start_keys_and_codes(self):
+        replies = {"edgecache": {"ok": False, "state": "error", "error": "clean already running", "running": "temp"},
+                   "nope": {"ok": False, "state": "error", "error": "غير مسموح"}}
+        calls = []
+
+        def fake_start(key, seen, early=False):
+            calls.append((key, early))
+            return replies.get(key, {"ok": True, "state": "running"})
+
+        def confirmed(body):
             code, rep = self.rd.post("/api/space", body)
             self.assertEqual(code, 428)
-            code, rep = self.rd.post("/api/space", {**body, "confirm": rep["confirm"]})
-            self.assertEqual((code, rep["error"], rep["now_mb"]), (409, "candidates_changed", 200.0))
+            return self.rd.post("/api/space", {**body, "confirm": rep["confirm"]})[0]
+        with patch.object(self.rd.space, "clean_start", fake_start):
+            self.assertEqual(confirmed({"action": "clean", "kind": "edgecache", "seen_mb": 1}), 409)   # تنظيف آخر يعمل
+            self.assertEqual(confirmed({"action": "clean", "kind": "nope", "seen_mb": 1}), 400)
+            self.assertEqual(confirmed({"action": "cleanall", "seen_mb": 1}), 200)
+            confirmed({"action": "clean", "kind": "winold", "seen_mb": 1, "early": True})
+            confirmed({"action": "clean", "kind": "temp", "seen_mb": 1, "early": True})                # early لـ Windows.old وحده
+        self.assertEqual(calls, [("edgecache", False), ("nope", False), ("all", False), ("winold", True), ("temp", False)])
 
     def test_space_safe_actions_need_no_confirm(self):
         with patch.object(self.rd.space, "preview_start", lambda kind: {"ok": True, "state": "running", "kind": kind}), \
@@ -692,6 +705,7 @@ class ReadRoutes(unittest.TestCase):
     def test_unknown_path_is_not_ours(self):
         self.assertIsNone(self.rr.get("/api/nope", {}))
         self.assertEqual(self.rr.get("/api/space-preview", {"kind": "never-started"}), (200, {"state": "none"}))
+        self.assertEqual(self.rr.get("/api/space-clean", {"kind": "never-started"}), (200, {"state": "none"}))
         self.assertNotIn("/api/healthz", self.rr.ROUTES)   # بلا مصادقة: يبقى في الخادم
 
     def test_ok_payload_gets_200(self):
@@ -959,6 +973,108 @@ class SpacePreviewJob(unittest.TestCase):
             self.wait(lambda: self.sp.preview_status("npmcache")["state"] == "error")
             self.assertIn("disk gone", self.sp.preview_status("npmcache")["error"])
             self.assertIsNone(self.sp.fresh_preview_mb("npmcache"))
+
+
+class SpaceCleanJob(unittest.TestCase):
+    """التنظيف الفعلي مهمة خلفية: البدء فوري، والقياس يسبق الحذف فيُرفض نموّ المرشّحين فوق التسامح بلا حذف، والمعاينة الحديثة تغني عن القياس،
+    والتوقّع المقاس يُمرَّر فلا يُقاس مرتين، ومهمة تنظيف واحدة في كل وقت، والحذف الحقيقي يُبلغ التقدّم. لا قاعدة حية ولا مسح لاحق."""
+
+    wait = SpacePreviewJob.wait
+
+    def setUp(self):
+        import space
+        self.sp = space
+        for d in (space._cj, space._pv):
+            d.clear()
+            self.addCleanup(d.clear)
+
+        def no_db():
+            raise RuntimeError("no database in tests")
+        for obj, name, fake in ((space, "_c", no_db), (space, "scan", lambda *a, **k: None), (space, "_setting", lambda k, d=None: d),
+                                (space.errlog, "swallowed", lambda *a, **k: None)):
+            pt = patch.object(obj, name, fake)
+            pt.start()
+            self.addCleanup(pt.stop)
+
+    def fake_impl(self, sizes, calls, gate=None):
+        def impl(kind, dry=True, src="manual", early=False, prog=None):
+            calls.append((kind, dry))
+            if prog is not None:
+                prog["dirs"], prog["files"], prog["mb"] = 50, 3, 1.5
+                if gate is not None and not dry:
+                    gate.wait(5)
+            return {"ok": True, "dry": dry, "mb": sizes[kind], "files": 3, "skipped": 0}
+        return impl
+
+    def test_single_clean_measures_once_then_deletes_in_background(self):
+        gate, calls = threading.Event(), []
+        with patch.object(self.sp, "_clean_impl", self.fake_impl({"temp": 12.0}, calls, gate)):
+            t0 = time.time()
+            r = self.sp.clean_start("temp", 12)
+            self.assertLess(time.time() - t0, 0.3)
+            self.assertEqual((r["ok"], r["state"]), (True, "running"))
+            self.wait(lambda: self.sp.clean_status("temp")["phase"] == "clean" and self.sp.clean_status("temp")["files"] == 3)
+            self.assertEqual(self.sp.clean_start("temp", 12)["state"], "running")      # المهمة نفسها تُعاد كما هي
+            busy = self.sp.clean_start("all", 12)
+            self.assertEqual((busy["ok"], busy["error"], busy["running"]), (False, "clean already running", "temp"))
+            gate.set()
+            self.wait(lambda: self.sp.clean_status("temp")["state"] == "done")
+            st = self.sp.clean_status("temp")
+        self.assertEqual((st["res"]["kind"], st["res"]["mb"], st["res"]["expectedMB"]), ("temp", 12.0, 12.0))
+        self.assertEqual(calls, [("temp", True), ("temp", False)])                      # قياس واحد ثم حذف واحد
+
+    def test_fresh_preview_stands_in_for_the_check(self):
+        calls, now = [], time.time()
+        self.sp._pv["temp"] = {"state": "done", "started": now, "ended": now, "dirs": 0, "files": 0, "mb": 9.0, "res": {"ok": True, "mb": 9.0}}
+        with patch.object(self.sp, "_clean_impl", self.fake_impl({"temp": 9.0}, calls)):
+            self.sp.clean_start("temp", 9)
+            self.wait(lambda: self.sp.clean_status("temp")["state"] == "done")
+        self.assertEqual(calls, [("temp", False)])
+        self.assertNotIn("temp", self.sp._pv)                                           # المعاينة لم تعد تصف المجلد
+
+    def test_grown_candidates_refused_before_any_delete(self):
+        calls = []
+        with patch.object(self.sp, "_clean_impl", self.fake_impl({"temp": 100.0, "edgecache": 100.0}, calls)), \
+                patch.object(self.sp, "BULK", ("temp", "edgecache")):
+            self.sp.clean_start("all", 50)                                              # رأى 50 والآن 200 > 50*1.25+50
+            self.wait(lambda: self.sp.clean_status("all")["state"] == "error")
+            st = self.sp.clean_status("all")
+        self.assertEqual((st["error"], st["now_mb"]), ("candidates_changed", 200.0))
+        self.assertEqual(calls, [("temp", True), ("edgecache", True)])
+
+    def test_clean_all_sums_parts_and_bad_keys_start_nothing(self):
+        calls = []
+        with patch.object(self.sp, "_clean_impl", self.fake_impl({"temp": 10.0, "edgecache": 5.5}, calls)), \
+                patch.object(self.sp, "BULK", ("temp", "edgecache")):
+            self.sp.clean_start("all", 15)
+            self.wait(lambda: self.sp.clean_status("all")["state"] == "done")
+            res = self.sp.clean_status("all")["res"]
+        self.assertEqual((res["ok"], res["mb"], [x["kind"] for x in res["parts"]]), (True, 15.5, ["temp", "edgecache"]))
+        self.assertEqual(calls, [("temp", True), ("edgecache", True), ("temp", False), ("edgecache", False)])
+        self.sp._cj.clear()
+        for bad in ("nope", None, ["temp"]):
+            self.assertEqual(self.sp.clean_start(bad, 1)["ok"], False)
+        self.assertEqual(self.sp._cj, {})
+        self.assertEqual(self.sp.clean_status("never"), {"state": "none"})
+
+    def test_real_temp_delete_reports_progress(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = time.time() - 3 * 86400
+            for i in range(30):
+                sub = os.path.join(d, "e%d" % (i % 3))
+                os.makedirs(sub, exist_ok=True)
+                f = os.path.join(sub, "f%02d.tmp" % i)
+                with open(f, "wb") as fh:
+                    fh.write(b"x" * 1024)
+                os.utime(f, (old, old))
+            keep = os.path.join(d, "fresh.tmp")
+            open(keep, "wb").close()                                                    # أحدث من يوم: يبقى
+            prog = {"dirs": 0, "files": 0, "mb": 0.0}
+            with patch.object(self.sp, "TEMP", d):
+                r = self.sp.clean("temp", dry=False, prog=prog, exp=0.03)
+            self.assertEqual((r["ok"], r["dry"], r["files"], r["expectedMB"]), (True, False, 30, 0.03))
+            self.assertEqual((prog["dirs"], prog["files"]), (4, 30))                     # الجذر وثلاثة مجلدات؛ كل ملف عولج
+            self.assertEqual([f for _, _, fs in os.walk(d) for f in fs], ["fresh.tmp"])
 
 
 if __name__ == "__main__":

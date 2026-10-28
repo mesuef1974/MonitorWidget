@@ -1,5 +1,5 @@
 """خادم ثوابت للفحص المرئي: يقدّم web/ كما هو، ويجيب عن GET /api/<مسار> من tests/fixtures/api/<مسار>.json
-(استجابات مسجَّلة من الخادم الحيّ ومنقّاة)، وعن أي POST بـ {"ok": true} عدا بدء معاينة المساحة. لا يلمس المرصد ولا قاعدة بياناته.
+(استجابات مسجَّلة من الخادم الحيّ ومنقّاة)، وعن أي POST بـ {"ok": true} عدا بدء معاينة المساحة وتنظيفها. لا يلمس المرصد ولا قاعدة بياناته.
 
     python tests/web_fixture_server.py [منفذ=47910]
 """
@@ -57,6 +57,9 @@ class H(http.server.SimpleHTTPRequestHandler):
                 body = {}
             if body.get("action") == "preview":   # المعاينة مهمة خلفية: تبدأ جارية، والنتيجة من GET /api/space-preview (space-preview.json)
                 return self._json(200, {"ok": True, "state": "running", "dirs": 0, "files": 0, "mb": 0, "elapsed": 0})
+            if body.get("action") in ("clean", "cleanall"):   # التنظيف كذلك: يبدأ بفحص ما قبل الحذف، والنتيجة من GET /api/space-clean
+                kind = body.get("kind") if body.get("action") == "clean" else "temp"
+                return self._json(200, {"ok": True, "state": "running", "phase": "measure", "kind": kind, "dirs": 0, "files": 0, "mb": 0, "elapsed": 0})
         return self._json(200, {"ok": True})
 
     def log_message(self, *a):

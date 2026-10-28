@@ -92,20 +92,21 @@ def set_auto(kind, on):
     return True
 
 
-def clean(kind, dry=True, src="manual", early=False):
+def clean(kind, dry=True, src="manual", early=False, prog=None, exp=None):
     """Preview (dry=True) or run a whitelisted cleanup. Every real run is audited: expected vs actual and free space before/after.
-    early: owner's explicit override of the Windows.old age gate (the UI asks for a separate confirmation)."""
+    early: owner's explicit override of the Windows.old age gate (the UI asks for a separate confirmation).
+    prog: the background clean job, updated while deleting; exp: the MB that job already measured, so it is not measured twice."""
     if dry:
         return _clean_impl(kind, True, src)
-    try:
-        exp = fresh_preview_mb(kind)
-        if exp is None:
-            exp = _clean_impl(kind, True, src).get("mb")
-    except Exception:
-        exp = None
+    if exp is None:
+        try:
+            exp = dry_mb(kind)
+        except Exception:
+            exp = None
     fb = shutil.disk_usage("C:\\").free
-    r = _clean_impl(kind, False, src + "-early" if early and kind == "winold" else src, early)
-    _pv.pop(kind, None)   # the preview no longer describes the folder
+    r = _clean_impl(kind, False, src + "-early" if early and kind == "winold" else src, early, prog)
+    if (_pv.get(kind) or {}).get("state") != "running":
+        _pv.pop(kind, None)   # the preview no longer describes the folder
     fa = shutil.disk_usage("C:\\").free
     r.update(expectedMB=exp, freeBeforeGB=round(fb / 2**30, 2), freeAfterGB=round(fa / 2**30, 2))
     if kind in ("dism", "claudearchive", "dockercompact"):
@@ -181,10 +182,79 @@ def fresh_preview_mb(kind, max_age=PREVIEW_TTL):
     return None
 
 
-def dry_mb(kind):
+def dry_mb(kind, prog=None):
     """What a clean of kind would free now: a fresh preview when there is one, else a synchronous measure."""
     mb = fresh_preview_mb(kind)
-    return mb if mb is not None else clean(kind, dry=True).get("mb", 0)
+    return mb if mb is not None else _clean_impl(kind, True, "manual", prog=prog).get("mb", 0)
+
+
+# ---------------- background clean: a real temp clean walks the same tens of thousands of folders as the preview, so after the
+# confirm token the POST only starts a thread. The job first re-measures against what the user saw (a fresh preview stands in),
+# refuses a candidate set that grew past the tolerance, then cleans kind by kind. One clean job at a time; the page polls
+# GET /api/space-clean?kind= (kind "all" for the bulk clean)
+_cj = {}            # key -> {state, started, ended, phase: measure|clean, kind, dirs, files, mb, res|error[, now_mb]}
+_cj_lock = threading.Lock()
+
+
+def grew(cur, seen):
+    return cur > seen * 1.25 + 50
+
+
+def _clean_run(key, kinds, seen, early, j):
+    try:
+        exp = {}
+        for k in kinds:
+            j.update(kind=k, dirs=0, files=0, mb=0.0)
+            exp[k] = dry_mb(k, j)
+        cur = sum(exp.values())
+        if grew(cur, seen):
+            j.update(error="candidates_changed", now_mb=round(cur, 1))
+            st = "error"
+        else:
+            j["phase"] = "clean"
+            out = []
+            for k in kinds:
+                j.update(kind=k, dirs=0, files=0, mb=0.0)
+                out.append(dict(kind=k, **clean(k, dry=False, src="manual", early=early, prog=j, exp=exp[k])))
+            j["res"] = out[0] if key != "all" else {"ok": True, "mb": round(sum(o.get("mb", 0) for o in out), 1), "parts": out}
+            st = "done"
+    except Exception as e:
+        errlog.swallowed()
+        j["error"] = str(e)[:120]
+        st = "error"
+    j["ended"] = time.time()
+    j["state"] = st   # last, as in the preview job
+
+
+def clean_status(key):
+    j = _cj.get(key)
+    if not j:
+        return {"state": "none"}
+    out = {k: j[k] for k in ("state", "phase", "kind", "dirs", "files", "mb")}
+    out["elapsed"] = round((j.get("ended") or time.time()) - j["started"], 1)
+    if j["state"] == "done":
+        out["res"] = j["res"]
+    elif j["state"] == "error":
+        out["error"] = j["error"]
+        if "now_mb" in j:
+            out["now_mb"] = j["now_mb"]
+    return out
+
+
+def clean_start(key, seen, early=False):
+    """Start a confirmed clean of key (a kind, or "all" for BULK) in the background. The same key already running is returned as is;
+    any other running clean refuses (two walks deleting in the same folders would double count and race)."""
+    if key != "all" and not _previewable(key):
+        return {"ok": False, "state": "error", "error": "غير مسموح"}
+    with _cj_lock:
+        run = next((k for k, j in _cj.items() if j["state"] == "running"), None)
+        if run is not None and run != key:
+            return {"ok": False, "state": "error", "error": "clean already running", "running": run}
+        if run is None:
+            kinds = tuple(BULK) if key == "all" else (key,)
+            j = _cj[key] = {"state": "running", "started": time.time(), "ended": None, "phase": "measure", "kind": kinds[0], "dirs": 0, "files": 0, "mb": 0.0}
+            threading.Thread(target=_clean_run, args=(key, kinds, seen, early, j), daemon=True).start()
+    return {"ok": True, **clean_status(key)}
 
 
 # ---------------- quarantine: reversible removal for riskier items (held 7 days, then purged)
@@ -630,10 +700,11 @@ def _cache_dirs():
     return out
 
 
-def _purge_dir(root):
-    """Delete files one by one; locked/in-use files are skipped (so a running Edge is fine). Returns (bytes freed, files removed, files skipped)."""
+def _purge_dir(root, prog=None):
+    """Delete files one by one; locked/in-use files are skipped (so a running Edge is fine). Returns (bytes freed, files removed, files skipped).
+    prog counts files handled and MB freed in this folder only; the caller sums across folders."""
     freed = n = skipped = 0
-    for dp, dn, links, fn in reversed(list(_walk(root))):
+    for dp, dn, links, fn in reversed(list(_walk(root, prog))):
         for f in fn:
             p = os.path.join(dp, f)
             try:
@@ -899,7 +970,7 @@ def _tick(prog, files, freed):
 
 def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped.
-    prog: a dict the dry walks update with folders walked, candidate files and MB found so far (the background preview job)."""
+    prog: a dict the walks update with folders walked, files handled and MB found or freed so far (the background preview and clean jobs)."""
     freed = n = skipped = locked = held = 0
     qkinds = _setting("space.quarantine_kinds", ["temp"]) if not dry else []
     if kind == "temp":
@@ -922,6 +993,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
                 os.remove(p)
             except OSError:
                 freed -= sz; n -= 1; skipped += 1
+            _tick(prog, n + skipped, freed + held)
     elif kind == "edgecache":
         for d in _cache_dirs():
             if dry:
@@ -938,14 +1010,14 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
                             skipped += 1; locked += sz
                         _tick(prog, n + skipped, freed)
             else:
-                b, k, sk = _purge_dir(d); freed += b; n += k; skipped += sk
+                b, k, sk = _purge_dir(d, prog); freed += b; n += k; skipped += sk
     elif kind == "npmcache":
         p = os.path.join(LA, "npm-cache")
         if os.path.isdir(p):
             if dry:
                 freed, n = _size(p, time.time() + 60)
             else:
-                freed, n, skipped = _purge_dir(p)
+                freed, n, skipped = _purge_dir(p, prog)
     elif kind == "swdist":
         if os.path.isdir(SWDIST):
             if dry:
