@@ -184,3 +184,51 @@ Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لص
         Write-ShellState 'edge' 'no_shell' 'Z:\nope\<>\shell_state.json' | Should -BeFalse
     }
 }
+
+Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF معزول، بلا نافذة)' {
+    BeforeAll {
+        Add-Type -AssemblyName PresentationFramework
+        foreach ($name in @('Brush', 'Surface-Brush', 'New-Text', 'New-Card', 'Gap', 'New-Ring', 'Ring-Arc', 'Set-Ring', 'Level-Brush', 'New-Chip', 'Set-Chip')) {
+            $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
+            if (-not $fn) { throw "Missing $name" }
+            . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
+        }
+        $script:S = @{ palette = 'teal'; opacity = .96 }; $script:C = Get-Palette $false; $script:brushCache = @{}; $script:backgroundSurfaces = New-Object Collections.ArrayList
+        function Set-CardOpacity($value) {}
+        function Save-Settings {}
+        $UI = @{ tiers = @{} }; $stack = New-Object Windows.Controls.StackPanel
+        # أقسام المصدر الفعلية (بلا معالجات خارجية): الرأس (الإشعار والتنبيهات)، شريط التأكيد، منزلقة العتامة
+        $section = { param($from, $to) $a = $source.IndexOf($from); if ($a -lt 0) { throw "marker $from" }; $b = $source.IndexOf($to, $a); if ($b -lt 0) { throw "marker $to" }; $source.Substring($a, $b - $a) }
+        . ([scriptblock]::Create((& $section '# ---- header' '# ---- rings')))
+        . ([scriptblock]::Create((& $section '# ---- inline confirm strip' '# ---- memory trim button')))
+        . ([scriptblock]::Create((& $section '# opacity slider 10%..100%' '$opItem = New-Object')))
+        $AP = [Windows.Automation.AutomationProperties]
+    }
+    It 'الحلقة تحمل اسمها وتقرأ القيمة والوحدة والتلميح بعد Set-Ring' {
+        $r = New-Ring 'الذاكرة الفعلية'
+        $AP::GetName($r.Val) | Should -Be 'الذاكرة الفعلية'
+        Set-Ring $r 47 'ok' '47' '%' 'متاح 16 GB من 32 GB'
+        $AP::GetName($r.Val) | Should -Be 'الذاكرة الفعلية: 47 %'
+        $AP::GetHelpText($r.Val) | Should -Be 'متاح 16 GB من 32 GB'
+        $r.Root.ToolTip | Should -Be 'متاح 16 GB من 32 GB'
+    }
+    It 'الرقاقة تقرأ «التسمية: القيمة»' {
+        $chip = New-Chip 'شلات'
+        $AP::GetName($chip.Val) | Should -Be 'شلات'
+        Set-Chip $chip '5'
+        $chip.Val.Text | Should -Be '5'
+        $AP::GetName($chip.Val) | Should -Be 'شلات: 5'
+    }
+    It 'الإشعار وتحذير المظهر مناطق حية مهذّبة، وتنبيه المعالج وسؤال التأكيد حازمان' {
+        $AP::GetLiveSetting($UI.toast) | Should -Be 'Polite'
+        $AP::GetLiveSetting($UI.appearanceWarning) | Should -Be 'Polite'
+        $AP::GetLiveSetting($UI.cpuAlert) | Should -Be 'Assertive'
+        $AP::GetLiveSetting($UI.confirmText) | Should -Be 'Assertive'
+    }
+    It 'منزلقة العتامة لها اسم ونص مساعد، وأزرار الرأس مسمّاة' {
+        $AP::GetName($opSl) | Should -Be 'عتامة الويدجت'
+        $AP::GetHelpText($opSl) | Should -Not -BeNullOrEmpty
+        $AP::GetName($UI.menuBtn) | Should -Be 'خيارات الويدجت'
+        $AP::GetName($UI.closeBtn) | Should -Be 'إخفاء الويدجت'
+    }
+}
