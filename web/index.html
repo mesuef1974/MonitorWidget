@@ -72,9 +72,14 @@ const tblNames = (b, title) => b.replace(/<table class="tbl"(?![^>]*aria-label)/
 const panel = (title, body, { cls = "", meta = "", id = "" } = {}) => `<section class="panel ${cls}" ${id ? `id="${id}"` : ""}><div class="ph"><h2>${esc(title)}</h2><span class="meta">${meta}</span></div>${tblScroll(tblNames(body, title))}</section>`;
 const skeleton = n => Array.from({ length: n }, (_, i) => `<section class="panel ${i % 3 === 0 ? "c8" : "c4"}"><div class="sk" style="height:14px;width:30%"></div><div class="sk" style="height:${120 + i % 3 * 40}px"></div></section>`).join("");
 
-/* Line/area chart with a hover crosshair and tooltip. series: [{name,color,v:[],fmt,dashed}] */
+/* Line/area chart with a crosshair and tooltip, by pointer or keyboard (←/→ a point, Shift ten points, Home/End the ends, Esc hides). series: [{name,color,v:[],fmt,dashed}]
+   الإتاحة: <svg role="img"> يحمل ملخصًا نصيًا (آخر قيمة وأدناها وأعلاها لكل سلسلة والمدى الزمني)، و.plot قابل للتركيز ويصفه الملخص، وقيم النقطة المختارة بلوحة المفاتيح تُعلن في منطقة حية مخفية */
+let chartSeq = 0;
 function chart(el, { t, series, min = 0, max = null, height = 190, yFmt = v => nf(v, 0), fill = true }) {
   const W = 1000, pad = 6, H = Math.max(height, Math.round((el.clientHeight || 0) - 24));
+  const title = el.closest(".panel")?.querySelector("h2")?.textContent || series.map(s => s.name).join(" و"), cid = "chart-" + (++chartSeq);
+  const stat = s => { const v = s.v.filter(x => x != null), f = s.fmt || yFmt; return v.length ? `${s.name}: آخر قيمة ${f(v[v.length - 1])}، أدنى ${f(Math.min(...v))}، أعلى ${f(Math.max(...v))}` : `${s.name}: لا بيانات`; };
+  const summary = t.length > 1 ? `رسم بياني «${title}» من ${hhmm(t[0])} إلى ${hhmm(t[t.length - 1])}، ${nf(t.length)} نقطة. ${series.map(stat).join(". ")}.` : `رسم بياني «${title}»: لا بيانات كافية.`;
   const all = series.flatMap(s => s.v.filter(x => x != null));
   const hi = max ?? (all.length ? Math.max(...all) * 1.12 || 1 : 1), lo = min;
   const n = t.length, X = i => n < 2 ? 0 : i / (n - 1) * W, Y = v => H - pad - (clamp(v, lo, hi) - lo) / (hi - lo || 1) * (H - pad * 2);
@@ -84,18 +89,36 @@ function chart(el, { t, series, min = 0, max = null, height = 190, yFmt = v => n
     return `<linearGradient id="g-${s.id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.color}" stop-opacity=".26"/><stop offset="1" stop-color="${s.color}" stop-opacity="0"/></linearGradient>${area}<path class="ln" d="${d}" stroke="${s.color}" ${s.dashed ? 'stroke-dasharray="6 5"' : ""}/>`;
   }).join("");
   const ys = [0, .25, .5, .75, 1], xs = [0, .25, .5, .75, 1];
-  el.innerHTML = `<div class="chart" style="height:${H}px;margin-block-end:22px"><div class="plot" style="height:${H}px"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px"><g class="grid">${ys.map(f => `<line x1="0" x2="${W}" y1="${(H - pad - f * (H - pad * 2)).toFixed(1)}" y2="${(H - pad - f * (H - pad * 2)).toFixed(1)}"/>`).join("")}</g>${paths}</svg>
-    ${ys.map(f => `<span class="yl" style="top:${((H - pad - f * (H - pad * 2)) / H * 100).toFixed(1)}%">${yFmt(lo + (hi - lo) * f)}</span>`).join("")}
-    ${n > 1 ? xs.map(f => `<span class="xl" style="left:${f * 100}%">${hhmm(t[Math.round(f * (n - 1))])}</span>`).join("") : ""}
-    <div class="cur"></div><div class="tip"></div></div></div>`;
-  const box = $(".plot", el), cur = $(".cur", box), tip = $(".tip", box);
-  box.addEventListener("pointermove", e => {
-    const r = box.getBoundingClientRect(), f = clamp((e.clientX - r.left) / r.width, 0, 1), i = Math.round(f * (n - 1));
-    cur.style.display = tip.style.display = "block"; cur.style.left = (i / (n - 1) * 100) + "%";
-    tip.innerHTML = `<b>${hhmm(t[i])}</b>` + series.map(s => `<div><span><i style="background:${s.color}"></i> ${esc(s.name)}</span><span class="num">${s.v[i] == null ? "—" : (s.fmt || yFmt)(s.v[i])}</span></div>`).join("");
-    const w = tip.offsetWidth; tip.style.left = clamp(f * r.width + 14, 0, r.width - w) + "px";
+  el.innerHTML = `<div class="chart" style="height:${H}px;margin-block-end:22px"><div class="plot" style="height:${H}px" tabindex="0" role="group" aria-label="${esc(title)}: الأسهم لقراءة القيم" aria-describedby="${cid}" aria-keyshortcuts="ArrowLeft ArrowRight Home End Escape"><svg id="${cid}" role="img" aria-label="${esc(summary)}" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="height:${H}px"><g class="grid">${ys.map(f => `<line x1="0" x2="${W}" y1="${(H - pad - f * (H - pad * 2)).toFixed(1)}" y2="${(H - pad - f * (H - pad * 2)).toFixed(1)}"/>`).join("")}</g>${paths}</svg>
+    ${ys.map(f => `<span class="yl" aria-hidden="true" style="top:${((H - pad - f * (H - pad * 2)) / H * 100).toFixed(1)}%">${yFmt(lo + (hi - lo) * f)}</span>`).join("")}
+    ${n > 1 ? xs.map(f => `<span class="xl" aria-hidden="true" style="left:${f * 100}%">${hhmm(t[Math.round(f * (n - 1))])}</span>`).join("") : ""}
+    <div class="cur"></div><div class="tip" aria-hidden="true"></div><span class="sr" aria-live="polite"></span></div></div>`;
+  if (n < 2) return;
+  const box = $(".plot", el), cur = $(".cur", box), tip = $(".tip", box), live = $(".sr", box);
+  // الأبعاد تُقرأ عند دخول المؤشر أو التركيز وعند تغيّر الحجم، لا في كل pointermove؛ والتلميح يُوضع يمين المؤشر في النصف الأيسر ويساره في النصف الأيمن فلا يحتاج قياس عرضه
+  let rect = null, at = -1;
+  const measure = () => { rect = box.getBoundingClientRect(); };
+  new ResizeObserver(measure).observe(box);
+  const row = i => `<b>${hhmm(t[i])}</b>` + series.map(s => `<div><span><i style="background:${s.color}"></i> ${esc(s.name)}</span><span class="num">${s.v[i] == null ? "—" : (s.fmt || yFmt)(s.v[i])}</span></div>`).join("");
+  const say = i => `${hhmm(t[i])}: ` + series.map(s => `${s.name} ${s.v[i] == null ? "لا قيمة" : (s.fmt || yFmt)(s.v[i])}`).join("، ");
+  const showAt = (i, announce) => {
+    at = clamp(i, 0, n - 1); if (!rect) measure(); const f = at / (n - 1), x = f * rect.width;
+    cur.style.display = tip.style.display = "block"; cur.style.left = (f * 100) + "%"; tip.innerHTML = row(at);
+    if (f < .6) { tip.style.left = (x + 14) + "px"; tip.style.right = "auto"; } else { tip.style.right = (rect.width - x + 14) + "px"; tip.style.left = "auto"; }
+    if (announce) live.textContent = say(at);
+  };
+  const hide = () => { cur.style.display = tip.style.display = "none"; at = -1; };
+  box.addEventListener("pointerenter", measure);
+  box.addEventListener("pointermove", e => { if (!rect) measure(); showAt(Math.round(clamp((e.clientX - rect.left) / rect.width, 0, 1) * (n - 1)), false); });
+  box.addEventListener("pointerleave", () => { if (document.activeElement !== box) hide(); });
+  box.addEventListener("focus", () => { measure(); showAt(n - 1, false); });
+  box.addEventListener("blur", () => { hide(); live.textContent = ""; });
+  box.addEventListener("keydown", e => {
+    const step = e.shiftKey ? Math.max(1, Math.round(n / 10)) : 1, cur0 = at < 0 ? n - 1 : at;
+    const next = { ArrowRight: cur0 + step, ArrowLeft: cur0 - step, Home: 0, End: n - 1 }[e.key];
+    if (next != null) showAt(next, true); else if (e.key === "Escape" && at >= 0) hide(); else return;
+    e.preventDefault();
   });
-  box.addEventListener("pointerleave", () => { cur.style.display = tip.style.display = "none"; });
 }
 const legend = items => `<div class="legend">${items.map(([c, l, d]) => `<span><i style="background:${c};${d ? "background:repeating-linear-gradient(90deg," + c + " 0 5px,transparent 5px 8px)" : ""}"></i>${esc(l)}</span>`).join("")}</div>`;
 const compact = (arr, n = 140) => { if (arr.length <= n) return arr.map((_, i) => i); const step = arr.length / n; return Array.from({ length: n }, (_, i) => Math.floor(i * step)); };
@@ -719,8 +742,8 @@ let seq = 0, inflight = false, curKey = "overview";
 async function show(first = false) {
   if (!first && inflight) return;
   const live = $("#live"), main = $("#main"), pg = page, key = curKey;
-  // a refresh must never disturb what the user is doing: skip while hovering a chart, typing, editing a form, or a dialog is open; focus on a button survives the redraw (refocus)
-  if (!first && (main.querySelector(".chart:hover") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || dirtyForm(main))) return;
+  // a refresh must never disturb what the user is doing: skip while hovering or keyboard-reading a chart, typing, editing a form, or a dialog is open; focus on a button survives the redraw (refocus)
+  if (!first && (main.querySelector(".chart:is(:hover,:focus-within)") || document.querySelector("dialog[open]") || main.contains(document.activeElement) && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) || dirtyForm(main))) return;
   const my = ++seq; inflight = true;
   try {
     const data = await pg.load();
