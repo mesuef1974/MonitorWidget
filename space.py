@@ -821,7 +821,7 @@ def _winold_task_ready():
 
 # ---------------- fixed elevated cleanup tasks (wintemp / swdist / dism): the server never runs them itself.
 # The owner registers the tasks once with the protected installer, and switches each kind on/off here (setting "space.elevated").
-ELEVATED = ("wintemp", "swdist", "dism", "winold")
+ELEVATED = ("wintemp", "swdist", "dism", "winold", "dwm")   # dwm: مفتاحه في صفحة الرسوميات (gpupurge)
 _etask = {}   # task name -> {"t", "ok", "why"} cached 60 s
 
 

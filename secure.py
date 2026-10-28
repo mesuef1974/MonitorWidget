@@ -34,7 +34,9 @@ ADMIN_PROBE = os.path.join(OUT, "admin_probe.json")
 WINOLD_TASKS = {"normal": "MonitorWidget-WinOld", "early": "MonitorWidget-WinOld-Early"}   # fixed elevated tasks; the server never deletes Windows.old itself
 WINOLD_RESULT = os.path.join(OUT, "winold_result.json")
 # fixed elevated cleanup tasks (wintemp / swdist / dism): the limited server only triggers them and reads the result file
-CLEAN_TASKS = {"wintemp": "MonitorWidget-Clean-WinTemp", "swdist": "MonitorWidget-Clean-SwDist", "dism": "MonitorWidget-Clean-Dism"}
+# dwm: إعادة تشغيل مدير سطح المكتب لتحرير ذاكرة الرسوميات المشتركة (gpu_dwm_restart.ps1؛ يطلبها gpupurge بتأكيد المالك)
+CLEAN_TASKS = {"wintemp": "MonitorWidget-Clean-WinTemp", "swdist": "MonitorWidget-Clean-SwDist", "dism": "MonitorWidget-Clean-Dism",
+               "dwm": "MonitorWidget-Gpu-Dwm"}
 CLEAN_SCRIPT = os.path.join(BIN, "elevated_clean.ps1")
 
 

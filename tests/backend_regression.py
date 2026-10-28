@@ -826,20 +826,29 @@ class IntegrityCache(unittest.TestCase):
 
 
 class GpuPurge(unittest.TestCase):
-    """gpupurge.py بلا خادم ولا قاعدة ولا nvidia-smi: POST يبدأ مرورًا واحدًا في خيط ويرفض التداخل بـ 409، والمرور يقيس قبل وبعد
-    عبر gpuwatch ويُخرج النماذج عبر explain.unload ويسجّل النتيجة؛ GET يعرض الحالة؛ الخطأ يُحفظ ويحرّر علم التشغيل."""
+    """gpupurge.py بلا خادم ولا قاعدة ولا nvidia-smi ولا شبكة: POST يبدأ مرورًا واحدًا في خيط ويرفض التداخل بـ 409، والمرور العام
+    يقيس NVIDIA والمشتركة قبل وبعد ويُخرج نماذج LM Studio وOllama؛ dwm خطوة لا تجري إلا بطلب صريح وعبر المهمة الثابتة بعد مفتاح المالك؛
+    GET يعرض الحالة ومفتاح dwm؛ الخطأ يُحفظ ويحرّر علم التشغيل."""
 
     def setUp(self):
         import gpupurge
         self.gp = gpupurge
-        self.gp.STATE.update(running=False, ts=None, beforeMB=None, afterMB=None, freedMB=None, text=None, err=None)
+        self.gp.STATE.update(running=False, ts=None, beforeMB=None, afterMB=None, freedMB=None, sharedBeforeMB=None, sharedAfterMB=None,
+                             sharedFreedMB=None, dwmMB=None, dwm=False, steps=[], text=None, err=None)
+        self.shared = iter([(9000, 8000), (8800, 7900)])
+        self.ollama = {"ok": True, "text": "لا نموذج محمّل في Ollama."}
+        self.patches = [patch.object(self.gp, "_shared", lambda: next(self.shared)), patch.object(self.gp, "_ollama_unload", lambda: self.ollama),
+                        patch.object(self.gp.space, "get_elevated", lambda: {"dwm": True}), patch.object(self.gp.time, "sleep", lambda s: None)]
+        for p in self.patches:
+            p.start()
+        self.addCleanup(patch.stopall)
 
     def test_post_starts_one_pass_and_refuses_overlap(self):
         started, invalidated = [], []
 
         class FakeThread:
             def __init__(self, target=None, args=(), daemon=False):
-                started.append(target.__name__)
+                started.append((target.__name__, args))
 
             def start(self):
                 pass
@@ -847,26 +856,60 @@ class GpuPurge(unittest.TestCase):
             self.assertIsNone(self.gp.post("/api/trim-memory", {}))
             self.assertEqual(self.gp.post("/api/gpu-purge", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
             self.assertTrue(self.gp.STATE["running"])
-            self.assertEqual(self.gp.post("/api/gpu-purge", {}), (409, {"error": "gpu purge already running"}))
-        self.assertEqual(started, ["purge"])
+            self.assertEqual(self.gp.post("/api/gpu-purge", {"dwm": True}), (409, {"error": "gpu purge already running"}))
+            self.gp.STATE["running"] = False
+            self.assertEqual(self.gp.post("/api/gpu-purge", {"dwm": True}), (200, {"ok": True}))
+        self.assertEqual(started, [("purge", (False,)), ("purge", (True,))])
         self.assertEqual(invalidated, [1])
         self.assertEqual(self.gp.ROUTES, ("/api/gpu-purge",))
 
-    def test_purge_measures_before_and_after_and_records(self):
-        reads, recorded, forgotten = iter([{"vram": 5120.0}, {"vram": 1536.4}]), [], []
+    def test_purge_measures_all_cards_unloads_models_and_never_touches_dwm_by_default(self):
+        reads, recorded, forgotten, tasks = iter([{"vram": 5120.0}, {"vram": 1536.4}]), [], [], []
         self.gp.STATE["running"] = True
         with patch.object(self.gp.gpuwatch, "live_info", lambda: next(reads)), \
                 patch.object(self.gp.gpuwatch, "invalidate_live", lambda: forgotten.append(1)), \
                 patch.object(self.gp.explain, "unload", lambda: {"ok": True, "text": "أُخرج 1 نموذج"}), \
-                patch.object(self.gp.time, "sleep", lambda s: None), \
+                patch.object(self.gp.space, "run_fixed_task", lambda *a: tasks.append(a)), \
                 patch.object(self.gp, "_record", lambda ok, detail: recorded.append((ok, detail))):
             self.gp.purge()
         v = self.gp.view()
         self.assertFalse(v["running"])
-        self.assertEqual((v["beforeMB"], v["afterMB"], v["freedMB"], v["text"], v["err"]), (5120.0, 1536.4, 3584, "أُخرج 1 نموذج", None))
+        self.assertEqual((v["beforeMB"], v["afterMB"], v["freedMB"], v["err"]), (5120.0, 1536.4, 3584, None))
+        self.assertEqual((v["sharedBeforeMB"], v["sharedAfterMB"], v["sharedFreedMB"], v["dwmMB"], v["dwm"], v["dwmOn"]), (9000, 8800, 200, 7900, False, True))
+        self.assertEqual([s["name"] for s in v["steps"]], ["LM Studio", "Ollama"])
+        self.assertEqual(v["text"], "أُخرج 1 نموذج لا نموذج محمّل في Ollama.")
+        self.assertEqual(tasks, [])   # dwm لا يُمسّ بلا طلب صريح
         self.assertEqual(forgotten, [1])   # القياس الثاني بعد نسيان القراءة المخزّنة، لا من الذاكرة
         self.assertEqual(recorded[0][0], True)
-        self.assertIn("freed=3584", recorded[0][1])
+        self.assertIn("shared=9000->8800", recorded[0][1])
+
+    def test_dwm_step_runs_only_through_the_fixed_task_after_the_owner_gate(self):
+        tasks = []
+        self.gp.STATE["running"] = True
+        with patch.object(self.gp.gpuwatch, "live_info", lambda: None), \
+                patch.object(self.gp.gpuwatch, "invalidate_live", lambda: None), \
+                patch.object(self.gp.explain, "unload", lambda: {"ok": True, "text": "لا نموذج"}), \
+                patch.object(self.gp.space, "elevated_gate", lambda k: None), \
+                patch.object(self.gp.space, "run_fixed_task", lambda task, res, t: tasks.append((task, t)) or ({"ok": True, "state": "done"}, None)), \
+                patch.object(self.gp, "_record", lambda ok, detail: None):
+            self.gp.purge(True)
+        v = self.gp.view()
+        self.assertEqual(tasks, [("MonitorWidget-Gpu-Dwm", self.gp.DWM_TIMEOUT_S)])
+        self.assertEqual((v["steps"][-1]["name"], v["steps"][-1]["ok"], v["dwm"], v["err"]), ("dwm", True, True, None))
+
+    def test_dwm_step_refused_by_the_owner_switch_runs_nothing(self):
+        tasks = []
+        self.gp.STATE["running"] = True
+        with patch.object(self.gp.gpuwatch, "live_info", lambda: None), \
+                patch.object(self.gp.gpuwatch, "invalidate_live", lambda: None), \
+                patch.object(self.gp.explain, "unload", lambda: {"ok": True, "text": "لا نموذج"}), \
+                patch.object(self.gp.space, "elevated_gate", lambda k: {"ok": False, "error": "معطّل من الإعدادات"}), \
+                patch.object(self.gp.space, "run_fixed_task", lambda *a: tasks.append(a)), \
+                patch.object(self.gp, "_record", lambda ok, detail: None):
+            self.gp.purge(True)
+        v = self.gp.view()
+        self.assertEqual(tasks, [])
+        self.assertEqual((v["running"], v["err"]), (False, "معطّل من الإعدادات"))
 
     def test_purge_without_nvidia_smi_or_with_failure_keeps_state_consistent(self):
         recorded = []
@@ -874,18 +917,18 @@ class GpuPurge(unittest.TestCase):
         with patch.object(self.gp.gpuwatch, "live_info", lambda: None), \
                 patch.object(self.gp.gpuwatch, "invalidate_live", lambda: None), \
                 patch.object(self.gp.explain, "unload", lambda: {"ok": False, "err": "تعذّر التفريغ آلياً"}), \
-                patch.object(self.gp.time, "sleep", lambda s: None), \
                 patch.object(self.gp, "_record", lambda ok, detail: recorded.append(ok)):
             self.gp.purge()
         v = self.gp.view()
         self.assertEqual((v["running"], v["beforeMB"], v["freedMB"], v["err"]), (False, None, None, "تعذّر التفريغ آلياً"))
         self.assertEqual(recorded, [False])
 
-    def test_purge_exception_is_stored_and_releases_running_flag(self):
+    def test_step_exception_is_stored_and_releases_running_flag(self):
         def boom():
             raise RuntimeError("lm studio down")
         self.gp.STATE["running"] = True
         with patch.object(self.gp.gpuwatch, "live_info", lambda: {"vram": 100.0}), \
+                patch.object(self.gp.gpuwatch, "invalidate_live", lambda: None), \
                 patch.object(self.gp.explain, "unload", boom), \
                 patch.object(self.gp, "_record", lambda ok, detail: None):
             self.gp.purge()
@@ -893,6 +936,38 @@ class GpuPurge(unittest.TestCase):
         self.assertFalse(v["running"])
         self.assertEqual(v["err"], "lm studio down")
         self.assertEqual(v["beforeMB"], 100.0)
+
+    def test_ollama_unload_asks_each_loaded_model_to_leave_and_tolerates_no_service(self):
+        import urllib.error
+
+        class Resp:
+            def __init__(self, body=b"{}"):
+                self.body = body
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self, *a):
+                return self.body
+        calls = []
+
+        def fake(req, timeout=None):
+            url = req if isinstance(req, str) else req.full_url
+            calls.append((url, None if isinstance(req, str) else req.data))
+            return Resp(b'{"models": [{"name": "qwen3:8b"}, {"model": "llama3"}]}') if url.endswith("/api/ps") else Resp()
+        self.patches[1].stop()   # الدالة الحقيقية هنا، والشبكة مستبدلة بالكامل
+        with patch.object(self.gp.urllib.request, "urlopen", fake):
+            r = self.gp._ollama_unload()
+        self.assertEqual(r, {"ok": True, "text": "أُخرج 2 نموذج من Ollama."})
+        self.assertEqual([json.loads(d) for u, d in calls if d], [{"model": "qwen3:8b", "keep_alive": 0}, {"model": "llama3", "keep_alive": 0}])
+
+        def down(req, timeout=None):
+            raise urllib.error.URLError("refused")
+        with patch.object(self.gp.urllib.request, "urlopen", down):
+            self.assertEqual(self.gp._ollama_unload(), {"ok": True, "text": "Ollama غير مشغّل."})
 
 
 class GpuMiniView(unittest.TestCase):
