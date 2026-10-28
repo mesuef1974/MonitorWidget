@@ -731,7 +731,7 @@ class ReadRoutes(unittest.TestCase):
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         called = set(re.findall(r'api\("(/api/[^"?]+)"', page)) | set(re.findall(r"api\(`(/api/[^`?]+)`", page))
         posted = set()
-        for m in ("routes_destructive", "memtrim", "routes_policy", "routes_settings", "shellwin", "widgetctl"):
+        for m in ("routes_destructive", "memtrim", "routes_policy", "routes_settings", "shellwin", "widgetctl", "gpupurge"):
             posted |= set(__import__(m).ROUTES)
         missing = sorted(p for p in called if p not in self.rr.ROUTES and p not in posted and p not in ("/api/ticket", "/api/session/logout", "/api/page-open", "/api/explain", "/api/explain-errors", "/api/llm-unload", "/api/shutdown"))
         self.assertEqual(missing, [])
@@ -807,6 +807,76 @@ class IntegrityCache(unittest.TestCase):
         self.assertNotIn("infra.integrity(rc)", server)
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         self.assertIn('dbh.integrity === "pending" ? "قيد الفحص"', page)
+
+
+class GpuPurge(unittest.TestCase):
+    """gpupurge.py بلا خادم ولا قاعدة ولا nvidia-smi: POST يبدأ مرورًا واحدًا في خيط ويرفض التداخل بـ 409، والمرور يقيس قبل وبعد
+    عبر gpuwatch ويُخرج النماذج عبر explain.unload ويسجّل النتيجة؛ GET يعرض الحالة؛ الخطأ يُحفظ ويحرّر علم التشغيل."""
+
+    def setUp(self):
+        import gpupurge
+        self.gp = gpupurge
+        self.gp.STATE.update(running=False, ts=None, beforeMB=None, afterMB=None, freedMB=None, text=None, err=None)
+
+    def test_post_starts_one_pass_and_refuses_overlap(self):
+        started, invalidated = [], []
+
+        class FakeThread:
+            def __init__(self, target=None, args=(), daemon=False):
+                started.append(target.__name__)
+
+            def start(self):
+                pass
+        with patch.object(self.gp.threading, "Thread", FakeThread):
+            self.assertIsNone(self.gp.post("/api/trim-memory", {}))
+            self.assertEqual(self.gp.post("/api/gpu-purge", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
+            self.assertTrue(self.gp.STATE["running"])
+            self.assertEqual(self.gp.post("/api/gpu-purge", {}), (409, {"error": "gpu purge already running"}))
+        self.assertEqual(started, ["purge"])
+        self.assertEqual(invalidated, [1])
+        self.assertEqual(self.gp.ROUTES, ("/api/gpu-purge",))
+
+    def test_purge_measures_before_and_after_and_records(self):
+        reads, recorded, forgotten = iter([{"vram": 5120.0}, {"vram": 1536.4}]), [], []
+        self.gp.STATE["running"] = True
+        with patch.object(self.gp.gpuwatch, "live_info", lambda: next(reads)), \
+                patch.object(self.gp.gpuwatch, "invalidate_live", lambda: forgotten.append(1)), \
+                patch.object(self.gp.explain, "unload", lambda: {"ok": True, "text": "أُخرج 1 نموذج"}), \
+                patch.object(self.gp.time, "sleep", lambda s: None), \
+                patch.object(self.gp, "_record", lambda ok, detail: recorded.append((ok, detail))):
+            self.gp.purge()
+        v = self.gp.view()
+        self.assertFalse(v["running"])
+        self.assertEqual((v["beforeMB"], v["afterMB"], v["freedMB"], v["text"], v["err"]), (5120.0, 1536.4, 3584, "أُخرج 1 نموذج", None))
+        self.assertEqual(forgotten, [1])   # القياس الثاني بعد نسيان القراءة المخزّنة، لا من الذاكرة
+        self.assertEqual(recorded[0][0], True)
+        self.assertIn("freed=3584", recorded[0][1])
+
+    def test_purge_without_nvidia_smi_or_with_failure_keeps_state_consistent(self):
+        recorded = []
+        self.gp.STATE["running"] = True
+        with patch.object(self.gp.gpuwatch, "live_info", lambda: None), \
+                patch.object(self.gp.gpuwatch, "invalidate_live", lambda: None), \
+                patch.object(self.gp.explain, "unload", lambda: {"ok": False, "err": "تعذّر التفريغ آلياً"}), \
+                patch.object(self.gp.time, "sleep", lambda s: None), \
+                patch.object(self.gp, "_record", lambda ok, detail: recorded.append(ok)):
+            self.gp.purge()
+        v = self.gp.view()
+        self.assertEqual((v["running"], v["beforeMB"], v["freedMB"], v["err"]), (False, None, None, "تعذّر التفريغ آلياً"))
+        self.assertEqual(recorded, [False])
+
+    def test_purge_exception_is_stored_and_releases_running_flag(self):
+        def boom():
+            raise RuntimeError("lm studio down")
+        self.gp.STATE["running"] = True
+        with patch.object(self.gp.gpuwatch, "live_info", lambda: {"vram": 100.0}), \
+                patch.object(self.gp.explain, "unload", boom), \
+                patch.object(self.gp, "_record", lambda ok, detail: None):
+            self.gp.purge()
+        v = self.gp.view()
+        self.assertFalse(v["running"])
+        self.assertEqual(v["err"], "lm studio down")
+        self.assertEqual(v["beforeMB"], 100.0)
 
 
 if __name__ == "__main__":

@@ -254,7 +254,7 @@ function Load-Thr($t) {
 }
 function Lvl([double]$v, [double]$w, [double]$b) { if ($v -ge $b) { 'bad' } elseif ($v -ge $w) { 'warn' } else { 'ok' } }
 
-$IW = 294  # Approved350DIPportrait includes28DIPpadding and28DIPshadow margin
+$IW = 323  # Approved385DIPportrait (350 widened 10% on 28/10/2026) includes28DIPpadding and28DIPshadow margin
 
 # ------------------------------------------------------------------ window skeleton
 $win = New-Object Windows.Window
@@ -556,9 +556,9 @@ $UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.F
 [void]$stack.Children.Add($UI.restoredBody);[void]$stack.Children.Add($foot)
 function Set-RestoredLayout([double]$height=0){
  if($height -le 0){$height=if($script:widgetWorkHeightOverride){$script:widgetWorkHeightOverride}elseif(Get-Command Get-WidgetWorkArea -ErrorAction SilentlyContinue){(Get-WidgetWorkArea).Height}else{[Windows.SystemParameters]::WorkArea.Height}}
- $natural=56.0;foreach($node in @($UI.restoredMetrics,$UI.restoredActions)+@($stack.Children|Where-Object {$_ -ne $UI.restoredBody})){$node.Measure([Windows.Size]::new(294,[double]::PositiveInfinity));$natural+=$node.DesiredSize.Height};$script:restoredPortraitHeight=$natural
- # Same reference breakpoint:350DIPportrait at1150DIPusableheight,660DIPtwo columns below it.
- $wide=$height -lt 1150 -or $height -lt ($natural+12);$width=if($wide){660}else{350};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
+ $natural=56.0;foreach($node in @($UI.restoredMetrics,$UI.restoredActions)+@($stack.Children|Where-Object {$_ -ne $UI.restoredBody})){$node.Measure([Windows.Size]::new(323,[double]::PositiveInfinity));$natural+=$node.DesiredSize.Height};$script:restoredPortraitHeight=$natural
+ # Same reference breakpoint:385DIPportrait at1150DIPusableheight,726DIPtwo columns below it (both +10% on 28/10/2026).
+ $wide=$height -lt 1150 -or $height -lt ($natural+12);$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
  $grid=$UI.restoredBody;$grid.ColumnDefinitions.Clear();$grid.RowDefinitions.Clear()
  if($wide){foreach($x in 1..2){$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c)};$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r);[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,1);[Windows.Controls.Grid]::SetRow($UI.restoredActions,0);$UI.restoredMetrics.Margin='0,0,14,0';$UI.chart.Height=86}
  else{$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c);foreach($x in 1..2){$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r)};[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,0);[Windows.Controls.Grid]::SetRow($UI.restoredActions,1);$UI.restoredMetrics.Margin='0';$UI.chart.Height=92}
@@ -949,7 +949,7 @@ function Open-Dash([string]$tk) {
             # نافذة بلا إطار بحواف مستديرة مثل الويدجت (WebView2)؛ المقاس والموضع بالبكسل الفعلي
             $wa = [System.Windows.SystemParameters]::WorkArea
             $sc = [Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11
-            $pw = [int]([Math]::Max(900, $wa.Width * $sc - 490)); $ph = [int]($wa.Height * $sc)
+            $pw = [int]([Math]::Max(900, $wa.Width * $sc - 530)); $ph = [int]($wa.Height * $sc)
             $px = [int]($wa.Left * $sc); $py = [int]($wa.Top * $sc)
             Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$shell`"", '-Url', "`"$url`"", '-X', $px, '-Y', $py, '-W', $pw, '-H', $ph
             Log ('open: shell at ' + $px + ',' + $py + ' size ' + $pw + 'x' + $ph)
@@ -957,7 +957,7 @@ function Open-Dash([string]$tk) {
             # نفس منطق الخادم: منطقة العمل الفعلية ناقص مساحة الويدجت، والبدء من الركن الأعلى الأيسر (بالبكسل الفعلي)
             $wa = [System.Windows.SystemParameters]::WorkArea
             $sc = [Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11
-            $pw = [int]([Math]::Max(900, $wa.Width * $sc - 490)); $ph = [int]($wa.Height * $sc - 40)  # 40: شريط العنوان
+            $pw = [int]([Math]::Max(900, $wa.Width * $sc - 530)); $ph = [int]($wa.Height * $sc - 40)  # 40: شريط العنوان
             $px = [int]($wa.Left * $sc); $py = [int]($wa.Top * $sc)
             $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'; New-Item -ItemType Directory -Force -Path $prof | Out-Null
             Start-Bg '/api/shell' @{ engine = 'edge'; reason = $why } {} { param($m) Log ('open: shell state ' + $m) }   # صفحة الصحة تعرض سبب السقوط

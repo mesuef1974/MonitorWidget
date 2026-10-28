@@ -20,7 +20,8 @@ import shellwin             # البند 6/هـ: نافذة التطبيق وغ�
 import widgetctl            # البند 6/و: ويدجت سطح المكتب (يعمل/ظاهر، إيقاف آمن، تشغيل، إعادة إلى الشاشة)
 import snapshot             # البند 6/ز: القياسات الأصلية والجامع الثقيل وذاكرته والخيوط الخلفية وحمولتا state/mini
 import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 # one-time tickets replace the token in URLs: the window opens with ?k=<ticket>, which is consumed once and then
 # exchanged for an HttpOnly session cookie. The long-lived token never appears on a command line.
