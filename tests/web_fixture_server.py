@@ -1,5 +1,5 @@
 """خادم ثوابت للفحص المرئي: يقدّم web/ كما هو، ويجيب عن GET /api/<مسار> من tests/fixtures/api/<مسار>.json
-(استجابات مسجَّلة من الخادم الحيّ ومنقّاة)، وعن أي POST بـ {"ok": true}. لا يلمس المرصد ولا قاعدة بياناته.
+(استجابات مسجَّلة من الخادم الحيّ ومنقّاة)، وعن أي POST بـ {"ok": true} عدا بدء معاينة المساحة. لا يلمس المرصد ولا قاعدة بياناته.
 
     python tests/web_fixture_server.py [منفذ=47910]
 """
@@ -49,8 +49,14 @@ class H(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         n = int(self.headers.get("Content-Length") or 0)
-        if n:
-            self.rfile.read(n)
+        raw = self.rfile.read(n) if n else b""
+        if urlparse(self.path).path == "/api/space":
+            try:
+                body = json.loads(raw or b"{}")
+            except ValueError:
+                body = {}
+            if body.get("action") == "preview":   # المعاينة مهمة خلفية: تبدأ جارية، والنتيجة من GET /api/space-preview (space-preview.json)
+                return self._json(200, {"ok": True, "state": "running", "files": 0, "mb": 0, "elapsed": 0})
         return self._json(200, {"ok": True})
 
     def log_message(self, *a):

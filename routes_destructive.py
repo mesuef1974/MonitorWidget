@@ -82,7 +82,7 @@ def _space_confirmed(route, body, act, kind):
     r = confirm_required(route, body)
     if r:
         return r
-    cur = sum(space.clean(k, dry=True).get("mb", 0) for k in (space.BULK if act == "cleanall" else [kind]))
+    cur = sum(space.dry_mb(k) for k in (space.BULK if act == "cleanall" else [kind]))   # معاينة حديثة (5 دقائق) تغني عن قياس متزامن قد يطول دقائق
     if cur > seen * 1.25 + 50:
         return 409, {"error": "candidates_changed", "seen_mb": seen, "now_mb": round(cur, 1)}
     return None
@@ -145,8 +145,10 @@ def _space(route, body):
     if act == "cleanall":
         out = [dict(kind=k, **space.clean(k, dry=False, src="manual")) for k in space.BULK]
         return 200, {"ok": True, "mb": round(sum(o.get("mb", 0) for o in out), 1), "parts": out}
-    if act in ("preview", "clean"):
-        return 200, space.clean(kind, dry=(act == "preview"), early=(act == "clean" and kind == "winold" and body.get("early") is True))
+    if act == "preview":   # القياس في الخلفية؛ الصفحة تستطلع GET /api/space-preview
+        return 200, space.preview_start(kind)
+    if act == "clean":
+        return 200, space.clean(kind, dry=False, early=(kind == "winold" and body.get("early") is True))
     return 400, {"error": "bad action"}
 
 

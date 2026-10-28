@@ -425,8 +425,9 @@ class DestructiveRoutes(unittest.TestCase):
             self.assertEqual((code, rep["error"], rep["now_mb"]), (409, "candidates_changed", 200.0))
 
     def test_space_safe_actions_need_no_confirm(self):
-        with patch.object(self.rd.space, "clean", lambda kind, dry=True, src="manual", early=False: {"mb": 1.0, "dry": dry}):
-            self.assertEqual(self.rd.post("/api/space", {"action": "preview", "kind": "temp"}), (200, {"mb": 1.0, "dry": True}))
+        with patch.object(self.rd.space, "preview_start", lambda kind: {"ok": True, "state": "running", "kind": kind}), \
+                patch.object(self.rd.space, "clean", lambda *a, **k: self.fail("preview must not measure in the request")):
+            self.assertEqual(self.rd.post("/api/space", {"action": "preview", "kind": "temp"}), (200, {"ok": True, "state": "running", "kind": "temp"}))
         self.assertEqual(self.rd.post("/api/space", {"action": "nope"}), (400, {"error": "bad action"}))
         self.assertIsNone(self.rd.post("/api/other", {}))
         self.assertEqual(self.rd.ROUTES, ("/api/space", "/api/reaper-run", "/api/run-cleanup"))
@@ -690,6 +691,7 @@ class ReadRoutes(unittest.TestCase):
 
     def test_unknown_path_is_not_ours(self):
         self.assertIsNone(self.rr.get("/api/nope", {}))
+        self.assertEqual(self.rr.get("/api/space-preview", {"kind": "never-started"}), (200, {"state": "none"}))
         self.assertNotIn("/api/healthz", self.rr.ROUTES)   # بلا مصادقة: يبقى في الخادم
 
     def test_ok_payload_gets_200(self):
@@ -877,6 +879,84 @@ class GpuPurge(unittest.TestCase):
         self.assertFalse(v["running"])
         self.assertEqual(v["err"], "lm studio down")
         self.assertEqual(v["beforeMB"], 100.0)
+
+
+class SpacePreviewJob(unittest.TestCase):
+    """معاينة المساحة مهمة خلفية: البدء فوري ولا يكرّر الخيط لمعاينة جارية، التقدّم يُقرأ أثناء القياس، نوع غير معروف يُرفض بلا خيط،
+    والنتيجة الحديثة (أقل من PREVIEW_TTL) تغني فحص التأكيد عن قياس ثانٍ متزامن، والقديمة لا."""
+
+    def setUp(self):
+        import space
+        self.sp = space
+        space._pv.clear()
+        self.addCleanup(space._pv.clear)
+
+    def wait(self, cond, timeout=5):
+        end = time.time() + timeout
+        while time.time() < end:
+            if cond():
+                return True
+            time.sleep(0.01)
+        self.fail("timed out")
+
+    def test_background_preview_progress_result_and_reuse(self):
+        gate, calls = threading.Event(), []
+
+        def fake_impl(kind, dry=True, src="manual", early=False, prog=None):
+            calls.append((kind, dry, prog is not None))
+            if prog is not None:
+                prog["files"], prog["mb"] = 400, 7.5
+                gate.wait(5)
+            return {"ok": True, "dry": dry, "mb": 12.0, "files": 401}
+        with patch.object(self.sp, "_clean_impl", fake_impl):
+            t0 = time.time()
+            r = self.sp.preview_start("temp")
+            self.assertLess(time.time() - t0, 0.3)
+            self.assertTrue(r["ok"])
+            self.assertEqual(r["state"], "running")
+            self.wait(lambda: self.sp.preview_status("temp")["files"] == 400)
+            self.assertEqual(self.sp.preview_status("temp")["mb"], 7.5)
+            self.assertEqual(self.sp.preview_start("temp")["state"], "running")   # معاينة جارية تُعاد كما هي
+            self.assertEqual(len(calls), 1)
+            self.assertIsNone(self.sp.fresh_preview_mb("temp"))                   # لا نتيجة قبل الانتهاء
+            for bad in ("nope", ["temp"], None):
+                self.assertEqual(self.sp.preview_start(bad)["ok"], False)
+            self.assertEqual(set(self.sp._pv), {"temp"})
+            gate.set()
+            self.wait(lambda: self.sp.preview_status("temp")["state"] == "done")
+            st = self.sp.preview_status("temp")
+            self.assertEqual(st["res"]["mb"], 12.0)
+            self.assertEqual(self.sp.dry_mb("temp"), 12.0)                        # حديثة: بلا قياس ثانٍ
+            self.assertEqual(len(calls), 1)
+            self.sp._pv["temp"]["ended"] -= self.sp.PREVIEW_TTL + 1
+            self.assertIsNone(self.sp.fresh_preview_mb("temp"))
+            self.assertEqual(self.sp.dry_mb("temp"), 12.0)                        # قديمة: قياس متزامن جديد
+            self.assertEqual(calls[-1], ("temp", True, False))
+
+    def test_real_temp_walk_reports_progress(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = time.time() - 3 * 86400
+            for i in range(450):
+                f = os.path.join(d, "f%03d.tmp" % i)
+                with open(f, "wb") as fh:
+                    fh.write(b"x" * 1024)
+                os.utime(f, (old, old))
+            open(os.path.join(d, "fresh.tmp"), "wb").close()   # أحدث من يوم: خارج المعاينة
+            prog = {"files": 0, "mb": 0.0}
+            with patch.object(self.sp, "TEMP", d):
+                r = self.sp._clean_impl("temp", True, prog=prog)
+            self.assertEqual((r["ok"], r["dry"], r["files"], r["skipped"]), (True, True, 450, 0))
+            self.assertEqual(prog["files"], 400)                                  # يُحدَّث كل 200 ملف
+            self.assertEqual(len(os.listdir(d)), 451)                             # القياس الجاف لا يحذف شيئًا
+
+    def test_failed_preview_reports_error(self):
+        def boom(*a, **k):
+            raise OSError("disk gone")
+        with patch.object(self.sp, "_clean_impl", boom), patch.object(self.sp.errlog, "swallowed", lambda *a, **k: None):
+            self.sp.preview_start("npmcache")
+            self.wait(lambda: self.sp.preview_status("npmcache")["state"] == "error")
+            self.assertIn("disk gone", self.sp.preview_status("npmcache")["error"])
+            self.assertIsNone(self.sp.fresh_preview_mb("npmcache"))
 
 
 if __name__ == "__main__":

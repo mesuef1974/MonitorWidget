@@ -340,8 +340,9 @@ function spCtl(r, d) {
   const v = SPV[r.kind] || {}, wo = r.kind === "winold" ? d.winold : null, k = esc(r.kind);
   if (wo?.job?.state === "running" || r.job?.state === "running") return '<span class="tag warn">يعمل في الخلفية…</span>';
   if (r.blockedBy && !v.busy && !v.res) return `<span class="tag warn">أغلق ${esc(r.blockedBy)} أولاً</span>`;
-  if (v.busy) return '<span class="tag">جارٍ…</span> <span class="note">قد تستغرق المعاينة دقيقة مع آلاف الملفات</span>';
+  if (v.busy) return `<span class="tag">جارٍ…</span> <span class="note">${v.prog?.files ? `فُحص ${Q(v.prog.files)} ملف · حتى الآن ${fmtMB(v.prog.mb || 0)}` : v.cleaning ? "قد يستغرق التنظيف دقائق مع آلاف الملفات" : "قد تستغرق المعاينة دقائق مع آلاف الملفات"}</span>`;
   const res = v.res;
+  if (res?.ok && res.dry && !(res.mb > 0) && !(res.files > 0) && !res.measuring) return `<span class="acts"><span class="note">لا شيء للتحرير${res.skipped ? ` · ${Q(res.skipped)} ملف مقفل` : ""}</span><button class="btn" data-sp="cancel" data-spk="${k}">إغلاق</button></span>`;
   if (res?.ok && res.dry) return `<span class="acts">يتحرّر <b>${fmtMB(res.mb || 0)}</b><button class="btn primary" data-sp="clean" data-spk="${k}"${wo && !wo.eligible ? ' data-early="1"' : ""}>${wo && !wo.eligible ? "احذف الآن" : "نظّف"}</button><button class="btn" data-sp="cancel" data-spk="${k}">إلغاء</button></span>`;
   if (res?.ok && res.started) return '<span class="tag warn">بدأ الحذف في الخلفية</span>';
   if (res?.ok) return `<span class="tag ok">تحرّر ${fmtMB(res.mb || 0)}</span>${res.skipped ? ` <span class="note">+${Q(res.skipped)} متروك</span>` : ""}`;
@@ -359,7 +360,7 @@ function spaceCleanPanel(d) {
   const rec = d.recoverableMB || {}, rows = spaceKinds(d), bulkMB = (d.bulk || []).reduce((a, k) => a + (rec[k] || 0), 0);
   const all = SPALL.s === "busy" ? '<span class="tag">جارٍ التنظيف…</span>' : `<button class="btn primary" data-sp="all">تنظيف الآمن كله (${fmtMB(bulkMB)})</button>`;
   const head = `<div class="toolbar"><button class="btn" data-sp="scan">${d.running ? "يجري قياس…" : "قياس الآن"}</button><button class="btn" data-sp="report">${d.extras?.report?.busy ? "التقرير قيد الإعداد…" : "تقرير المكرر والكبير"}</button>${all}</div>`;
-  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? elevTag(r) : ""}</td><td class="note mw-340">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td>${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
+  const body = `<table class="tbl"><thead><tr><th>النوع</th><th>الوصف</th><th class="n">القابل للتحرير</th><th>الإجراء</th></tr></thead><tbody>${rows.map(r => { const free = r.mb != null ? r.mb : rec[r.kind]; const lk = r.lockedMB ?? (d.lockedMB || {})[r.kind]; return `<tr><td><b>${esc(r.label)}</b>${r.admin ? elevTag(r) : ""}</td><td class="note mw-340">${esc(r.note || "")}${r.last ? `<div>آخر تنفيذ ${when(r.last.ts)} · ${Q(r.last.mb, "MB", 1)}</div>` : ""}</td><td class="n">${free != null ? fmtMB(free) : "—"}${lk >= 1 ? `<div class="note">محجوز ${fmtMB(lk)}</div>` : ""}</td><td data-fa="sp-${esc(r.kind)}" tabindex="-1">${spCtl(r, d)}</td></tr>`; }).join("")}</tbody></table>${d.winold?.present ? `<p class="note">Windows.old موجود منذ ${Q(d.winold.ageDays, "يوم", 1)} — ${d.winold.eligible ? "مؤهّل للحذف" : `يصبح مؤهلًا بعد ${Q(d.winold.daysLeft, "يوم")}`}.</p>` : ""}`;
   return panel("تنظيف المساحة", head + body, { cls: "c12" });
 }
 function spaceReportPanel(d) {
@@ -403,8 +404,11 @@ function focusKey(root) {
   if (ds) return a.tagName.toLowerCase() + ds;
   const i = [...root.querySelectorAll(FOCUSABLE)].indexOf(a); return i < 0 ? null : i;
 }
-function refocus(root, key) {
-  if (key == null) return; const el = typeof key === "number" ? root.querySelectorAll(FOCUSABLE)[key] : root.querySelector(key);
+// prefer: محدِّدات بالترتيب لمن يرث التركيز حين يختفي العنصر المركَّز (زر استُبدل أو بطاقة أُخفيت) أو كان مرساةً [data-fa] تنتظر نتيجة؛
+// لا يُستعمل إلا والتركيز كان داخل المحتوى، فلا يُسرق ممن انتقل إلى غيره
+function refocus(root, key, prefer) {
+  if (key == null) return; let el = typeof key === "number" ? root.querySelectorAll(FOCUSABLE)[key] : root.querySelector(key);
+  if (prefer && (!el || el.matches("[data-fa]"))) el = prefer.map(s => root.querySelector(s)).find(Boolean) || el;
   if (el) el.focus({ preventScroll: true });
 }
 // الرسم اللوحةَ تلو اللوحة: تُقارن كل لوحة بقالبها السابق، فما لم يتغيّر يبقى بعناصره ومستمعاته (الرسوم، التمرير، التركيز) ولا يُستبدل إلا ما تغيّر؛ innerHTML لكامل الصفحة كان يعيد بناء كل شيء مع أي تغيّر طفيف
@@ -415,18 +419,42 @@ function paint(main, html) {
   for (let i = cur.length - 1; i >= next.length; i--) cur[i].remove();
 }
 const dirtyForm = root => [...root.querySelectorAll("form input, form textarea")].some(i => i.value !== i.defaultValue);   // تعديل غير محفوظ في نموذج؛ لا يُستبدل بالتحديث
-function redraw() { if (!page || !last) return; const y = scrollY, m = $("#main"), fk = focusKey(m); paint(m, page.render(last)); page.after?.(last); refocus(m, fk); scrollTo(0, y); }
+function redraw(prefer) { if (!page || !last) return; const y = scrollY, m = $("#main"), fk = focusKey(m); paint(m, page.render(last)); page.after?.(last); refocus(m, fk, prefer); scrollTo(0, y); }
+// من يرث التركيز في صف نوع المساحة: زر الخطوة التالية، ثم الإغلاق، ثم المعاينة، ثم خلية الإجراء نفسها (مرساة)
+const spFocus = k => { const s = `[data-spk="${CSS.escape(k)}"]`; return [`[data-sp="clean"]${s}`, `[data-sp="cancel"]${s}`, `[data-sp="preview"]${s}`, `[data-fa="sp-${CSS.escape(k)}"]`]; };
+// المعاينة مهمة خلفية في الخادم (قياس temp يمرّ على آلاف الملفات دقائق): POST يبدؤها، ثم استطلاع كل ثانية بالتقدّم حتى النتيجة.
+// الاستطلاع بلا إشارة الإلغاء الخاصة بالصفحة، فيستمر إن تنقّل المستخدم ويجد التقدّم عند عودته؛ «إلغاء» أو معاينة أحدث توقفه
+async function spPreview(k) {
+  const job = SPV[k] = { busy: true }; redraw(spFocus(k));
+  const mine = () => SPV[k] === job || SPV[k]?.job === job;
+  let res;
+  try {
+    let s = await post("/api/space", { action: "preview", kind: k });
+    while (s.state === "running") {
+      if (!mine()) return;
+      SPV[k] = { busy: true, job, prog: s }; redraw(spFocus(k));
+      await new Promise(r => setTimeout(r, 1000));
+      if (!mine()) return;
+      const r = await fetch(`/api/space-preview?kind=${encodeURIComponent(k)}`, { credentials: "same-origin", headers: { Accept: "application/json" } });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      s = await r.json();
+    }
+    res = s.state === "done" ? s.res : { ok: false, error: s.error || "تعذّرت المعاينة" };
+  } catch (e) { res = { ok: false, error: e.message }; }
+  if (!mine()) return;
+  SPV[k] = { res }; redraw(spFocus(k));
+}
 async function spAction(t) {
   const a = t.dataset.sp, k = t.dataset.spk, d = last?.[0], later = (ms, f) => setTimeout(f, ms), reload = () => show(true);
   try {
-    if (a === "preview") { SPV[k] = { busy: true }; redraw(); try { SPV[k] = { res: await post("/api/space", { action: "preview", kind: k }) }; } catch (e) { SPV[k] = { res: { ok: false, error: e.message } }; } redraw(); }
-    else if (a === "cancel") { delete SPV[k]; redraw(); }
+    if (a === "preview") await spPreview(k);
+    else if (a === "cancel") { delete SPV[k]; redraw(spFocus(k)); }
     else if (a === "clean") {
       const early = t.dataset.early === "1";
       if (early && !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن", true))) return;
-      const seen = Math.round(SPV[k]?.res?.mb || 0); SPV[k] = { busy: true }; redraw();
+      const seen = Math.round(SPV[k]?.res?.mb || 0); SPV[k] = { busy: true, cleaning: true }; redraw(spFocus(k));
       try { SPV[k] = { res: await post("/api/space", { action: "clean", kind: k, seen_mb: seen, ...(early ? { early: true } : {}) }) }; } catch (e) { SPV[k] = { res: { ok: false, error: e.message } }; }
-      redraw(); later(5000, reload); later(15000, () => { delete SPV[k]; redraw(); });
+      redraw(spFocus(k)); later(5000, reload); later(15000, () => { delete SPV[k]; redraw(); });
     }
     else if (a === "all") {
       const rec = d.recoverableMB || {}, mb = (d.bulk || []).reduce((s, x) => s + (rec[x] || 0), 0);
@@ -728,8 +756,12 @@ document.addEventListener("click", async e => {
   else if (t.dataset.task) { const run = t.dataset.task === "run", on = t.getAttribute("aria-checked") === "true"; const ok = await confirmDlg(run ? `تشغيل المهمة «${t.dataset.n}» الآن؟` : on ? "إيقاف جدولة هذه المهمة؟" : "تفعيل جدولة هذه المهمة؟", run ? "شغّل" : on ? "أوقف" : "فعّل"); if (ok) act(() => post("/api/task", { op: run ? "run" : on ? "disable" : "enable", path: t.dataset.p, name: t.dataset.n }), run ? "بدأ التشغيل" : "تم"); }
   else if (t.dataset.tier) { const paused = t.getAttribute("aria-checked") !== "true"; if (await confirmDlg(paused ? "إيقاف هذا المستوى مؤقتًا؟ لن يُشغَّل تنظيفه المجدول." : "استئناف هذا المستوى؟", paused ? "أوقف" : "استأنف")) act(() => post("/api/tier-pause", { tier: t.dataset.tier, paused }), "تم"); }
   else if (t.dataset.rule) { const on = t.getAttribute("aria-checked") === "true"; if (await confirmDlg(on ? "تعطيل هذه القاعدة؟" : "تفعيل هذه القاعدة؟", on ? "عطّل" : "فعّل")) act(() => post("/api/rule", { id: t.dataset.rule, enabled: !on }), "حُدّثت السياسة"); }
-  else if (t.dataset.advsnooze) { const o = advSnoozed(); o[t.dataset.advsnooze] = Date.now() + 86400000; advSave(o); toast("أُجّلت 24 ساعة"); redraw(); }
-  else if (t.dataset.advrestore) { advSave({}); toast("أُظهرت المؤجّلة"); redraw(); }
+  else if (t.dataset.advsnooze) {   // البطاقة تختفي بزرها؛ التركيز إلى تأجيل البطاقة التالية ثم السابقة ثم «إظهار المؤجّلة»
+    const card = t.closest(".card"), near = [card?.nextElementSibling, card?.previousElementSibling].map(c => c?.querySelector("[data-advsnooze]")?.dataset.advsnooze).filter(Boolean);
+    const o = advSnoozed(); o[t.dataset.advsnooze] = Date.now() + 86400000; advSave(o); toast("أُجّلت 24 ساعة");
+    redraw([...near.map(id => `[data-advsnooze="${CSS.escape(id)}"]`), "[data-advrestore]"]);
+  }
+  else if (t.dataset.advrestore) { advSave({}); toast("أُظهرت المؤجّلة"); redraw(["[data-advsnooze]"]); }
   else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/trim-memory", "/api/trim-auto", "/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm, "نفّذ"))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
   else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(async () => { applyAppearance(await post("/api/appearance", next)); }, "حُفظ المظهر"); }
   else if (t.dataset.trim) { if (await confirmDlg(t.dataset.trim === "deep" ? "تنظيف عميق للذاكرة؟ قد يبطّئ التطبيقات لحظات." : "تنظيف الذاكرة الآن؟", "نظّف")) act(() => post("/api/trim-memory", { mode: t.dataset.trim }), "بدأ التنظيف"); }
