@@ -256,11 +256,12 @@ function New-Card([double]$pad = 10) {
 }
 function Level-Brush([string]$lvl) { switch ($lvl) { 'bad' { Brush $C.bad } 'warn' { Brush $C.warn } default { Brush $C.ok } } }
 # thresholds come from /api/mini -> thr (alerts.json); defaults keep the old behaviour if the backend omits them
-$script:THR = @{ ramW = 80; ramB = 92; cmW = 85; cmB = 95; dW = 40; dB = 20 }
+$script:THR = @{ ramW = 80; ramB = 92; cmW = 85; cmB = 95; dW = 40; dB = 20; gW = 80; gB = 85 }
 function Load-Thr($t) {
     try {
         if ($t.mem) { foreach ($p in @(@('ramW','ramWarn'), @('ramB','ramBad'), @('cmW','commitWarn'), @('cmB','commitBad'))) { $v = $t.mem.($p[1]); if ($null -ne $v) { $script:THR[$p[0]] = [double]$v } } }
         if ($t.disk) { if ($null -ne $t.disk.freeWarnGB) { $script:THR.dW = [double]$t.disk.freeWarnGB }; if ($null -ne $t.disk.freeBadGB) { $script:THR.dB = [double]$t.disk.freeBadGB } }
+        if ($t.gpu) { if ($null -ne $t.gpu.tempWarn) { $script:THR.gW = [double]$t.gpu.tempWarn }; if ($null -ne $t.gpu.tempBad) { $script:THR.gB = [double]$t.gpu.tempBad } }
     } catch { }
 }
 function Lvl([double]$v, [double]$w, [double]$b) { if ($v -ge $b) { 'bad' } elseif ($v -ge $w) { 'warn' } else { 'ok' } }
@@ -404,6 +405,62 @@ $UI.rCommit = New-Ring 'التزام الذاكرة'; $UI.rRam = New-Ring 'ال�
 foreach ($r in @($UI.rCommit, $UI.rRam, $UI.rDisk)) { $ringsGrid.Children.Add($r.Root) | Out-Null }
 $stack.Children.Add($ringsGrid) | Out-Null
 $stack.Children.Add((Gap 10)) | Out-Null
+
+# ---- GPU bars: the four «الآن» readings of the gpu page (temperature, load, power, video memory) from /api/mini -> gpu
+$gpuCard = New-Card 8; $script:gpuCardH = 0.0
+$gpuStack = New-Object Windows.Controls.StackPanel
+$gpuHead = New-Object Windows.Controls.Grid
+foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $gpuHead.ColumnDefinitions.Add($cd) }
+$gpuHead.Children.Add((New-Text 'الرسوميات' 12 $C.muted 'Normal' $false 'head')) | Out-Null
+$UI.gpuNote = New-Text '' 11 $C.muted; [Windows.Controls.Grid]::SetColumn($UI.gpuNote, 1); $gpuHead.Children.Add($UI.gpuNote) | Out-Null
+$gpuStack.Children.Add($gpuHead) | Out-Null
+function New-GpuBar([string]$label) {
+    $row = New-Object Windows.Controls.Grid; $row.Margin = '0,6,0,0'
+    foreach ($w in @('84', '*', '72')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $row.ColumnDefinitions.Add($cd) }
+    $lab = New-Text $label 12 $C.muted -Quiet; $lab.VerticalAlignment = 'Center'
+    # الامتلاء يبدأ من بداية السطر (اليمين في RTL)؛ عرضه نسبة من عرض المسار ويُعاد حسابه إن تغيّر العرض (Tag = النسبة)
+    $track = New-Object Windows.Controls.Border; $track.Height = 6; $track.CornerRadius = 3; $track.Background = Brush $C.track; $track.VerticalAlignment = 'Center'; $track.Margin = '6,0,8,0'; $track.Tag = 0.0
+    $fill = New-Object Windows.Controls.Border; $fill.CornerRadius = 3; $fill.HorizontalAlignment = 'Left'; $fill.Width = 0; $fill.Background = Brush $C.accent
+    $track.Child = $fill
+    $track.Add_SizeChanged({ $this.Child.Width = [Math]::Max(0, $this.ActualWidth * [double]$this.Tag / 100) })
+    $val = New-Text '—' 12.5 $C.ink 'SemiBold' $true; $val.VerticalAlignment = 'Center'; $val.TextAlignment = 'Left'
+    [Windows.Controls.Grid]::SetColumn($track, 1); [Windows.Controls.Grid]::SetColumn($val, 2)
+    foreach ($el in @($lab, $track, $val)) { $row.Children.Add($el) | Out-Null }
+    [Windows.Automation.AutomationProperties]::SetName($val, $label)   # الشريط عنصر واحد لقارئ الشاشة كالمقاييس: «الاسم: القيمة» على نص القيمة
+    @{ Root = $row; Track = $track; Fill = $fill; Val = $val; Label = $label }
+}
+function Set-GpuBar($b, [double]$pct, [string]$lvl, [string]$text, [string]$tip) {
+    $p = [Math]::Max(0, [Math]::Min(100, $pct)); $b.Track.Tag = $p; $b.Fill.Width = [Math]::Max(0, $b.Track.ActualWidth * $p / 100)
+    $b.Fill.Background = if ($lvl -eq 'off') { Brush $C.muted } elseif ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }
+    $b.Val.Text = $text; $b.Root.ToolTip = $tip
+    [Windows.Automation.AutomationProperties]::SetName($b.Val, ($b.Label + ': ' + $text)); [Windows.Automation.AutomationProperties]::SetHelpText($b.Val, $tip)
+}
+function Set-GpuReading($b, $v, [double]$max, [double]$w, [double]$bad, [string]$text, [string]$tip, [bool]$stale) {
+    if ($null -eq $v -or $max -le 0) { Set-GpuBar $b 0 'off' '—' ('غير متاح: ' + $b.Label); return }
+    $pct = 100 * [double]$v / $max
+    Set-GpuBar $b $pct $(if ($stale) { 'off' } else { Lvl $pct $w $bad }) $text $tip
+}
+$UI.gTemp = New-GpuBar 'الحرارة'; $UI.gUtil = New-GpuBar 'الحمل'; $UI.gPower = New-GpuBar 'القدرة'; $UI.gVram = New-GpuBar 'ذاكرة الشاشة'
+$UI.gpuBars = @($UI.gTemp, $UI.gUtil, $UI.gPower, $UI.gVram)
+foreach ($b in $UI.gpuBars) { $gpuStack.Children.Add($b.Root) | Out-Null }
+$gpuCard.Child = $gpuStack; $stack.Children.Add($gpuCard) | Out-Null
+$stack.Children.Add((Gap 8)) | Out-Null
+function Update-Gpu($g) {
+    if (-not $g) {
+        foreach ($b in $UI.gpuBars) { Set-GpuBar $b 0 'off' '—' 'كرت الشاشة لا يُجيب الآن (nvidia-smi)' }
+        $UI.gpuNote.Text = 'غير متاح'; $gpuCard.ToolTip = $null; return
+    }
+    # عتبات الحرارة من إعدادات التنبيه، وسائر العتبات كمقاييس صفحة الرسوميات (الحمل 80/95، القدرة 70/90% من الحد، الذاكرة 80/95%)
+    $stale = ([double]$g.age -gt 30); $UI.gpuNote.Text = if ($stale) { 'قراءة قديمة' } else { '' }; $gpuCard.ToolTip = [string]$g.name
+    $pmax = if ($g.powerMax) { [double]$g.powerMax } else { 140 }
+    $vtot = if ($g.vramTotal) { [double]$g.vramTotal / 1024 } else { 0 }
+    $vgb = if ($null -ne $g.vram) { [double]$g.vram / 1024 } else { $null }
+    $tw = if ($null -ne $script:THR.gW) { [double]$script:THR.gW } else { 80 }; $tb = if ($null -ne $script:THR.gB) { [double]$script:THR.gB } else { 85 }
+    Set-GpuReading $UI.gTemp $g.temp 100 $tw $tb ('{0:N0}°C' -f $g.temp) ('حرارة كرت الشاشة {0:N0}°C؛ التحذير من {1:N0}° والخطر من {2:N0}°' -f $g.temp, $tw, $tb) $stale
+    Set-GpuReading $UI.gUtil $g.util 100 80 95 ('{0:N0}%' -f $g.util) ('حمل المعالج الرسومي {0:N0}%' -f $g.util) $stale
+    Set-GpuReading $UI.gPower $g.power $pmax 70 90 ('{0:N1} W' -f $g.power) ('القدرة المسحوبة {0:N1} W من حدّ {1:N0} W' -f $g.power, $pmax) $stale
+    Set-GpuReading $UI.gVram $vgb $vtot 80 95 ('{0:N1}/{1:N0} GB' -f $vgb, $vtot) ('ذاكرة الشاشة المستعملة {0:N2} GB من {1:N1} GB' -f $vgb, $vtot) $stale
+}
 
 # ---- history chart
 $chartCard = New-Card 8
@@ -549,7 +606,7 @@ foreach($n in @($hdr,$UI.cpuAlert,$UI.appearanceWarning)){[void]$stack.Children.
 $UI.historyNotice=New-Text '' 12 $C.muted;$UI.historyNotice.TextWrapping='Wrap';$UI.historyNotice.Visibility='Collapsed';[void]$stack.Children.Add($UI.historyNotice)
 $UI.restoredBody=New-Object Windows.Controls.Grid
 $UI.restoredMetrics=New-Object Windows.Controls.StackPanel;$UI.restoredActions=New-Object Windows.Controls.StackPanel
-foreach($n in @($compact,$ringsGrid,$chartCard,$compCard,$chips)){if($n.Parent -is [Windows.Controls.Panel]){$n.Parent.Children.Remove($n)};$n.Margin='0,0,0,8';[void]$UI.restoredMetrics.Children.Add($n)}
+foreach($n in @($compact,$ringsGrid,$gpuCard,$chartCard,$compCard,$chips)){if($n.Parent -is [Windows.Controls.Panel]){$n.Parent.Children.Remove($n)};$n.Margin='0,0,0,8';[void]$UI.restoredMetrics.Children.Add($n)}
 # معلومة الصلاحية تبقى في تفاصيل اللوحة لا في الرأس (مطوية ما لم يعمل الخادم كمسؤول)
 [void]$UI.restoredMetrics.Children.Insert(0,$UI.adm)
 [void]$UI.restoredActions.Children.Add($cleanHead)
@@ -567,9 +624,12 @@ $UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.F
 [void]$stack.Children.Add($UI.restoredBody);[void]$stack.Children.Add($foot)
 function Set-RestoredLayout([double]$height=0){
  if($height -le 0){$height=if($script:widgetWorkHeightOverride){$script:widgetWorkHeightOverride}elseif(Get-Command Get-WidgetWorkArea -ErrorAction SilentlyContinue){(Get-WidgetWorkArea).Height}else{[Windows.SystemParameters]::WorkArea.Height}}
- $natural=56.0;foreach($node in @($UI.restoredMetrics,$UI.restoredActions)+@($stack.Children|Where-Object {$_ -ne $UI.restoredBody})){$node.Measure([Windows.Size]::new(323,[double]::PositiveInfinity));$natural+=$node.DesiredSize.Height};$script:restoredPortraitHeight=$natural
+ $natural=56.0;foreach($node in @($UI.restoredMetrics,$UI.restoredActions)+@($stack.Children|Where-Object {$_ -ne $UI.restoredBody})){$node.Measure([Windows.Size]::new(323,[double]::PositiveInfinity));$natural+=$node.DesiredSize.Height}
+ # بطاقة الرسوميات إضافة لا قياس أساسي: تُطوى حين لا يتسع لها العمودان في منطقة عمل قصيرة (نحو 700 DIP فأقل) بدل أن يتجاوز الإطار الشاشة
+ $mH=$UI.restoredMetrics.DesiredSize.Height;$aH=$UI.restoredActions.DesiredSize.Height;if($gpuCard.Visibility -eq 'Visible'){$script:gpuCardH=$gpuCard.DesiredSize.Height;$extra=0.0}else{$extra=[double]$script:gpuCardH};$natural+=$extra;$script:restoredPortraitHeight=$natural
+ $wideNeed=$natural-$mH-$aH-$extra+[Math]::Max($mH+$extra,$aH)
  # Same reference breakpoint:385DIPportrait at1150DIPusableheight,726DIPtwo columns below it (both +10% on 28/10/2026).
- $wide=$height -lt 1150 -or $height -lt ($natural+12);$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
+ $wide=$height -lt 1150 -or $height -lt ($natural+12);$gpuVis=if(-not $wide -or $height -ge ($wideNeed+12)){'Visible'}else{'Collapsed'};if($gpuCard.Visibility -ne $gpuVis){$gpuCard.Visibility=$gpuVis};$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
  $grid=$UI.restoredBody;$grid.ColumnDefinitions.Clear();$grid.RowDefinitions.Clear()
  if($wide){foreach($x in 1..2){$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c)};$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r);[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,1);[Windows.Controls.Grid]::SetRow($UI.restoredActions,0);$UI.restoredMetrics.Margin='0,0,14,0';$UI.chart.Height=86}
  else{$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c);foreach($x in 1..2){$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r)};[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,0);[Windows.Controls.Grid]::SetRow($UI.restoredActions,1);$UI.restoredMetrics.Margin='0';$UI.chart.Height=92}
@@ -599,7 +659,7 @@ function Update-Compact($d) {
         $UI.historyNotice.Text=if(-not $fresh){'آخر قراءة محفوظة — البيانات قديمة'}elseif(-not $hasCpu -or -not $hasRam -or -not $hasDisk){'تغطية القياسات غير مكتملة — بعض القراءات غير متاحة'}else{''}
         $UI.historyNotice.Visibility=if($UI.historyNotice.Text){'Visible'}else{'Collapsed'}
     }
-    if (-not $fresh) { foreach($ring in @($UI.rCommit,$UI.rRam,$UI.rDisk)){if($ring -and $ring.Arc){$ring.Arc.Stroke=Brush $C.muted}} }
+    if (-not $fresh) { foreach($ring in @($UI.rCommit,$UI.rRam,$UI.rDisk)){if($ring -and $ring.Arc){$ring.Arc.Stroke=Brush $C.muted}}; foreach($b in @($UI.gpuBars)){if($b -and $b.Fill){$b.Fill.Background=Brush $C.muted}} }
     foreach($spec in @(@('rCommit','commitPct'),@('rRam','ramPct'),@('rDisk','diskFreeGB'))){$ring=$UI[$spec[0]];if($ring -and $ring.Arc -and $null -eq $m.($spec[1])){$ring.Arc.Stroke=Brush $C.muted;$ring.Val.Text='—'}}
     $UI.compactcpu.Text = if ($hasCpu) { ('{0:N0}%' -f $cpu.pct) } else { '—' }
     $UI.compactram.Text = if ($null -ne $m.ramPct) { ('{0:N0}%' -f $m.ramPct) } else { '—' }
@@ -764,6 +824,7 @@ function Update-Widget {
     Set-Ring $UI.rCommit $m.commitPct $lc ([string][Math]::Round($m.commitPct)) '%' "$($m.commitGB) من $($m.limitGB) GB (الذاكرة + ملف الصفحات)"
     Set-Ring $UI.rRam $m.ramPct $lr ([string][Math]::Round($m.ramPct)) '%' "متاح $($m.availGB) GB من $($m.totalGB) GB"
     Set-Ring $UI.rDisk $m.diskPct $ld ([string][Math]::Round($m.diskFreeGB)) 'GB حر' "حر $($m.diskFreeGB) GB من $($m.diskTotalGB) GB"
+    Update-Gpu $d.gpu
     $sig = '{0}|{1}|{2}|{3}' -f @($d.hist.commit).Count, @($d.hist.commit)[-1], @($d.hist.ram)[-1], $script:isLight
     if ($sig -ne $script:chartSig) { $script:chartSig = $sig; Draw-Chart $d.hist.commit $d.hist.ram }
     # composition of commit
