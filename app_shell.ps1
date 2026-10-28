@@ -126,7 +126,8 @@ $R = 14
 
 $win = New-Object Windows.Window
 $win.Title = $Title; $win.WindowStyle = 'None'; $win.ResizeMode = 'CanResize'; $win.AllowsTransparency = $false
-$win.Background = Brush $base; $win.FlowDirection = 'LeftToRight'; $win.FontFamily = New-Object Windows.Media.FontFamily 'Segoe UI'
+$SF = Get-IdentityFonts $root   # خطوط الهوية نفسها التي يستخدمها الويدجت والواجهة
+$win.Background = Brush $base; $win.FlowDirection = 'LeftToRight'; $win.FontFamily = $SF.ui
 $sc = [Dpi]::GetDpiForSystem() / 96.0   # الوسائط بالبكسل الفعلي (كما يمررها الخادم والويدجت)
 $win.Left = $X / $sc; $win.Top = $Y / $sc; $win.Width = $W / $sc; $win.Height = $H / $sc; $win.MinWidth = 640; $win.MinHeight = 480
 $win.UseLayoutRounding = $true; $win.SnapsToDevicePixels = $true
@@ -143,7 +144,7 @@ foreach ($rh in @('34', '*')) { $rd = New-Object Windows.Controls.RowDefinition;
 
 # شريط عنوان خفيف: سحب النافذة + تصغير/تكبير/إغلاق
 $bar = New-Object Windows.Controls.Grid; $bar.Background = Brush '#00000000'
-$tb = New-Object Windows.Controls.TextBlock; $tb.Text = $Title; $tb.Foreground = Brush $muted; $tb.FontSize = 12; $tb.VerticalAlignment = 'Center'; $tb.HorizontalAlignment = 'Right'; $tb.FlowDirection = 'RightToLeft'; $tb.Margin = '0,0,16,0'
+$tb = New-Object Windows.Controls.TextBlock; $tb.Text = $Title; $tb.FontFamily = $SF.head; $tb.Foreground = Brush $muted; $tb.FontSize = 12; $tb.VerticalAlignment = 'Center'; $tb.HorizontalAlignment = 'Right'; $tb.FlowDirection = 'RightToLeft'; $tb.Margin = '0,0,16,0'
 [void]$bar.Children.Add($tb)
 $btns = New-Object Windows.Controls.StackPanel; $btns.Orientation = 'Horizontal'; $btns.HorizontalAlignment = 'Left'; $btns.FlowDirection = 'LeftToRight'
 function New-Cap([string]$glyph, [string]$hoverBg) {

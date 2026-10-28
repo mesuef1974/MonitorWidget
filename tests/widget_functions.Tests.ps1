@@ -144,6 +144,38 @@ Describe 'Read-IdentityTokens' {
     It 'يعيد null لجذر بلا رموز' { Read-IdentityTokens $env:TEMP $true 'teal' | Should -BeNullOrEmpty }
 }
 
+Describe 'Get-IdentityFonts (خطوط الهوية من tokens.css إلى WPF عبر identity.ps1)' {
+    BeforeAll { Add-Type -AssemblyName PresentationCore }
+    It 'رموز الخطوط الأربعة في tokens.css تبدأ بعائلات الهوية المعتمدة' {
+        $t = Read-IdentityTokens $script:widgetRepoRoot $false 'teal'
+        $t['--f-head'] | Should -Match '^"Zain"'
+        $t['--f-list'] | Should -Match '^"El Messiri"'
+        $t['--f-ui'] | Should -Match '^"Amiri"'
+        $t['--f-num'] | Should -Match '^"Outfit"'
+    }
+    It 'يحمّل الأدوار الأربعة من assets\fonts بعائلاتها وأوزانها (Zain 700، El Messiri 500، Amiri 400/700، Outfit 400/600)' {
+        $f = Get-IdentityFonts $script:widgetRepoRoot
+        $f.loaded.head | Should -Be 'Zain'
+        $f.loaded.list | Should -Be 'El Messiri'
+        $f.loaded.ui | Should -Be 'Amiri'
+        $f.loaded.num | Should -Be 'Outfit'
+        foreach ($case in @(@('head', 'Bold', 'Zain-Bold.ttf'), @('list', 'Medium', 'ElMessiri-Medium.ttf'), @('ui', 'Normal', 'Amiri-Regular.ttf'), @('ui', 'SemiBold', 'Amiri-Bold.ttf'), @('num', 'Normal', 'Outfit-Regular.ttf'), @('num', 'SemiBold', 'Outfit-SemiBold.ttf'))) {
+            $tf = New-Object Windows.Media.Typeface($f[$case[0]], [Windows.FontStyles]::Normal, [Windows.FontWeights]::($case[1]), [Windows.FontStretches]::Normal)
+            $gt = $null
+            $tf.TryGetGlyphTypeface([ref]$gt) | Should -BeTrue
+            [IO.Path]::GetFileName($gt.FontUri.LocalPath) | Should -Be $case[2]
+        }
+    }
+    It 'بلا ملفات الخطوط أو بلا رموز يبقى كل دور على Segoe UI' {
+        $root = Join-Path $TestDrive 'bare'; New-Item -ItemType Directory -Path (Join-Path $root 'web\css') -Force | Out-Null
+        Copy-Item (Join-Path $script:widgetRepoRoot 'web\css\tokens.css') (Join-Path $root 'web\css\tokens.css')
+        $f = Get-IdentityFonts $root
+        $f.loaded.Count | Should -Be 0
+        foreach ($k in @('head', 'list', 'ui', 'num')) { $f[$k].Source | Should -Be 'Segoe UI' }
+        (Get-IdentityFonts (Join-Path $TestDrive 'nothing')).ui.Source | Should -Be 'Segoe UI'
+    }
+}
+
 Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لصفحة الصحة' {
     BeforeAll {
         # الدوال النقية تُستخرج من app_shell.ps1 عبر AST؛ السكربت نفسه لا يُشغَّل (param إلزامي ونافذة WPF)
