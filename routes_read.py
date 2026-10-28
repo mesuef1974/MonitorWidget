@@ -99,6 +99,7 @@ _TABLE = {
     "/api/startup": (lambda q: startup_mgr.list_items(), None),
     "/api/actions": (_actions, None),
     "/api/space": (_space, None),
+    "/api/space-preview": (lambda q: space.preview_status(q.get("kind", "")), None),   # تقدّم المعاينة الخلفية ونتيجتها
     "/api/widget": (lambda q: widgetctl.status(), None),
     "/api/infra": (_infra, _E200),
     "/api/state": (lambda q: snapshot.state(), lambda e: "collect failed: %s" % e),

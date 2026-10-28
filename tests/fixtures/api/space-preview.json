@@ -1,0 +1,16 @@
+{
+  "state": "done",
+  "files": 1840,
+  "mb": 512.3,
+  "elapsed": 3.2,
+  "res": {
+    "ok": true,
+    "dry": true,
+    "gb": 0.5,
+    "mb": 512.3,
+    "files": 1840,
+    "skipped": 3,
+    "lockedMB": 1.2,
+    "heldMB": 0
+  }
+}

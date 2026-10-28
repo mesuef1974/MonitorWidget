@@ -98,11 +98,14 @@ def clean(kind, dry=True, src="manual", early=False):
     if dry:
         return _clean_impl(kind, True, src)
     try:
-        exp = _clean_impl(kind, True, src).get("mb")
+        exp = fresh_preview_mb(kind)
+        if exp is None:
+            exp = _clean_impl(kind, True, src).get("mb")
     except Exception:
         exp = None
     fb = shutil.disk_usage("C:\\").free
     r = _clean_impl(kind, False, src + "-early" if early and kind == "winold" else src, early)
+    _pv.pop(kind, None)   # the preview no longer describes the folder
     fa = shutil.disk_usage("C:\\").free
     r.update(expectedMB=exp, freeBeforeGB=round(fb / 2**30, 2), freeAfterGB=round(fa / 2**30, 2))
     if kind in ("dism", "claudearchive", "dockercompact"):
@@ -116,6 +119,72 @@ def clean(kind, dry=True, src="manual", early=False):
     except Exception:
         errlog.swallowed()
     return r
+
+
+# ---------------- background preview: measuring temp walks thousands of files (6-7 minutes measured live), so the POST
+# only starts a thread and the page polls GET /api/space-preview?kind= for progress and the result
+PREVIEW_TTL = 300   # seconds a finished preview stays fresh enough to stand in for a re-measure before a real clean
+_pv = {}            # kind -> {state: running|done|error, started, ended, files, mb, res|error}; mutated by the worker only
+_pv_lock = threading.Lock()
+
+
+def _previewable(kind):
+    if not isinstance(kind, str):
+        return False
+    if kind in SAFE + ("swdist", "winold", "dockercache"):
+        return True
+    import extras
+    return kind in extras.KINDS
+
+
+def _preview_run(kind, j):
+    try:
+        j["res"] = _clean_impl(kind, True, "manual", prog=j)
+        st = "done"
+    except Exception as e:
+        errlog.swallowed()
+        j["error"] = str(e)[:120]
+        st = "error"
+    j["ended"] = time.time()
+    j["state"] = st   # last: a reader that sees done/error also sees ended and res/error
+
+
+def preview_status(kind):
+    j = _pv.get(kind)
+    if not j:
+        return {"state": "none"}
+    out = {"state": j["state"], "files": j["files"], "mb": j["mb"], "elapsed": round((j.get("ended") or time.time()) - j["started"], 1)}
+    if j["state"] == "done":
+        out["res"] = j["res"]
+    elif j["state"] == "error":
+        out["error"] = j["error"]
+    return out
+
+
+def preview_start(kind):
+    """Start measuring kind in the background; a preview already running for that kind is returned as is (idempotent)."""
+    if not _previewable(kind):
+        return {"ok": False, "state": "error", "error": "غير مسموح"}
+    with _pv_lock:
+        j = _pv.get(kind)
+        if not (j and j["state"] == "running"):
+            j = _pv[kind] = {"state": "running", "started": time.time(), "ended": None, "files": 0, "mb": 0.0}
+            threading.Thread(target=_preview_run, args=(kind, j), daemon=True).start()
+    return {"ok": True, **preview_status(kind)}
+
+
+def fresh_preview_mb(kind, max_age=PREVIEW_TTL):
+    """The MB of a successful preview that finished within max_age seconds, else None."""
+    j = _pv.get(kind)
+    if j and j["state"] == "done" and (j["res"] or {}).get("ok") and time.time() - j["ended"] <= max_age:
+        return j["res"].get("mb", 0)
+    return None
+
+
+def dry_mb(kind):
+    """What a clean of kind would free now: a fresh preview when there is one, else a synchronous measure."""
+    mb = fresh_preview_mb(kind)
+    return mb if mb is not None else clean(kind, dry=True).get("mb", 0)
 
 
 # ---------------- quarantine: reversible removal for riskier items (held 7 days, then purged)
@@ -819,8 +888,15 @@ def _winold_delete(src, early=False):
         _wo["job"] = {"state": "error", "error": str(e)[:80], "ts": int(t0)}
 
 
-def _clean_impl(kind, dry=True, src="manual", early=False):
-    """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped."""
+def _tick(prog, files, freed):
+    if prog is not None and files % 200 == 0:
+        prog["files"] = files
+        prog["mb"] = round(freed / 2**20, 1)
+
+
+def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
+    """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped.
+    prog: a dict the dry walks update every 200 files with files seen and MB found so far (the background preview job)."""
     freed = n = skipped = locked = held = 0
     qkinds = _setting("space.quarantine_kinds", ["temp"]) if not dry else []
     if kind == "temp":
@@ -830,6 +906,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False):
                     n += 1; freed += sz
                 else:
                     skipped += 1; locked += sz
+                _tick(prog, n + skipped, freed)
                 continue
             if kind in qkinds and sz >= Q_MIN_BYTES:
                 try:
@@ -856,6 +933,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False):
                             freed += sz; n += 1
                         else:
                             skipped += 1; locked += sz
+                        _tick(prog, n + skipped, freed)
             else:
                 b, k, sk = _purge_dir(d); freed += b; n += k; skipped += sk
     elif kind == "npmcache":
@@ -879,6 +957,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False):
                             freed += sz; n += 1
                         else:
                             skipped += 1; locked += sz
+                        _tick(prog, n + skipped, freed)
             else:
                 return elevated_clean("swdist")   # SYSTEM-owned files: only the fixed elevated task may delete them
     elif kind == "winold":
@@ -890,7 +969,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False):
         b, nf = _winold_size()
         if dry:
             return {"ok": True, "dry": True, "gb": round(b / 2**30, 3), "mb": round(b / 2**20, 1), "files": nf, "skipped": 0, "lockedMB": 0, "heldMB": 0, "winold": st,
-                    "note": "جارٍ القياس" if not _wo["t"] else None}
+                    "note": "جارٍ القياس" if not _wo["t"] else None, "measuring": not _wo["t"]}
         if not st["eligible"] and not early:
             return {"ok": False, "error": "لم تمضِ %d يوماً بعد؛ متبقٍ %d" % (WINOLD_DAYS, st["daysLeft"]), "blocked": True, "winold": st}
         ready, why = _winold_task_ready()
