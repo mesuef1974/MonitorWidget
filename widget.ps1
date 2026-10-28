@@ -887,8 +887,13 @@ foreach ($t in $TIERS) {
     })
     $u.Run.Add_Click({
         $tier = $this.Tag; $uu = $UI.tiers[$tier]
+        Set-ConfirmButtons 'تنفيذ فعلي' $true
         $script:pending = $tier; $UI.confirmText.Text = 'تشغيل تنظيف ' + $uu.Label + ' الآن؟ التنفيذ الفعلي يحذف الملفات المطابقة للقواعد المفعّلة.'; $UI.confirm.Visibility = 'Visible'; $UI.cfNo.Focus() | Out-Null
     })
+}
+function Set-ConfirmButtons([string]$realText, [bool]$showDry) {
+    $UI.cfReal.Content = New-Text $realText 12 $C.onWarn 'SemiBold'; [Windows.Automation.AutomationProperties]::SetName($UI.cfReal, $realText)
+    $UI.cfDry.Visibility = $(if ($showDry) { 'Visible' } else { 'Collapsed' })
 }
 function Start-Clean([bool]$dry) {
     $tier = $script:pending; $UI.confirm.Visibility = 'Collapsed'; $script:pending = $null
@@ -897,9 +902,14 @@ function Start-Clean([bool]$dry) {
 }
 # trim runs in a background runspace: the UI thread never waits on the server
 $script:trimJob = $null
-function Start-Trim([string]$mode) {
+function Start-Trim([string]$mode, [bool]$confirmed = $false) {
     if ($script:trimJob) { return }
-    if ($mode -eq 'deep' -and [Windows.MessageBox]::Show('الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟', 'مرصد الجهاز', 'YesNo', 'Warning') -ne 'Yes') { return }
+    # deep trim asks inside the widget (themed overlay), never through a system dialog
+    if ($mode -eq 'deep' -and -not $confirmed) {
+        Set-ConfirmButtons 'متابعة' $false
+        $script:pending = 'trim:deep'; $UI.confirmText.Text = 'الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟'; $UI.confirm.Visibility = 'Visible'; $UI.cfNo.Focus() | Out-Null
+        return
+    }
     $script:trimPendingAt = Get-Date
     $UI.trimText.Text = '… جارٍ تنظيف الذاكرة'; $script:lastStamp = -1
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -935,7 +945,7 @@ $trimTimer.Add_Tick({
         Show-Toast ('تعذّر: ' + $_.Exception.Message)
     } finally { $j.ps.Dispose() }
 })
-$UI.cfReal.Add_Click({ Start-Clean $false })
+$UI.cfReal.Add_Click({ if ($script:pending -eq 'trim:deep') { $script:pending = $null; $UI.confirm.Visibility = 'Collapsed'; Start-Trim 'deep' $true } else { Start-Clean $false } })
 $UI.cfDry.Add_Click({ Start-Clean $true })
 $UI.cfNo.Add_Click({ $script:pending = $null; $UI.confirm.Visibility = 'Collapsed' })
 Add-Type -TypeDefinition @'
