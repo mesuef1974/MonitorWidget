@@ -149,17 +149,17 @@ Describe 'Get-IdentityFonts (خطوط الهوية من tokens.css إلى WPF ع
     It 'رموز الخطوط الأربعة في tokens.css تبدأ بعائلات الهوية المعتمدة' {
         $t = Read-IdentityTokens $script:widgetRepoRoot $false 'teal'
         $t['--f-head'] | Should -Match '^"Zain"'
-        $t['--f-list'] | Should -Match '^"El Messiri"'
-        $t['--f-ui'] | Should -Match '^"Amiri"'
+        $t['--f-list'] | Should -Match '^"Zain"'
+        $t['--f-ui'] | Should -Match '^"Zain"'
         $t['--f-num'] | Should -Match '^"Outfit"'
     }
-    It 'يحمّل الأدوار الأربعة من assets\fonts بعائلاتها وأوزانها (Zain 700، El Messiri 500، Amiri 400/700، Outfit 400/600)' {
+    It 'يحمّل الأدوار الأربعة من assets\fonts بعائلاتها وأوزانها (Zain 400/700 للعناوين والقوائم والنص، Outfit 400/600 للأرقام)' {
         $f = Get-IdentityFonts $script:widgetRepoRoot
         $f.loaded.head | Should -Be 'Zain'
-        $f.loaded.list | Should -Be 'El Messiri'
-        $f.loaded.ui | Should -Be 'Amiri'
+        $f.loaded.list | Should -Be 'Zain'
+        $f.loaded.ui | Should -Be 'Zain'
         $f.loaded.num | Should -Be 'Outfit'
-        foreach ($case in @(@('head', 'Bold', 'Zain-Bold.ttf'), @('list', 'Medium', 'ElMessiri-Medium.ttf'), @('ui', 'Normal', 'Amiri-Regular.ttf'), @('ui', 'SemiBold', 'Amiri-Bold.ttf'), @('num', 'Normal', 'Outfit-Regular.ttf'), @('num', 'SemiBold', 'Outfit-SemiBold.ttf'))) {
+        foreach ($case in @(@('head', 'Bold', 'Zain-Bold.ttf'), @('head', 'Normal', 'Zain-Regular.ttf'), @('list', 'Normal', 'Zain-Regular.ttf'), @('ui', 'Normal', 'Zain-Regular.ttf'), @('ui', 'SemiBold', 'Zain-Bold.ttf'), @('num', 'Normal', 'Outfit-Regular.ttf'), @('num', 'SemiBold', 'Outfit-SemiBold.ttf'))) {
             $tf = New-Object Windows.Media.Typeface($f[$case[0]], [Windows.FontStyles]::Normal, [Windows.FontWeights]::($case[1]), [Windows.FontStretches]::Normal)
             $gt = $null
             $tf.TryGetGlyphTypeface([ref]$gt) | Should -BeTrue

@@ -68,7 +68,7 @@ function Get-Palette([bool]$light) {
     return $p
 }
 $C = Get-Palette $script:isLight
-$FONTS = Get-IdentityFonts $PSScriptRoot   # Zain/El Messiri/Amiri/Outfit من assets\fonts بحسب رموز tokens.css؛ Segoe UI إن غابت
+$FONTS = Get-IdentityFonts $PSScriptRoot   # Zain لكل النص العربي وOutfit للأرقام من assets\fonts بحسب رموز tokens.css؛ Segoe UI إن غابت
 function Alpha([string]$hex, [string]$aa) { '#' + $aa + $hex.TrimStart('#') }
 $script:brushCache = @{}
 $script:backgroundSurfaces = New-Object Collections.ArrayList
@@ -215,8 +215,8 @@ function Request-Appearance([string]$mode, [string]$palette) {
 function New-Text([string]$text, [double]$size = 12, [string]$color = $C.ink, [string]$weight = 'Normal', [bool]$ltr = $false, [string]$kind = '') {
     $t = New-Object Windows.Controls.TextBlock
     $t.Text = $text; $t.FontSize = $size; $t.Foreground = Brush $color; $t.FontWeight = [Windows.FontWeights]::$weight
-    # خطوط الهوية كما في الواجهة: النص LTR أرقام بـ --f-num (Outfit)، والعناوين بـ --f-head (Zain)، وسائر النصوص بـ --f-ui (Amiri).
-    # ارتفاع السطر مثبّت على 1.34 من الحجم (مقياس Segoe UI السابق) حتى لا يغيّر تباعدُ Amiri/Zain الأكبر هندسةَ الويدجت المعتمدة.
+    # خطوط الهوية كما في الواجهة: النص LTR أرقام بـ --f-num (Outfit)، والعناوين بـ --f-head (Zain)، وسائر النصوص بـ --f-ui (Zain أيضًا منذ 28/10).
+    # ارتفاع السطر مثبّت على 1.34 من الحجم (مقياس Segoe UI السابق) حتى لا يغيّر تباعدُ Zain الأكبر هندسةَ الويدجت المعتمدة.
     if (-not $kind) { $kind = if ($ltr) { 'num' } else { 'ui' } }
     if ($FONTS -and $FONTS[$kind]) { $t.FontFamily = $FONTS[$kind] }
     $t.LineStackingStrategy = 'BlockLineHeight'; $t.LineHeight = [Math]::Round($size * 1.34, 2)
@@ -427,7 +427,8 @@ function New-Chip([string]$label) {
     $b = New-Card 7; $b.Margin = '0,0,0,0'
     $sp = New-Object Windows.Controls.StackPanel; $sp.HorizontalAlignment = 'Center'
     $v = New-Text '—' 17 $C.ink 'SemiBold' $true; $v.HorizontalAlignment = 'Center'
-    $l = New-Text $label 12 $C.muted; $l.HorizontalAlignment = 'Center'
+    $l = New-Text $label 12 $C.muted; $l.HorizontalAlignment = 'Center'; $l.TextAlignment = 'Center'
+    $l.TextWrapping = 'Wrap'; $l.TextTrimming = 'None'   # «عمليات Claude» أعرض من ثلث البطاقة بخط Zain؛ يلتفّ على سطرين بدل البتر
     $sp.Children.Add($v) | Out-Null; $sp.Children.Add($l) | Out-Null; $b.Child = $sp
     [Windows.Automation.AutomationProperties]::SetName($v, $label)
     @{ Root = $b; Val = $v; Label = $label }
