@@ -905,7 +905,7 @@ class SpacePreviewJob(unittest.TestCase):
         def fake_impl(kind, dry=True, src="manual", early=False, prog=None):
             calls.append((kind, dry, prog is not None))
             if prog is not None:
-                prog["files"], prog["mb"] = 400, 7.5
+                prog["dirs"], prog["files"], prog["mb"] = 9000, 400, 7.5
                 gate.wait(5)
             return {"ok": True, "dry": dry, "mb": 12.0, "files": 401}
         with patch.object(self.sp, "_clean_impl", fake_impl):
@@ -915,6 +915,7 @@ class SpacePreviewJob(unittest.TestCase):
             self.assertTrue(r["ok"])
             self.assertEqual(r["state"], "running")
             self.wait(lambda: self.sp.preview_status("temp")["files"] == 400)
+            self.assertEqual(self.sp.preview_status("temp")["dirs"], 9000)
             self.assertEqual(self.sp.preview_status("temp")["mb"], 7.5)
             self.assertEqual(self.sp.preview_start("temp")["state"], "running")   # معاينة جارية تُعاد كما هي
             self.assertEqual(len(calls), 1)
@@ -937,17 +938,18 @@ class SpacePreviewJob(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             old = time.time() - 3 * 86400
             for i in range(450):
+                os.makedirs(os.path.join(d, "e%d" % (i % 3)), exist_ok=True)   # مجلدات فارغة تُعدّ أيضًا
                 f = os.path.join(d, "f%03d.tmp" % i)
                 with open(f, "wb") as fh:
                     fh.write(b"x" * 1024)
                 os.utime(f, (old, old))
             open(os.path.join(d, "fresh.tmp"), "wb").close()   # أحدث من يوم: خارج المعاينة
-            prog = {"files": 0, "mb": 0.0}
+            prog = {"dirs": 0, "files": 0, "mb": 0.0}
             with patch.object(self.sp, "TEMP", d):
                 r = self.sp._clean_impl("temp", True, prog=prog)
             self.assertEqual((r["ok"], r["dry"], r["files"], r["skipped"]), (True, True, 450, 0))
-            self.assertEqual(prog["files"], 400)                                  # يُحدَّث كل 200 ملف
-            self.assertEqual(len(os.listdir(d)), 451)                             # القياس الجاف لا يحذف شيئًا
+            self.assertEqual((prog["dirs"], prog["files"], prog["mb"]), (4, 450, 0.4))   # الجذر وثلاثة فارغة؛ كل ملف مرشّح
+            self.assertEqual(len(os.listdir(d)), 454)                             # القياس الجاف لا يحذف شيئًا ولا المجلدات الفارغة
 
     def test_failed_preview_reports_error(self):
         def boom(*a, **k):

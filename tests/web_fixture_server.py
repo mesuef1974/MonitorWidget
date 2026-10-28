@@ -56,7 +56,7 @@ class H(http.server.SimpleHTTPRequestHandler):
             except ValueError:
                 body = {}
             if body.get("action") == "preview":   # المعاينة مهمة خلفية: تبدأ جارية، والنتيجة من GET /api/space-preview (space-preview.json)
-                return self._json(200, {"ok": True, "state": "running", "files": 0, "mb": 0, "elapsed": 0})
+                return self._json(200, {"ok": True, "state": "running", "dirs": 0, "files": 0, "mb": 0, "elapsed": 0})
         return self._json(200, {"ok": True})
 
     def log_message(self, *a):

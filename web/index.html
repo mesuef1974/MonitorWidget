@@ -340,7 +340,7 @@ function spCtl(r, d) {
   const v = SPV[r.kind] || {}, wo = r.kind === "winold" ? d.winold : null, k = esc(r.kind);
   if (wo?.job?.state === "running" || r.job?.state === "running") return '<span class="tag warn">يعمل في الخلفية…</span>';
   if (r.blockedBy && !v.busy && !v.res) return `<span class="tag warn">أغلق ${esc(r.blockedBy)} أولاً</span>`;
-  if (v.busy) return `<span class="tag">جارٍ…</span> <span class="note">${v.prog?.files ? `فُحص ${Q(v.prog.files)} ملف · حتى الآن ${fmtMB(v.prog.mb || 0)}` : v.cleaning ? "قد يستغرق التنظيف دقائق مع آلاف الملفات" : "قد تستغرق المعاينة دقائق مع آلاف الملفات"}</span>`;
+  if (v.busy) return `<span class="tag">جارٍ…</span> <span class="note">${v.prog?.dirs || v.prog?.files ? `فُحص ${Q(v.prog.dirs || 0)} مجلد · ${Q(v.prog.files || 0)} ملف مرشّح · حتى الآن ${fmtMB(v.prog.mb || 0)}` : v.cleaning ? "قد يستغرق التنظيف دقائق مع آلاف الملفات" : "قد تستغرق المعاينة دقائق مع آلاف الملفات"}</span>`;
   const res = v.res;
   if (res?.ok && res.dry && !(res.mb > 0) && !(res.files > 0) && !res.measuring) return `<span class="acts"><span class="note">لا شيء للتحرير${res.skipped ? ` · ${Q(res.skipped)} ملف مقفل` : ""}</span><button class="btn" data-sp="cancel" data-spk="${k}">إغلاق</button></span>`;
   if (res?.ok && res.dry) return `<span class="acts">يتحرّر <b>${fmtMB(res.mb || 0)}</b><button class="btn primary" data-sp="clean" data-spk="${k}"${wo && !wo.eligible ? ' data-early="1"' : ""}>${wo && !wo.eligible ? "احذف الآن" : "نظّف"}</button><button class="btn" data-sp="cancel" data-spk="${k}">إلغاء</button></span>`;
