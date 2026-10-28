@@ -1076,6 +1076,30 @@ class SpaceCleanJob(unittest.TestCase):
             self.assertEqual((prog["dirs"], prog["files"]), (4, 30))                     # الجذر وثلاثة مجلدات؛ كل ملف عولج
             self.assertEqual([f for _, _, fs in os.walk(d) for f in fs], ["fresh.tmp"])
 
+    def test_real_temp_clean_removes_old_empty_folders_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            old = time.time() - 3 * 86400
+            for rel in ("chain/a/b/c", "oldfiles", "busy", "newempty", "Low", "parent/newchild"):
+                os.makedirs(os.path.join(d, *rel.split("/")))
+            for rel, t in (("oldfiles/x.tmp", old), ("busy/fresh.tmp", None)):
+                p = os.path.join(d, *rel.split("/"))
+                with open(p, "wb") as fh:
+                    fh.write(b"x" * 512)
+                if t:
+                    os.utime(p, (t, t))
+            for rel in ("chain/a/b/c", "chain/a/b", "chain/a", "chain", "oldfiles", "busy", "Low", "parent"):   # الأعمق أولًا
+                os.utime(os.path.join(d, *rel.split("/")), (old, old))
+            prog = {"dirs": 0, "files": 0, "mb": 0.0}
+            with patch.object(self.sp, "TEMP", d):
+                r = self.sp.clean("temp", dry=False, prog=prog, exp=0.0)
+                dry = self.sp.clean("temp", dry=True)
+            left = sorted(os.path.relpath(os.path.join(dp, x), d).replace(os.sep, "/") for dp, dn, _ in os.walk(d) for x in dn)
+            # السلسلة كلها ومجلد الملفات القديمة (عُمره قيس قبل حذف ملفه)؛ ويبقى المشغول والحديث وLow والأب الذي فيه ابن حديث
+            self.assertEqual((r["files"], r["emptyDirs"], prog["emptyDirs"]), (1, 5, 5))
+            self.assertEqual(left, ["Low", "busy", "newempty", "parent", "parent/newchild"])
+            self.assertTrue(os.path.isdir(d))
+            self.assertEqual(dry["emptyDirs"], 0)                                       # المعاينة لا تحذف شيئًا
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

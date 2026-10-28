@@ -331,7 +331,7 @@ function spProg(v) {
   const p = v.prog;
   if (!(p?.dirs || p?.files)) return v.cleaning ? "قد يستغرق التنظيف دقائق مع آلاف الملفات" : "قد تستغرق المعاينة دقائق مع آلاف الملفات";
   const walked = `فُحص ${Q(p.dirs || 0)} مجلد`;
-  if (p.phase === "clean") return `${walked} · عولج ${Q(p.files || 0)} ملف · تحرّر ${fmtMB(p.mb || 0)}`;
+  if (p.phase === "clean") return `${walked} · عولج ${Q(p.files || 0)} ملف · تحرّر ${fmtMB(p.mb || 0)}${p.emptyDirs ? ` · أُزيل ${Q(p.emptyDirs)} مجلد فارغ` : ""}`;
   return `${p.phase === "measure" ? "تحقّق قبل الحذف: " : ""}${walked} · ${Q(p.files || 0)} ملف مرشّح · حتى الآن ${fmtMB(p.mb || 0)}`;
 }
 function spaceKinds(d) {
@@ -353,7 +353,7 @@ function spCtl(r, d) {
   if (res?.ok && res.dry && !(res.mb > 0) && !(res.files > 0) && !res.measuring) return `<span class="acts"><span class="note">لا شيء للتحرير${res.skipped ? ` · ${Q(res.skipped)} ملف مقفل` : ""}</span><button class="btn" data-sp="cancel" data-spk="${k}">إغلاق</button></span>`;
   if (res?.ok && res.dry) return `<span class="acts">يتحرّر <b>${fmtMB(res.mb || 0)}</b><button class="btn primary" data-sp="clean" data-spk="${k}"${wo && !wo.eligible ? ' data-early="1"' : ""}>${wo && !wo.eligible ? "احذف الآن" : "نظّف"}</button><button class="btn" data-sp="cancel" data-spk="${k}">إلغاء</button></span>`;
   if (res?.ok && res.started) return '<span class="tag warn">بدأ الحذف في الخلفية</span>';
-  if (res?.ok) return `<span class="tag ok">تحرّر ${fmtMB(res.mb || 0)}</span>${res.skipped ? ` <span class="note">+${Q(res.skipped)} متروك</span>` : ""}`;
+  if (res?.ok) return `<span class="tag ok">تحرّر ${fmtMB(res.mb || 0)}</span>${res.skipped ? ` <span class="note">+${Q(res.skipped)} متروك</span>` : ""}${res.emptyDirs ? ` <span class="note">أُزيل ${Q(res.emptyDirs)} مجلد فارغ</span>` : ""}`;
   if (res) return `<span class="tag bad">${esc(res.error || "تعذّر")}</span>`;
   const hasAuto = d.auto && r.kind in d.auto;
   return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note">تلقائي</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`, `التنظيف التلقائي: ${(d.labels || {})[r.kind] || r.kind}`)}` : '<span class="tag">يدوي</span>'}${r.monthly !== undefined ? `<span class="note">شهري</span>${sw(!!r.monthly, 'data-sp="dismmonthly"', "تنظيف DISM الشهري")}` : ""}</span>`;
@@ -474,7 +474,8 @@ async function spAction(t) {
       SPALL.s = "busy"; SPALL.prog = null; redraw();
       try {
         const r = await pollJob(post("/api/space", { action: "cleanall", seen_mb: Math.round(mb) }), "/api/space-clean?kind=all", s => { SPALL.prog = s; redraw(); }, () => true);
-        if (r.ok) toast(`حُرّر ${Math.round(r.mb || 0)} MB`); else toast("تعذّر التنظيف: " + (r.error || "تعذّر"), true);
+        const ed = (r.parts || []).reduce((a, x) => a + (x.emptyDirs || 0), 0);
+        if (r.ok) toast(`حُرّر ${Math.round(r.mb || 0)} MB${ed ? ` · أُزيل ${nf(ed)} مجلد فارغ` : ""}`); else toast("تعذّر التنظيف: " + (r.error || "تعذّر"), true);
       } catch (e) { toast("تعذّر التنظيف: " + e.message, true); }
       SPALL.s = null; SPALL.prog = null; reload();
     }
