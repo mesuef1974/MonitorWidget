@@ -12,3 +12,10 @@ $script:FONTS = Get-IdentityFonts $script:widgetRepoRoot
 function Resolve-WidgetFunctionText([string]$text) {
     return $text.Replace('$PSScriptRoot', "'" + $script:widgetRepoRoot.Replace("'", "''") + "'")
 }
+# أنواع الويدجت المترجمة (W32، وQuietText التي تطلبها New-Text -Quiet) من Add-WidgetTypes نفسها لا من نسخة في الاختبار.
+# أسماء المتغيرات مميّزة لأن الملف يُستورد بالنقطة بعد أن يعرّف المستدعي $ast و$tokens و$errors
+Add-Type -AssemblyName PresentationFramework
+$widgetTypesTokens = $null; $widgetTypesErrors = $null
+$widgetTypesAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $script:widgetRepoRoot 'widget.ps1'), [ref]$widgetTypesTokens, [ref]$widgetTypesErrors)
+. ([scriptblock]::Create($widgetTypesAst.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Add-WidgetTypes' }, $true).Extent.Text))
+Add-WidgetTypes
