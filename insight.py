@@ -133,7 +133,7 @@ def _cat(name):
     return "other"
 
 
-CAT_AR = {"claude": "Claude", "wsl": "WSL وDocker", "shell": "الشلات", "conhost": "نوافذ الطرفية (conhost)", "browser": "المتصفحات", "dev": "أدوات التطوير",
+CAT_AR = {"claude": "Claude", "wsl": "WSL و\u00a0Docker", "shell": "الشلات", "conhost": "نوافذ الطرفية (conhost)", "browser": "المتصفحات", "dev": "أدوات التطوير",
           "system": "ويندوز", "other": "أخرى"}
 
 

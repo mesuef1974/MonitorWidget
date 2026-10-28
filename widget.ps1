@@ -477,7 +477,7 @@ function New-Switch {
 }
 function Set-Switch($b, [bool]$on) { $b.Background = if ($on) { Brush $C.accent } else { Brush $C.swoff }; $b.IsChecked = $on; $b.Content.HorizontalAlignment = if ($on) { 'Right' } else { 'Left' } }
 
-$TIERS = @(@('daily', 'يومي'), @('weekly', 'أسبوعي'), @('monthly', 'شهري'), @('quarterly', 'تقرير ربع سنوي'))
+$TIERS = @(@('daily', 'يومي'), @('weekly', 'أسبوعي'), @('monthly', 'شهري'), @('quarterly', 'ربع سنوي'))
 foreach ($t in $TIERS) {
     $key = $t[0]
     $row = New-Card 7; $row.Margin = '0,0,0,4'
