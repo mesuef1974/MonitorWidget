@@ -1,0 +1,23 @@
+{
+  "state": "done",
+  "phase": "clean",
+  "kind": "temp",
+  "dirs": 2600,
+  "files": 1838,
+  "mb": 510.1,
+  "elapsed": 41.5,
+  "res": {
+    "kind": "temp",
+    "ok": true,
+    "dry": false,
+    "gb": 0.498,
+    "mb": 510.1,
+    "files": 1838,
+    "skipped": 2,
+    "lockedMB": 0,
+    "heldMB": 0,
+    "expectedMB": 512.3,
+    "freeBeforeGB": 101.2,
+    "freeAfterGB": 101.7
+  }
+}
