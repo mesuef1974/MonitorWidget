@@ -895,6 +895,69 @@ class GpuPurge(unittest.TestCase):
         self.assertEqual(v["beforeMB"], 100.0)
 
 
+class GpuMiniView(unittest.TestCase):
+    """لقطة الرسوميات للويدجت (/api/mini -> gpu) لا تنتظر nvidia-smi: تُعيد المخزّن فورًا، وتطلب تحديثًا واحدًا في خيط حين يقدُم
+    (5 ث) ولا تكرّره أثناء جريانه، وتُخفي القراءة الأقدم من دقيقة، والتحديث يحرّر علمه ولو فشل."""
+
+    def setUp(self):
+        import gpuwatch
+        self.gw = gpuwatch
+        self.saved = (dict(gpuwatch._cache), dict(gpuwatch._mini_busy))
+        self.started = []
+        started = self.started
+
+        class FakeThread:
+            def __init__(self, target=None, daemon=False):
+                started.append(target.__name__)
+
+            def start(self):
+                pass
+        self.fake = FakeThread
+
+    def tearDown(self):
+        self.gw._cache.clear()
+        self.gw._cache.update(self.saved[0])
+        self.gw._mini_busy.clear()
+        self.gw._mini_busy.update(self.saved[1])
+
+    def view(self, now):
+        with patch.object(self.gw.threading, "Thread", self.fake), patch.object(self.gw.time, "time", lambda: now):
+            return self.gw.mini_view()
+
+    def test_empty_cache_answers_none_and_starts_one_refresh(self):
+        self.gw._cache.update(static=(0.0, None), live=(0.0, None))
+        self.gw._mini_busy["on"] = False
+        self.assertIsNone(self.view(1000.0))
+        self.assertIsNone(self.view(1000.5))          # التحديث الأول ما زال جاريًا: لا خيط ثانٍ
+        self.assertEqual(self.started, ["_mini_refresh"])
+
+    def test_fresh_cache_is_returned_without_refresh(self):
+        live = {"temp": 53.0, "util": 26.0, "power": 3.87, "vram": 54.0, "vramTotal": 8188.0}
+        static = {"name": "RTX", "powerMax": 140.0, "powerLimit": None, "vramTotal": 8188.0}
+        self.gw._cache.update(static=(990.0, static), live=(998.0, live))
+        self.gw._mini_busy["on"] = False
+        v = self.view(1000.0)
+        self.assertEqual(self.started, [])
+        self.assertEqual(v, {"age": 2, "name": "RTX", "temp": 53.0, "util": 26.0, "power": 3.87, "powerMax": 140.0,
+                             "vram": 54.0, "vramTotal": 8188.0})
+
+    def test_old_reading_refreshes_and_very_old_is_hidden(self):
+        self.gw._cache.update(static=(990.0, {"name": "RTX"}), live=(990.0, {"temp": 50.0}))
+        self.gw._mini_busy["on"] = False
+        self.assertEqual(self.view(1000.0)["temp"], 50.0)      # 10 ث: تُعرض ويُطلب تحديث
+        self.assertEqual(self.started, ["_mini_refresh"])
+        self.gw._mini_busy["on"] = False
+        self.assertIsNone(self.view(1061.0))                   # أقدم من دقيقة: لا تُعرض
+
+    def test_refresh_releases_busy_flag_on_failure(self):
+        def boom():
+            raise RuntimeError("nvidia-smi gone")
+        self.gw._mini_busy["on"] = True
+        with patch.object(self.gw, "static_info", boom), patch.object(self.gw.errlog, "swallowed", lambda: None):
+            self.gw._mini_refresh()
+        self.assertFalse(self.gw._mini_busy["on"])
+
+
 class SpacePreviewJob(unittest.TestCase):
     """معاينة المساحة مهمة خلفية: البدء فوري ولا يكرّر الخيط لمعاينة جارية، التقدّم يُقرأ أثناء القياس، نوع غير معروف يُرفض بلا خيط،
     والنتيجة الحديثة (أقل من PREVIEW_TTL) تغني فحص التأكيد عن قياس ثانٍ متزامن، والقديمة لا."""

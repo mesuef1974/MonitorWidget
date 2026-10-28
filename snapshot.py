@@ -28,6 +28,7 @@ import alertcfg
 import cpuwatch
 import db
 import errlog
+import gpuwatch
 import infra
 import memtrim
 import routes_destructive
@@ -235,6 +236,14 @@ def _cpu_alert_safe():
         return None
 
 
+def _gpu_safe():
+    try:
+        return gpuwatch.mini_view()
+    except Exception:
+        errlog.swallowed()
+        return None
+
+
 def _agent_hb_age():
     try:
         v = db._meta_get("agent_hb", 0)
@@ -264,7 +273,7 @@ def mini_payload():
         "tiers": tiers, "guard": (data or {}).get("guard"),
         "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
         "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
-        "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "thr": alertcfg.get(),
+        "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "gpu": _gpu_safe(), "thr": alertcfg.get(),
     }
 
 

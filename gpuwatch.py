@@ -137,6 +137,42 @@ def live_info():
     return v
 
 
+MINI_REFRESH_S = 5     # الويدجت يستطلع كل ثانيتين؛ nvidia-smi يستغرق نحو ثانية فلا يُطلق أكثر من مرة كل 5 ث
+MINI_STALE_S = 60      # قراءة أقدم من هذا لا تُعرض
+_mini_busy = {"on": False}
+
+
+def _mini_refresh():
+    try:
+        static_info()
+        live_info()
+    except Exception:
+        errlog.swallowed()
+    finally:
+        with _lock:
+            _mini_busy["on"] = False
+
+
+def mini_view():
+    """لقطة الرسوميات لحمولة /api/mini دون انتظار nvidia-smi: تُعيد آخر قراءة مخزّنة فورًا وتطلب تحديثها في خيط واحد.
+    None حين لا توجد قراءة حديثة (أول طلب، أو الكرت لا يُجيب)."""
+    now = time.time()
+    with _lock:
+        lts, live = _cache["live"]
+        sts, st = _cache["static"]
+        start = not _mini_busy["on"] and (now - lts >= MINI_REFRESH_S or st is None or now - sts >= 600)
+        if start:
+            _mini_busy["on"] = True
+    if start:
+        threading.Thread(target=_mini_refresh, daemon=True).start()
+    if not live or now - lts > MINI_STALE_S:
+        return None
+    st = st or {}
+    return {"age": int(now - lts), "name": st.get("name"), "temp": live.get("temp"), "util": live.get("util"),
+            "power": live.get("power"), "powerMax": st.get("powerMax") or st.get("powerLimit"),
+            "vram": live.get("vram"), "vramTotal": live.get("vramTotal") or st.get("vramTotal")}
+
+
 def job():
     """Agent job: one light nvidia-smi sample per minute into the gpu table (the 5-minute collector keeps adding per-process memory)."""
     if not os.path.exists(NVSMI):
