@@ -38,6 +38,7 @@ const nf = (v, d = 0) => (v == null || !isFinite(v)) ? "—" : Number(v).toLocal
 const Q = (v, u = "", d = 0) => `<bdi dir="ltr" class="q">${nf(v, d)}${u ? " " + u : ""}</bdi>`;
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const hhmm = t => new Date(t * 1000).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+const dhm = t => new Date(t * 1000).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).replace(",", "");   // يوم/شهر ساعة:دقيقة للمدى الذي يتجاوز يومًا
 const level = (v, warn, bad) => v >= bad ? "bad" : v >= warn ? "warn" : "ok";
 const gb = mb => mb >= 1024 ? nf(mb / 1024, 1) + " GB" : nf(mb, 0) + " MB";
 const rate = bps => bps >= 1048576 ? nf(bps / 1048576, 1) + " MB/s" : bps >= 1024 ? nf(bps / 1024, 0) + " KB/s" : nf(bps, 0) + " B/s";
@@ -79,7 +80,8 @@ function chart(el, { t, series, min = 0, max = null, height = 190, yFmt = v => n
   const W = 1000, pad = 6, H = Math.max(height, Math.round((el.clientHeight || 0) - 24));
   const title = el.closest(".panel")?.querySelector("h2")?.textContent || series.map(s => s.name).join(" و"), cid = "chart-" + (++chartSeq);
   const stat = s => { const v = s.v.filter(x => x != null), f = s.fmt || yFmt; return v.length ? `${s.name}: آخر قيمة ${f(v[v.length - 1])}، أدنى ${f(Math.min(...v))}، أعلى ${f(Math.max(...v))}` : `${s.name}: لا بيانات`; };
-  const summary = t.length > 1 ? `رسم بياني «${title}» من ${hhmm(t[0])} إلى ${hhmm(t[t.length - 1])}، ${nf(t.length)} نقطة. ${series.map(stat).join(". ")}.` : `رسم بياني «${title}»: لا بيانات كافية.`;
+  const tf = t.length > 1 && t[t.length - 1] - t[0] > 20 * 3600 ? dhm : hhmm;   // الملخص والإعلان يذكران اليوم عندما يتجاوز المدى عشرين ساعة؛ تسميات المحور والتلميح تبقى بالساعة
+  const summary = t.length > 1 ? `رسم بياني «${title}» من ${tf(t[0])} إلى ${tf(t[t.length - 1])}، ${nf(t.length)} نقطة. ${series.map(stat).join(". ")}.` : `رسم بياني «${title}»: لا بيانات كافية.`;
   const all = series.flatMap(s => s.v.filter(x => x != null));
   const hi = max ?? (all.length ? Math.max(...all) * 1.12 || 1 : 1), lo = min;
   const n = t.length, X = i => n < 2 ? 0 : i / (n - 1) * W, Y = v => H - pad - (clamp(v, lo, hi) - lo) / (hi - lo || 1) * (H - pad * 2);
@@ -100,7 +102,7 @@ function chart(el, { t, series, min = 0, max = null, height = 190, yFmt = v => n
   const measure = () => { rect = box.getBoundingClientRect(); };
   new ResizeObserver(measure).observe(box);
   const row = i => `<b>${hhmm(t[i])}</b>` + series.map(s => `<div><span><i style="background:${s.color}"></i> ${esc(s.name)}</span><span class="num">${s.v[i] == null ? "—" : (s.fmt || yFmt)(s.v[i])}</span></div>`).join("");
-  const say = i => `${hhmm(t[i])}: ` + series.map(s => `${s.name} ${s.v[i] == null ? "لا قيمة" : (s.fmt || yFmt)(s.v[i])}`).join("، ");
+  const say = i => `${tf(t[i])}: ` + series.map(s => `${s.name} ${s.v[i] == null ? "لا قيمة" : (s.fmt || yFmt)(s.v[i])}`).join("، ");
   const showAt = (i, announce) => {
     at = clamp(i, 0, n - 1); if (!rect) measure(); const f = at / (n - 1), x = f * rect.width;
     cur.style.display = tip.style.display = "block"; cur.style.left = (f * 100) + "%"; tip.innerHTML = row(at);
