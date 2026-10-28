@@ -9,7 +9,18 @@ $got = $false
 try { $got = $script:mutex.WaitOne($wait) } catch [Threading.AbandonedMutexException] { $got = $true }   # previous owner crashed: the mutex is now ours
 if (-not $got) { exit 0 }
 $env:MW_REPLACE = $null
-Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;public static class W32{[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern int SetWindowLong(IntPtr h,int i,int v);}'
+function Add-WidgetTypes {
+    # W32: نمط النافذة. QuietText: نص مرئي يكرّر ما يحمله اسم عنصر آخر (وحدة المقياس وتسميته، تسمية الرقاقة، مفتاح الرسم ومحوراه)؛
+    # بلا نظير أتمتة فلا يقرؤه قارئ الشاشة مرة ثانية ويبقى مرسومًا. النوعان في ترجمة واحدة لأن كل Add-Type ترجمة بنحو نصف ثانية.
+    if ('QuietText' -as [type]) { return }
+    $refs = [Windows.Controls.TextBlock], [Windows.UIElement], [Windows.DependencyObject], [System.Windows.Markup.IQueryAmbient] | ForEach-Object { $_.Assembly.Location } | Select-Object -Unique
+    Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
+using System;using System.Runtime.InteropServices;
+public static class W32{[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern int SetWindowLong(IntPtr h,int i,int v);}
+public class QuietText : System.Windows.Controls.TextBlock { protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return null; } }
+'@
+}
+Add-WidgetTypes
 
 function Log($m) { try { Add-Content "$Root\widget.log" ("{0:s} {1}" -f (Get-Date), $m) -Encoding UTF8 } catch {} }
 if ((Test-Path "$Root\widget.log") -and ((Get-Item "$Root\widget.log").Length -gt 200KB)) { Remove-Item "$Root\widget.log" -Force }
@@ -223,8 +234,8 @@ function Request-Appearance([string]$mode, [string]$palette) {
     $script:appearancePending = $true
     Start-Bg '/api/appearance' @{ revision=$script:appearanceRevision; mode=$mode; palette=$palette } { param($r) $script:appearancePending=$false; Receive-Appearance $r; Show-Toast 'حُفظ المظهر للتطبيق والويدجت معًا' } { param($m) $script:appearancePending=$false; Show-Toast 'تعذّر حفظ المظهر؛ يُعاد تحميل آخر اختيار مؤكد' }
 }
-function New-Text([string]$text, [double]$size = 12, [string]$color = $C.ink, [string]$weight = 'Normal', [bool]$ltr = $false, [string]$kind = '') {
-    $t = New-Object Windows.Controls.TextBlock
+function New-Text([string]$text, [double]$size = 12, [string]$color = $C.ink, [string]$weight = 'Normal', [bool]$ltr = $false, [string]$kind = '', [switch]$Quiet) {
+    $t = if ($Quiet) { New-Object QuietText } else { New-Object Windows.Controls.TextBlock }
     $t.Text = $text; $t.FontSize = $size; $t.Foreground = Brush $color; $t.FontWeight = [Windows.FontWeights]::$weight
     # خطوط الهوية كما في الواجهة: النص LTR أرقام بـ --f-num (Outfit)، والعناوين بـ --f-head (Zain)، وسائر النصوص بـ --f-ui (Zain أيضًا منذ 28/10).
     # ارتفاع السطر مثبّت على 1.34 من الحجم (مقياس Segoe UI السابق) حتى لا يغيّر تباعدُ Zain الأكبر هندسةَ الويدجت المعتمدة.
@@ -364,13 +375,13 @@ function New-Ring([string]$label) {
     $cv.Children.Add($arc) | Out-Null
     $ctr = New-Object Windows.Controls.StackPanel; $ctr.VerticalAlignment = 'Center'; $ctr.HorizontalAlignment = 'Center'
     $val = New-Text '—' 20 $C.ink 'SemiBold' $true; $val.HorizontalAlignment = 'Center'
-    $unit = New-Text '' 12 $C.muted 'Normal' $true; $unit.HorizontalAlignment = 'Center'
+    $unit = New-Text '' 12 $C.muted 'Normal' $true -Quiet; $unit.HorizontalAlignment = 'Center'
     $ctr.Children.Add($val) | Out-Null; $ctr.Children.Add($unit) | Out-Null
     $trackCv = New-Object Windows.Controls.Canvas; $trackCv.Width = 68; $trackCv.Height = 68; $trackCv.Children.Add($track) | Out-Null
     $g.Children.Add($trackCv) | Out-Null; $g.Children.Add($cv) | Out-Null; $g.Children.Add($ctr) | Out-Null
-    $lab = New-Text $label 12 $C.muted; $lab.HorizontalAlignment = 'Center'; $lab.Margin = '0,2,0,0'
+    $lab = New-Text $label 12 $C.muted -Quiet; $lab.HorizontalAlignment = 'Center'; $lab.Margin = '0,2,0,0'
     $wrap.Children.Add($g) | Out-Null; $wrap.Children.Add($lab) | Out-Null
-    [Windows.Automation.AutomationProperties]::SetName($val, $label)   # قارئ الشاشة يقرأ «الاسم: القيمة والوحدة» من نص القيمة؛ Set-Ring تحدّثه
+    [Windows.Automation.AutomationProperties]::SetName($val, $label)   # المقياس عنصر واحد لقارئ الشاشة: «الاسم: القيمة والوحدة» على نص القيمة (Set-Ring تحدّثه)، والوحدة والتسمية صامتتان
     @{ Root = $wrap; Arc = $arc; Val = $val; Unit = $unit; Grid = $g; Label = $label }
 }
 function Ring-Arc([double]$pct) {
@@ -399,11 +410,11 @@ $chartCard = New-Card 8
 $chartStack = New-Object Windows.Controls.StackPanel
 $chHead = New-Object Windows.Controls.Grid
 foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $chHead.ColumnDefinitions.Add($cd) }
-$chHead.Children.Add((New-Text 'آخر 30 دقيقة' 11 $C.muted)) | Out-Null
+$UI.chartTitle = New-Text 'آخر 30 دقيقة' 11 $C.muted; $chHead.Children.Add($UI.chartTitle) | Out-Null   # اسمه البديل النصي للرسم (Get-ChartSummary)
 $leg = New-Object Windows.Controls.StackPanel; $leg.Orientation = 'Horizontal'
 foreach ($it in @(@('التزام', $C.accentText), @('فعلية', $C.violet))) {
     $dot = New-Object Windows.Shapes.Ellipse; $dot.Width = 7; $dot.Height = 7; $dot.Fill = Brush $it[1]; $dot.Margin = '8,0,3,0'; $dot.VerticalAlignment = 'Center'
-    $leg.Children.Add($dot) | Out-Null; $leg.Children.Add((New-Text $it[0] 11.5 $C.muted)) | Out-Null
+    $leg.Children.Add($dot) | Out-Null; $leg.Children.Add((New-Text $it[0] 11.5 $C.muted -Quiet)) | Out-Null
 }
 [Windows.Controls.Grid]::SetColumn($leg, 1); $chHead.Children.Add($leg) | Out-Null
 $chartStack.Children.Add($chHead) | Out-Null
@@ -438,7 +449,7 @@ function New-Chip([string]$label) {
     $b = New-Card 7; $b.Margin = '0,0,0,0'
     $sp = New-Object Windows.Controls.StackPanel; $sp.HorizontalAlignment = 'Center'
     $v = New-Text '—' 17 $C.ink 'SemiBold' $true; $v.HorizontalAlignment = 'Center'
-    $l = New-Text $label 12 $C.muted; $l.HorizontalAlignment = 'Center'; $l.TextAlignment = 'Center'
+    $l = New-Text $label 12 $C.muted -Quiet; $l.HorizontalAlignment = 'Center'; $l.TextAlignment = 'Center'
     $l.TextWrapping = 'Wrap'; $l.TextTrimming = 'None'   # «عمليات Claude» أعرض من ثلث البطاقة بخط Zain؛ يلتفّ على سطرين بدل البتر
     $sp.Children.Add($v) | Out-Null; $sp.Children.Add($l) | Out-Null; $b.Child = $sp
     [Windows.Automation.AutomationProperties]::SetName($v, $label)
@@ -685,12 +696,21 @@ function Ago($iso) {
 }
 function Fmt-Bytes($n) { $n = [double]$n; if ($n -ge 1GB) { '{0:N2} GB' -f ($n / 1GB) } elseif ($n -ge 1MB) { '{0:N1} MB' -f ($n / 1MB) } elseif ($n -ge 1KB) { '{0:N0} KB' -f ($n / 1KB) } else { "$([int]$n) B" } }
 
+function Get-ChartSummary($commit, $ram) {
+    # البديل النصي للرسم: مدى كل سلسلة وقيمتها الأخيرة بتقريب الحلقات نفسه
+    $parts = foreach ($s in @(@('التزام الذاكرة', $commit), @('الذاكرة الفعلية', $ram))) {
+        $v = @(@($s[1]) | Where-Object { $null -ne $_ } | ForEach-Object { [Math]::Round([double]$_) })
+        if ($v.Count -ge 2) { $m = $v | Measure-Object -Minimum -Maximum; "$($s[0]) بين $($m.Minimum)% و$($m.Maximum)%، الآن $($v[-1])%" }
+    }
+    if ($parts) { 'آخر 30 دقيقة: ' + (@($parts) -join '؛ ') } else { 'آخر 30 دقيقة: جارٍ جمع البيانات' }
+}
 function Draw-Chart($commit, $ram) {
+    [Windows.Automation.AutomationProperties]::SetName($UI.chartTitle, (Get-ChartSummary $commit $ram))
     $cv = $UI.chart; $cv.Children.Clear(); $w = $cv.ActualWidth; $h = $cv.ActualHeight
     if ($w -le 48 -or $h -le 24) { return }
     $left=32.0; $right=$w-8.0; $plotBottom=$h-18.0; $plotTop=4.0
     $commit = @($commit); $ram = @($ram); $n = $commit.Count
-    if ($n -lt 2) { $t = New-Text 'جارٍ جمع البيانات…' 11 $C.muted; [Windows.Controls.Canvas]::SetLeft($t, $left + ($right-$left) / 2 - 50); [Windows.Controls.Canvas]::SetTop($t, $h / 2 - 8); $cv.Children.Add($t) | Out-Null; return }
+    if ($n -lt 2) { $t = New-Text 'جارٍ جمع البيانات…' 11 $C.muted -Quiet; [Windows.Controls.Canvas]::SetLeft($t, $left + ($right-$left) / 2 - 50); [Windows.Controls.Canvas]::SetTop($t, $h / 2 - 8); $cv.Children.Add($t) | Out-Null; return }
     $all = $commit + $ram; $lo = [Math]::Max(0, [Math]::Floor((($all | Measure-Object -Minimum).Minimum - 6) / 10) * 10); $hi = 100
     $Y = { param($v) $plotBottom - ([double]$v - $lo) / ($hi - $lo) * ($plotBottom - $plotTop) }
     foreach ($ref in @(@($script:THR.cmW, $C.warn), @($script:THR.cmB, $C.bad))) {
@@ -718,8 +738,8 @@ function Draw-Chart($commit, $ram) {
     }
     Add-Series $ram $C.violet 2 $false $false
     Add-Series $commit $C.accent 2 $false $true
-    $lt = New-Text "$lo%" 11 $C.muted 'Normal' $true; [Windows.Controls.Canvas]::SetLeft($lt, 0); [Windows.Controls.Canvas]::SetTop($lt, $h - 18); $cv.Children.Add($lt) | Out-Null
-    $ht = New-Text '100%' 11 $C.muted 'Normal' $true; [Windows.Controls.Canvas]::SetLeft($ht, 0); [Windows.Controls.Canvas]::SetTop($ht, 0); $cv.Children.Add($ht) | Out-Null
+    $lt = New-Text "$lo%" 11 $C.muted 'Normal' $true -Quiet; [Windows.Controls.Canvas]::SetLeft($lt, 0); [Windows.Controls.Canvas]::SetTop($lt, $h - 18); $cv.Children.Add($lt) | Out-Null
+    $ht = New-Text '100%' 11 $C.muted 'Normal' $true -Quiet; [Windows.Controls.Canvas]::SetLeft($ht, 0); [Windows.Controls.Canvas]::SetTop($ht, 0); $cv.Children.Add($ht) | Out-Null
 }
 
 $script:lastStamp = -1

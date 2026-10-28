@@ -243,7 +243,7 @@ Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لص
 Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF معزول، بلا نافذة)' {
     BeforeAll {
         Add-Type -AssemblyName PresentationFramework
-        foreach ($name in @('Brush', 'Surface-Brush', 'New-Text', 'New-Card', 'Gap', 'New-Ring', 'Ring-Arc', 'Set-Ring', 'Level-Brush', 'New-Chip', 'Set-Chip', 'New-ActionButton', 'Normalize-WidgetOpacity', 'Test-WidgetOpacityLow')) {
+        foreach ($name in @('Brush', 'Surface-Brush', 'New-Text', 'New-Card', 'Gap', 'New-Ring', 'Ring-Arc', 'Set-Ring', 'Level-Brush', 'New-Chip', 'Set-Chip', 'New-ActionButton', 'Normalize-WidgetOpacity', 'Test-WidgetOpacityLow', 'Get-ChartSummary')) {
             $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
             if (-not $fn) { throw "Missing $name" }
             . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -258,6 +258,13 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         . ([scriptblock]::Create((& $section '# ---- inline confirm strip' '# ---- memory trim button')))
         . ([scriptblock]::Create((& $section '# opacity slider 10%..100%' '$opItem = New-Object')))
         $AP = [Windows.Automation.AutomationProperties]
+        # ما يقرؤه قارئ الشاشة فعلًا: أسماء نظائر الأتمتة تحت العنصر بعد تخطيطه
+        function Get-PeerNames($peer) { foreach ($c in @($peer.GetChildren())) { if ($c) { $c.GetName(); Get-PeerNames $c } } }
+        function Get-ReadNames($element) {
+            $uc = New-Object Windows.Controls.UserControl; $uc.Content = $element
+            $uc.Measure([Windows.Size]::new(400, 400)); $uc.Arrange([Windows.Rect]::new(0, 0, 400, 400)); $uc.UpdateLayout()
+            @(Get-PeerNames ([Windows.Automation.Peers.UIElementAutomationPeer]::CreatePeerForElement($uc)))
+        }
     }
     It 'الحلقة تحمل اسمها وتقرأ القيمة والوحدة والتلميح بعد Set-Ring' {
         $r = New-Ring 'الذاكرة الفعلية'
@@ -273,6 +280,27 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         Set-Chip $chip '5'
         $chip.Val.Text | Should -Be '5'
         $AP::GetName($chip.Val) | Should -Be 'شلات: 5'
+    }
+    It 'كل مقياس ورقاقة عنصر واحد لقارئ الشاشة، والوحدة والتسمية مرسومتان بلا تكرار' {
+        $r = New-Ring 'الذاكرة الفعلية'; Set-Ring $r 47 'ok' '47' '%' 'متاح 16 GB من 32 GB'
+        $names = @(Get-ReadNames $r.Root)
+        $names | Should -HaveCount 1
+        $names[0] | Should -Be 'الذاكرة الفعلية: 47 %'
+        $r.Unit.ActualWidth | Should -BeGreaterThan 0
+        $quiet = @($r.Root.Children | Where-Object { $_ -is [QuietText] })
+        $quiet | Should -HaveCount 1
+        $quiet[0].Text | Should -Be 'الذاكرة الفعلية'
+        $quiet[0].ActualWidth | Should -BeGreaterThan 0
+        $chip = New-Chip 'شلات'; Set-Chip $chip '5'
+        $names = @(Get-ReadNames $chip.Root)
+        $names | Should -HaveCount 1
+        $names[0] | Should -Be 'شلات: 5'
+    }
+    It 'البديل النصي للرسم: مدى كل سلسلة وآخر قيمة بتقريب الحلقات، أو «جارٍ جمع البيانات»' {
+        Get-ChartSummary @(60.4, 66.2, 64) @(55, $null, 61.4) | Should -Be 'آخر 30 دقيقة: التزام الذاكرة بين 60% و66%، الآن 64%؛ الذاكرة الفعلية بين 55% و61%، الآن 61%'
+        Get-ChartSummary @(70, 72) @(50) | Should -Be 'آخر 30 دقيقة: التزام الذاكرة بين 70% و72%، الآن 72%'
+        Get-ChartSummary @(70) $null | Should -Be 'آخر 30 دقيقة: جارٍ جمع البيانات'
+        Get-ChartSummary $null $null | Should -Be 'آخر 30 دقيقة: جارٍ جمع البيانات'
     }
     It 'الإشعار وتحذير المظهر مناطق حية مهذّبة، وتنبيه المعالج وسؤال التأكيد حازمان' {
         $AP::GetLiveSetting($UI.toast) | Should -Be 'Polite'
