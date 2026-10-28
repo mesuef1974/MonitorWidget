@@ -110,6 +110,28 @@ public static class RoundRgn {
     }
     public static void Clear(IntPtr hwnd) { SetWindowRgn(hwnd, IntPtr.Zero, true); }
 }
+// النافذة بلا إطار ويندوز (WindowStyle=None) تُكبَّر افتراضًا إلى الشاشة كلها فتغطي شريط المهام؛
+// معالجة WM_GETMINMAXINFO تحدّ التكبير بمنطقة العمل للشاشة التي عليها النافذة.
+public static class MaxFit {
+    [StructLayout(LayoutKind.Sequential)] struct POINT { public int x, y; }
+    [StructLayout(LayoutKind.Sequential)] struct MINMAXINFO { public POINT reserved, maxSize, maxPos, minTrack, maxTrack; }
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int l, t, r, b; }
+    [StructLayout(LayoutKind.Sequential)] struct MONITORINFO { public int cb; public RECT mon, work; public uint flags; }
+    [DllImport("user32.dll")] static extern IntPtr MonitorFromWindow(IntPtr hwnd, uint flags);
+    [DllImport("user32.dll")] static extern bool GetMonitorInfo(IntPtr mon, ref MONITORINFO info);
+    public static IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
+        if (msg != 0x0024) return IntPtr.Zero;   // WM_GETMINMAXINFO
+        MONITORINFO mi = new MONITORINFO(); mi.cb = Marshal.SizeOf(typeof(MONITORINFO));
+        IntPtr mon = MonitorFromWindow(hwnd, 2);   // MONITOR_DEFAULTTONEAREST
+        if (mon == IntPtr.Zero || !GetMonitorInfo(mon, ref mi)) return IntPtr.Zero;
+        MINMAXINFO mmi = (MINMAXINFO)Marshal.PtrToStructure(lParam, typeof(MINMAXINFO));
+        mmi.maxPos.x = mi.work.l - mi.mon.l; mmi.maxPos.y = mi.work.t - mi.mon.t;
+        mmi.maxSize.x = mi.work.r - mi.work.l; mmi.maxSize.y = mi.work.b - mi.work.t;
+        if (mi.work.b == mi.mon.b && mi.work.t == mi.mon.t && mi.work.l == mi.mon.l && mi.work.r == mi.mon.r) mmi.maxSize.y -= 1;   // شريط مخفي آليًا: بكسل يتركه قابلًا للظهور
+        Marshal.StructureToPtr(mmi, lParam, true);
+        return IntPtr.Zero;   // handled يبقى false: WPF يطبّق MinWidth/MinHeight على الرسالة نفسها
+    }
+}
 '@
 
 function Brush([string]$hex) { [Windows.Media.BrushConverter]::new().ConvertFromString($hex) }
@@ -196,7 +218,8 @@ function Set-Corners {
     $src = [Windows.PresentationSource]::FromVisual($win); $sc = if ($src) { $src.CompositionTarget.TransformToDevice.M11 } else { 1.0 }
     [RoundRgn]::Apply($hw, [int]($win.ActualWidth * $sc), [int]($win.ActualHeight * $sc), [int]($R * $sc))
 }
-$win.Add_SourceInitialized({ Set-Corners })
+$script:maxHook = [Delegate]::CreateDelegate([Windows.Interop.HwndSourceHook], [MaxFit].GetMethod('Hook'))   # مرجع ثابت: HwndSource يحفظ الخطّافات مرجعًا ضعيفًا
+$win.Add_SourceInitialized({ [Windows.Interop.HwndSource]::FromHwnd((New-Object Windows.Interop.WindowInteropHelper $win).Handle).AddHook($script:maxHook); Set-Corners })
 $win.Add_SizeChanged({ Set-Corners })
 $win.Add_StateChanged({ Set-Corners })
 $win.Add_Loaded({ $win.Activate(); try { [void]$wv.EnsureCoreWebView2Async() } catch { Write-ShellError 'init_failed' ([string]$_.Exception.Message); $script:fallbackReason = 'init_failed'; $win.Close() } })

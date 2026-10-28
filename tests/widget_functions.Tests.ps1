@@ -238,6 +238,25 @@ Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لص
     It 'يعيد false بدل الفشل حين يتعذّر الكتابة' {
         Write-ShellState 'edge' 'no_shell' 'Z:\nope\<>\shell_state.json' | Should -BeFalse
     }
+    It 'التكبير يحدّه WM_GETMINMAXINFO بمنطقة العمل فلا يغطي شريط المهام، والخطّاف مسجّل على النافذة' {
+        $cs = $shellAst.Find({ param($n) $n -is [Management.Automation.Language.StringConstantExpressionAst] -and $n.Value -match 'class MaxFit' }, $true).Value
+        if (-not ('MaxFit' -as [type])) { Add-Type -TypeDefinition $cs }
+        $buf = [Runtime.InteropServices.Marshal]::AllocHGlobal(40)
+        try {
+            for ($i = 0; $i -lt 40; $i += 4) { [Runtime.InteropServices.Marshal]::WriteInt32($buf, $i, 0) }
+            $handled = $false
+            [void][MaxFit]::Hook([IntPtr]::Zero, 0x0005, [IntPtr]::Zero, $buf, [ref]$handled)   # رسالة أخرى لا تمسّ البنية
+            [Runtime.InteropServices.Marshal]::ReadInt32($buf, 8) | Should -Be 0
+            [void][MaxFit]::Hook([IntPtr]::Zero, 0x0024, [IntPtr]::Zero, $buf, [ref]$handled)   # الشاشة الأقرب: الرئيسية
+            $w = [Runtime.InteropServices.Marshal]::ReadInt32($buf, 8); $h = [Runtime.InteropServices.Marshal]::ReadInt32($buf, 12)
+            $w | Should -BeGreaterThan 0
+            $h | Should -BeGreaterThan 0
+            [Runtime.InteropServices.Marshal]::ReadInt32($buf, 16) | Should -BeGreaterOrEqual 0
+            [Runtime.InteropServices.Marshal]::ReadInt32($buf, 20) | Should -BeGreaterOrEqual 0
+            $handled | Should -BeFalse   # WPF يطبّق MinWidth/MinHeight بعده
+        } finally { [Runtime.InteropServices.Marshal]::FreeHGlobal($buf) }
+        $shellSource | Should -Match 'Add_SourceInitialized\(\{ \[Windows\.Interop\.HwndSource\]::FromHwnd\(.*\)\.AddHook\(\$script:maxHook\)'
+    }
 }
 
 Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF معزول، بلا نافذة)' {
