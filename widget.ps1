@@ -68,6 +68,7 @@ function Get-Palette([bool]$light) {
     return $p
 }
 $C = Get-Palette $script:isLight
+$FONTS = Get-IdentityFonts $PSScriptRoot   # Zain/El Messiri/Amiri/Outfit من assets\fonts بحسب رموز tokens.css؛ Segoe UI إن غابت
 function Alpha([string]$hex, [string]$aa) { '#' + $aa + $hex.TrimStart('#') }
 $script:brushCache = @{}
 $script:backgroundSurfaces = New-Object Collections.ArrayList
@@ -211,9 +212,14 @@ function Request-Appearance([string]$mode, [string]$palette) {
     $script:appearancePending = $true
     Start-Bg '/api/appearance' @{ revision=$script:appearanceRevision; mode=$mode; palette=$palette } { param($r) $script:appearancePending=$false; Receive-Appearance $r; Show-Toast 'حُفظ المظهر للتطبيق والويدجت معًا' } { param($m) $script:appearancePending=$false; Show-Toast 'تعذّر حفظ المظهر؛ يُعاد تحميل آخر اختيار مؤكد' }
 }
-function New-Text([string]$text, [double]$size = 12, [string]$color = $C.ink, [string]$weight = 'Normal', [bool]$ltr = $false) {
+function New-Text([string]$text, [double]$size = 12, [string]$color = $C.ink, [string]$weight = 'Normal', [bool]$ltr = $false, [string]$kind = '') {
     $t = New-Object Windows.Controls.TextBlock
     $t.Text = $text; $t.FontSize = $size; $t.Foreground = Brush $color; $t.FontWeight = [Windows.FontWeights]::$weight
+    # خطوط الهوية كما في الواجهة: النص LTR أرقام بـ --f-num (Outfit)، والعناوين بـ --f-head (Zain)، وسائر النصوص بـ --f-ui (Amiri).
+    # ارتفاع السطر مثبّت على 1.34 من الحجم (مقياس Segoe UI السابق) حتى لا يغيّر تباعدُ Amiri/Zain الأكبر هندسةَ الويدجت المعتمدة.
+    if (-not $kind) { $kind = if ($ltr) { 'num' } else { 'ui' } }
+    if ($FONTS -and $FONTS[$kind]) { $t.FontFamily = $FONTS[$kind] }
+    $t.LineStackingStrategy = 'BlockLineHeight'; $t.LineHeight = [Math]::Round($size * 1.34, 2)
     $t.TextTrimming = 'CharacterEllipsis'
     if ($ltr) { $t.FlowDirection = 'LeftToRight' }
     $t
@@ -244,7 +250,7 @@ $win = New-Object Windows.Window
 $win.Title = 'مرصد الجهاز — الويدجت'; $win.WindowStyle = 'None'; $win.AllowsTransparency = $true; $win.Background = [Windows.Media.Brushes]::Transparent
 $win.ShowInTaskbar = $false; $win.ResizeMode = 'NoResize'; $win.SizeToContent = 'Height'; $win.Width = $IW + 28 + 28
 $win.MinWidth = $win.Width; $win.MaxWidth = $win.Width
-$win.Topmost = [bool]$script:S.topmost; $win.FlowDirection = 'RightToLeft'; $win.FontFamily = New-Object Windows.Media.FontFamily 'Segoe UI'
+$win.Topmost = [bool]$script:S.topmost; $win.FlowDirection = 'RightToLeft'; $win.FontFamily = $FONTS.ui
 $win.UseLayoutRounding = $true; $win.SnapsToDevicePixels = $true
 
 $outer = New-Object Windows.Controls.Grid; $outer.Margin = 14
@@ -274,7 +280,7 @@ foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinit
 1..2 | ForEach-Object { $row=New-Object Windows.Controls.RowDefinition; $row.Height='Auto';[void]$hdr.RowDefinitions.Add($row) }
 $UI.header=$hdr
 $ttl = New-Object Windows.Controls.StackPanel
-$UI.title=New-Text 'مرصد الجهاز' 16 $C.accentText 'SemiBold';$UI.title.TextTrimming='None'
+$UI.title=New-Text 'مرصد الجهاز' 16 $C.accentText 'SemiBold' $false 'head';$UI.title.TextTrimming='None'
 $ttl.Children.Add($UI.title) | Out-Null
 $UI.sub = New-Text 'جارٍ الاتصال…' 12 $C.muted
 $brand = New-Object Windows.Controls.StackPanel; $brand.Orientation = 'Horizontal'; $brand.VerticalAlignment = 'Center'
@@ -399,7 +405,7 @@ $stack.Children.Add((Gap 8)) | Out-Null
 # ---- composition bar + chips
 $compCard = New-Card 8
 $compStack = New-Object Windows.Controls.StackPanel
-$UI.compTitle = New-Text 'توزيع الالتزام' 12 $C.muted
+$UI.compTitle = New-Text 'توزيع الالتزام' 12 $C.muted 'Normal' $false 'head'
 $compStack.Children.Add($UI.compTitle) | Out-Null
 $UI.bar = New-Object Windows.Controls.Grid; $UI.bar.Height = 9; $UI.bar.Margin = '0,6,0,0'; $UI.bar.FlowDirection = 'LeftToRight'
 $UI.barCols = @(); $barColors = @($C.accent, $C.seg2, $C.seg3, $C.seg4)
@@ -436,7 +442,7 @@ $stack.Children.Add((Gap 12)) | Out-Null
 # ---- cleanup panel with real switches
 $cleanHead = New-Object Windows.Controls.Grid
 foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $cleanHead.ColumnDefinitions.Add($cd) }
-$cleanHead.Children.Add((New-Text 'التنظيف التلقائي' 13 $C.ink 'SemiBold')) | Out-Null
+$cleanHead.Children.Add((New-Text 'التنظيف التلقائي' 13 $C.ink 'SemiBold' $false 'head')) | Out-Null
 $UI.cleanHint = New-Text 'المفتاح للجدولة' 12 $C.muted; [Windows.Controls.Grid]::SetColumn($UI.cleanHint, 1); $cleanHead.Children.Add($UI.cleanHint) | Out-Null
 $stack.Children.Add($cleanHead) | Out-Null
 $stack.Children.Add((Gap 6)) | Out-Null
@@ -457,7 +463,7 @@ foreach ($t in $TIERS) {
     $sw = New-Switch; [Windows.Automation.AutomationProperties]::SetName($sw, ('جدولة التنظيف ' + $t[1])); $sw.Tag = $key; $sw.Margin = '0,0,0,0'
     [Windows.Controls.Grid]::SetColumn($sw, 0); $g.Children.Add($sw) | Out-Null
     $info = New-Object Windows.Controls.StackPanel; $info.Margin = '10,0,8,0'; $info.VerticalAlignment = 'Center'
-    $nm = New-Text ('تنظيف ' + $t[1]) 14 $C.ink 'SemiBold'
+    $nm = New-Text ('تنظيف ' + $t[1]) 14 $C.ink 'SemiBold' $false 'head'
     $s1 = New-Text '' 12 $C.muted; $s2 = New-Text '' 12 $C.muted
     $info.Children.Add($nm) | Out-Null; $info.Children.Add($s1) | Out-Null; $info.Children.Add($s2) | Out-Null
     [Windows.Controls.Grid]::SetColumn($info, 1); $g.Children.Add($info) | Out-Null
@@ -497,7 +503,7 @@ $stack.Children.Add((Gap 6)) | Out-Null
 $foot = New-Object Windows.Controls.Grid
 foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $foot.ColumnDefinitions.Add($cd) }
 $UI.guard = New-Text '' 12 $C.muted; $UI.guard.MaxWidth = 170; $foot.Children.Add($UI.guard) | Out-Null
-$UI.open = New-ActionButton 'فتح التطبيق أو إظهار نافذته'; $UI.open.Content = 'فتح لوحة التحكم'; $UI.open.Foreground = Brush $C.accentText; $UI.open.Background = Brush '#00FFFFFF'; $UI.open.BorderThickness = 0; $UI.open.FontSize = 12; $UI.open.HorizontalContentAlignment = 'Center'; $UI.open.MinHeight = 32; $UI.open.MinWidth = 0; $UI.open.MaxWidth = [double]::PositiveInfinity; $script:txtOpen = 'فتح لوحة التحكم'; $script:txtClose = 'إظهار لوحة التحكم'
+$UI.open = New-ActionButton 'فتح التطبيق أو إظهار نافذته'; $UI.open.Content = 'فتح لوحة التحكم'; $UI.open.Foreground = Brush $C.accentText; $UI.open.Background = Brush '#00FFFFFF'; $UI.open.BorderThickness = 0; $UI.open.FontSize = 12; $UI.open.FontFamily = $FONTS.list; $UI.open.HorizontalContentAlignment = 'Center'; $UI.open.MinHeight = 32; $UI.open.MinWidth = 0; $UI.open.MaxWidth = [double]::PositiveInfinity; $script:txtOpen = 'فتح لوحة التحكم'; $script:txtClose = 'إظهار لوحة التحكم'
 [Windows.Controls.Grid]::SetColumn($UI.open, 1); $foot.Children.Add($UI.open) | Out-Null
 $stack.Children.Add((Gap 4)) | Out-Null; $stack.Children.Add($foot) | Out-Null
 
@@ -811,7 +817,7 @@ function Start-Trim([string]$mode) {
     Log ('trim: pressed ' + $mode)
 }
 # الزر يفتح قائمة بالأعماق الثلاثة بدل أن ينفّذ مباشرة
-$trimMenu = New-Object Windows.Controls.ContextMenu; $trimMenu.FlowDirection = 'RightToLeft'
+$trimMenu = New-Object Windows.Controls.ContextMenu; $trimMenu.FlowDirection = 'RightToLeft'; $trimMenu.FontFamily = $FONTS.list
 foreach ($m in @(@('light', 'بسيط (آمن)'), @('medium', 'متوسط (العمليات الخاملة)'), @('deep', 'عميق (بتأكيد)'))) {
     $mi = New-Object Windows.Controls.MenuItem; $mi.Header = $m[1]; $mi.Tag = $m[0]
     $mi.Add_Click({ param($sender, $e) Start-Trim ([string]$sender.Tag) }.GetNewClosure())
@@ -969,7 +975,7 @@ $dashTimer.Add_Tick({ try { if ($script:dashTitle) { $t = if ([WF]::Exists($scri
 $dashTimer.Start()
 
 # menu
-$menu = New-Object Windows.Controls.ContextMenu; $menu.FlowDirection = 'RightToLeft'
+$menu = New-Object Windows.Controls.ContextMenu; $menu.FlowDirection = 'RightToLeft'; $menu.FontFamily = $FONTS.list   # قائمة الويدجت بخط القوائم (--f-list) كقائمة التنقل في الواجهة
 # opacity slider 10%..100% (saved on release)
 $opPanel = New-Object Windows.Controls.StackPanel; $opPanel.Orientation = 'Horizontal'; $opPanel.FlowDirection = 'RightToLeft'
 $opLbl = New-Object Windows.Controls.TextBlock; $opLbl.Text = 'عتامة الويدجت'; $opLbl.Margin = '0,0,10,0'; $opLbl.VerticalAlignment = 'Center'
@@ -977,7 +983,7 @@ $opSl = New-Object Windows.Controls.Slider; $opSl.Minimum = 0.1; $opSl.Maximum =
 $opSl.FlowDirection = 'LeftToRight'; $opSl.Value = [Math]::Min(1.0, [Math]::Max(0.1, [double]$script:S.opacity))
 $opSl.ToolTip='100% معتم تمامًا، و10% أكثر شفافية. تشمل الشفافية كل محتويات الويدجت: الخلفية والنص والأزرار والرسم.'
 [Windows.Automation.AutomationProperties]::SetName($opSl, 'عتامة الويدجت'); [Windows.Automation.AutomationProperties]::SetHelpText($opSl, $opSl.ToolTip)
-$opVal = New-Object Windows.Controls.TextBlock; $opVal.Width = 44; $opVal.Margin = '8,0,0,0'; $opVal.VerticalAlignment = 'Center'; $opVal.FlowDirection = 'LeftToRight'
+$opVal = New-Object Windows.Controls.TextBlock; $opVal.FontFamily = $FONTS.num; $opVal.Width = 44; $opVal.Margin = '8,0,0,0'; $opVal.VerticalAlignment = 'Center'; $opVal.FlowDirection = 'LeftToRight'
 $opVal.Text = ('{0}%' -f [int][Math]::Round($opSl.Value * 100))
 $opSl.Add_ValueChanged({ $v = [Math]::Round($this.Value, 2); $opVal.Text = ('{0}%' -f [int][Math]::Round($v * 100)); Set-CardOpacity $v })
 $opSl.Add_PreviewMouseLeftButtonUp({ Save-Settings })

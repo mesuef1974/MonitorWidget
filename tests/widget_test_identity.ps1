@@ -6,6 +6,9 @@
 # ثمّ:        . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
 $script:widgetRepoRoot = Split-Path $PSScriptRoot -Parent
 . (Join-Path $script:widgetRepoRoot 'identity.ps1')
+# خطوط الهوية كما يعرّفها widget.ps1 ($FONTS = Get-IdentityFonts $PSScriptRoot): الدوال المستخرجة (New-Text) والأقسام المنفَّذة تقرؤها
+Add-Type -AssemblyName PresentationCore
+$script:FONTS = Get-IdentityFonts $script:widgetRepoRoot
 function Resolve-WidgetFunctionText([string]$text) {
     return $text.Replace('$PSScriptRoot', "'" + $script:widgetRepoRoot.Replace("'", "''") + "'")
 }

@@ -58,3 +58,29 @@ function Get-IdentityPalette([string]$root, [bool]$light, [string]$palette, [has
     $ai = if ($t['--accent-ink']) { Convert-IdentityColor $t['--accent-ink'] $bg } else { $null }; if ($ai) { $p['pilltxt'] = $ai; $p['knob'] = $ai }
     $p
 }
+
+# خطوط الهوية من الرموز نفسها التي تستخدمها الواجهة (--f-head العناوين، --f-list القوائم، --f-ui النص، --f-num الأرقام):
+# أول عائلة في كل رمز تُحمَّل من ملفات TTF المحلية في assets\fonts بصيغة WPF «./#العائلة» مع Segoe UI احتياطًا للحروف الغائبة.
+# إن غاب الملف أو الرمز بقي الدور على Segoe UI كما كان؛ loaded يسجّل الأدوار التي حُمّلت فعلًا من ملفات المشروع.
+function Get-IdentityFonts([string]$root) {
+    $roles = @{ head = '--f-head'; list = '--f-list'; ui = '--f-ui'; num = '--f-num' }
+    $fallback = New-Object Windows.Media.FontFamily 'Segoe UI'
+    $f = @{ loaded = @{} }; foreach ($k in $roles.Keys) { $f[$k] = $fallback }
+    $dir = Join-Path $root 'assets\fonts'
+    $t = Read-IdentityTokens $root $false 'teal'   # رموز الخطوط في :root فلا تتبع الوضع ولا اللوحة
+    if (-not $t -or -not (Test-Path -LiteralPath $dir)) { return $f }
+    $dirPath = Join-Path (Resolve-Path -LiteralPath $dir).Path ''
+    $base = New-Object Uri $dirPath
+    foreach ($k in $roles.Keys) {
+        $v = $t[$roles[$k]]; if (-not $v) { continue }
+        $family = (($v -split ',')[0]).Trim().Trim('"', "'")
+        if (-not $family) { continue }
+        try {
+            $ff = New-Object Windows.Media.FontFamily($base, ('./#' + $family + ', Segoe UI'))
+            $tf = New-Object Windows.Media.Typeface($ff, [Windows.FontStyles]::Normal, [Windows.FontWeights]::Normal, [Windows.FontStretches]::Normal)
+            $gt = $null
+            if ($tf.TryGetGlyphTypeface([ref]$gt) -and $gt.FontUri.IsFile -and $gt.FontUri.LocalPath.StartsWith($dirPath, [StringComparison]::OrdinalIgnoreCase)) { $f[$k] = $ff; $f.loaded[$k] = $family }
+        } catch { }
+    }
+    $f
+}
