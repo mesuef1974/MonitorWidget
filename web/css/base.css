@@ -1,6 +1,6 @@
 /* ═══ base.css — إعادة الضبط والطباعة والتمرير وإمكانية الوصول ═══ */
 *{box-sizing:border-box;margin:0}
-html{color-scheme:dark light;overflow-y:scroll;scrollbar-gutter:stable}
+html{color-scheme:dark light;overflow-y:scroll;scrollbar-gutter:stable;scroll-padding-top:calc(var(--bar-h) + var(--s2))}
 :root[data-theme="dark"]{color-scheme:dark}:root[data-theme="light"]{color-scheme:light}
 /* شريط تمرير بهوية المرصد: نحيف، مستدير، بلون التمييز، ويتبع الثيم لا نظام التشغيل */
 *::-webkit-scrollbar{width:12px;height:12px}
@@ -17,6 +17,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
   -webkit-mask-image:linear-gradient(180deg,var(--mask),transparent 70%);mask-image:linear-gradient(180deg,var(--mask),transparent 70%)}
 a{color:inherit;text-decoration:none}
 button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+a,button,select,input,label{touch-action:manipulation;-webkit-tap-highlight-color:transparent}   /* لا تأخير للنقر المزدوج ولا وميض لمس */
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 .skip{position:fixed;inset-block-start:8px;inset-inline-start:8px;z-index:var(--z-skip);background:var(--accent-solid);color:var(--accent-ink);padding:8px 14px;border-radius:8px;transform:translateY(-200%)}

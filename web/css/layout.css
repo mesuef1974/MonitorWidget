@@ -1,7 +1,7 @@
 /* ═══ layout.css — هيكل الصفحة: الشبكة والقائمة الجانبية والشريط العلوي ونقاط التجاوب ═══ */
 /* ───────── Shell ───────── */
 .app{display:grid;grid-template-columns:var(--nav-w) minmax(0,1fr);min-height:100vh}
-.nav{position:sticky;top:0;height:100vh;overflow-y:auto;padding:var(--s5) var(--s4);border-inline-end:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 92%,transparent),transparent);display:flex;flex-direction:column;gap:var(--s4);scrollbar-width:thin}
+.nav{position:sticky;top:0;height:100vh;overflow-y:auto;overscroll-behavior:contain;padding:var(--s5) var(--s4);border-inline-end:1px solid var(--line);background:linear-gradient(180deg,color-mix(in srgb,var(--panel) 92%,transparent),transparent);display:flex;flex-direction:column;gap:var(--s4);scrollbar-width:thin}
 .brand{display:flex;align-items:center;gap:var(--s3);padding:0 var(--s2) var(--s3)}
 .brand-mark{width:42px;height:42px;display:grid;place-items:center}   /* الشعار المعتمد رسم SVG بلا مربع خلفية */
 .brand b{display:block;font:700 17px var(--f-head);letter-spacing:.2px}
