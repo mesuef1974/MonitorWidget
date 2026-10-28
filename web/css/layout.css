@@ -19,6 +19,7 @@
 .bar h1{font-size:24px;font-weight:700;letter-spacing:.1px}
 .bar .sub{color:var(--ink3);font-size:13.5px}
 .bar .grow{flex:1;min-width:0}
+.bar>:not(.grow){flex:none}.bar .live,.bar .btn{white-space:nowrap}   /* الأدوات بعرضها الطبيعي ولا تنكسر نصوصها؛ الالتفاف بين الأدوات لا داخلها */
 .live{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink2);padding:5px 11px;border:1px solid var(--line2);border-radius:999px;background:var(--panel)}
 .live i{position:relative;width:7px;height:7px;border-radius:50%;background:var(--ok)}
 .live i::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--ok);opacity:.55;animation:pulse 2.2s infinite}   /* النبضة على عنصر شبه بـ transform/opacity (مركّبة) بدل box-shadow */
@@ -30,7 +31,8 @@
 .panel,.card,.cards,.banner{--span:12}
 .c2{--span:2}.c3{--span:3}.c4{--span:4}.c5{--span:5}.c6{--span:6}.c7{--span:7}.c8{--span:8}.c12{--span:12}
 .content>*{flex:var(--span) 1 calc(var(--span)*100%/12 - (12 - var(--span))*var(--s4)/12)}
-@media(max-width:1280px){.c2,.c3,.c4,.c5{--span:6}.c7,.c8{--span:12}}
+@media(max-width:1280px){.c2,.c3,.c4,.c5{--span:6}.c7,.c8{--span:12}
+  .bar{flex-wrap:wrap;gap:var(--s2) var(--s3);padding-block:var(--s3)}.bar .grow{flex:1 1 220px}.bar h1{font-size:20px}}   /* بين 861 و1280: الأدوات تلتف تحت العنوان بدل ضغطه إلى عرض صفري */
 @media(max-width:860px){.c2,.c3,.c4,.c5,.c6{--span:12}.app{grid-template-columns:1fr}.nav{position:fixed;inset-block:0;inset-inline-start:0;width:min(86vw,300px);z-index:var(--z-nav);transform:translateX(100%);visibility:hidden;transition:transform .25s var(--ease),visibility 0s .25s;background:var(--panel)}
   html[dir="rtl"] .nav{transform:translateX(100%)}.nav.open{transform:none!important;visibility:visible;transition-delay:0s}.btn.menu-btn{display:inline-flex}.bar,.content{padding-inline:var(--s4)}
   .bar{flex-wrap:wrap;gap:var(--s2) var(--s3);padding-block:var(--s3)}.bar .grow{flex:1 1 40%}.bar h1{font-size:18px}}   /* الشريط الضيق: العنوان أولًا والأزرار تلتف تحته بدل الفيض */
