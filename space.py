@@ -124,7 +124,7 @@ def clean(kind, dry=True, src="manual", early=False):
 # ---------------- background preview: measuring temp walks thousands of files (6-7 minutes measured live), so the POST
 # only starts a thread and the page polls GET /api/space-preview?kind= for progress and the result
 PREVIEW_TTL = 300   # seconds a finished preview stays fresh enough to stand in for a re-measure before a real clean
-_pv = {}            # kind -> {state: running|done|error, started, ended, files, mb, res|error}; mutated by the worker only
+_pv = {}            # kind -> {state: running|done|error, started, ended, dirs, files, mb, res|error}; mutated by the worker only
 _pv_lock = threading.Lock()
 
 
@@ -153,7 +153,7 @@ def preview_status(kind):
     j = _pv.get(kind)
     if not j:
         return {"state": "none"}
-    out = {"state": j["state"], "files": j["files"], "mb": j["mb"], "elapsed": round((j.get("ended") or time.time()) - j["started"], 1)}
+    out = {"state": j["state"], "dirs": j["dirs"], "files": j["files"], "mb": j["mb"], "elapsed": round((j.get("ended") or time.time()) - j["started"], 1)}
     if j["state"] == "done":
         out["res"] = j["res"]
     elif j["state"] == "error":
@@ -168,7 +168,7 @@ def preview_start(kind):
     with _pv_lock:
         j = _pv.get(kind)
         if not (j and j["state"] == "running"):
-            j = _pv[kind] = {"state": "running", "started": time.time(), "ended": None, "files": 0, "mb": 0.0}
+            j = _pv[kind] = {"state": "running", "started": time.time(), "ended": None, "dirs": 0, "files": 0, "mb": 0.0}
             threading.Thread(target=_preview_run, args=(kind, j), daemon=True).start()
     return {"ok": True, **preview_status(kind)}
 
@@ -590,20 +590,23 @@ def _is_reparse(path):
         return True   # unreadable: treat as unsafe
 
 
-def _walk(root):
+def _walk(root, prog=None):
     """os.walk that never descends into a reparse point (a junction inside a cache folder must not lead the deletion elsewhere).
-    Yields (dirpath, real_subdirs, link_subdirs, files); the root itself must be a real folder inside its allowed area."""
+    Yields (dirpath, real_subdirs, link_subdirs, files); the root itself must be a real folder inside its allowed area.
+    prog: the preview job, whose dirs count every folder walked (Temp holds tens of thousands of empty ones)."""
     if _is_reparse(root):
         return
     for dp, dn, fn in os.walk(root, topdown=True, followlinks=False):
         links = [d for d in dn if _is_reparse(os.path.join(dp, d))]
         dn[:] = [d for d in dn if d not in links]
+        if prog is not None:
+            prog["dirs"] = prog.get("dirs", 0) + 1
         yield dp, list(dn), links, fn
 
 
-def _old_files(root, days=None):
+def _old_files(root, days=None, prog=None):
     cut = time.time() - (MIN_AGE_DAYS if days is None else days) * 86400
-    for dp, dn, _links, fn in _walk(root):
+    for dp, dn, _links, fn in _walk(root, prog):
         for f in fn:
             p = os.path.join(dp, f)
             try:
@@ -889,18 +892,18 @@ def _winold_delete(src, early=False):
 
 
 def _tick(prog, files, freed):
-    if prog is not None and files % 200 == 0:
+    if prog is not None:
         prog["files"] = files
         prog["mb"] = round(freed / 2**20, 1)
 
 
 def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped.
-    prog: a dict the dry walks update every 200 files with files seen and MB found so far (the background preview job)."""
+    prog: a dict the dry walks update with folders walked, candidate files and MB found so far (the background preview job)."""
     freed = n = skipped = locked = held = 0
     qkinds = _setting("space.quarantine_kinds", ["temp"]) if not dry else []
     if kind == "temp":
-        for p, sz in _old_files(TEMP, days=1):  # الملفات المؤقتة: أقدم من يوم واحد
+        for p, sz in _old_files(TEMP, days=1, prog=prog):  # الملفات المؤقتة: أقدم من يوم واحد
             if dry:
                 if _deletable(p):
                     n += 1; freed += sz
@@ -922,7 +925,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     elif kind == "edgecache":
         for d in _cache_dirs():
             if dry:
-                for dp, dn, _links, fn in _walk(d):
+                for dp, dn, _links, fn in _walk(d, prog):
                     for f in fn:
                         pp = os.path.join(dp, f)
                         try:
@@ -946,7 +949,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     elif kind == "swdist":
         if os.path.isdir(SWDIST):
             if dry:
-                for dp, dn, _links, fn in _walk(SWDIST):
+                for dp, dn, _links, fn in _walk(SWDIST, prog):
                     for f in fn:
                         pp = os.path.join(dp, f)
                         try:

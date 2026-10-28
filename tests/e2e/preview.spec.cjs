@@ -18,8 +18,8 @@ async function openTemp(page, replies) {
 }
 
 test('المعاينة تعرض التقدّم ثم النتيجة، والتركيز يبقى في الصف ثم ينتقل إلى «نظّف»', async ({ page }) => {
-  const cell = await openTemp(page, [{ state: 'running', files: 600, mb: 40, elapsed: 1 }, done({ mb: 512.3, files: 1840 })]);
-  await expect(cell).toContainText('فُحص 600 ملف');
+  const cell = await openTemp(page, [{ state: 'running', dirs: 900, files: 600, mb: 40, elapsed: 1 }, done({ mb: 512.3, files: 1840 })]);
+  await expect(cell).toContainText('فُحص 900 مجلد · 600 ملف مرشّح');
   expect(await active(page)).toEqual({ tag: 'TD', data: { fa: 'sp-temp' } });   // الزر المضغوط اختفى: المرساة ترث التركيز
 
   await expect(cell.locator('button[data-sp="clean"]')).toBeVisible({ timeout: 5000 });
