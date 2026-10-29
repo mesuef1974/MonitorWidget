@@ -5,12 +5,12 @@ const { test, expect } = require('@playwright/test');
 
 const ready = page => page.waitForFunction(() => document.querySelector('#main .panel'));
 
-test('التحديث يستبدل اللوحة المتغيّرة وحدها: الرسم البياني وجدول «الآن» يبقيان بعناصرهما', async ({ page }) => {
+test('التحديث يمسّ اللوحة المتغيّرة وحدها ويحدّثها في مكانها: كل اللوحات والرسم البياني يبقين بعناصرهن', async ({ page }) => {
   await page.goto('/#/cpu'); await ready(page);
   await page.waitForFunction(() => document.querySelector('#cpuChart svg'));
   await page.evaluate(() => {
     document.querySelector('#cpuChart svg').__keep = 1;
-    [...document.querySelectorAll('#main .panel')].forEach(p => { p.__keep = 1; });
+    [...document.querySelectorAll('#main .panel')].forEach(p => { p.__keep = 1; p.__tpl0 = p.__tpl; });
   });
   const total0 = await page.locator('#main .panel').first().locator('.kpi .num').first().textContent();
 
@@ -22,10 +22,11 @@ test('التحديث يستبدل اللوحة المتغيّرة وحدها: ا
 
   const r = await page.evaluate(() => {
     const ps = [...document.querySelectorAll('#main .panel')];
-    return { n: ps.length, kept: ps.map(p => !!p.__keep), chartKept: !!document.querySelector('#cpuChart svg')?.__keep, hasChart: !!document.querySelector('#cpuChart svg') };
+    return { n: ps.length, kept: ps.map(p => !!p.__keep), same: ps.map(p => p.__tpl === p.__tpl0), chartKept: !!document.querySelector('#cpuChart svg')?.__keep, hasChart: !!document.querySelector('#cpuChart svg') };
   });
   expect(r.n).toBe(5);
-  expect(r.kept).toEqual([false, true, true, true, true]);   // لوحة الحمل وحدها استُبدلت
+  expect(r.kept).toEqual([true, true, true, true, true]);   // لا لوحة تُستبدل؛ المتغيّرة تُحدَّث في مكانها
+  expect(r.same).toEqual([false, true, true, true, true]);   // لوحة الحمل وحدها تغيّر قالبها
   expect(r.chartKept).toBe(true);
   expect(r.hasChart).toBe(true);
 });

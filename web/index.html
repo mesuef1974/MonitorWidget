@@ -420,17 +420,23 @@ function refocus(root, key, prefer) {
   if (el) el.focus({ preventScroll: true });
 }
 // الرسم اللوحةَ تلو اللوحة: تُقارن كل لوحة بقالبها السابق، فما لم يتغيّر يبقى بعناصره ومستمعاته (الرسوم، التمرير، التركيز) ولا يُستبدل إلا ما تغيّر؛ innerHTML لكامل الصفحة كان يعيد بناء كل شيء مع أي تغيّر طفيف
-// واللوحة المستبدَلة تأخذ تمرير سابقتها: كل عنصر مُمرَّر فيها (قائمة، جدول، صندوق) يُحفظ بمساره من رأس اللوحة ويُعاد إلى نظيره في الجديدة إن طابقه وسمًا وصنفًا، وإلا قفز إلى رأسه مع كل ضغطة
-const pathIn = (root, el) => { const p = []; for (; el !== root; el = el.parentElement) p.unshift([...el.parentElement.children].indexOf(el)); return p; };
-// تُقرأ المواضع قبل الاستبدال (المفصول عن الصفحة يقرأ صفرًا) وتُكتب بعده (الجديد لا يُمرَّر قبل أن يُرسم)
-const scrolled = o => [o, ...o.querySelectorAll("*")].filter(e => e.scrollTop || e.scrollLeft).map(e => [pathIn(o, e), e.tagName, e.className, e.scrollTop, e.scrollLeft]);
-function restoreScroll(n, saved) {
-  for (const [p, tag, cls, top, left] of saved) { const e = p.reduce((x, i) => x?.children[i], n); if (e && e.tagName === tag && e.className === cls) { e.scrollTop = top; e.scrollLeft = left; } }
+// واللوحة المتغيّرة تُحدَّث في مكانها لا تُستبدل: عقدها تُطابَق بالترتيب، فما وافق نوعه بقي عنصرُه وتغيّرت سماته ونصّه فقط. الاستبدال كان يُعيد
+// القوائم والجداول المُمرَّرة إلى رأسها مع كل ضغطة، وحفظ الموضع وإعادته بعده يقطع تمرير العجلة الجاري كل ثانية أثناء المهام الخلفية
+function morph(o, n) {
+  if (o.nodeType !== 1) { if (o.data !== n.data) o.data = n.data; return; }
+  const field = { INPUT: () => [n.value, n.checked], TEXTAREA: () => n.value, SELECT: () => n.selectedIndex }[o.tagName]?.();   // يُقرأ قبل نقل أبناء القالب
+  for (const { name } of [...o.attributes]) if (!n.hasAttribute(name)) o.removeAttribute(name);
+  for (const { name, value } of n.attributes) if (o.getAttribute(name) !== value) o.setAttribute(name, value);
+  const oc = [...o.childNodes], nc = [...n.childNodes];
+  nc.forEach((c, i) => { const p = oc[i]; if (!p) o.appendChild(c); else if (p.nodeName === c.nodeName) morph(p, c); else p.replaceWith(c); });
+  for (let i = oc.length - 1; i >= nc.length; i--) oc[i].remove();
+  // قيم الحقول خصائص لا سمات: تتبع القالب كما كانت مع الاستبدال (التحديث لا يصل نموذجًا معدَّلًا أو حقلًا يُكتب فيه أصلًا، انظر show)
+  if (o.tagName === "INPUT") [o.value, o.checked] = field; else if (o.tagName === "TEXTAREA") o.value = field; else if (o.tagName === "SELECT") o.selectedIndex = field;
 }
 function paint(main, html) {
   const tpl = document.createElement("template"); tpl.innerHTML = html;
   const next = [...tpl.content.children], cur = [...main.children];
-  next.forEach((n, i) => { const o = cur[i], h = n.outerHTML; if (o && o.__tpl === h) return; n.__tpl = h; if (o) { const s = scrolled(o); o.replaceWith(n); restoreScroll(n, s); } else main.appendChild(n); });
+  next.forEach((n, i) => { const o = cur[i], h = n.outerHTML; if (o && o.__tpl === h) return; if (o && o.nodeName === n.nodeName) { morph(o, n); o.__tpl = h; } else { n.__tpl = h; if (o) o.replaceWith(n); else main.appendChild(n); } });
   for (let i = cur.length - 1; i >= next.length; i--) cur[i].remove();
 }
 const dirtyForm = root => [...root.querySelectorAll("form input, form textarea")].some(i => i.value !== i.defaultValue);   // تعديل غير محفوظ في نموذج؛ لا يُستبدل بالتحديث

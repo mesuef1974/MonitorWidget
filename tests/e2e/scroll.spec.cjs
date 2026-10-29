@@ -1,5 +1,5 @@
-// فحص بقاء التمرير الداخلي في web/index.html على خادم الثوابت: البطاقة التي يتغيّر قالبها تُستبدل كلها في paint،
-// فكانت قوائمها وجداولها المُمرَّرة تقفز إلى رأسها مع كل ضغطة زر (aria-pressed أو حالة تتغيّر) ومع كل تحديث.
+// فحص بقاء التمرير الداخلي في web/index.html على خادم الثوابت: البطاقة التي يتغيّر قالبها كانت تُستبدل كلها في paint،
+// فكانت قوائمها وجداولها المُمرَّرة تقفز إلى رأسها مع كل ضغطة زر (aria-pressed أو حالة تتغيّر) ومع كل تحديث؛ وهي الآن تُحدَّث في مكانها.
 const { test, expect } = require('@playwright/test');
 
 const ready = page => page.waitForFunction(() => document.querySelector('#main .panel'));
@@ -43,4 +43,17 @@ test('الضغط على صف في قائمة جداول القاعدة لا يع
   await expect(box.locator('[data-tbl]').nth(n - 1)).toHaveAttribute('aria-pressed', 'true');
   expect(await page.locator('#main .list.scrollbox').first().evaluate(e => e.scrollTop)).toBe(top);
   expect(await page.evaluate(() => scrollY)).toBe(y);
+});
+
+test('البطاقة المتغيّرة تُحدَّث في مكانها: الصندوق المُمرَّر هو العنصر نفسه، وتمرير العجلة الجاري لا يُقطع', async ({ page }) => {
+  await page.goto('/#/spaceclean'); await ready(page); await page.waitForTimeout(300);
+  const max = await page.evaluate(() => {
+    const e = [...document.querySelectorAll('#main *')].find(x => /auto|scroll/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight + 200);
+    window.__sc = e; e.scrollTo({ top: e.scrollHeight, behavior: 'smooth' }); return e.scrollHeight - e.clientHeight;
+  });
+  // إعادة رسم كل البطاقات أثناء التمرير الناعم، كما يفعل تقدّم المهمة الخلفية كل ثانية
+  for (let i = 0; i < 3; i++) { await page.evaluate(() => { [...document.querySelectorAll('#main > *')].forEach(p => { p.__tpl = ''; }); redraw(); }); await page.waitForTimeout(60); }
+  await page.waitForTimeout(1200);
+  expect(await page.evaluate(() => window.__sc.isConnected)).toBe(true);
+  expect(Math.abs(await page.evaluate(() => window.__sc.scrollTop) - max)).toBeLessThan(3);
 });
