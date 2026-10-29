@@ -20,6 +20,7 @@ import shellwin             # البند 6/هـ: نافذة التطبيق وغ�
 import widgetctl            # البند 6/و: ويدجت سطح المكتب (يعمل/ظاهر، إيقاف آمن، تشغيل، إعادة إلى الشاشة)
 import snapshot             # البند 6/ز: القياسات الأصلية والجامع الثقيل وذاكرته والخيوط الخلفية وحمولتا state/mini
 import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
+import startup_mgr          # تسخين قائمة بدء التشغيل عند الإقلاع
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
@@ -460,6 +461,7 @@ if __name__ == "__main__":
     ensure_agent()
     for fn in (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, _maint):
         threading.Thread(target=fn, daemon=True).start()
+    threading.Thread(target=startup_mgr.list_items, daemon=True).start()   # تسخين قائمة بدء التشغيل قبل أول طلب
     if "--open" in sys.argv:
         threading.Thread(target=shellwin.open_window, args=(TOKEN,), daemon=True).start()
     try:

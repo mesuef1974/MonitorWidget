@@ -1,5 +1,5 @@
 """Startup manager: lists what starts with Windows and switches each item on or off (the same switch Task Manager uses)."""
-import json, os, subprocess, time, winreg
+import json, os, subprocess, threading, time, winreg
 import db, health
 
 CNW = 0x08000000
@@ -80,6 +80,9 @@ def _tasks():
 
 
 def _items():
+    box = {}
+    th = threading.Thread(target=lambda: box.update(t=_tasks()), daemon=True)
+    th.start()          # tasklist وPowerShell مستقلان؛ تشغيلهما معًا يجعل الزمن أطولهما لا مجموعهما
     run = _running_map()
     out = []
     for source, hive, writable in (("reg-user", winreg.HKEY_CURRENT_USER, True),
@@ -103,7 +106,8 @@ def _items():
                 continue
             out.append(_item("folder", fn, os.path.join(FOLDER, fn),
                              _enabled(winreg.HKEY_CURRENT_USER, "StartupFolder", fn), True))
-    for t in _tasks():
+    th.join()
+    for t in box.get("t", []):
         name, path = t.get("name", ""), t.get("path", "\\")
         it = _item("task", name, t.get("cmd", ""), t.get("state") != "Disabled", True)
         it["id"] = "task|" + path + name
@@ -112,27 +116,44 @@ def _items():
     return out
 
 
-_LIST = {"t": 0.0, "v": None}
+_LIST = {"t": 0.0, "v": None, "busy": False}
 LIST_TTL = 20
+
+
+def _build():
+    its = _items()
+    its.sort(key=lambda i: (i["source"], not i["enabled"], i["name"].lower()))
+    now = time.time()
+    _LIST.update(t=now, v={"items": its, "ts": int(now)})
+
+
+def _refresh():
+    try:
+        _build()
+    except Exception:
+        pass
+    finally:
+        _LIST["busy"] = False
 
 
 def list_items():
     now = time.time()
-    if _LIST["v"] is not None and now - _LIST["t"] < LIST_TTL:
-        return _LIST["v"]       # مسح السجل والمهام والعمليات يكلّف ثوانيَ؛ تخزين قصير يجعل الصفحة فورية
-    its = _items()
-    its.sort(key=lambda i: (i["source"], not i["enabled"], i["name"].lower()))
-    _LIST.update(t=now, v={"items": its, "ts": int(now)})
+    v = _LIST["v"]
+    if v is not None:
+        if now - _LIST["t"] >= LIST_TTL and not _LIST["busy"]:
+            _LIST["busy"] = True   # القائمة القديمة تُعاد فورًا ويُحدَّث المسح (ثوانٍ) في خيط خلفي
+            threading.Thread(target=_refresh, daemon=True).start()
+        return v
+    _build()
     return _LIST["v"]
 
 
 def toggle(body):
-    _LIST["v"] = None
     iid = str(body.get("id", ""))
     en = body.get("enabled")
     if not isinstance(en, bool):
         return 400, {"error": "enabled must be boolean"}
-    it = next((i for i in _items() if i["id"] == iid), None)
+    it = next((i for i in list_items()["items"] if i["id"] == iid), None)
     if it is None:
         return 400, {"error": "unknown item"}
     if it["protected"] and not en:
@@ -152,6 +173,7 @@ def toggle(body):
             return 500, {"error": "task change failed"}
     else:
         return 400, {"error": "unsupported"}
+    it["enabled"] = en   # القائمة المخزَّنة تُحدَّث في مكانها فتظهر النتيجة فورًا دون مسح جديد
     with db._lock:
         c = db.conn()
         c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)",
