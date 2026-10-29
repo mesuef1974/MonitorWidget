@@ -2,7 +2,7 @@
 """Disk-space explainer: periodic folder sizes, growth deltas, free-space drops, SAFE cleanup.
 Safety: cleanup is whitelisted to three disposable caches only (never projects, never user documents),
 always previewable (dry run), and deletes only files not modified for 3+ days or known cache folders."""
-import ctypes, json, os, re, shutil, subprocess, threading, time
+import collections, ctypes, json, os, re, shutil, subprocess, threading, time
 import errlog
 from ctypes import wintypes
 
@@ -527,9 +527,15 @@ def _agent_status():
 def _drops(c, hours=72, min_gb=2.0):
     rows = c.execute("SELECT ts, disk_free_gb v FROM samples WHERE disk_free_gb IS NOT NULL AND ts>=? ORDER BY ts", (int(time.time()) - hours * 3600,)).fetchall()
     out = []
+    dq, j = collections.deque(), 0   # أصغر قيمة في نافذة الثلاث ساعات بمؤشرين: خطي لا تربيعي (72 ساعة من العينات كانت تكلّف نصف ثانية تحت القفل)
     for i, a in enumerate(rows):
-        win = [r for r in rows[i:] if r["ts"] - a["ts"] <= 3 * 3600]
-        lo = min(win, key=lambda r: r["v"])
+        while j < len(rows) and rows[j]["ts"] - a["ts"] <= 3 * 3600:
+            while dq and rows[dq[-1]]["v"] > rows[j]["v"]:
+                dq.pop()
+            dq.append(j); j += 1
+        while dq[0] < i:
+            dq.popleft()
+        lo = rows[dq[0]]
         if a["v"] - lo["v"] >= min_gb:
             if out and a["ts"] <= out[-1]["to"]:
                 m = out[-1]
