@@ -603,6 +603,24 @@ def alerts_set(body):
 
 
 # ------------------------------------------------------------------ advice page
+_obk = {"t": 0.0, "k": None, "v": None, "busy": False}
+
+
+def _oldbak_gb(paths, ttl=900):
+    """حجم نسخ التنظيف القديمة بالجيجابايت، يُحسب في خيط خلفي ويُخزَّن 15 دقيقة (None حتى أول حساب): المشي على آلاف الملفات عند كل فتح لصفحة التوصيات كان يكلّف ثانيتين."""
+    k = tuple(paths)
+    if (_obk["k"] != k or time.time() - _obk["t"] > ttl) and not _obk["busy"]:
+        _obk["busy"] = True
+
+        def work():
+            try:
+                _obk.update(v=sum(_folder_size_gb(p) for p in k), k=k, t=time.time())
+            finally:
+                _obk["busy"] = False
+        threading.Thread(target=work, daemon=True).start()
+    return _obk["v"] if _obk["k"] == k else None
+
+
 def _folder_size_gb(p):
     tot = 0
     for dp, dn, fn in os.walk(p):
@@ -689,8 +707,8 @@ def advice_payload(m, extra, maint, trim):
         if datetime.date.today() >= datetime.date(2026, 10, 25):
             olds = [p for p in glob.glob(os.path.join(APPDIR, "cleanup_apps", "*_backup_*")) if os.path.isdir(p)]
             if olds:
-                sz = sum(_folder_size_gb(p) for p in olds[:8])
-                add("oldbak", "info", "نسخ تنظيف احتياطية قديمة (%d مجلداً)" % len(olds), "مرّ موعد مراجعتها (25 أكتوبر) وحجمها نحو %.1f GB. احذفها إن لم تعد تحتاجها." % sz, None, None)
+                sz = _oldbak_gb(olds[:8])
+                add("oldbak", "info", "نسخ تنظيف احتياطية قديمة (%d مجلداً)" % len(olds), "مرّ موعد مراجعتها (25 أكتوبر)%s. احذفها إن لم تعد تحتاجها." % (" وحجمها نحو %.1f GB" % sz if sz is not None else ""), None, None)
     except Exception:
         errlog.swallowed()
     order = {"bad": 0, "warn": 1, "info": 2, "ok": 3}
