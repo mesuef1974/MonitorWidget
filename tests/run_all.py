@@ -14,7 +14,8 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("الحجر والتعافي (معزول)", "quarantine_regression.py"),
     ("SQLite الخاص (معزول)", "sqlite_runtime_check.py"),
     ("تغطية مؤشرات الصحة (معزول)", "health_score_regression.py"),
-    ("التزام الذاكرة: الحالة وأعلى العمليات (معزول)", "commit_check.py"))]
+    ("التزام الذاكرة: الحالة وأعلى العمليات (معزول)", "commit_check.py"),
+    ("إغلاق عملية بعينها من جدول الالتزام (معزول)", "procclose_check.py"))]
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
     ("فتح النافذة وسياسة CSP (معزول)", "window_security_check.py"),
     ("جمع النسخة المحمية (معزول)", "deployment_agent_check.py"),

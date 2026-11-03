@@ -21,12 +21,15 @@ import subprocess
 import threading
 import time
 
+import db
+import errlog
 import insight
+import procclose
 import secure
 import space
 from paths import CNW, ENGINE, MCCFG, POLICY, PROT_ENGINE_DIR, PWSH, TIERS
 
-ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup")
+ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close")
 CONFIRM_TTL = 120     # ثوانٍ يبقى فيها رمز التأكيد صالحًا
 MAX_CONFIRMS = 256    # سقف الرموز الحية؛ ما زاد يُسقط الأقدم
 
@@ -181,6 +184,34 @@ def _run_cleanup(route, body, invalidate):
     return 200, {"ok": True}
 
 
+def _proc_close(route, body, invalidate):
+    """إغلاق عملية واحدة بطلب صريح (زر «إغلاق» في جدول الالتزام): فحص السياسة قبل طلب التأكيد (حتى لا يُطلب تأكيد لما سيُرفض)،
+    ثم 428 بالرمز المربوط بالمعرّف والاسم وforce، ثم الإغلاق والتسجيل في actions."""
+    pid, name, force = body.get("pid"), body.get("name"), body.get("force", False)
+    if isinstance(pid, bool) or not isinstance(pid, int) or not isinstance(name, str) or not isinstance(force, bool):
+        return 400, {"error": "bad params"}
+    ok, reason = procclose.check(pid, name)
+    if not ok:
+        return (400 if reason == "bad params" else 409), {"error": reason, "pid": pid, "name": name}
+    r = confirm_required(route, body)
+    if r:
+        return r
+    res = procclose.close(pid, name, force=force)
+    try:
+        with db._lock:
+            c = db.conn()
+            c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)",
+                      (int(time.time()), "procclose", "page", 1 if res.get("ok") and res.get("exited") else 0,
+                       ("pid=%s name=%s force=%s method=%s exited=%s commitMB=%s err=%s" % (pid, name, force, res.get("method"), res.get("exited"), res.get("commitMB"), res.get("error")))[:200]))
+            c.commit()
+    except Exception:
+        errlog.swallowed()
+    invalidate()
+    if not res.get("ok"):
+        return 409, {"error": res.get("error", "failed"), "pid": pid, "name": name}
+    return 200, res
+
+
 def post(route, body, invalidate=lambda: None):
     """(رمز الحالة، الردّ) لمسار من ROUTES، أو None إن لم يكن المسار من هذه الوحدة."""
     if route == "/api/space":
@@ -189,4 +220,6 @@ def post(route, body, invalidate=lambda: None):
         return _reaper_run(route, body)
     if route == "/api/run-cleanup":
         return _run_cleanup(route, body, invalidate)
+    if route == "/api/proc-close":
+        return _proc_close(route, body, invalidate)
     return None
