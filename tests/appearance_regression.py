@@ -113,8 +113,12 @@ class AppearancePreferences(unittest.TestCase):
         self.assertEqual(self.store.update(dict(mode="auto", palette="teal", revision=1)), original)
 
     def test_http_auth_validation_conflict_and_recovery(self):
+        """عقد HTTP للمظهر عبر Handler المستخرج: GET من جدول routes_read (البند 6/ح) وPOST من routes_settings (البند 6/د)
+        بمخزن مؤقت بدل APPEARANCE الحقيقي؛ بلا مصادقة لا يُرسل شيء."""
+        import routes_settings
         ns = extracted()
-        ns.update(appearance=appearance, APPEARANCE=self.store, _ASSETS={}, urlparse=urlparse, parse_qs=parse_qs)
+        ns.update(_ASSETS={}, urlparse=urlparse, parse_qs=parse_qs, POST_MODULES=(routes_settings,),
+                  routes_read=types.SimpleNamespace(ROUTES=("/api/appearance",), get=lambda path, q: (200, routes_settings.APPEARANCE.get())))
         sends = []
         def req(method, body=None, authenticated=True):
             wire = json.dumps(body or {}).encode()
@@ -122,39 +126,44 @@ class AppearancePreferences(unittest.TestCase):
                 _authed=lambda:authenticated, _send=lambda *a:sends.append(a),
                 headers={"Content-Type":"application/json","Content-Length":str(len(wire))}, rfile=io.BytesIO(wire))
             ns["Handler"].__dict__["do_"+method](request)
-        req("GET", authenticated=False)
-        req("POST", dict(mode="dark", palette="blue", revision=0), authenticated=False)
-        self.assertEqual(sends, [])
-        req("GET")
-        self.assertEqual(sends[-1][0], 200)
-        req("POST", dict(mode="light", palette="graphite", revision=0))
-        self.assertEqual(sends[-1][0], 200)
-        self.assertEqual(sends[-1][1]["palette"], "graphite")
-        req("POST", dict(mode="dark", palette="blue", revision=0))
-        self.assertEqual(sends[-1][0], 409)
-        self.assertEqual(sends[-1][1]["appearance"]["mode"], "light")
-        req("POST", dict(mode="dark", palette="blue", revision=True))
-        self.assertEqual(sends[-1][0], 400)
-        Path(self.store.path).write_text("{", encoding="utf-8")
-        req("POST", dict(mode="dark", palette="blue", revision=1))
-        self.assertEqual(sends[-1], (409, {"error": "appearance recovery required"}))
+        with patch.object(routes_settings, "APPEARANCE", self.store):
+            req("GET", authenticated=False)
+            req("POST", dict(mode="dark", palette="blue", revision=0), authenticated=False)
+            self.assertEqual(sends, [])
+            req("GET")
+            self.assertEqual(sends[-1][0], 200)
+            self.assertEqual(sends[-1][1]["palette"], "teal")
+            req("POST", dict(mode="light", palette="graphite", revision=0))
+            self.assertEqual(sends[-1][0], 200)
+            self.assertEqual(sends[-1][1]["palette"], "graphite")
+            req("POST", dict(mode="dark", palette="blue", revision=0))
+            self.assertEqual(sends[-1][0], 409)
+            self.assertEqual(sends[-1][1]["appearance"]["mode"], "light")
+            req("POST", dict(mode="dark", palette="blue", revision=True))
+            self.assertEqual(sends[-1][0], 400)
+            Path(self.store.path).write_text("{", encoding="utf-8")
+            req("POST", dict(mode="dark", palette="blue", revision=1))
+            self.assertEqual(sends[-1], (409, {"error": "appearance recovery required"}))
 
     def test_widget_show_waits_for_visible_loaded_window_after_mutex(self):
+        """POST /api/widget عبر Handler المستخرج إلى widgetctl (البند 6/و) بدوال وهمية: يوقف الويدجت العامل ثم يشغّله
+        وينتظر حتى يصير ظاهرًا، ويردّ بحالة التشغيل."""
+        import widgetctl
         ns = extracted()
+        ns["POST_MODULES"] = (widgetctl,)
         sends, checks = [], []
         visibility = iter((False, False, True, True))
-        ns.update(widget_running=lambda:True,
-                  widget_visible=lambda:checks.append("visible") or next(visibility),
-                  widget_stop=lambda:None, widget_fit_on_screen=lambda:None,
-                  widget_start=lambda:None,
-                  infra=types.SimpleNamespace(log=types.SimpleNamespace(info=lambda *a:None)),
-                  time=types.SimpleNamespace(sleep=lambda n:None))
         wire = b'{"show":true}'
         request = types.SimpleNamespace(path="/api/widget", _guard=lambda:True,
             _authed=lambda:True, _send=lambda *a:sends.append(a),
             headers={"Content-Type":"application/json","Content-Length":str(len(wire))},
             rfile=io.BytesIO(wire))
-        ns["Handler"].do_POST(request)
+        with patch.multiple(widgetctl, widget_running=lambda:True,
+                            widget_visible=lambda:checks.append("visible") or next(visibility),
+                            widget_stop=lambda:None, widget_fit_on_screen=lambda:None, widget_start=lambda:None,
+                            infra=types.SimpleNamespace(log=types.SimpleNamespace(info=lambda *a:None)),
+                            time=types.SimpleNamespace(sleep=lambda n:None)):
+            ns["Handler"].do_POST(request)
         self.assertEqual(sends, [(200, {"running": True})])
         self.assertEqual(len(checks), 4)
 

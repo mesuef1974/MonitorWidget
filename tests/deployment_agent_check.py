@@ -42,7 +42,7 @@ class AgentDeployment(unittest.TestCase):
         db = types.SimpleNamespace(bootstrap=lambda:calls.append("bootstrap"), import_all=record,
             add_sample=record,get_json=lambda _:{"ts":now,"tasks":[]}, prune_if_due=record)
         namespace = {"acquire_instance":lambda:True,"release_instance":lambda:calls.append("release"),
-                     "db":db,"health":health,"server":types.SimpleNamespace(native_metrics=lambda:{}),
+                     "db":db,"health":health,"snapshot":types.SimpleNamespace(native_metrics=lambda:{}),   # القياسات الأصلية في snapshot (البند 6/ز) لا server
                      "space":types.SimpleNamespace(scan_if_due=record),"time":time,"log":record,
                      "os":types.SimpleNamespace(path=types.SimpleNamespace(exists=lambda _:False)),
                      "errlog":types.SimpleNamespace(swallowed=record)}
