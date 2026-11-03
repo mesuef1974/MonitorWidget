@@ -347,14 +347,14 @@ class PageUse(unittest.TestCase):
         self.assertEqual(c.execute("SELECT COUNT(DISTINCT page) FROM page_opens").fetchone()[0], pageuse.MAX_PAGES)
 
     def test_server_and_page_are_wired(self):
-        """المسارات في server.py والواجهة تبلّغ عند الانتقال وتعرض الملخص في صفحة الإعدادات والتحكم؛ وثابت الفحص المرئي موجود."""
-        server = (ROOT / "server.py").read_text(encoding="utf-8-sig")
+        """المسارات في وحدتي المسارات والواجهة تبلّغ عند الانتقال وتعرض الملخص في صفحة الإعدادات والتحكم؛ وثابت الفحص المرئي موجود."""
+        app = (ROOT / "routes_app.py").read_text(encoding="utf-8-sig")   # POST صار في وحدة مسارات التطبيق (البند 8)
         reads = (ROOT / "routes_read.py").read_text(encoding="utf-8-sig")   # GET صار في جدول المسارات القرائية (البند 6/ح)
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         for needle in ('"/api/page-use"', "pageuse.stats(db.conn())"):
             self.assertIn(needle, reads)
         for needle in ('"/api/page-open"', "pageuse.record(db.conn(), body)"):
-            self.assertIn(needle, server)
+            self.assertIn(needle, app)
         for needle in ('fetch("/api/page-open"', "track(key)", 'api("/api/page-use")', "pageUseBody(pu)"):
             self.assertIn(needle, page)
         self.assertNotIn('localStorage.setItem("mw-v2-pageuse', page)   # العدّ في الخادم لا في المتصفح
@@ -779,9 +779,9 @@ class ReadRoutes(unittest.TestCase):
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         called = set(re.findall(r'api\("(/api/[^"?]+)"', page)) | set(re.findall(r"api\(`(/api/[^`?]+)`", page))
         posted = set()
-        for m in ("routes_destructive", "memtrim", "routes_policy", "routes_settings", "shellwin", "widgetctl", "gpupurge"):
+        for m in ("routes_destructive", "memtrim", "routes_policy", "routes_settings", "shellwin", "widgetctl", "gpupurge", "routes_app"):
             posted |= set(__import__(m).ROUTES)
-        missing = sorted(p for p in called if p not in self.rr.ROUTES and p not in posted and p not in ("/api/ticket", "/api/session/logout", "/api/page-open", "/api/explain", "/api/explain-errors", "/api/llm-unload", "/api/shutdown"))
+        missing = sorted(p for p in called if p not in self.rr.ROUTES and p not in posted and p not in ("/api/ticket", "/api/session/logout"))   # ما بقي في الخادم: التذكرة والجلسة
         self.assertEqual(missing, [])
 
 

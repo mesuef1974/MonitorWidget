@@ -1,0 +1,78 @@
+# -*- coding: utf-8 -*-
+"""مسارات التطبيق (البند 8 من الخارطة: آخر ما كان مضمّنًا في do_POST): شرح الصحة والأخطاء بالنموذج المحلي وتفريغه من الذاكرة،
+وعدّاد فتح الصفحات، وإيقاف الخادم. العقود (الرموز 200/400/503 وأجسام الردود) كما كانت في server.py حرفيًا.
+
+    ROUTES                        المسارات التي تعالجها الوحدة
+    post(route, body, invalidate) -> (رمز الحالة، الردّ) أو None إن لم يكن المسار من هنا
+
+بقي في الخادم /api/ticket و/api/session/logout لأنهما يمسّان حالة التذاكر والجلسات وترويسة الكعكة في المعالج نفسه.
+invalidate لا تُستدعى هنا (لا مسار يغيّر حالة المهام). الاستثناءات تُترك للخادم كما كان: do_POST يحوّل ValueError/TypeError
+إلى 400 وسائرها إلى 500 مع معرّف طلب. explain يُستورد عند أول طلب كما كان (لا يُحمَّل عند الإقلاع).
+"""
+import os
+import threading
+
+import db
+import errlog
+import health
+import infra
+import pageuse
+import snapshot
+from paths import ROOT
+
+ROUTES = ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown")
+EXIT = os._exit      # الخروج بعد ردّ /api/shutdown؛ يُستبدل في الاختبارات
+EXIT_DELAY = 0.4     # ثوانٍ بين إرسال الردّ والخروج (كما كان في الخادم)
+TASK_OK_RESULTS = (0, 267009, 267011, 267014, 267008, 267010, 2147946720, None)   # نتائج المهام المجدولة التي لا تُعدّ فشلًا
+
+
+def _explain_errors(body):
+    import explain
+    return 200, explain.errors(snapshot.native_metrics(), ROOT)
+
+
+def _llm_unload(body):
+    import explain
+    r = explain.unload()
+    return (200, r) if r.get("ok") else (503, {"error": r.get("err", "failed")})
+
+
+def _explain(body):
+    import explain
+    tasks = snapshot.tasks()
+    m = snapshot.native_metrics()
+    extra = ["الذاكرة: التزام %s%% ومتاح %s GB" % (m.get("commitPct"), m.get("availGB"))]
+    try:
+        extra += ["أكبر العمليات: %s ×%s بذاكرة خاصة %s MB" % (x["name"], x["n"], round(x["private_mb"] or 0)) for x in health.top_procs(5)]
+        extra += ["تسرّب محتمل: %s من %s إلى %s MB" % (x["name"], x["fromMB"], x["toMB"]) for x in health.leaks()[:3]]
+        extra += ["مهمة فاشلة: %s (النتيجة %s)" % (x.get("label"), x.get("result"))
+                  for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") not in TASK_OK_RESULTS][:4]
+    except Exception:
+        errlog.swallowed()
+    r = explain.health(health.score(m, tasks)["parts"], m, extra)
+    return (200, r) if r.get("ok") else (503, {"error": r.get("err", "failed")})
+
+
+def _page_open(body):
+    """الواجهة تبلّغ كل انتقال إلى صفحة (البند 5): صفّ يومي في SQLite، غير هدّام."""
+    return pageuse.record(db.conn(), body)
+
+
+def _shutdown(body):
+    infra.log.info("shutdown requested")
+    try:
+        db.conn().execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    except Exception:
+        errlog.swallowed()
+    threading.Timer(EXIT_DELAY, lambda: EXIT(0)).start()   # الردّ يُرسل أولًا ثم يخرج الخادم
+    return 200, {"ok": True}
+
+
+_TABLE = {"/api/explain-errors": _explain_errors, "/api/llm-unload": _llm_unload, "/api/explain": _explain,
+          "/api/page-open": _page_open, "/api/shutdown": _shutdown}
+
+
+def post(route, body, invalidate=lambda: None):
+    """(رمز الحالة، الردّ) لمسار من ROUTES، أو None إن لم يكن المسار من هذه الوحدة."""
+    fn = _TABLE.get(route)
+    return None if fn is None else fn(body)

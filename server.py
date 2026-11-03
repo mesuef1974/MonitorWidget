@@ -6,12 +6,11 @@ The agent keeps the backend running independently of the dashboard."""
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
 import atexit, base64, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, subprocess, sys, threading, time, traceback
-import errlog
 import atomic_json
 import math, socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
-import db, health, infra, pageuse
+import db, health, infra
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
 import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
@@ -22,7 +21,8 @@ import snapshot             # البند 6/ز: القياسات الأصلية �
 import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
 import startup_mgr          # تسخين قائمة بدء التشغيل عند الإقلاع
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 # one-time tickets replace the token in URLs: the window opens with ?k=<ticket>, which is consumed once and then
 # exchanged for an HttpOnly session cookie. The long-lived token never appears on a command line.
@@ -327,48 +327,15 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(body, dict):
                 return self._send(400, {"error": "object expected"})
             route = self.path.split("?")[0]
-            for module in POST_MODULES:   # وحدات المسارات (البند 6): الهدّامة مع تأكيد 428، ثم تنظيف الذاكرة
+            for module in POST_MODULES:   # وحدات المسارات (البند 6 و8): كل POST عدا الجلسة والتذكرة
                 reply = module.post(route, body, invalidate=snapshot.invalidate)
                 if reply is not None:
                     return self._send(*reply)
             if route == "/api/session/logout":
                 _session_revoke(self._cookie("mw_s"))
                 return self._send(200, {"ok": True}, cookie="mw_s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
-            if route == "/api/explain-errors":
-                import explain
-                r = explain.errors(snapshot.native_metrics(), ROOT)
-                return self._send(200, r)
-            if route == "/api/llm-unload":
-                import explain
-                r = explain.unload()
-                return self._send(200, r) if r.get("ok") else self._send(503, {"error": r.get("err", "failed")})
-            if route == "/api/explain":
-                import explain
-                tasks = snapshot.tasks()
-                m = snapshot.native_metrics()
-                extra = ["الذاكرة: التزام %s%% ومتاح %s GB" % (m.get("commitPct"), m.get("availGB"))]
-                try:
-                    extra += ["أكبر العمليات: %s ×%s بذاكرة خاصة %s MB" % (x["name"], x["n"], round(x["private_mb"] or 0)) for x in health.top_procs(5)]
-                    extra += ["تسرّب محتمل: %s من %s إلى %s MB" % (x["name"], x["fromMB"], x["toMB"]) for x in health.leaks()[:3]]
-                    extra += ["مهمة فاشلة: %s (النتيجة %s)" % (x.get("label"), x.get("result")) for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") not in (0, 267009, 267011, 267014, 267008, 267010, 2147946720, None)][:4]
-                except Exception:
-                    errlog.swallowed()
-                r = explain.health(health.score(m, tasks)["parts"], m, extra)
-                return self._send(200, r) if r.get("ok") else self._send(503, {"error": r.get("err", "failed")})
             if route == "/api/ticket":
                 return self._send(200, {"ticket": _issue_ticket()})
-            if route == "/api/page-open":   # الواجهة تبلّغ كل انتقال إلى صفحة (البند 5)؛ صفّ يومي في SQLite، غير هدّام
-                code, payload = pageuse.record(db.conn(), body)
-                return self._send(code, payload)
-            if route == "/api/shutdown":
-                infra.log.info("shutdown requested")
-                try:
-                    db.conn().execute("PRAGMA wal_checkpoint(TRUNCATE)")
-                except Exception:
-                    errlog.swallowed()
-                self._send(200, {"ok": True})
-                threading.Timer(0.4, lambda: os._exit(0)).start()
-                return
             return self._send(404, {"error": "not found"})
         except (socket.timeout, TimeoutError):
             self.close_connection = True
