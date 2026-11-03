@@ -218,8 +218,8 @@ const PAGES = {
 
   mem: {
     title: "الذاكرة", sub: "الفعلية والالتزام والبرامج الأكثر استهلاكًا", icon: "mem",
-    async load() { return settle(api("/api/mem?range=" + state.range)); },
-    render([d]) {
+    async load() { return settle(api("/api/mem?range=" + state.range), api("/api/commit")); },
+    render([d, c]) {
       if (!d) return nodata("بيانات الذاكرة");
       const m = d.m, p = d.perf || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1, pal = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
       let out = panel("القياسات", `<div class="kpis">${kpi("الفعلية", nf(m.ramPct, 0), "%", `متاح ${Q(m.availGB, "GB", 1)}`, meter(m.ramPct, d.thr.ramWarn, d.thr.ramBad))}${kpi("الالتزام", nf(m.commitPct, 0), "%", `${Q(m.commitGB, "", 1)} / ${Q(m.limitGB, "GB", 1)}`, meter(m.commitPct, d.thr.commitWarn, d.thr.commitBad))}${kpi("كاش النظام", nf(p.cacheGB, 1), "GB")}${kpi("ذاكرة النواة", nf(p.kernelGB, 1), "GB", `مقسّمة ${Q(p.kernelPagedGB, "", 2)} · ثابتة ${Q(p.kernelNonpagedGB, "", 2)}`)}${kpi("العمليات", nf(p.procs), "", `${Q(p.threads)} خيط · ${Q(p.handles)} مقبض`)}</div>`);
@@ -227,6 +227,8 @@ const PAGES = {
       out += panel("حسب الفئة", `<div class="stackbar">${d.cats.map((c, i) => `<i title="${esc(c.label)}" style="flex:${c.mb};background:${pal[i % pal.length]}"></i>`).join("")}</div><div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i class="dot" style="background:${pal[i % pal.length]}"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${c.n} عملية · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
       out += panel("أكبر البرامج", `<table class="tbl"><thead><tr><th>البرنامج</th><th class="n">نسخ</th><th class="n">خاصة</th><th class="n">مجموعة العمل</th></tr></thead><tbody>${d.top.slice(0, 10).map(p => `<tr><td translate="no">${esc(p.name)}</td><td class="n num">${p.n}</td><td class="n">${Q(p.privMB >= 1024 ? p.privMB / 1024 : p.privMB, p.privMB >= 1024 ? "GB" : "MB", p.privMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.wsMB >= 1024 ? p.wsMB / 1024 : p.wsMB, p.wsMB >= 1024 ? "GB" : "MB", p.wsMB >= 1024 ? 1 : 0)}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
       out += panel("إعداد WSL", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t num mono" translate="no">${esc(k)}</span><span class="r num">${esc(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c4" });
+      out += panel("الالتزام", c && c.usedGB != null ? `<div class="kpis">${kpi("المستخدم", nf(c.usedGB, 1), "GB", `من ${Q(c.limitGB, "GB", 1)} · ${Q(c.pct, "%", 1)}`, meter(c.pct, d.thr.commitWarn, d.thr.commitBad))}${kpi("الهامش قبل الحدّ", nf(c.headroomGB, 1), "GB", "عند نفاده تفشل طلبات الذاكرة الجديدة")}${kpi("الذروة منذ الإقلاع", nf(c.peakGB, 1), "GB")}${kpi("في العمليات المقروءة", nf(c.procsGB, 1), "GB", `${Q(c.procs)} عملية${c.skipped ? ` · ${Q(c.skipped)} محجوبة` : ""}`)}</div><table class="tbl"><thead><tr><th>البرنامج</th><th class="n">PID</th><th class="n">الالتزام</th><th class="n">مجموعة العمل</th></tr></thead><tbody>${(c.top || []).map(p => `<tr><td translate="no">${esc(p.name)}</td><td class="n num">${p.pid}</td><td class="n">${Q(p.commitMB >= 1024 ? p.commitMB / 1024 : p.commitMB, p.commitMB >= 1024 ? "GB" : "MB", p.commitMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.wsMB >= 1024 ? p.wsMB / 1024 : p.wsMB, p.wsMB >= 1024 ? "GB" : "MB", p.wsMB >= 1024 ? 1 : 0)}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا عمليات</td></tr>`}</tbody></table>` : `<div class="empty">تعذّر قراءة الالتزام</div>`, { cls: "c8", meta: "أعلى 10 عمليات التزامًا (PrivateUsage)" });
+      out += panel("ما الذي يخفّض الالتزام؟", `<div class="list"><div class="li"><span class="t">إغلاق البرنامج</span><span class="d">يحرّر التزامه كاملًا فورًا؛ ابدأ بأعلى الجدول.</span></div><div class="li"><span class="t">تحرير البرنامج ذاكرته بنفسه</span><span class="d">لا سيطرة عليه من الخارج.</span></div><div class="li"><span class="t">تكبير ملف الصفحات</span><span class="d">يرفع الحدّ فتنخفض النسبة، ولا ينقص الرقم.</span></div></div><p class="note">تنظيف الذاكرة بأوضاعه الثلاثة يخفّض الذاكرة الفعلية المستخدمة لا الالتزام: الصفحات تنتقل إلى الاحتياطي أو ملف الصفحات وتبقى ملتزمة لصاحبها. عند بلوغ الحدّ تفشل البرامج في طلب ذاكرة جديدة ولو بقيت ذاكرة فعلية حرّة.</p>`, { cls: "c4" });
       return out;
     },
     after([d]) {
@@ -723,7 +725,7 @@ Object.assign(PAGES, {
     async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget"), api("/api/page-use")); },
     render([j, m, ap, inf, wg, pu]) {
       let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="chips" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button data-palette="${k}" aria-pressed="${ap?.palette === k}">${l}</button>`).join("")}</div></div><p class="note">يُحفظ الاختيار للواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`, { cls: "c6" });
-      out += panel("الذاكرة", `<p>تقليص مجموعات عمل العمليات مؤقتًا دون إنهاء أي عملية.</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button><button class="btn" data-trim="deep">تنظيف عميق</button></div>`, { cls: "c6" });
+      out += panel("الذاكرة", `<p>تقليص مجموعات عمل العمليات مؤقتًا دون إنهاء أي عملية؛ يخفّض الذاكرة الفعلية المستخدمة لا الالتزام (بطاقة «الالتزام» في صفحة الذاكرة).</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button><button class="btn" data-trim="deep">تنظيف عميق</button></div>`, { cls: "c6" });
       out += panel("وضع الصيانة المؤقت", m ? `<div class="row-sw"><span>${m.on ? "مفعّل" : "غير مفعّل"} — يوقف ${(m.rules || []).map(esc).join("، ")} أثناء عمل Claude Code</span>${sw(!!m.on, 'data-maint="1"', "وضع الصيانة المؤقت")}</div>` : '<div class="empty">غير متاح</div>', { cls: "c12" });
       if (inf) {
         const sv = inf.server || {}, dbh = inf.db || {};
@@ -828,7 +830,7 @@ $("#boost").onclick = async () => {
   let m = null;
   for (let i = 0; i < 80; i++) { await new Promise(r => setTimeout(r, 700)); try { m = (await api("/api/mini")).trim; } catch { } if (m && !m.running) break; }
   b.disabled = false; txt.textContent = "تنظيف الذاكرة";
-  if (m && m.before != null) toast(`الذاكرة ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB`);
+  if (m && m.before != null) toast(`الذاكرة الفعلية ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB (الالتزام لا يتغيّر)`);
   show(true);
 };
 const DWM_BIG_MB = 1024;   // لا يُعرض التأكيد الثاني إلا حين يحجز dwm ذاكرة تستحق وميض الشاشة
