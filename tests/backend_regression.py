@@ -443,7 +443,39 @@ class DestructiveRoutes(unittest.TestCase):
             self.assertEqual(self.rd.post("/api/space", {"action": "preview", "kind": "temp"}), (200, {"ok": True, "state": "running", "kind": "temp"}))
         self.assertEqual(self.rd.post("/api/space", {"action": "nope"}), (400, {"error": "bad action"}))
         self.assertIsNone(self.rd.post("/api/other", {}))
-        self.assertEqual(self.rd.ROUTES, ("/api/space", "/api/reaper-run", "/api/run-cleanup"))
+        self.assertEqual(self.rd.ROUTES, ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close"))
+
+    def test_proc_close_policy_then_confirm_then_close(self):
+        """إغلاق عملية بعينها: 400 لمعاملات غير صالحة، 409 لما ترفضه السياسة قبل أي تأكيد، 428 للمسموح، ثم الإغلاق بالرمز وتسجيله."""
+        closed, logged = [], []
+        rows = {100: "llama-server.exe", 200: "explorer.exe"}
+
+        class FakeConn:
+            def execute(self, sql, args=()):
+                logged.append(args)
+
+            def commit(self):
+                pass
+
+        def fake_close(pid, name, force=False):
+            closed.append((pid, name, force))
+            return {"ok": True, "pid": pid, "name": name, "method": "terminate", "exited": True, "windows": 0, "commitMB": 5716}
+        with patch.object(self.rd.procclose, "names_by_pid", lambda: rows), patch.object(self.rd.procclose, "close", fake_close), \
+                patch.object(self.rd.db, "conn", lambda: FakeConn()):
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": "100", "name": "llama-server.exe"}), (400, {"error": "bad params"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": "yes"}), (400, {"error": "bad params"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 200, "name": "explorer.exe"})[0], 409)              # محمية: لا يُطلب تأكيد
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "claude.exe"}), (409, {"error": "name_mismatch", "pid": 100, "name": "claude.exe"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 999, "name": "x.exe"})[1]["error"], "not_found")
+            code, rep = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": False})
+            self.assertEqual((code, rep["error"], closed), (428, "confirm_required", []))
+            code2, rep2 = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep["confirm"]})
+            self.assertEqual((code2, closed), (428, []))                                                                   # force جزء من المفتاح: الرمز يُرفض ويُستهلك ويصدر آخر
+            code3, rep3 = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep2["confirm"]})
+            self.assertEqual((code3, rep3["exited"], closed), (200, True, [(100, "llama-server.exe", True)]))
+            self.assertEqual(logged[-1][1:4], ("procclose", "page", 1))
+            self.assertIn("pid=100 name=llama-server.exe force=True method=terminate exited=True commitMB=5716", logged[-1][4])
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep2["confirm"]})[0], 428)   # أحادي الاستعمال
 
     def test_reaper_run_dry_passes_and_real_requires_confirm(self):
         seen = []
