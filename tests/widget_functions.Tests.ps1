@@ -18,6 +18,18 @@ BeforeAll {
     function Rect([double]$l, [double]$t, [double]$w, [double]$h) { [Windows.Rect]::new($l, $t, $w, $h) }
 }
 
+Describe 'إتمام الطلبات الخلفية' {
+    It 'لا يُعدّ ردّ 428 الملتقط فشلًا: HadErrors ترتفع والمجرى فارغ' {
+        $ps = [powershell]::Create()
+        [void]$ps.AddScript({ try { Get-Item 'Z:\غير-موجود' -ErrorAction Stop } catch { 'ok' } })
+        @($ps.Invoke())[0] | Should -Be 'ok'
+        $ps.Streams.Error.Count | Should -Be 0
+        $ps.Dispose()
+        $source | Should -Not -Match 'HadErrors\s*\)'
+        $source | Should -Match 'Streams\.Error\.Count -gt 0'
+    }
+}
+
 Describe 'Alpha' {
     It 'يسبق اللون بقناة الشفافية' { Alpha '#112233' '80' | Should -Be '#80112233' }
     It 'يقبل اللون بلا علامة #' { Alpha '112233' 'FF' | Should -Be '#FF112233' }

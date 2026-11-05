@@ -27,7 +27,7 @@ import insight
 import procclose
 import secure
 import space
-from paths import CNW, ENGINE, MCCFG, POLICY, PROT_ENGINE_DIR, PWSH, TIERS
+from paths import CNW, ENGINE, MCCFG, POLICY, PROT_ENGINE_DIR, PWSH, TIER_TASK, TIERS
 
 ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close")
 CONFIRM_TTL = 120     # ثوانٍ يبقى فيها رمز التأكيد صالحًا
@@ -89,6 +89,57 @@ def _space_confirmed(route, body, act, kind):
 # ---------------------------------------------------------------- التنظيف اليدوي (محرّك CleanupEngine.ps1)
 MANUAL = {"proc": None, "tier": None, "dry": None, "started": None}
 IS_ADMIN = secure.is_admin()
+
+
+TASK_RUNNING = "267009"          # SCHED_S_TASK_RUNNING: رقم لا يتبدّل بلغة النظام، بخلاف عمود الحالة
+TASK_GRACE_S, TASK_MAX_S = 3, 3600
+
+
+def _task_running(task):
+    try:
+        r = subprocess.run(["schtasks", "/query", "/tn", task, "/fo", "csv", "/v", "/nh"], capture_output=True, text=True,
+                           errors="replace", timeout=10, creationflags=CNW)
+    except (OSError, subprocess.TimeoutExpired):
+        return True   # يُعاد الفحص، وTASK_MAX_S حدّ أعلى
+    return r.stdout.split('","')[6:7] == [TASK_RUNNING]
+
+
+class _TaskRun:
+    """تشغيل فعلي عبر مهمة Cleanup_v2_* المرتفعة. واجهته poll() كـ Popen فيبقى منع التشغيل المتزامن وحالة الويدجت كما هما."""
+
+    def __init__(self, task):
+        self.task, self.started, self.checked, self.code = task, time.time(), 0.0, None
+
+    def poll(self):
+        now = time.time()
+        if self.code is None and now - self.started >= TASK_GRACE_S and now - self.checked >= 2:
+            self.checked = now
+            if now - self.started > TASK_MAX_S or not _task_running(self.task):
+                self.code = 0
+        return self.code
+
+
+def _tier_paused(tier):
+    """مهمة المستوى لا تحمل -Force فتخرج بلا عمل إن كان موقوفًا؛ عند تعذّر القراءة يُعدّ موقوفًا فيبقى التشغيل المباشر."""
+    try:
+        with open(POLICY, encoding="utf-8-sig") as fh:
+            return tier in json.load(fh).get("pausedTiers", [])
+    except (OSError, ValueError, AttributeError):
+        errlog.swallowed()
+        return True
+
+
+def _start_task(tier):
+    """الخادم عادي فالمحرّك المباشر لا يصل إلى مجلدات النظام (font-cache يفشل، وwindows-temp لا يحذف شيئًا)؛ المهمة تعمل بأعلى صلاحية.
+    يعيد _TaskRun، أو None ليعمل التشغيل المباشر."""
+    if IS_ADMIN or _tier_paused(tier):
+        return None
+    try:
+        r = subprocess.run(["schtasks", "/run", "/tn", TIER_TASK[tier]], capture_output=True, timeout=15, creationflags=CNW)
+    except (OSError, subprocess.TimeoutExpired):
+        errlog.swallowed()
+        return None
+    return _TaskRun(TIER_TASK[tier]) if r.returncode == 0 else None
 
 
 def manual_status():
@@ -176,10 +227,13 @@ def _run_cleanup(route, body, invalidate):
     engine, err = resolve_engine()
     if err:
         return 503, {"error": err}
-    args = [PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", engine, "-Tier", tier, "-Force", "-PolicyPath", POLICY]
-    if dry:
-        args.append("-DryRun")
-    MANUAL.update(proc=subprocess.Popen(args, creationflags=CNW), tier=tier, dry=dry, started=time.strftime("%Y-%m-%dT%H:%M:%S"))
+    proc = None if dry or os.path.dirname(engine) != PROT_ENGINE_DIR else _start_task(tier)   # المهام تشير إلى النسخة المحمية وحدها
+    if proc is None:
+        args = [PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", engine, "-Tier", tier, "-Force", "-PolicyPath", POLICY]
+        if dry:
+            args.append("-DryRun")
+        proc = subprocess.Popen(args, creationflags=CNW)
+    MANUAL.update(proc=proc, tier=tier, dry=dry, started=time.strftime("%Y-%m-%dT%H:%M:%S"))
     invalidate()
     return 200, {"ok": True}
 
