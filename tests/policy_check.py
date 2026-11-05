@@ -17,7 +17,7 @@ check("policy parses", True)
 ids = [r.get("id") for r in rules]
 check("rule ids unique", len(ids) == len(set(ids)))
 TIERS = {"daily", "weekly", "monthly", "quarterly"}
-ACTS = {"purge", "quarantine", "command", "report", "online-only", "dism-report", "recycle-quarantine"}   # recycle-quarantine: CleanupEngine.ps1 dispatch
+ACTS = {"purge", "quarantine", "command", "report", "online-only", "dism-report", "recycle-quarantine", "keep-latest", "dev-cache"}   # recycle-quarantine: CleanupEngine.ps1 dispatch
 for r in rules:
     rid = r.get("id", "?")
     check(f"{rid}: tier valid", r.get("tier") in TIERS, str(r.get("tier")))
