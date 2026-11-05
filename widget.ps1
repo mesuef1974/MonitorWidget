@@ -697,11 +697,19 @@ $script:bgPost = {
     } catch {
         # destructive calls answer 428 + a one-time token; the user already confirmed in the widget dialog, so resend once with it
         $resp = $_.Exception.Response
-        if (-not $resp -or [int]$resp.StatusCode -ne 428) { throw }
         $j = $null; try { $j = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
-        if (-not $j -or -not $j.confirm) { throw }
+        if (-not $resp -or [int]$resp.StatusCode -ne 428 -or -not $j -or -not $j.confirm) {
+            if ($j -and $j.error) { throw [string]$j.error }   # رسالة الخادم لا نص HTTP العام
+            throw
+        }
         $b2 = @{}; foreach ($k in $body.Keys) { $b2[$k] = $body[$k] }; $b2.confirm = $j.confirm
-        Invoke-RestMethod $uri -Method Post -Headers $h -ContentType 'application/json' -Body ($b2 | ConvertTo-Json -Compress) -TimeoutSec 6 -NoProxy
+        try {
+            Invoke-RestMethod $uri -Method Post -Headers $h -ContentType 'application/json' -Body ($b2 | ConvertTo-Json -Compress) -TimeoutSec 6 -NoProxy
+        } catch {
+            $j2 = $null; try { $j2 = $_.ErrorDetails.Message | ConvertFrom-Json } catch {}
+            if ($j2 -and $j2.error) { throw [string]$j2.error }
+            throw
+        }
     }
 }
 $script:bgJobs = New-Object Collections.ArrayList
@@ -713,8 +721,9 @@ $bgTimer.Add_Tick({
         $res = $null; $err = $null
         try {
             $res = @($j.ps.EndInvoke($j.ar))[0]
-            if ($j.ps.HadErrors) { $err = [string]$j.ps.Streams.Error[0] }
-        } catch { $err = $_.Exception.Message } finally { $j.ps.Dispose() }
+            # عدد مجرى الأخطاء لا الراية العامة: ردّ 428 يُلتقط في bgPost فتبقى الراية مرفوعة والمجرى فارغًا، فيظهر نجاح التنظيف «تعذّر:» بلا نص
+            if ($j.ps.Streams.Error.Count -gt 0) { $err = [string]$j.ps.Streams.Error[0] }
+        } catch { $err = $_.Exception.Message; if (-not $err) { $err = 'خطأ غير معروف' } } finally { $j.ps.Dispose() }
         try { if ($null -ne $err) { & $j.err $err } else { & $j.ok $res } } catch { Log ('bg callback: ' + $_.Exception.Message) }
     }
     if ($script:bgJobs.Count -eq 0) { $this.Stop() }
@@ -898,7 +907,7 @@ function Set-ConfirmButtons([string]$realText, [bool]$showDry) {
 function Start-Clean([bool]$dry) {
     $tier = $script:pending; $UI.confirm.Visibility = 'Collapsed'; $script:pending = $null
     if (-not $tier) { return }
-    Start-Bg '/api/run-cleanup' @{ tier = $tier; dry = $dry } ({ param($r) Show-Toast ($(if ($dry) { 'بدأت التجربة: ' } else { 'بدأ التنفيذ: ' }) + $UI.tiers[$tier].Label) }.GetNewClosure()) { param($m) Show-Toast ('تعذّر: ' + $m) }
+    Start-Bg '/api/run-cleanup' @{ tier = $tier; dry = $dry } ({ param($r) Show-Toast ($(if ($dry) { 'بدأت التجربة: ' } else { 'بدأ التنفيذ: ' }) + $UI.tiers[$tier].Label) }.GetNewClosure()) { param($m) Show-Toast ('تعذّر: ' + $(if ($m -match 'already running') { 'يعمل تنظيف يدوي آخر الآن' } else { $m })) }
 }
 # trim runs in a background runspace: the UI thread never waits on the server
 $script:trimJob = $null
@@ -938,7 +947,7 @@ $trimTimer.Add_Tick({
     $script:trimJob = $null; $this.Stop()
     try {
         $null = $j.ps.EndInvoke($j.ar)
-        if ($j.ps.HadErrors) { throw ([string]$j.ps.Streams.Error[0]) }
+        if ($j.ps.Streams.Error.Count -gt 0) { throw ([string]$j.ps.Streams.Error[0]) }
         Log ('trim: answered in {0} ms' -f $j.sw.ElapsedMilliseconds)
     } catch {
         Log ('trim: failed after {0} ms: {1}' -f $j.sw.ElapsedMilliseconds, $_.Exception.Message)

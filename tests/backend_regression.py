@@ -490,6 +490,51 @@ class DestructiveRoutes(unittest.TestCase):
             self.assertEqual((code, seen), (428, [(True, "MachineCare")]))
             self.assertEqual(self.rd.post("/api/reaper-run", {"dry": False, "confirm": rep["confirm"]}), (200, {"ok": True, "dry": False}))
 
+    def test_real_cleanup_uses_elevated_task_unless_paused_or_dry(self):
+        """التشغيل الفعلي بالنسخة المحمية يمرّ بمهمة Cleanup_v2_* المرتفعة، ويبقى مباشرًا للتجربة وللمستوى الموقوف وعند فشل المهمة."""
+        runs, popen_args, state = [], [], {"rc": 0, "paused": False, "out": '"h","t","n","Running","i","l","267009","x"'}
+
+        def fake_run(args, **kw):
+            runs.append(list(args))
+            return types.SimpleNamespace(returncode=state["rc"], stdout=state["out"])
+
+        class FakeProc:
+            def __init__(self, args, creationflags=0):
+                popen_args.append(list(args))
+
+            def poll(self):
+                return 0
+        prot = os.path.join(self.rd.PROT_ENGINE_DIR, "CleanupEngine.ps1")
+
+        def go(body):
+            code, rep = self.rd.post("/api/run-cleanup", body)
+            if code == 428:
+                code, rep = self.rd.post("/api/run-cleanup", dict(body, confirm=rep["confirm"]))
+            return code, rep
+        with patch.object(self.rd.subprocess, "run", fake_run), patch.object(self.rd.subprocess, "Popen", FakeProc), \
+                patch.object(self.rd, "resolve_engine", lambda: (prot, None)), patch.object(self.rd, "IS_ADMIN", False), \
+                patch.object(self.rd, "_tier_paused", lambda t: state["paused"]):
+            self.assertEqual(go({"tier": "quarterly", "dry": False}), (200, {"ok": True}))
+            self.assertEqual(runs[0], ["schtasks", "/run", "/tn", "Cleanup_v2_Quarterly"])
+            self.assertEqual(popen_args, [])
+            run = self.rd.MANUAL["proc"]
+            self.assertTrue(self.rd.manual_status()["running"])                  # مهلة بدء المهمة
+            run.started -= self.rd.TASK_GRACE_S + 1
+            self.assertIsNone(run.poll())                                        # 267009: ما زالت تعمل
+            self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "weekly"})[0], 409)
+            state["out"] = '"h","t","n","Ready","i","l","0","x"'
+            run.checked = 0
+            self.assertEqual(run.poll(), 0)
+            self.assertFalse(self.rd.manual_status()["running"])
+            self.assertEqual(go({"tier": "weekly", "dry": True}), (200, {"ok": True}))   # التجربة مباشرة
+            self.assertEqual(popen_args[-1][-1], "-DryRun")
+            state["paused"] = True
+            self.assertEqual(go({"tier": "daily", "dry": False}), (200, {"ok": True}))   # الموقوف: المهمة بلا -Force لن تعمل
+            self.assertIn("-Force", popen_args[-1])
+            state.update(paused=False, rc=1)
+            self.assertEqual(go({"tier": "daily", "dry": False}), (200, {"ok": True}))   # فشل المهمة لا يُسقط الطلب
+            self.assertEqual(len(popen_args), 3)
+
     def test_run_cleanup_confirm_engine_and_single_process(self):
         popen_args, invalidated = [], []
 
