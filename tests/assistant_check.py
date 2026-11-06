@@ -167,6 +167,18 @@ class Shapes(unittest.TestCase):
         self.assertEqual(r["النماذج"], [{"id": "m", "context": 8192}])
 
 
+class GpuAnswer(Base):
+    def test_models_come_from_lm_studio_not_from_programs(self):
+        self.use(data={"/api/local-ai": {"models": [{"id": "qwen/qwen3-8b", "context": 8192}]}})
+        r = assistant._gpu({"procs": [{"name": "llama-server", "mb": 5000}, {"name": "LM Studio", "mb": 100}]})
+        self.assertEqual(r["النماذج"], ["qwen/qwen3-8b"])
+        self.assertEqual([p["name"] for p in r["البرامج"]], ["llama-server", "LM Studio"])
+
+    def test_commit_mistranslation_is_corrected(self):
+        self.use(reply("الذاكرة: 67.6% تزامن، والتزامن مرتفع"))
+        self.assertEqual(assistant.answer("x")["text"], "الذاكرة: 67.6% التزام، والتزام مرتفع")
+
+
 class DeleteRequests(Base):
     def test_delete_request_opens_cleaning_page_without_the_model(self):
         script = self.use()

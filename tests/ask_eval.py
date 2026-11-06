@@ -18,6 +18,7 @@ CASES = (
     {"q": "لماذا الجهاز بطيء؟", "tool": "diagnose_slowness"},
     {"q": "كم المساحة الحرة؟", "tool": "disk_status"},
     {"q": "ما حرارة كرت الرسوميات؟", "tool": "gpu_status"},
+    {"q": "ماذا يوجد في كرت الشاشة من نماذج؟", "banned": ("llama-server", "LM Studio")},
     {"q": "ما حمل المعالج الآن؟", "tool": "cpu_status"},
     {"q": "كم الذاكرة المتاحة؟", "tool": "memory_status"},
     {"q": "ما درجة صحة الجهاز؟", "tool": "health_status"},
@@ -60,7 +61,7 @@ def score(case, result):
         bad.append("حروف لاتينية داخل كلمة عربية")
     if INTERNAL.search(text):
         bad.append("اسم داخلي في الجواب")
-    bad += ["مصطلح خاطئ: " + w for w in WRONG_TERMS if w in text]
+    bad += ["مصطلح خاطئ: " + w for w in WRONG_TERMS + tuple(case.get("banned") or ()) if w in text]
     return bad
 
 
