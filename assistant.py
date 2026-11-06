@@ -81,7 +81,9 @@ def _gpu(d):
 
 
 def _disk(d):
-    return _pick(d.get("m") or {}, "diskFreeGB", "diskTotalGB", "diskPct")
+    # اسم usedPct صريح: كان النموذج يقرأ diskPct على أنها النسبة الحرة
+    m = d.get("m") or {}
+    return {"freeGB": m.get("diskFreeGB"), "totalGB": m.get("diskTotalGB"), "usedPct": m.get("diskPct")}
 
 
 def _procs(d):
