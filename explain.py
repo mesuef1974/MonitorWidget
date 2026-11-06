@@ -9,7 +9,7 @@ ROOT = "http://127.0.0.1:1234"
 BASE = ROOT + "/v1"
 COMMIT_GATE = 85          # above this commit % we refuse to load a model: it would add to the pressure
 TIMEOUT = 150             # first call may include LM Studio loading the model
-PREFERRED_MODEL = "qwen3-vl-4b-instruct"   # الموحّد على الجهاز: أي نموذج آخر يملأ ذاكرة بطاقة 8 GB ويبطئ الجميع
+PREFERRED_MODEL = "qwen3-vl-4b-instruct"   # يُستعمل فقط إن لم يكن نموذج محمّلًا: تحميل نموذج ثانٍ يملأ بطاقة 8 GB ويبطئ الجميع
 
 SYSTEM = (
     "أنت تعيد صياغة حقائق تقرير صحة جهاز ويندوز بجملة عربية واضحة. لكل بند اكتب سطراً واحداً بالصيغة «المفتاح: جملة» "
@@ -38,7 +38,20 @@ def _req(path, body=None):
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _loaded():
+    """النماذج المحمّلة فعلًا في LM Studio؛ /v1/models يعرض كل المنزَّل فلا يكفي لمعرفتها."""
+    try:
+        with urllib.request.urlopen(ROOT + "/api/v0/models", timeout=5) as resp:
+            rows = json.loads(resp.read().decode("utf-8")).get("data") or []
+    except (OSError, ValueError):
+        return []
+    return [m.get("id", "") for m in rows if m.get("state") == "loaded" and m.get("type") in ("llm", "vlm")]
+
+
 def _model():
+    loaded = _loaded()
+    if loaded:
+        return PREFERRED_MODEL if PREFERRED_MODEL in loaded else loaded[0]
     ids = [m.get("id", "") for m in (_req("/models").get("data") or [])]
     ids = [i for i in ids if i and "embed" not in i.lower()]
     if not ids:
