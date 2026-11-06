@@ -148,7 +148,36 @@ class Diagnose(Base):
 
     def test_crowded_models_is_a_cause(self):
         r = self.run_with({"ramPct": 10}, **{"/api/local-ai": {"verdict": "crowded"}})
-        self.assertIn("نموذجان محمّلان معًا في بطاقة الرسوميات", r["causes"])
+        self.assertIn("تحميل نموذجين معًا في بطاقة الرسوميات", r["causes"])
+
+
+class Shapes(unittest.TestCase):
+    def test_cpu_load_reaches_the_model_as_percent_not_cores(self):
+        r = assistant._cpu({"ncpu": 20, "total": 9.143, "now": [{"name": "a", "cores": 1.5, "n": 1, "hint": ""}]})
+        self.assertEqual((r["loadPct"], r["top"]), (45.7, [{"name": "a", "pct": 7.5}]))
+        self.assertNotIn("total", r)
+
+    def test_cpu_alert_keeps_only_its_percent(self):
+        alert = {"name": "a", "avg": 0.99, "minutes": 10, "pct": 4.9, "ncpu": 20, "hint": ""}
+        self.assertEqual(assistant._cpu({"ncpu": 20, "alert": alert})["alert"], {"name": "a", "pct": 4.9, "minutes": 10})
+        self.assertIsNone(assistant._cpu({"ncpu": 20})["alert"])
+
+    def test_models_carry_name_and_context_only(self):
+        r = assistant._local_ai({"verdict": "ok", "models": [{"id": "m", "context": 8192, "maxContext": 32768, "quant": "Q4_K_M"}]})
+        self.assertEqual(r["النماذج"], [{"id": "m", "context": 8192}])
+
+
+class DeleteRequests(Base):
+    def test_delete_request_opens_cleaning_page_without_the_model(self):
+        script = self.use()
+        for q in ("احذف كل الملفات المؤقتة الآن", "امسح ملفات التنزيلات القديمة", "فرّغ القرص من الملفات الكبيرة", "نظّف المساحة"):
+            r = assistant.answer(q)
+            self.assertEqual(r["actions"], [{"action": "open_page", "target": "spaceclean", "label": assistant.ACTIONS["open_page"]}], q)
+        self.assertEqual(script.sent, [])
+
+    def test_other_requests_still_reach_the_model(self):
+        for q in ("نظّف الذاكرة", "فرّغ ذاكرة كرت الشاشة", "كم المساحة الحرة؟", "ما حجم الملفات الكبيرة؟"):
+            self.assertFalse(assistant._asks_to_delete(q), q)
 
 
 class Memory(Base):
@@ -200,6 +229,11 @@ class Eval(unittest.TestCase):
 
     def test_refusal_case(self):
         self.assertTrue(ask_eval.score({"none": True}, {"actions": [{"action": "gpu_purge", "target": ""}]}))
+
+    def test_text_faults_fail_the_case(self):
+        for text in ("المُodels المحمّلة", "استعمل spaceclean", "67.6% تزامن"):
+            self.assertTrue(ask_eval.score({}, {"text": text}), text)
+        self.assertEqual(ask_eval.score({}, {"text": "النموذج qwen/qwen3-8b محمّل، والحرة 125 GB"}), [])
 
     def test_cases_name_real_tools_and_actions(self):
         for case in ask_eval.CASES:
