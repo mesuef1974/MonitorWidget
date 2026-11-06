@@ -174,16 +174,31 @@ const PAGES = {
 
   ask: {
     title: "اسأل المرصد", sub: "اسأل النموذج المحلي عن الجهاز، ولا يُنفَّذ أمر إلا بعد تأكيدك", icon: "ask",
-    async load() { return [{ ok: 1 }]; },
+    async load() {
+      if (!askState.loaded) {
+        const d = await api("/api/assistant").catch(() => null);
+        // بطاقات الأوامر لا تُحفظ: القديم نص فقط، ولا يُرسل سياقًا لأن أرقامه قديمة
+        if (d) { askState.msgs = d.turns.map(t => ({ ...t, old: true })).concat(askState.msgs); askState.facts = d.facts; askState.ratings = d.ratings; askState.loaded = true; }
+      }
+      return [{ ok: 1 }];
+    },
     render() {
-      const m = askState.msgs, hints = ["لماذا الجهاز بطيء؟", "كم المساحة الحرة؟", "ما حرارة كرت الرسوميات؟", "نظّف الذاكرة"];
+      const m = askState.msgs, r = askState.ratings, hints = ["لماذا الجهاز بطيء؟", "كم المساحة الحرة؟", "ما حرارة كرت الرسوميات؟", "نظّف الذاكرة"];
       const log = m.length ? m.map(askMsg).join("") : `<p class="sub">ابدأ بسؤال، أو اختر واحدًا:</p><div class="acts">${hints.map(h => `<button class="btn" data-askq="${esc(h)}">${esc(h)}</button>`).join("")}</div>`;
       return panel("المحادثة", `<div class="ask-log" role="log" aria-label="المحادثة">${log}${askState.busy ? `<p class="sub" role="status">يقرأ القياسات ويكتب الجواب…</p>` : ""}</div>
         <form id="askForm" class="ask-form"><label class="sr" for="askInput">سؤالك</label><textarea id="askInput" rows="2" maxlength="500" placeholder="اكتب سؤالك أو طلبك">${esc(askState.draft)}</textarea><button class="btn primary" type="submit"${askState.busy ? " disabled" : ""}>أرسل</button></form>
-        <p class="note">يعمل محليًّا ويقرأ قياسات المرصد فقط. قد يخطئ النموذج، فراجع الأرقام في صفحاتها قبل أن تتصرف.</p>`, { cls: "c12" });
+        <p class="note">يعمل محليًّا ويقرأ قياسات المرصد فقط. قد يخطئ النموذج، فراجع الأرقام في صفحاتها قبل أن تتصرف. تُحفظ المحادثة على هذا الجهاز 30 يومًا.</p>
+        ${r.good + r.bad ? `<p class="note">التقييمات: ${r.good} مفيد، ${r.bad} خاطئ</p>` : ""}
+        ${m.length ? `<div class="acts"><button class="btn" data-askclear="1">امسح المحادثة</button></div>` : ""}`, { cls: "c12" })
+        + panel("تعليمات دائمة", `<p class="sub">يلتزم بها النموذج في كل سؤال، ولا يكتبها غيرك.</p>
+        ${askState.facts.length ? `<ul class="ask-facts">${askState.facts.map(f => `<li><span>${esc(f.text)}</span><button class="btn" data-askfactdel="${f.id}" aria-label="احذف: ${esc(f.text)}">احذف</button></li>`).join("")}</ul>` : ""}
+        <form id="askFactForm" class="ask-form"><label class="sr" for="askFact">تعليمة جديدة</label><input id="askFact" maxlength="200" placeholder="مثال: لا تقترح تفريغ ذاكرة الكرت"><button class="btn" type="submit">احفظ</button></form>`, { cls: "c12" });
     },
     after() {
       const f = $("#askForm"), i = $("#askInput"); if (!f) return;
+      const log = $(".ask-log"); if (log) { log.scrollTop = askState.keep ?? log.scrollHeight; askState.keep = null; }   // آخر رد ظاهر، إلا بعد فعل على رسالة أقدم
+      const ff = $("#askFactForm"), fi = $("#askFact");
+      ff.onsubmit = async e => { e.preventDefault(); const text = fi.value.trim(); if (!text) return; try { askState.facts = (await post("/api/assistant-fact", { text })).facts; askHold(); } catch (x) { toast("تعذّر: " + x.message, true); } };
       f.onsubmit = e => { e.preventDefault(); askSend(i.value); };
       i.oninput = () => { askState.draft = i.value; };
       i.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askSend(i.value); } };
@@ -313,7 +328,7 @@ async function post(path, body) {
   if (!r.ok) throw new Error(ERR_AR[j.error] || j.error || ("HTTP " + r.status));
   return j;
 }
-const askState = { msgs: [], busy: false, draft: "" };
+const askState = { msgs: [], busy: false, draft: "", loaded: false, facts: [], ratings: { good: 0, bad: 0 }, keep: null };
 // المسارات هنا لا في الرد: الخادم يعيد اسم الأمر فقط، فلا يستطيع نص النموذج توجيه الواجهة إلى مسار آخر
 const ASK_RUN = { trim_memory: ["/api/trim-memory", () => ({ mode: "light" })], unload_model: ["/api/llm-unload", () => ({})], gpu_purge: ["/api/gpu-purge", () => ({})], silence_task: ["/api/winguard-silence", a => ({ name: a.target })] };
 const askCard = (a, i, j) => {
@@ -322,8 +337,10 @@ const askCard = (a, i, j) => {
   const name = esc(a.label) + (a.target ? ` «${esc(a.target)}»` : "");
   return a.done ? `<span class="tag ok">نُفّذ: ${name}</span>` : `<button class="btn" data-askrun="${i}:${j}">${name}</button>`;
 };
-const askMsg = (m, i) => `<div class="ask-msg ${m.role === "user" ? "me" : ""}${m.err ? " err" : ""}"><div class="ask-text">${esc(m.content)}</div>${(m.actions || []).length ? `<div class="acts">${m.actions.map((a, j) => askCard(a, i, j)).join("")}</div>` : ""}${m.ms ? `<div class="note"><bdi dir="ltr" translate="no">${esc(m.model || "")}</bdi> · ${nf(m.ms / 1000, 1)} ثانية</div>` : ""}</div>`;
+const askMsg = (m, i) => `<div class="ask-msg ${m.role === "user" ? "me" : ""}${m.err ? " err" : ""}"><div class="ask-text">${esc(m.content)}</div>${(m.actions || []).length ? `<div class="acts">${m.actions.map((a, j) => askCard(a, i, j)).join("")}</div>` : ""}${askRate(m, i)}${m.ms ? `<div class="note"><bdi dir="ltr" translate="no">${esc(m.model || "")}</bdi> · ${nf(m.ms / 1000, 1)} ثانية</div>` : ""}</div>`;
 const askDraw = () => { if (curKey === "ask") redraw(); };
+const askHold = () => { askState.keep = $(".ask-log")?.scrollTop ?? null; askDraw(); };
+const askRate = (m, i) => m.id && m.role === "assistant" ? `<div class="acts">${[[1, "مفيد"], [-1, "خاطئ"]].map(([v, l]) => `<button class="btn" data-askrate="${i}:${v}" aria-pressed="${m.rating === v}">${l}</button>`).join("")}</div>` : "";
 async function askWait(id) {
   for (let i = 0; i < 200; i++) {
     await new Promise(r => setTimeout(r, 1000));
@@ -335,11 +352,11 @@ async function askWait(id) {
 }
 async function askSend(text) {
   const q = (text || "").trim(); if (!q || askState.busy) return;
-  const history = askState.msgs.filter(m => !m.err).slice(-6).map(m => ({ role: m.role, content: m.content }));
+  const history = askState.msgs.filter(m => !m.err && !m.old).slice(-6).map(m => ({ role: m.role, content: m.content }));
   askState.msgs.push({ role: "user", content: q }); askState.busy = true; askState.draft = ""; askDraw();
   try {
     const { id } = await post("/api/ask", { q, history }), j = await askWait(id);
-    askState.msgs.push(j.state === "done" ? { role: "assistant", content: j.text, actions: j.actions, model: j.model, ms: j.ms } : { role: "assistant", content: j.error || "تعذّر الجواب.", err: true });
+    askState.msgs.push(j.state === "done" ? { role: "assistant", content: j.text, actions: j.actions, model: j.model, ms: j.ms, id: j.turnId } : { role: "assistant", content: j.error || "تعذّر الجواب.", err: true });
   } catch (e) { askState.msgs.push({ role: "assistant", content: "تعذّر: " + e.message, err: true }); }
   askState.busy = false; askDraw();
 }
@@ -846,7 +863,17 @@ document.addEventListener("click", async e => {
   else if (t.dataset.askq) { askSend(t.dataset.askq); }
   else if (t.dataset.askrun) {
     const [i, j] = t.dataset.askrun.split(":").map(Number), a = askState.msgs[i]?.actions?.[j], run = a && ASK_RUN[a.action];
-    if (run && await confirmDlg(`تنفيذ «${a.label}»${a.target ? ` على ${a.target}` : ""}؟`, "نفّذ")) { try { await post(run[0], run[1](a)); a.done = true; toast("نُفّذ الأمر"); redraw(); } catch (e) { toast("تعذّر: " + e.message, true); } }
+    if (run && await confirmDlg(`تنفيذ «${a.label}»${a.target ? ` على ${a.target}` : ""}؟`, "نفّذ")) { try { await post(run[0], run[1](a)); a.done = true; toast("نُفّذ الأمر"); askHold(); } catch (e) { toast("تعذّر: " + e.message, true); } }
+  }
+  else if (t.dataset.askrate) {
+    const [i, v] = t.dataset.askrate.split(":").map(Number), m = askState.msgs[i], value = m?.rating === v ? 0 : v;
+    if (m) { try { const r = await post("/api/assistant-rate", { id: m.id, value }); m.rating = value || null; askState.ratings = r.ratings || askState.ratings; askHold(); } catch (e) { toast("تعذّر: " + e.message, true); } }
+  }
+  else if (t.dataset.askfactdel) {
+    try { askState.facts = (await post("/api/assistant-fact", { remove: +t.dataset.askfactdel })).facts; askHold(); } catch (e) { toast("تعذّر: " + e.message, true); }
+  }
+  else if (t.dataset.askclear) {
+    if (await confirmDlg("مسح المحادثة كلها من هذا الجهاز؟ لا يمكن التراجع.", "امسح", true)) { try { await post("/api/assistant-clear", {}); askState.msgs = []; askState.ratings = { good: 0, bad: 0 }; askDraw(); } catch (e) { toast("تعذّر: " + e.message, true); } }
   }
   else if (t.dataset.explain) { explainAction(t); }
   else if (t.dataset.reaprun) { reaperRun(t); }

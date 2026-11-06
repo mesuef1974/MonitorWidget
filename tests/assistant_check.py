@@ -11,6 +11,7 @@ import urllib.error
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+import ask_eval
 import assistant
 
 
@@ -34,6 +35,8 @@ class Script:
 
 
 class Base(unittest.TestCase):
+    facts = []
+
     def use(self, *replies, data=None):
         script = Script(*replies)
         self.fetched = []
@@ -42,7 +45,7 @@ class Base(unittest.TestCase):
             self.fetched.append(path)
             return (data or {}).get(path, {})
         for p in (patch.object(assistant.explain, "_req", script), patch.object(assistant.explain, "_model", lambda: "m"),
-                  patch.object(assistant, "_fetch", fetch)):
+                  patch.object(assistant, "_fetch", fetch), patch.object(assistant.askstore, "fact_texts", lambda: self.facts)):
             p.start()
             self.addCleanup(p.stop)
         return script
@@ -148,6 +151,62 @@ class Diagnose(Base):
         self.assertIn("نموذجان محمّلان معًا في بطاقة الرسوميات", r["causes"])
 
 
+class Memory(Base):
+    def test_owner_facts_reach_the_system_prompt(self):
+        self.facts = ["لا تقترح تفريغ الكرت"]
+        script = self.use(reply("تم"))
+        assistant.answer("x")
+        system = script.sent[0]["messages"][0]["content"]
+        self.assertIn("لا تقترح تفريغ الكرت", system)
+        self.assertTrue(system.endswith(assistant.NO_THINK))
+
+    def test_no_tool_writes_memory(self):
+        names = [t["function"]["name"] for t in assistant.TOOLS]
+        self.assertFalse([n for n in names if "fact" in n or "memory_write" in n])
+        self.assertFalse({v[1] for v in assistant.READ_TOOLS.values()} & set(assistant.askstore.ROUTES))
+
+
+class Compare(unittest.TestCase):
+    NOW = {"samples": 50, "commitAvg": 70, "ramAvg": 61, "diskFreeGB": 110.5, "events": 9}
+    BEFORE = {"samples": 50, "commitAvg": 60, "ramAvg": 60, "diskFreeGB": 120, "events": 8}
+
+    def test_only_real_changes_are_listed(self):
+        r = assistant._compare({"hours": 24, "now": self.NOW, "before": self.BEFORE})
+        self.assertEqual(r["changes"], ["متوسط التزام الذاكرة: زيادة من 60% إلى 70%", "المساحة الحرة: نقص من 120 GB إلى 110.5 GB"])
+
+    def test_no_change(self):
+        self.assertEqual(assistant._compare({"now": self.BEFORE, "before": self.BEFORE})["changes"], ["لا تغيّر ملحوظ بين الفترتين"])
+
+    def test_short_history_is_not_compared(self):
+        r = assistant._compare({"now": self.NOW, "before": {"samples": 3}})
+        self.assertEqual(r, {"changes": ["لا توجد قياسات كافية للفترة السابقة"]})
+
+    def test_missing_reading_is_skipped(self):
+        now = {**self.BEFORE, "diskFreeGB": None}
+        self.assertEqual(assistant._compare({"now": now, "before": self.BEFORE})["changes"], ["لا تغيّر ملحوظ بين الفترتين"])
+
+
+class Eval(unittest.TestCase):
+    def test_read_case(self):
+        case = {"tool": "disk_status"}
+        self.assertEqual(ask_eval.score(case, {"tools": ["disk_status"], "actions": []}), [])
+        self.assertTrue(ask_eval.score(case, {"tools": [], "actions": []}))
+        self.assertTrue(ask_eval.score(case, {"tools": ["disk_status"], "actions": [{"action": "gpu_purge", "target": ""}]}))
+
+    def test_action_case_checks_target(self):
+        case = {"action": "open_page", "target": "tasks"}
+        self.assertEqual(ask_eval.score(case, {"actions": [{"action": "open_page", "target": "tasks"}]}), [])
+        self.assertTrue(ask_eval.score(case, {"actions": [{"action": "open_page", "target": "gpu"}]}))
+
+    def test_refusal_case(self):
+        self.assertTrue(ask_eval.score({"none": True}, {"actions": [{"action": "gpu_purge", "target": ""}]}))
+
+    def test_cases_name_real_tools_and_actions(self):
+        for case in ask_eval.CASES:
+            self.assertIn(case.get("tool", "disk_status"), assistant.READ_TOOLS)
+            self.assertIn(case.get("action", "open_page"), assistant.ACTIONS)
+
+
 class Surface(unittest.TestCase):
     def test_no_tool_reaches_a_write_route(self):
         write = ("/api/trim-memory", "/api/llm-unload", "/api/gpu-purge", "/api/winguard-silence", "/api/run-cleanup")
@@ -162,9 +221,11 @@ class Jobs(unittest.TestCase):
     def setUp(self):
         assistant.JOBS.clear()
         self.addCleanup(assistant.JOBS.clear)
-        p = patch.object(assistant, "_log", lambda job: None)
-        p.start()
-        self.addCleanup(p.stop)
+        self.saved = []
+        for p in (patch.object(assistant, "_log", lambda job: None),
+                  patch.object(assistant.askstore, "save", lambda q, job: self.saved.append(q) or 7)):
+            p.start()
+            self.addCleanup(p.stop)
         self.metrics = {"commitPct": 50}
         fake = type("S", (), {"native_metrics": staticmethod(lambda: self.metrics)})
         p = patch.dict(sys.modules, {"snapshot": fake})
@@ -190,7 +251,7 @@ class Jobs(unittest.TestCase):
             job_id, err = assistant.start("سؤال")
             s = self.finish(job_id)
         self.assertIsNone(err)
-        self.assertEqual((s["state"], s["text"]), ("done", "جواب"))
+        self.assertEqual((s["state"], s["text"], s["turnId"], self.saved), ("done", "جواب", 7, ["سؤال"]))
         self.assertIn("ms", s)
 
     def test_memory_gate_refuses_before_the_model(self):
@@ -200,6 +261,7 @@ class Jobs(unittest.TestCase):
             s = self.finish(job_id)
         self.assertEqual(s["state"], "failed")
         self.assertIn("90", s["error"])
+        self.assertEqual(self.saved, [])
 
     def test_server_off_message(self):
         def off(q, h):
