@@ -184,6 +184,7 @@ const PAGES = {
     },
     after() {
       const f = $("#askForm"), i = $("#askInput"); if (!f) return;
+      const log = $(".ask-log"); if (log) log.scrollTop = log.scrollHeight;   // آخر رد ظاهر دائمًا
       f.onsubmit = e => { e.preventDefault(); askSend(i.value); };
       i.oninput = () => { askState.draft = i.value; };
       i.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askSend(i.value); } };
