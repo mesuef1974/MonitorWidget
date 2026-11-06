@@ -55,6 +55,62 @@ test('المحادثة تنتقل إلى آخر رد تلقائيًا', async ({
   expect(gap.left).toBeLessThanOrEqual(2);
 });
 
+const seeded = page => page.route('**/api/assistant', r => r.fulfill({ json: {
+  turns: [{ id: 1, role: 'user', content: 'سؤال قديم' }, { id: 2, role: 'assistant', content: 'جواب قديم', model: 'm', ms: 1000, rating: null }],
+  facts: [{ id: 5, text: 'لا تقترح تفريغ الكرت' }], ratings: { good: 0, bad: 0 }, keepDays: 30 } }));
+const collect = (page, path, json) => { const got = []; page.route(path, r => { got.push(JSON.parse(r.request().postData())); return r.fulfill({ json }); }); return got; };
+
+test('المحادثة المحفوظة تعود ولا تُرسل سياقًا للنموذج', async ({ page }) => {
+  await seeded(page);
+  const asked = route(page, { state: 'done', text: 'جواب جديد', actions: [], tools: [], model: 'm', ms: 1000, turnId: 9 });
+  await open(page);
+  await expect(page.locator('.ask-msg').nth(1)).toContainText('جواب قديم');
+  await page.fill('#askInput', 'سؤال جديد');
+  await page.press('#askInput', 'Enter');
+  await expect(page.locator('.ask-msg').nth(3)).toContainText('جواب جديد');
+  expect(asked[0].history).toEqual([]);
+});
+
+test('تقييم الرد يُحفظ ويُلغى بالضغط ثانية', async ({ page }) => {
+  await seeded(page);
+  const rated = collect(page, '**/api/assistant-rate', { ok: true, ratings: { good: 0, bad: 1 } });
+  await open(page);
+  const bad = page.locator('[data-askrate="1:-1"]');
+  await bad.click();
+  await expect(bad).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('main')).toContainText('1 خاطئ');
+  await bad.click();
+  await expect(bad).toHaveAttribute('aria-pressed', 'false');
+  expect(rated).toEqual([{ id: 2, value: -1 }, { id: 2, value: 0 }]);
+});
+
+test('مسح المحادثة لا يتم إلا بعد التأكيد', async ({ page }) => {
+  await seeded(page);
+  const cleared = collect(page, '**/api/assistant-clear', { ok: true });
+  await open(page);
+  await page.locator('[data-askclear]').click();
+  expect(cleared).toEqual([]);
+  await page.locator('dialog.dlg button[value="yes"]').click();
+  await expect(page.locator('.ask-msg')).toHaveCount(0);
+  expect(cleared).toHaveLength(1);
+});
+
+test('التعليمات الدائمة تُضاف وتُحذف', async ({ page }) => {
+  await seeded(page);
+  const sent = [];
+  page.route('**/api/assistant-fact', r => {
+    const b = JSON.parse(r.request().postData()); sent.push(b);
+    return r.fulfill({ json: { ok: true, facts: b.remove ? [] : [{ id: 5, text: 'لا تقترح تفريغ الكرت' }, { id: 6, text: b.text }] } });
+  });
+  await open(page);
+  await page.fill('#askFact', 'أجب بجملة واحدة');
+  await page.locator('#askFactForm button').click();
+  await expect(page.locator('.ask-facts li')).toHaveCount(2);
+  await page.locator('[data-askfactdel="6"]').click();
+  await expect(page.locator('.ask-facts li')).toHaveCount(0);
+  expect(sent).toEqual([{ text: 'أجب بجملة واحدة' }, { remove: 6 }]);
+});
+
 test('الفشل يظهر رسالة واضحة', async ({ page }) => {
   route(page, { state: 'failed', error: 'LM Studio غير مفعّل.' });
   await open(page);

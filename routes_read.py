@@ -31,6 +31,7 @@ import snapshot
 import space
 import startup_mgr
 import widgetctl
+import askstore
 import assistant
 import localai
 import winguard
@@ -109,6 +110,8 @@ _TABLE = {
     "/api/infra": (_infra, _E200),
     "/api/state": (lambda q: snapshot.state(), lambda e: "collect failed: %s" % e),
     "/api/history": (lambda q: db.history(q.get("range", "24h")), _E200),
+    "/api/compare": (lambda q: db.compare(168 if q.get("hours") == "168" else 24), _E200),
+    "/api/assistant": (lambda q: askstore.payload(), _E200),
     "/api/events": (_events, _E200),
     "/api/runs": (lambda q: db.runs(_ival(q, "limit", 10, 1, 100), _ival(q, "offset", 0, 0, 10**7)), _E200),
     "/api/theme": (lambda q: {"theme": routes_settings.get_theme()}, _E200),

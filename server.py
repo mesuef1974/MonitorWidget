@@ -23,8 +23,9 @@ import startup_mgr          # تسخين قائمة بدء التشغيل عند
 import winguard             # حارس النوافذ: يرصد نوافذ الطرفية الجديدة
 import localai              # لوحة الذكاء المحلي: يرصد اجتماع نموذجين في البطاقة
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
+import askstore             # ذاكرة «اسأل المرصد»: التقييم والمسح والتعليمات
 import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 # one-time tickets replace the token in URLs: the window opens with ?k=<ticket>, which is consumed once and then
 # exchanged for an HttpOnly session cookie. The long-lived token never appears on a command line.
