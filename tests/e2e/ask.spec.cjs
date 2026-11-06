@@ -45,6 +45,17 @@ test('أمر غير معروف وصفحة غير معروفة لا يظهران 
   await expect(page.locator('.ask-msg').nth(1).locator('button, a')).toHaveCount(0);
 });
 
+test('المحادثة تنتقل إلى آخر رد تلقائيًا', async ({ page }) => {
+  route(page, { state: 'done', text: 'سطر
+'.repeat(200) + 'النهاية', actions: [], tools: [], model: 'm', ms: 1000 });
+  await open(page);
+  await page.locator('[data-askq]').first().click();
+  await expect(page.locator('.ask-msg').nth(1)).toContainText('النهاية');
+  const gap = await page.locator('.ask-log').evaluate(l => ({ over: l.scrollHeight > l.clientHeight, left: l.scrollHeight - l.clientHeight - l.scrollTop }));
+  expect(gap.over).toBe(true);
+  expect(gap.left).toBeLessThanOrEqual(2);
+});
+
 test('الفشل يظهر رسالة واضحة', async ({ page }) => {
   route(page, { state: 'failed', error: 'LM Studio غير مفعّل.' });
   await open(page);
