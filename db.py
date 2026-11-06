@@ -8,7 +8,7 @@ DB_PATH = os.path.join(ROOT, "monitor.db")
 GUARD_LOG = HOME + r"\.claude\logs\memory_guard.log"
 MC_LOG = HOME + r"\Documents\Scripts\MachineCare\logs\machinecare.log"
 RUNS = HOME + r"\Documents\Scripts\Cleanup\logs\runs.jsonl"
-SCHEMA_VERSION = 3  # target schema version; actual databases report PRAGMA user_version
+SCHEMA_VERSION = 4  # target schema version; actual databases report PRAGMA user_version
 
 _lock = threading.RLock()
 _conn = None
