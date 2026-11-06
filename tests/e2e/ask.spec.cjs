@@ -46,8 +46,7 @@ test('أمر غير معروف وصفحة غير معروفة لا يظهران 
 });
 
 test('المحادثة تنتقل إلى آخر رد تلقائيًا', async ({ page }) => {
-  route(page, { state: 'done', text: 'سطر
-'.repeat(200) + 'النهاية', actions: [], tools: [], model: 'm', ms: 1000 });
+  route(page, { state: 'done', text: 'سطر\n'.repeat(200) + 'النهاية', actions: [], tools: [], model: 'm', ms: 1000 });
   await open(page);
   await page.locator('[data-askq]').first().click();
   await expect(page.locator('.ask-msg').nth(1)).toContainText('النهاية');
