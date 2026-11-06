@@ -58,6 +58,7 @@ class Rounds(Base):
         self.assertEqual((tool_msg["role"], tool_msg["tool_call_id"]), ("tool", "c1"))
         self.assertIn("115.6", tool_msg["content"])
         self.assertNotIn("commitPct", tool_msg["content"])
+        self.assertEqual(json.loads(tool_msg["content"]), {"freeGB": 115.6, "totalGB": 377, "usedPct": 69})
 
     def test_think_block_is_removed(self):
         self.use(reply("<think>سر</think>مرحبًا"))
