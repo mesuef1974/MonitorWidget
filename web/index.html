@@ -298,10 +298,10 @@ const WG_KINDS = { visible: ["تظهر نافذتها", "bad"], children: ["قد
 const winGuard = w => {
   if (!w) return "";
   if (!w.ready) return panel("حارس النوافذ", `<p class="sub">${w.error ? "تعذّر الفحص: " + esc(w.error) : "يجري فحص المهام…"}</p>`);
-  const rows = w.tasks.map(t => { const k = WG_KINDS[t.kind] || [t.kind, ""]; return `<tr><td>${esc(t.name)}</td><td><span class="tag ${k[1]}">${esc(k[0])}</span></td><td>${t.fixable ? `<button class="btn" data-wgfix="${esc(t.name)}">إسكات</button>` : ""}</td></tr>`; }).join("");
+  const rows = w.tasks.map(t => { const k = WG_KINDS[t.kind] || [t.kind, ""]; return `<tr><td>${esc(t.name)}</td><td><span class="tag ${k[1]}">${esc(k[0])}</span></td><td>${t.fixable ? `<button class="btn" data-wgfix="${esc(t.name)}" aria-label="إسكات ${esc(t.name)}">إسكات</button>` : ""}</td></tr>`; }).join("");
   const seen = w.windows.slice(0, 8).map(x => `<tr><td>${when(x.ts)}</td><td><bdi dir="ltr">${esc(x.title || "بلا عنوان")}</bdi></td></tr>`).join("");
   const dk = w.docker && w.docker.count ? `<span class="tag warn">فُتحت لوحة Docker ${Q(w.docker.count)} مرة خلال 24 ساعة</span>` : "";
-  return panel("حارس النوافذ", `<div class="pill-row"><span class="tag ok">${Q(w.silent)} صامتة</span><span class="tag">${Q(w.tasks.length)} قد تزعج</span>${dk}</div>${rows ? `<table class="tbl"><thead><tr><th>المهمة</th><th>الحالة</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : ""}${seen ? `<table class="tbl"><thead><tr><th>الوقت</th><th>نافذة ظهرت</th></tr></thead><tbody>${seen}</tbody></table>` : ""}`);
+  return panel("حارس النوافذ", `<div class="pill-row"><span class="tag ok">${Q(w.silent)} صامتة</span><span class="tag">${Q(w.tasks.length)} قد تزعج</span>${dk}</div>${rows ? `<table class="tbl"><thead><tr><th>المهمة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>${rows}</tbody></table>` : ""}${seen ? `<table class="tbl"><thead><tr><th>الوقت</th><th>نافذة ظهرت</th></tr></thead><tbody>${seen}</tbody></table>` : ""}`);
 };
 const act = async (fn, okMsg) => { try { await fn(); toast(okMsg); await show(); } catch (e) { toast("تعذّر: " + e.message, true); } };
 function pageUseBody(pu) {   // البند 5: فتحات كل صفحة خلال أسبوعين من الخادم (لا localStorage)؛ ما لم يُفتح مرشّح للقصّ بعد اكتمال المدة
