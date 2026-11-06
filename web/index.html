@@ -294,6 +294,15 @@ async function post(path, body) {
   if (!r.ok) throw new Error(ERR_AR[j.error] || j.error || ("HTTP " + r.status));
   return j;
 }
+const WG_KINDS = { visible: ["تظهر نافذتها", "bad"], children: ["قد يفتح ما تشغّله نوافذ", "warn"], flash: ["تومض عند التشغيل", "warn"] };
+const winGuard = w => {
+  if (!w) return "";
+  if (!w.ready) return panel("حارس النوافذ", `<p class="sub">${w.error ? "تعذّر الفحص: " + esc(w.error) : "يجري فحص المهام…"}</p>`);
+  const rows = w.tasks.map(t => { const k = WG_KINDS[t.kind] || [t.kind, ""]; return `<tr><td>${esc(t.name)}</td><td><span class="tag ${k[1]}">${esc(k[0])}</span></td><td>${t.fixable ? `<button class="btn" data-wgfix="${esc(t.name)}" aria-label="إسكات ${esc(t.name)}">إسكات</button>` : ""}</td></tr>`; }).join("");
+  const seen = w.windows.slice(0, 8).map(x => `<tr><td>${when(x.ts)}</td><td><bdi dir="ltr">${esc(x.title || "بلا عنوان")}</bdi></td></tr>`).join("");
+  const dk = w.docker && w.docker.count ? `<span class="tag warn">فُتحت لوحة Docker ${Q(w.docker.count)} مرة خلال 24 ساعة</span>` : "";
+  return panel("حارس النوافذ", `<div class="pill-row"><span class="tag ok">${Q(w.silent)} صامتة</span><span class="tag">${Q(w.tasks.length)} قد تزعج</span>${dk}</div>${rows ? `<table class="tbl"><thead><tr><th>المهمة</th><th>الحالة</th><th>إجراء</th></tr></thead><tbody>${rows}</tbody></table>` : ""}${seen ? `<table class="tbl"><thead><tr><th>الوقت</th><th>نافذة ظهرت</th></tr></thead><tbody>${seen}</tbody></table>` : ""}`);
+};
 const act = async (fn, okMsg) => { try { await fn(); toast(okMsg); await show(); } catch (e) { toast("تعذّر: " + e.message, true); } };
 function pageUseBody(pu) {   // البند 5: فتحات كل صفحة خلال أسبوعين من الخادم (لا localStorage)؛ ما لم يُفتح مرشّح للقصّ بعد اكتمال المدة
   if (!pu) return `<div class="empty">غير متاح</div>`;
@@ -651,12 +660,12 @@ Object.assign(PAGES, {
 
   tasks: {
     title: "الجدولة", sub: "المهام المجدولة ونتائج آخر تشغيل", icon: "calendar",
-    async load() { return settle(api("/api/state")); },
-    render([d]) {
+    async load() { return settle(api("/api/state"), api("/api/winguard")); },
+    render([d, w]) {
       if (!d) return nodata("المهام");
       const groups = {}; d.tasks.forEach(t => (groups[t.group || "other"] = groups[t.group || "other"] || []).push(t));
       const names = { clean: "التنظيف", mem: "الذاكرة والمراقبة", backup: "النسخ الاحتياطي", other: "أخرى" };
-      return Object.entries(groups).map(([g, ts]) => panel(names[g] || g, `<table class="tbl"><thead><tr><th>المهمة</th><th>الجدول</th><th>آخر تشغيل</th><th>التالي</th><th>النتيجة</th><th></th></tr></thead><tbody>${ts.map(t => `<tr><td><b>${esc(t.label || t.name)}</b><div class="note" translate="no">${esc(t.name)}</div></td><td>${esc(t.schedule || "—")}</td><td class="note">${whenIso(t.last)}</td><td class="note">${whenIso(t.next)}</td><td>${t.missing ? '<span class="tag bad">مفقودة</span>' : t.result === 0 ? '<span class="tag ok">نجحت</span>' : `<span class="tag warn">${esc(t.result)}</span>`}</td><td><div class="acts end">${t.needsAdmin ? '<span class="tag">تحتاج مدير</span>' : `${t.canRun ? `<button class="btn" data-task="run" data-p="${esc(t.path)}" data-n="${esc(t.name)}">تشغيل الآن</button>` : ""}${sw(t.enabled, `data-task="toggle" data-p="${esc(t.path)}" data-n="${esc(t.name)}"`, `جدولة ${t.label || t.name}`)}`}</div></td></tr>`).join("")}</tbody></table>`)).join("");
+      return winGuard(w) + Object.entries(groups).map(([g, ts]) => panel(names[g] || g, `<table class="tbl"><thead><tr><th>المهمة</th><th>الجدول</th><th>آخر تشغيل</th><th>التالي</th><th>النتيجة</th><th></th></tr></thead><tbody>${ts.map(t => `<tr><td><b>${esc(t.label || t.name)}</b><div class="note" translate="no">${esc(t.name)}</div></td><td>${esc(t.schedule || "—")}</td><td class="note">${whenIso(t.last)}</td><td class="note">${whenIso(t.next)}</td><td>${t.missing ? '<span class="tag bad">مفقودة</span>' : t.result === 0 ? '<span class="tag ok">نجحت</span>' : `<span class="tag warn">${esc(t.result)}</span>`}</td><td><div class="acts end">${t.needsAdmin ? '<span class="tag">تحتاج مدير</span>' : `${t.canRun ? `<button class="btn" data-task="run" data-p="${esc(t.path)}" data-n="${esc(t.name)}">تشغيل الآن</button>` : ""}${sw(t.enabled, `data-task="toggle" data-p="${esc(t.path)}" data-n="${esc(t.name)}"`, `جدولة ${t.label || t.name}`)}`}</div></td></tr>`).join("")}</tbody></table>`)).join("");
     }
   },
 
@@ -778,6 +787,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.explain) { explainAction(t); }
   else if (t.dataset.reaprun) { reaperRun(t); }
   else if (t.dataset.procclose) { procClose(t); }
+  else if (t.dataset.wgfix) { if (await confirmDlg(`تشغيل المهمة «${t.dataset.wgfix}» بلا نوافذ؟ يُحفظ إجراؤها الأصلي قبل التعديل.`, "أسكت")) act(() => post("/api/winguard-silence", { name: t.dataset.wgfix }), "أُسكتت المهمة"); }
   else if (t.dataset.baremin) { const v = Math.round(Number($("#bareMin").value)); if (!(v >= 60 && v <= 2880)) return toast("بين 60 و2880 دقيقة", true); act(() => post("/api/reaper-set", { key: "bareClaudeShellMinutes", value: v }), "حُفظت المدة"); }
   else if (t.dataset.protadd) { const v = $("#protIn").value.trim(); if (!/^[A-Za-z0-9_.\- ]{1,64}$/.test(v)) return toast("حروف إنجليزية وأرقام ونقطة وشرطة فقط", true); act(() => post("/api/reaper-protect", { name: v, op: "add" }), "أُضيف إلى المحميّ"); }
   else if (t.dataset.protdel) { if (await confirmDlg(`إزالة «${t.dataset.protdel}» من المحميّ؟ قد يصبح أي شل يحتوي سطر أمره هذه الكلمة عرضة للإنهاء.`, "أزل", true)) act(() => post("/api/reaper-protect", { name: t.dataset.protdel, op: "remove" }), "أُزيل من المحميّ"); }

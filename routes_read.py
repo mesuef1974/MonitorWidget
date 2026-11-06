@@ -31,6 +31,7 @@ import snapshot
 import space
 import startup_mgr
 import widgetctl
+import winguard
 
 try:
     import diskio_api
@@ -128,6 +129,7 @@ _TABLE = {
     "/api/home": (_home, "home data unavailable"),
     "/api/reliab": (lambda q: reliab.snapshot(db), "reliability data unavailable"),
     "/api/mini": (lambda q: snapshot.mini(), None),
+    "/api/winguard": (lambda q: winguard.payload(), "window guard unavailable"),
 }
 ROUTES = tuple(_TABLE)
 

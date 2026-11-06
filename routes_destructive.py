@@ -27,9 +27,10 @@ import insight
 import procclose
 import secure
 import space
+import winguard
 from paths import CNW, ENGINE, MCCFG, POLICY, PROT_ENGINE_DIR, PWSH, TIER_TASK, TIERS
 
-ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close")
+ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close", "/api/winguard-silence")
 CONFIRM_TTL = 120     # ثوانٍ يبقى فيها رمز التأكيد صالحًا
 MAX_CONFIRMS = 256    # سقف الرموز الحية؛ ما زاد يُسقط الأقدم
 
@@ -266,6 +267,30 @@ def _proc_close(route, body, invalidate):
     return 200, res
 
 
+def _win_silence(route, body, invalidate):
+    """إسكات مهمة مجدولة بطلب صريح: السياسة، ثم 428، ثم تعديل إجرائها والتسجيل في actions."""
+    name = body.get("name")
+    ok, reason = winguard.check(name)
+    if not ok:
+        return (400 if reason == "bad params" else 409), {"error": reason, "name": name}
+    r = confirm_required(route, body)
+    if r:
+        return r
+    res = winguard.silence(name)
+    try:
+        with db._lock:
+            c = db.conn()
+            c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)",
+                      (int(time.time()), "winguard", "page", 1 if res.get("ok") else 0, ("task=%s err=%s" % (name, res.get("error")))[:500]))
+            c.commit()
+    except Exception:
+        errlog.swallowed()
+    invalidate()
+    if not res.get("ok"):
+        return 409, {"error": res.get("error", "failed"), "name": name}
+    return 200, res
+
+
 def post(route, body, invalidate=lambda: None):
     """(رمز الحالة، الردّ) لمسار من ROUTES، أو None إن لم يكن المسار من هذه الوحدة."""
     if route == "/api/space":
@@ -276,4 +301,6 @@ def post(route, body, invalidate=lambda: None):
         return _run_cleanup(route, body, invalidate)
     if route == "/api/proc-close":
         return _proc_close(route, body, invalidate)
+    if route == "/api/winguard-silence":
+        return _win_silence(route, body, invalidate)
     return None
