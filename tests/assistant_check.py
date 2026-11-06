@@ -57,7 +57,8 @@ class Rounds(Base):
                           data={"/api/mini": {"m": {"diskFreeGB": 115.6, "diskTotalGB": 377, "diskPct": 69, "commitPct": 58}}})
         r = assistant.answer("كم المساحة؟")
         self.assertEqual((r["text"], r["tools"], r["actions"], r["model"]), ("المساحة الحرة 115 GB", ["disk_status"], [], "m"))
-        tool_msg = script.sent[1]["messages"][-1]
+        tool_msg = script.sent[1]["messages"][-2]
+        self.assertIn("كم المساحة؟", script.sent[1]["messages"][-1]["content"])
         self.assertEqual((tool_msg["role"], tool_msg["tool_call_id"]), ("tool", "c1"))
         self.assertIn("115.6", tool_msg["content"])
         self.assertNotIn("commitPct", tool_msg["content"])
@@ -82,7 +83,7 @@ class Rounds(Base):
         script = self.use(reply(calls=[call("delete_everything"), call("propose_action", "not json", "c2")]), reply("تم"))
         r = assistant.answer("x")
         self.assertEqual((r["tools"], r["actions"]), ([], []))
-        self.assertEqual(script.sent[1]["messages"][-2]["content"], "أداة غير معروفة.")
+        self.assertEqual(script.sent[1]["messages"][-3]["content"], "أداة غير معروفة.")
         self.assertEqual(self.fetched, [])
 
     def test_history_is_filtered_and_limited(self):
@@ -177,6 +178,14 @@ class GpuAnswer(Base):
     def test_commit_mistranslation_is_corrected(self):
         self.use(reply("الذاكرة: 67.6% تزامن، والتزامن مرتفع"))
         self.assertEqual(assistant.answer("x")["text"], "الذاكرة: 67.6% التزام، والتزام مرتفع")
+
+
+class Reminder(Base):
+    def test_command_is_reminded_to_propose_and_question_to_answer(self):
+        for q, text in (("أخرج النموذج المحمّل", "propose_action"), ("ما النماذج المحمّلة؟", "أجب الآن")):
+            script = self.use(reply(calls=[call("local_ai_status")]), reply("تم"))
+            assistant.answer(q)
+            self.assertIn(text, script.sent[1]["messages"][-1]["content"])
 
 
 class DeleteRequests(Base):
