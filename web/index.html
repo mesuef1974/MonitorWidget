@@ -239,12 +239,13 @@ const PAGES = {
 
   gpu: {
     title: "الرسوميات", sub: "كرت الشاشة: الحرارة والحمل والقدرة وذاكرة الشاشة", icon: "gpu",
-    async load() { return settle(api("/api/gpu?range=" + state.range), api("/api/gpu-purge")); },
-    render([d, pg]) {
+    async load() { return settle(api("/api/gpu?range=" + state.range), api("/api/gpu-purge"), api("/api/local-ai")); },
+    render([d, pg, ai]) {
       if (!d) return nodata("بيانات الرسوميات");
       const s = d.static || {}, l = d.live || {}, st = d.stats || {};
       let out = panel(s.name || "كرت الرسوميات", `<div class="pill-row">${s.driver ? `<span class="tag">تعريف ${Q(s.driver)}</span>` : ""}${s.vramTotal ? `<span class="tag">${Q(s.vramTotal / 1024, "GB")}</span>` : ""}${s.powerMax ? `<span class="tag">حدّ القدرة ${Q(s.powerMax, "W")}</span>` : ""}${l.pcieGen != null ? `<span class="tag">PCIe ${Q(l.pcieGen)} ×${Q(l.pcieWidth)}</span>` : ""}${l.pstate ? `<span class="tag ${l.pstate === "P0" ? "warn" : ""}">${esc(l.pstate)}</span>` : ""}${!l.ts ? `<span class="tag warn" title="${esc(d.diag || "")}">لا قياسات حية الآن${d.diag ? " — " + esc(d.diag) : ""}</span>` : ""}</div>`, { cls: "", meta: rangeChips() });
       out += panel("الآن", `<div class="gauges">${gauge({ value: l.temp, label: "الحرارة", unit: "°C", warn: 75, bad: 85 })}${gauge({ value: l.util, label: "الحمل", warn: 80, bad: 95 })}${gauge({ value: l.power, label: "القدرة", unit: "W", max: s.powerMax || 140, warn: 70, bad: 90, decimals: 1 })}${gauge({ value: l.vram / 1024, label: "ذاكرة الشاشة", unit: "GB", max: (l.vramTotal || 1) / 1024, warn: 80, bad: 95, decimals: 1, sub: `من ${Q(l.vramTotal / 1024, "GB", 1)}` })}</div>${gpuFreedKpis(pg)}<div class="acts"><button class="btn" data-gpupurge="1"${pg?.running ? " disabled" : ""}>${pg?.running ? "جارٍ تفريغ ذاكرة الكروت…" : "تفريغ ذاكرة كروت الشاشة"}</button><span class="note">لكل الكروت (NVIDIA وإنتل): يُخرج نماذج الذكاء المحلية (LM Studio وOllama) ولا يُنهي أي برنامج، وإن كان مدير سطح المكتب يحجز ذاكرة كبيرة يعرض إعادة تشغيله بتأكيد منفصل${pg?.ts ? ` · آخر تفريغ ${when(pg.ts)}: ${esc(pg.err ? "تعذّر: " + pg.err : gpuPurgeText(pg))}` : ""}</span>${sw(!!pg?.dwmOn, 'data-gpudwm="1"', "السماح بإعادة تشغيل مدير سطح المكتب")}<span class="note">إعادة تشغيل مدير سطح المكتب (مهمة مسؤول ثابتة)</span></div>`, { cls: "c8" });
+      out += localAi(ai);
       out += panel("إحصاءات الفترة", `<div class="list"><div class="li"><span class="t">الحرارة</span><span class="r"><bdi dir="ltr" class="q">${nf(st.temp?.min)}–${nf(st.temp?.max)}&nbsp;°C</bdi></span><span class="d">متوسط ${Q(st.temp?.avg, "", 1)} · P95 ${Q(st.temp?.p95)}</span></div><div class="li"><span class="t">الطاقة المستهلكة</span><span class="r">${Q(st.energyWh, "Wh")}</span></div><div class="li"><span class="t">الانشغال</span><span class="r">${Q(st.busyPct, "%", 1)}</span><span class="d">خامل ${Q(st.idlePct, "%", 1)} · ثقيل ${Q(st.heavyPct, "%", 1)}</span></div><div class="li"><span class="t">ذروة ذاكرة الشاشة</span><span class="r">${Q(st.vramPeakPct, "%")}</span></div></div>`, { cls: "c4" });
       const mk = id => panel(id[1], `<div id="${id[0]}" class="grow"></div>`, { cls: "c6" });
       out += [["gT", "الحرارة"], ["gU", "الحمل على الكرت"], ["gP", "القدرة"], ["gV", "ذاكرة الشاشة"]].map(mk).join("");
@@ -294,6 +295,16 @@ async function post(path, body) {
   if (!r.ok) throw new Error(ERR_AR[j.error] || j.error || ("HTTP " + r.status));
   return j;
 }
+const AI_STATE = { ok: ["نموذج واحد يعمل", "ok"], idle: ["لا نموذج محمّل", ""], off: ["LM Studio متوقف", ""], crowded: ["نموذجان معًا: توقّع بطئًا شديدًا", "bad"], slow: ["السرعة منخفضة", "warn"] };
+const localAi = a => {
+  if (!a) return "";
+  if (!a.ready) return panel("الذكاء المحلي", `<p class="sub">يجري الفحص…</p>`);
+  const k = AI_STATE[a.verdict] || [a.verdict, ""], s = a.speed, u = a.usage || {};
+  const rows = (a.models || []).map(m => `<tr><td translate="no">${esc(m.id)}</td><td class="num"><bdi dir="ltr" class="q">${nf(m.context)}</bdi></td></tr>`).join("");
+  const speed = s ? `<span class="tag ${s.tps < 10 ? "bad" : ""}">آخر سرعة <bdi dir="ltr" class="q">${nf(s.tps, 1)} tok/s</bdi></span>` : "";
+  const used = `<p class="note">الشرح خلال ${Q(u.days)} يومًا: ${Q(u.runs)} مرة${u.failed ? `، فشل ${Q(u.failed)}` : ""}${u.avgMs ? `، بمتوسط ${nf(u.avgMs / 1000, 1)} ثانية` : ""}${u.items ? `، ونص احتياطي في ${Q(u.fallback)} من ${Q(u.items)} بندًا` : ""}.</p>`;
+  return panel("الذكاء المحلي", `<div class="pill-row"><span class="tag ${k[1]}">${k[0]}</span>${speed}</div>${a.verdict === "crowded" ? `<p class="note">البطاقة لا تتسع لنموذجين، ففرّغ ما لا تحتاجه من LM Studio.</p>` : ""}${rows ? `<table class="tbl"><thead><tr><th>النموذج المحمّل</th><th>السياق</th></tr></thead><tbody>${rows}</tbody></table>` : ""}${used}`);
+};
 const WG_KINDS = { visible: ["تظهر نافذتها", "bad"], children: ["قد يفتح ما تشغّله نوافذ", "warn"], flash: ["تومض عند التشغيل", "warn"] };
 const winGuard = w => {
   if (!w) return "";

@@ -9,8 +9,10 @@
 invalidate لا تُستدعى هنا (لا مسار يغيّر حالة المهام). الاستثناءات تُترك للخادم كما كان: do_POST يحوّل ValueError/TypeError
 إلى 400 وسائرها إلى 500 مع معرّف طلب. explain يُستورد عند أول طلب كما كان (لا يُحمَّل عند الإقلاع).
 """
+import json
 import os
 import threading
+import time
 
 import db
 import errlog
@@ -26,9 +28,25 @@ EXIT_DELAY = 0.4     # ثوانٍ بين إرسال الردّ والخروج (�
 TASK_OK_RESULTS = (0, 267009, 267011, 267014, 267008, 267010, 2147946720, None)   # نتائج المهام المجدولة التي لا تُعدّ فشلًا
 
 
+def _log_explain(what, res, ms):
+    """صف لكل شرح: عدد الاستخدام وزمنه ونسبة النص الاحتياطي تحكم على بقاء الميزة."""
+    detail = {"what": what, "model": res.get("model"), "ms": ms, "fallback": res.get("fallback"), "total": res.get("total")}
+    try:
+        with db._lock:
+            c = db.conn()
+            c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)",
+                      (int(time.time()), "explain", "page", 1 if res.get("ok") else 0, json.dumps(detail, ensure_ascii=False)))
+            c.commit()
+    except Exception:
+        errlog.swallowed()
+
+
 def _explain_errors(body):
     import explain
-    return 200, explain.errors(snapshot.native_metrics(), ROOT)
+    t0 = time.time()
+    r = explain.errors(snapshot.native_metrics(), ROOT)
+    _log_explain("errors", r, int((time.time() - t0) * 1000))
+    return 200, r
 
 
 def _llm_unload(body):
@@ -49,7 +67,9 @@ def _explain(body):
                   for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") not in TASK_OK_RESULTS][:4]
     except Exception:
         errlog.swallowed()
+    t0 = time.time()
     r = explain.health(health.score(m, tasks)["parts"], m, extra)
+    _log_explain("health", r, int((time.time() - t0) * 1000))
     return (200, r) if r.get("ok") else (503, {"error": r.get("err", "failed")})
 
 

@@ -107,7 +107,8 @@ def health(parts, metrics, extra=None):
         res = []
         for p in weak:
             res.append("%s: %s\nالخطوة: %s" % (p["label"], said.get(p["key"]) or ("%s من %s. %s" % (p["pts"], p["max"], _clean(p["why"]))), STEP.get(p["key"], "افتح صفحة «صحة الجهاز».")))
-        return {"ok": True, "text": "\n\n".join(res), "model": model, "ms": int((time.time() - t0) * 1000)}
+        return {"ok": True, "text": "\n\n".join(res), "model": model, "ms": int((time.time() - t0) * 1000),
+                "fallback": sum(1 for p in weak if not said.get(p["key"])), "total": len(weak)}
     except urllib.error.URLError:
         return {"ok": False, "err": "LM Studio غير مفعّل. شغّل خادمه المحلي (Developer ثم Start Server) وحمّل نموذجاً."}
     except RuntimeError as e:

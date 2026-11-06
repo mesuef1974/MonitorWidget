@@ -4,6 +4,7 @@ sys.modules قبل الاستيراد، وpageuse حقيقية على SQLite ف�
 
 Run: python -X utf8 -B tests/routes_app_check.py
 """
+import json
 import sqlite3
 import sys
 import threading
@@ -16,8 +17,9 @@ sys.path.insert(0, str(ROOT))
 
 CALLS = []
 MEM = sqlite3.connect(":memory:", check_same_thread=False)
+MEM.execute("CREATE TABLE actions(ts INT,kind TEXT,src TEXT,ok INT,detail TEXT)")
 FAKE = {
-    "db": types.SimpleNamespace(conn=lambda: MEM),
+    "db": types.SimpleNamespace(conn=lambda: MEM, _lock=threading.RLock()),
     "errlog": types.SimpleNamespace(swallowed=lambda: CALLS.append("swallowed")),
     "health": types.SimpleNamespace(top_procs=lambda n: [{"name": "llama-server.exe", "n": 1, "private_mb": 5713.4}],
                                     leaks=lambda: [{"name": "claude.exe", "fromMB": 100, "toMB": 760}],
@@ -43,6 +45,16 @@ class RouteTable(unittest.TestCase):
         self.assertEqual(routes_app.ROUTES, ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown"))
         for route in ("/api/space", "/api/ticket", "/api/session/logout", "/api/nope"):
             self.assertIsNone(routes_app.post(route, {}))
+
+
+class ExplainLog(unittest.TestCase):
+    def test_each_explanation_leaves_a_row(self):
+        MEM.execute("DELETE FROM actions")
+        routes_app.post("/api/explain-errors", {})
+        routes_app.post("/api/explain", {})
+        rows = MEM.execute("SELECT kind,src,ok,detail FROM actions ORDER BY rowid").fetchall()
+        self.assertEqual([r[:3] for r in rows], [("explain", "page", 1), ("explain", "page", 1)])
+        self.assertEqual([json.loads(r[3])["what"] for r in rows], ["errors", "health"])
 
 
 class Explain(unittest.TestCase):

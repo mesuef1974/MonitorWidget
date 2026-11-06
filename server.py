@@ -21,6 +21,7 @@ import snapshot             # البند 6/ز: القياسات الأصلية �
 import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
 import startup_mgr          # تسخين قائمة بدء التشغيل عند الإقلاع
 import winguard             # حارس النوافذ: يرصد نوافذ الطرفية الجديدة
+import localai              # لوحة الذكاء المحلي: يرصد اجتماع نموذجين في البطاقة
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
 import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
@@ -427,7 +428,7 @@ if __name__ == "__main__":
     infra.integrity_cached()   # أول quick_check يبدأ الآن في خيط خلفي حتى لا تعرض صفحة التحكم «قيد الفحص» طويلًا
     infra.log.info('server start pid=%d schema=%s', os.getpid(), c0.execute('PRAGMA user_version').fetchone()[0])
     ensure_agent()
-    for fn in (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, _maint, winguard.watch):
+    for fn in (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, _maint, winguard.watch, localai.watch):
         threading.Thread(target=fn, daemon=True).start()
     threading.Thread(target=startup_mgr.list_items, daemon=True).start()   # تسخين قائمة بدء التشغيل قبل أول طلب
     if "--open" in sys.argv:
