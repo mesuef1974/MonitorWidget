@@ -9,6 +9,7 @@ ROOT = "http://127.0.0.1:1234"
 BASE = ROOT + "/v1"
 COMMIT_GATE = 85          # above this commit % we refuse to load a model: it would add to the pressure
 TIMEOUT = 150             # first call may include LM Studio loading the model
+PREFERRED_MODEL = "qwen3-vl-4b-instruct"   # الموحّد على الجهاز: أي نموذج آخر يملأ ذاكرة بطاقة 8 GB ويبطئ الجميع
 
 SYSTEM = (
     "أنت تعيد صياغة حقائق تقرير صحة جهاز ويندوز بجملة عربية واضحة. لكل بند اكتب سطراً واحداً بالصيغة «المفتاح: جملة» "
@@ -42,7 +43,7 @@ def _model():
     ids = [i for i in ids if i and "embed" not in i.lower()]
     if not ids:
         raise RuntimeError("no model")
-    return ids[0]
+    return PREFERRED_MODEL if PREFERRED_MODEL in ids else ids[0]
 
 
 def _clean(s):
