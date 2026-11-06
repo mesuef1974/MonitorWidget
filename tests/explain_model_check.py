@@ -22,7 +22,7 @@ class Loaded(unittest.TestCase):
             self.assertEqual(explain._model(), "qwen/qwen3-8b")
 
     def test_preferred_wins_when_both_are_loaded(self):
-        with patch.object(explain, "_loaded", lambda: ["qwen/qwen3-8b", explain.PREFERRED_MODEL]):
+        with patch.object(explain, "_loaded", lambda: ["qwen3-vl-4b-instruct", explain.PREFERRED_MODEL]):
             self.assertEqual(explain._model(), explain.PREFERRED_MODEL)
 
     def test_loaded_reads_state_and_skips_embeddings(self):
@@ -40,7 +40,7 @@ class Loaded(unittest.TestCase):
 @patch.object(explain, "_loaded", lambda: [])
 class Model(unittest.TestCase):
     def test_prefers_unified_model_wherever_it_is(self):
-        with patch.object(explain, "_req", lambda path: listing("qwen/qwen3-8b", explain.PREFERRED_MODEL, "lfm3-1.7b")):
+        with patch.object(explain, "_req", lambda path: listing("qwen3-vl-4b-instruct", explain.PREFERRED_MODEL, "lfm3-1.7b")):
             self.assertEqual(explain._model(), explain.PREFERRED_MODEL)
 
     def test_falls_back_to_first_non_embedding(self):
