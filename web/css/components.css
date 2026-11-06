@@ -155,3 +155,10 @@ dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:v
 /* بطاقة ضيقة: حشوات أصغر وحقول تتراص عموديًا بدل أن تتجاوز الحافة */
 @container (max-width:420px){.tbl th,.tbl td{padding-inline:4px;font-size:12px}}
 @container (max-width:260px){.field-row,.row-sw,.toolbar{flex-direction:column;align-items:stretch}.inp{min-width:0}}
+.ask-log{display:grid;gap:12px;max-height:60vh;overflow-y:auto;padding-block-end:6px}
+.ask-msg{display:grid;gap:8px;justify-self:start;max-width:min(78ch,92%);padding:10px 14px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2)}
+.ask-msg.me{justify-self:end;background:var(--accent-bg);border-color:transparent}
+.ask-msg.err{border-color:var(--bad)}
+.ask-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.ask-form{display:flex;gap:10px;align-items:flex-end;margin-block-start:14px}
+.ask-form textarea{flex:1;min-width:0;resize:vertical;padding:9px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2);color:var(--ink);font:inherit}

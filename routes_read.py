@@ -31,6 +31,7 @@ import snapshot
 import space
 import startup_mgr
 import widgetctl
+import assistant
 import localai
 import winguard
 
@@ -132,6 +133,7 @@ _TABLE = {
     "/api/mini": (lambda q: snapshot.mini(), None),
     "/api/winguard": (lambda q: winguard.payload(), "window guard unavailable"),
     "/api/local-ai": (lambda q: localai.payload(), "local ai status unavailable"),
+    "/api/ask": (lambda q: assistant.status(q.get("id", "")), "assistant unavailable"),
 }
 ROUTES = tuple(_TABLE)
 

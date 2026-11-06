@@ -18,6 +18,7 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("إغلاق عملية بعينها من جدول الالتزام (معزول)", "procclose_check.py"),
     ("حارس النوافذ: الأصناف والإسكات (معزول)", "winguard_check.py"),
     ("لوحة الذكاء المحلي (معزول)", "localai_check.py"),
+    ("اسأل المرصد (معزول)", "assistant_check.py"),
     ("اختيار النموذج المحلي الموحّد (معزول)", "explain_model_check.py"),
     ("مسارات التطبيق: الشرح وعدّاد الصفحات والإيقاف (معزول)", "routes_app_check.py"))]
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
