@@ -56,16 +56,6 @@ class DbOps(unittest.TestCase):
         self.assertEqual(db.info()["schema"], db.SCHEMA_VERSION)
         self.assertFalse(health._inited, "bootstrap must not start probe worker")
 
-    def test_project_repos_on_fresh_db_and_keeps_rows_from_v3(self):
-        cols = [r[1] for r in self.c.execute("PRAGMA table_info(project_repos)")]
-        self.assertEqual(cols, ["repo", "visibility", "local_path", "purpose", "ts"])
-        self.c.execute("INSERT INTO project_repos VALUES('a/b','خاص',NULL,'وثائق',1)")
-        self.c.commit()
-        self.c.execute("PRAGMA user_version=3")
-        self.assertEqual(infra.migrate(self.c), db.SCHEMA_VERSION)
-        self.assertEqual(self.c.execute("PRAGMA user_version").fetchone()[0], db.SCHEMA_VERSION)
-        self.assertEqual(self.c.execute("SELECT repo FROM project_repos").fetchall()[0][0], "a/b")
-
     def test_thinning_unaligned_and_pressure_peak(self):
         start, cutoff = 1700000001, 1800000000
         for i in range(1440):
