@@ -40,6 +40,7 @@ NO_DELETE = "لا أحذف الملفات بنفسي. صفحة «تنظيف ال
 MARKS = re.compile(r"[\u064B-\u0652]")
 DELETE_VERB = re.compile(r"(?:^|\s)(?:احذف|امسح|فرغ|نظف)(?:\s|$)")
 DISK_WORDS = ("ملف", "قرص", "مساحة", "تنزيلات")
+WRONG_COMMIT = re.compile(r"(?:ال)?تزامن")   # النماذج الصغيرة تترجم commit هكذا رغم التعليمات
 
 SYSTEM = (
     "أنت مساعد «مرصد الجهاز» على حاسوب المالك. أجب بالعربية الفصحى فقط وباختصار. "
@@ -95,8 +96,9 @@ def _cpu(d):
 
 
 def _gpu(d):
+    # النماذج من LM Studio لا من البرامج: كان النموذج يعدّ llama-server وLM Studio نموذجين
     return {"name": (d.get("static") or {}).get("name"), **_pick(d.get("live") or {}, "temp", "util", "vram", "vramTotal", "power"),
-            "programs": (d.get("procs") or [])[:5]}
+            "النماذج": [m.get("id") for m in _fetch("/api/local-ai", {}).get("models") or []], "البرامج": (d.get("procs") or [])[:5]}
 
 
 def _disk(d):
@@ -155,7 +157,7 @@ READ_TOOLS = {
     "health_status": ("درجة صحة الجهاز ومكوّناتها وتوقع امتلاء القرص والتسربات", "/api/health", {}, _health),
     "memory_status": ("الذاكرة: النسبة المستخدمة والمتاح والالتزام وأكبر البرامج", "/api/mem", {}, _memory),
     "cpu_status": ("المعالج: الحمل وأكبر العمليات", "/api/cpu", {}, _cpu),
-    "gpu_status": ("كرت الرسوميات: الحرارة والحمل وذاكرة الشاشة والقدرة والبرامج", "/api/gpu", {}, _gpu),
+    "gpu_status": ("كرت الرسوميات: الحرارة والحمل وذاكرة الشاشة والقدرة والنماذج المحمّلة والبرامج التي تستعمله، والبرامج ليست نماذج", "/api/gpu", {}, _gpu),
     "disk_status": ("المساحة الحرة والكلية في القرص", "/api/mini", {}, _disk),
     "process_status": ("عدد العمليات ومجموعاتها والمعلّق منها", "/api/procs", {}, _procs),
     "recent_events": ("آخر الأحداث والتنبيهات المسجلة", "/api/events", {"limit": "8"}, _events),
@@ -251,6 +253,7 @@ def answer(question, history=None):
         calls = msg.get("tool_calls") or []
         if not calls:
             text = re.sub(r"<think>.*?</think>", "", msg.get("content") or "", flags=re.S).strip()
+            text = WRONG_COMMIT.sub("التزام", text)
             return {"text": text or "لم أصل إلى جواب.",
                     "actions": proposals, "tools": used, "model": model}
         messages.append({"role": "assistant", "content": msg.get("content") or "", "tool_calls": calls})
