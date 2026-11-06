@@ -38,7 +38,7 @@ CASES = (
 
 
 MIXED = re.compile(r"[ء-ْ][A-Za-z]|[A-Za-z][ء-ْ]")   # مع التشكيل
-INTERNAL = re.compile(r"spaceclean|open_page|propose_action|loadPct|usedPct")
+INTERNAL = re.compile(r"spaceclean|open_page|propose_action|loadPct|usedPct|[a-z]+_status|diagnose_slowness|هذا الناتج|هذه النتيجة")
 WRONG_TERMS = ("تزامن",)
 
 
@@ -87,7 +87,7 @@ def main():
         try:
             bad = score(case, assistant.answer(case["q"]))
         except OSError as e:     # خطأ واحد من LM Studio لا يوقف بقية الأسئلة
-            bad = ["تعذّر الجواب: %s" % e]
+            bad = ["تعذّر الجواب: %s %s" % (e, e.read().decode("utf-8", "replace")[:300] if hasattr(e, "read") else "")]
         failed += bool(bad)
         print("%s %s | %.1f s%s" % ("فشل" if bad else "نجح", case["q"], time.time() - t, " | " + "؛ ".join(bad) if bad else ""))
     print("النتيجة: %d من %d" % (len(CASES) - failed, len(CASES)))
