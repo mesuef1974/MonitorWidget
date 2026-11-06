@@ -268,6 +268,26 @@ def import_all():
 RANGES = {"24h": (86400, 300), "7d": (7 * 86400, 1800), "30d": (30 * 86400, 7200), "all": (None, None)}
 
 
+def _period(c, lo, hi):
+    s = c.execute("SELECT COUNT(*) n, ROUND(AVG(commit_pct),1) ca, ROUND(MAX(commit_pct),1) cm, ROUND(AVG(ram_pct),1) ra, ROUND(MIN(avail_gb),2) am "
+                  "FROM samples WHERE ts>=? AND ts<?", (lo, hi)).fetchone()
+    d = c.execute("SELECT disk_free_gb FROM samples WHERE ts>=? AND ts<? AND disk_free_gb IS NOT NULL ORDER BY ts DESC LIMIT 1", (lo, hi)).fetchone()
+    ev = c.execute("SELECT COUNT(*) FROM events WHERE ts>=? AND ts<?", (lo, hi)).fetchone()[0]
+    tr = c.execute("SELECT COUNT(*) FROM trims WHERE ts>=? AND ts<?", (lo, hi)).fetchone()[0]
+    cl = c.execute("SELECT COUNT(*) FROM cleanup_runs WHERE dry=0 AND ts>=? AND ts<?", (lo, hi)).fetchone()[0]
+    return {"samples": s["n"], "commitAvg": s["ca"], "commitMax": s["cm"], "ramAvg": s["ra"], "availMin": s["am"],
+            "diskFreeGB": d[0] if d else None, "events": ev, "trims": tr, "cleanups": cl}
+
+
+def compare(hours=24, c=None):
+    """آخر فترة مقابل الفترة المساوية قبلها، للسؤال: ما الذي تغيّر؟"""
+    if c is None:
+        with ro() as r:
+            return compare(hours, r)
+    now, span = int(time.time()), hours * 3600
+    return {"hours": hours, "now": _period(c, now - span, now + 1), "before": _period(c, now - 2 * span, now - span)}
+
+
 def history(rng="24h"):
     span, bucket = RANGES.get(rng, RANGES["24h"])
     now = int(time.time())
@@ -350,6 +370,7 @@ RETENTION = {
     "cpu_top": ("ts", 3, None), "power_samples": ("ts", 30, None), "dirsize": ("ts", 60, None),
     "job_runs": ("ts", 180, None), "space_runs": ("ts", 365, None), "trims": ("ts", 365, None),
     "cleanup_runs": ("ts", 365, None),
+    "ask_turns": ("ts", 30, None),
     "actions": ("ts", 365, None), "rel_events": ("ts", 365, None), "score_daily": ("ts", 730, None),
     "recs": ("ts", 365, "status<>'open'"), "quarantine": ("ts", 90, "status<>'held'"),
 }
