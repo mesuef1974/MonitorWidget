@@ -443,7 +443,7 @@ class DestructiveRoutes(unittest.TestCase):
             self.assertEqual(self.rd.post("/api/space", {"action": "preview", "kind": "temp"}), (200, {"ok": True, "state": "running", "kind": "temp"}))
         self.assertEqual(self.rd.post("/api/space", {"action": "nope"}), (400, {"error": "bad action"}))
         self.assertIsNone(self.rd.post("/api/other", {}))
-        self.assertEqual(self.rd.ROUTES, ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close"))
+        self.assertEqual(self.rd.ROUTES, ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close", "/api/winguard-silence"))
 
     def test_proc_close_policy_then_confirm_then_close(self):
         """إغلاق عملية بعينها: 400 لمعاملات غير صالحة، 409 لما ترفضه السياسة قبل أي تأكيد، 428 للمسموح، ثم الإغلاق بالرمز وتسجيله."""
