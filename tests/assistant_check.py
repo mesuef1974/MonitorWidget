@@ -148,7 +148,7 @@ class Diagnose(Base):
 
     def test_crowded_models_is_a_cause(self):
         r = self.run_with({"ramPct": 10}, **{"/api/local-ai": {"verdict": "crowded"}})
-        self.assertIn("نموذجان محمّلان معًا في بطاقة الرسوميات", r["causes"])
+        self.assertIn("تحميل نموذجين معًا في بطاقة الرسوميات", r["causes"])
 
 
 class Shapes(unittest.TestCase):

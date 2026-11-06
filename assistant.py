@@ -145,7 +145,7 @@ def _diagnose(mini):
               ("ذاكرة كرت الشاشة", vram_pct, VRAM_HIGH, "%"), ("حرارة كرت الشاشة", live.get("temp") or 0, GPU_HOT, " درجة")]
     causes = ["ارتفاع %s: %s%s" % (n, v, u) for n, v, limit, u in checks if v >= limit]
     if ai.get("verdict") == "crowded":
-        causes.append("نموذجان محمّلان معًا في بطاقة الرسوميات")
+        causes.append("تحميل نموذجين معًا في بطاقة الرسوميات")
     return {"causes": causes or ["لا سبب ظاهر في القياسات الآن"], "normal": ["%s ضمن الطبيعي: %s%s" % (n, v, u) for n, v, limit, u in checks if v < limit]}
 
 
