@@ -31,6 +31,7 @@ import snapshot
 import space
 import startup_mgr
 import widgetctl
+import localai
 import winguard
 
 try:
@@ -130,6 +131,7 @@ _TABLE = {
     "/api/reliab": (lambda q: reliab.snapshot(db), "reliability data unavailable"),
     "/api/mini": (lambda q: snapshot.mini(), None),
     "/api/winguard": (lambda q: winguard.payload(), "window guard unavailable"),
+    "/api/local-ai": (lambda q: localai.payload(), "local ai status unavailable"),
 }
 ROUTES = tuple(_TABLE)
 
