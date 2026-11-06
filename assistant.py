@@ -266,7 +266,7 @@ def answer(question, history=None):
             messages.append({"role": "tool", "tool_call_id": call.get("id"), "content": _run_tool(call, proposals, used)})
         if proposals:   # نص النموذج بعد الاقتراح قد يناقض البطاقة أو يكرر الاقتراح، فتقف الجولات هنا
             return {"text": READY, "actions": proposals, "tools": used, "model": model}
-        # Llama يصف نتيجة الأداة بدل الجواب إن لم يُذكَّر بالسؤال بعدها
+        # النموذج الصغير قد يصف نتيجة الأداة بدل الجواب إن لم يُذكَّر بالسؤال بعدها
         messages.append({"role": "user", "content": (REMIND_ACTION if COMMAND.search(MARKS.sub("", question)) else REMIND) % question})
     return {"text": "لم أصل إلى جواب في عدد الخطوات المسموح.", "actions": proposals, "tools": used, "model": model}
 

@@ -9,7 +9,7 @@ ROOT = "http://127.0.0.1:1234"
 BASE = ROOT + "/v1"
 COMMIT_GATE = 85          # above this commit % we refuse to load a model: it would add to the pressure
 TIMEOUT = 150             # first call may include LM Studio loading the model
-PREFERRED_MODEL = "llama-3.1-8b-instruct"   # يُستعمل فقط إن لم يكن نموذج محمّلًا: تحميل نموذج ثانٍ يملأ بطاقة 8 GB ويبطئ الجميع
+PREFERRED_MODEL = "qwen/qwen3-8b"   # يُستعمل فقط إن لم يكن نموذج محمّلًا: تحميل نموذج ثانٍ يملأ بطاقة 8 GB ويبطئ الجميع
 
 SYSTEM = (
     "أنت تعيد صياغة حقائق تقرير صحة جهاز ويندوز بجملة عربية واضحة. لكل بند اكتب سطراً واحداً بالصيغة «المفتاح: جملة» "
