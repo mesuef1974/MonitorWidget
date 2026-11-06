@@ -42,7 +42,7 @@ import routes_app   # noqa: E402
 
 class RouteTable(unittest.TestCase):
     def test_routes_and_foreign(self):
-        self.assertEqual(routes_app.ROUTES, ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown"))
+        self.assertEqual(routes_app.ROUTES, ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown", "/api/ask"))
         for route in ("/api/space", "/api/ticket", "/api/session/logout", "/api/nope"):
             self.assertIsNone(routes_app.post(route, {}))
 

@@ -47,6 +47,7 @@ const level = (v, warn, bad) => v >= bad ? "bad" : v >= warn ? "warn" : "ok";
 const gb = mb => mb >= 1024 ? nf(mb / 1024, 1) + " GB" : nf(mb, 0) + " MB";
 const rate = bps => bps >= 1048576 ? nf(bps / 1048576, 1) + " MB/s" : bps >= 1024 ? nf(bps / 1024, 0) + " KB/s" : nf(bps, 0) + " B/s";
 const ICON = {
+  ask: '<path d="M21 12a8 8 0 0 1-8 8H4l2.500-3A8 8 0 1 1 21 12z"/><path d="M9 11h6M9 14h4"/>',
   home: '<path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10"/>', heart: '<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.600-9 9-9 9z"/>',
   cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
   mem: '<rect x="3" y="8" width="18" height="8" rx="1.500"/><path d="M7 8v8M12 8v8M17 8v8M6 19v-3M18 19v-3"/>',
@@ -171,6 +172,23 @@ const PAGES = {
     }
   },
 
+  ask: {
+    title: "اسأل المرصد", sub: "اسأل النموذج المحلي عن الجهاز، ولا يُنفَّذ أمر إلا بعد تأكيدك", icon: "ask",
+    async load() { return [{ ok: 1 }]; },
+    render() {
+      const m = askState.msgs, hints = ["لماذا الجهاز بطيء؟", "كم المساحة الحرة؟", "ما حرارة كرت الرسوميات؟", "نظّف الذاكرة"];
+      const log = m.length ? m.map(askMsg).join("") : `<p class="sub">ابدأ بسؤال، أو اختر واحدًا:</p><div class="acts">${hints.map(h => `<button class="btn" data-askq="${esc(h)}">${esc(h)}</button>`).join("")}</div>`;
+      return panel("المحادثة", `<div class="ask-log" role="log" aria-label="المحادثة">${log}${askState.busy ? `<p class="sub" role="status">يقرأ القياسات ويكتب الجواب…</p>` : ""}</div>
+        <form id="askForm" class="ask-form"><label class="sr" for="askInput">سؤالك</label><textarea id="askInput" rows="2" maxlength="500" placeholder="اكتب سؤالك أو طلبك">${esc(askState.draft)}</textarea><button class="btn primary" type="submit"${askState.busy ? " disabled" : ""}>أرسل</button></form>
+        <p class="note">يعمل محليًّا ويقرأ قياسات المرصد فقط. قد يخطئ النموذج، فراجع الأرقام في صفحاتها قبل أن تتصرف.</p>`, { cls: "c12" });
+    },
+    after() {
+      const f = $("#askForm"), i = $("#askInput"); if (!f) return;
+      f.onsubmit = e => { e.preventDefault(); askSend(i.value); };
+      i.oninput = () => { askState.draft = i.value; };
+      i.onkeydown = e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); askSend(i.value); } };
+    },
+  },
   health: {
     title: "صحة الجهاز", sub: "درجة مركّبة من الذاكرة والقرص والمهام والنسخ الاحتياطي", icon: "heart",
     async load() { return settle(api("/api/health"), api("/api/reliab")); },
@@ -294,6 +312,36 @@ async function post(path, body) {
   if (r.status === 428 && j.confirm) { r = await send({ ...body, confirm: j.confirm }); j = await r.json().catch(() => ({})); }   // one-time token: the user already confirmed in the dialog
   if (!r.ok) throw new Error(ERR_AR[j.error] || j.error || ("HTTP " + r.status));
   return j;
+}
+const askState = { msgs: [], busy: false, draft: "" };
+// المسارات هنا لا في الرد: الخادم يعيد اسم الأمر فقط، فلا يستطيع نص النموذج توجيه الواجهة إلى مسار آخر
+const ASK_RUN = { trim_memory: ["/api/trim-memory", () => ({ mode: "light" })], unload_model: ["/api/llm-unload", () => ({})], gpu_purge: ["/api/gpu-purge", () => ({})], silence_task: ["/api/winguard-silence", a => ({ name: a.target })] };
+const askCard = (a, i, j) => {
+  if (a.action === "open_page") return PAGES[a.target] ? `<a class="btn" href="#/${esc(a.target)}">افتح صفحة «${esc(PAGES[a.target].title)}»</a>` : "";
+  if (!ASK_RUN[a.action]) return "";
+  const name = esc(a.label) + (a.target ? ` «${esc(a.target)}»` : "");
+  return a.done ? `<span class="tag ok">نُفّذ: ${name}</span>` : `<button class="btn" data-askrun="${i}:${j}">${name}</button>`;
+};
+const askMsg = (m, i) => `<div class="ask-msg ${m.role === "user" ? "me" : ""}${m.err ? " err" : ""}"><div class="ask-text">${esc(m.content)}</div>${(m.actions || []).length ? `<div class="acts">${m.actions.map((a, j) => askCard(a, i, j)).join("")}</div>` : ""}${m.ms ? `<div class="note"><bdi dir="ltr" translate="no">${esc(m.model || "")}</bdi> · ${nf(m.ms / 1000, 1)} ثانية</div>` : ""}</div>`;
+const askDraw = () => { if (curKey === "ask") redraw(); };
+async function askWait(id) {
+  for (let i = 0; i < 200; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    const r = await fetch("/api/ask?id=" + encodeURIComponent(id), { credentials: "same-origin", headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json(); if (j.state !== "running") return j;
+  }
+  return { state: "failed", error: "انتهت مهلة الجواب." };
+}
+async function askSend(text) {
+  const q = (text || "").trim(); if (!q || askState.busy) return;
+  const history = askState.msgs.filter(m => !m.err).slice(-6).map(m => ({ role: m.role, content: m.content }));
+  askState.msgs.push({ role: "user", content: q }); askState.busy = true; askState.draft = ""; askDraw();
+  try {
+    const { id } = await post("/api/ask", { q, history }), j = await askWait(id);
+    askState.msgs.push(j.state === "done" ? { role: "assistant", content: j.text, actions: j.actions, model: j.model, ms: j.ms } : { role: "assistant", content: j.error || "تعذّر الجواب.", err: true });
+  } catch (e) { askState.msgs.push({ role: "assistant", content: "تعذّر: " + e.message, err: true }); }
+  askState.busy = false; askDraw();
 }
 const AI_STATE = { ok: ["نموذج واحد يعمل", "ok"], idle: ["لا نموذج محمّل", ""], off: ["LM Studio متوقف", ""], crowded: ["نموذجان معًا: توقّع بطئًا شديدًا", "bad"], slow: ["السرعة منخفضة", "warn"] };
 const localAi = a => {
@@ -795,6 +843,11 @@ document.addEventListener("click", async e => {
   else if (t.dataset.iodev) { ui.ioDev = t.dataset.iodev; upd(); }
   else if (t.dataset.tbl) { ui.dbTable = t.dataset.tbl; ui.dbOff = 0; upd(); }
   else if (t.dataset.sp) { spAction(t); }
+  else if (t.dataset.askq) { askSend(t.dataset.askq); }
+  else if (t.dataset.askrun) {
+    const [i, j] = t.dataset.askrun.split(":").map(Number), a = askState.msgs[i]?.actions?.[j], run = a && ASK_RUN[a.action];
+    if (run && await confirmDlg(`تنفيذ «${a.label}»${a.target ? ` على ${a.target}` : ""}؟`, "نفّذ")) { try { await post(run[0], run[1](a)); a.done = true; toast("نُفّذ الأمر"); redraw(); } catch (e) { toast("تعذّر: " + e.message, true); } }
+  }
   else if (t.dataset.explain) { explainAction(t); }
   else if (t.dataset.reaprun) { reaperRun(t); }
   else if (t.dataset.procclose) { procClose(t); }
@@ -826,7 +879,7 @@ document.addEventListener("click", async e => {
 });
 
 const NAV = [
-  ["نظرة", [["overview", "نظرة عامة"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
+  ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
   ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
   ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]

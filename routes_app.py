@@ -22,7 +22,7 @@ import pageuse
 import snapshot
 from paths import ROOT
 
-ROUTES = ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown")
+ROUTES = ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown", "/api/ask")
 EXIT = os._exit      # الخروج بعد ردّ /api/shutdown؛ يُستبدل في الاختبارات
 EXIT_DELAY = 0.4     # ثوانٍ بين إرسال الردّ والخروج (كما كان في الخادم)
 TASK_OK_RESULTS = (0, 267009, 267011, 267014, 267008, 267010, 2147946720, None)   # نتائج المهام المجدولة التي لا تُعدّ فشلًا
@@ -73,6 +73,16 @@ def _explain(body):
     return (200, r) if r.get("ok") else (503, {"error": r.get("err", "failed")})
 
 
+def _ask(body):
+    """يبدأ سؤالًا في الخلفية، والواجهة تتابعه عبر GET /api/ask. لا يغيّر شيئًا في الجهاز."""
+    import assistant
+    body = body if isinstance(body, dict) else {}
+    job_id, why = assistant.start(body.get("q"), body.get("history"))
+    if why == "busy":
+        return 409, {"error": "سؤال آخر قيد الإجابة"}
+    return (200, {"id": job_id}) if job_id else (400, {"error": "bad params"})
+
+
 def _page_open(body):
     """الواجهة تبلّغ كل انتقال إلى صفحة (البند 5): صفّ يومي في SQLite، غير هدّام."""
     return pageuse.record(db.conn(), body)
@@ -88,7 +98,7 @@ def _shutdown(body):
     return 200, {"ok": True}
 
 
-_TABLE = {"/api/explain-errors": _explain_errors, "/api/llm-unload": _llm_unload, "/api/explain": _explain,
+_TABLE = {"/api/explain-errors": _explain_errors, "/api/llm-unload": _llm_unload, "/api/explain": _explain, "/api/ask": _ask,
           "/api/page-open": _page_open, "/api/shutdown": _shutdown}
 
 
