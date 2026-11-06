@@ -134,7 +134,8 @@ def _compare(d):
         old, new = before.get(key), now.get(key)
         if old is not None and new is not None and abs(new - old) >= step:
             changes.append("%s: %s من %s%s إلى %s%s" % (name, "زيادة" if new > old else "نقص", old, unit, new, unit))
-    return {"hours": d.get("hours"), "changes": changes or ["لا تغيّر ملحوظ بين الفترتين"], "now": now, "before": before}
+    # القيم الخام لا تُرسل: كان النموذج يسرد ما دون العتبات بأسماء حقولها الإنجليزية
+    return {"hours": d.get("hours"), "changes": changes or ["لا تغيّر ملحوظ بين الفترتين"]}
 
 
 def _diagnose(mini):

@@ -215,6 +215,9 @@ class Compare(unittest.TestCase):
         r = assistant._compare({"hours": 24, "now": self.NOW, "before": self.BEFORE})
         self.assertEqual(r["changes"], ["متوسط التزام الذاكرة: زيادة من 60% إلى 70%", "المساحة الحرة: نقص من 120 GB إلى 110.5 GB"])
 
+    def test_raw_values_are_not_sent(self):
+        self.assertEqual(set(assistant._compare({"hours": 24, "now": self.NOW, "before": self.BEFORE})), {"hours", "changes"})
+
     def test_no_change(self):
         self.assertEqual(assistant._compare({"now": self.BEFORE, "before": self.BEFORE})["changes"], ["لا تغيّر ملحوظ بين الفترتين"])
 
