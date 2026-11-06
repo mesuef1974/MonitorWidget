@@ -36,7 +36,7 @@ test('صفحة الرسوميات: زر عام لكل الكروت ومفتاح 
 
 test('صفحة الرسوميات: لوحة الذكاء المحلي تنبّه عند اجتماع نموذجين وتعرض الاستخدام', async ({ page }) => {
   await page.goto('/#/gpu'); await ready(page);
-  const ai = page.locator('.panel', { hasText: 'الذكاء المحلي' });
+  const ai = page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'الذكاء المحلي', exact: true }) });
   await expect(ai.locator('.tag.bad').first()).toContainText('نموذجان معًا');
   await expect(ai.locator('tbody tr')).toHaveCount(2);
   await expect(ai).toContainText('qwen3-vl-4b-instruct');
