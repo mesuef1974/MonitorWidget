@@ -57,14 +57,7 @@ def _m3(c):
     CREATE INDEX IF NOT EXISTS ix_q_status ON quarantine(status, expires);
     """)
 
-def _m4(c):
-    # مستودعات المشروع: سجلّ يكتبه المالك وتعرضه صفحة قاعدة البيانات؛ IF NOT EXISTS يحفظ صفوف القواعد التي سبق إنشاؤه فيها يدويًا
-    _run_sql(c, """
-    CREATE TABLE IF NOT EXISTS project_repos(
-      repo TEXT PRIMARY KEY, visibility TEXT NOT NULL, local_path TEXT, purpose TEXT NOT NULL, ts INTEGER NOT NULL);
-    """)
-
-MIGRATIONS = {2: _m2, 3: _m3, 4: _m4}  # v1 = baseline created by db.py / health.py (idempotent DDL)
+MIGRATIONS = {2: _m2, 3: _m3}  # v1 = baseline created by db.py / health.py (idempotent DDL)
 
 def migrate(c):
     cur = c.execute("PRAGMA user_version").fetchone()[0]
