@@ -100,8 +100,9 @@ function Test-AppWindowCandidate([string]$expected, [string]$actual, [string]$pr
 }
 function Get-SingleInstanceAction([bool]$owned, [bool]$windowExists, [bool]$replace) {
     # owned: حصلنا على القفل. النتيجة: open (افتح) / activate (أبرز القائمة واخرج) / replace (أغلق القائمة ثم انتظر القفل) / wait (انتظر القفل)
-    if ($owned) { if ($windowExists -and $replace) { return 'replace' }; return 'open' }
+    # النافذة القائمة تُحترم وإن كان القفل حرًّا: Edge --app وغلاف أقدم لا يحملانه
     if ($windowExists) { if ($replace) { return 'replace' }; return 'activate' }
+    if ($owned) { return 'open' }
     return 'wait'   # القفل محجوز بلا نافذة ظاهرة: نسخة تُغلق الآن أو تبدأ؛ ننتظرها قليلًا
 }
 Add-Type -TypeDefinition @'
