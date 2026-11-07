@@ -54,6 +54,28 @@ class Classify(unittest.TestCase):
         r = row(1, "python.exe", 10, 10, r"python D:\مسابقة علوم المستقبل\backend\knowledge\model_startup.py")
         self.assertEqual(cm.classify(r, R), "future")
 
+    def test_unclassified_groups_found_live_on_8_11(self):
+        cases = {
+            "qatar": [row(1, "python.exe", 70, 70, r"python.exe manage.py runserver 127.0.0.1:8777"),
+                      row(2, "python.exe", 70, 70, r"python.exe manage.py neo_worker"),
+                      row(3, "pwsh.exe", 30, 10, "pwsh.exe -NoExit -Command python manage.py neo_worker")],
+            "railway": [row(4, "python.exe", 60, 40, r"C:\Users\o\.venvs\guide_extract\Scripts\python.exe run_vlm.py lesson_3_1 d220")],
+            "maestro": [row(5, "pythonw.exe", 70, 2, r"pythonw.exe C:\Users\o\maestro_usage\src\serve.py")],
+            "device": [row(6, "NahimicSvc64.exe", 60, 8, r"C:\WINDOWS\System32\NahimicSvc64.exe /start all"),
+                       row(7, "MessagingPlugin.exe", 60, 40, r"C:\ProgramData\Lenovo\Udc\Hosts\x64\MessagingPlugin.exe x"),
+                       row(8, "ipf_helper.exe", 2, 8, r"C:\WINDOWS\System32\DriverStore\FileRepository\ipf_cpu.inf\ipf_helper.exe")],
+            "windows": [row(9, "SystemSettings.exe", 90, 59), row(10, "conhost.exe", 8, 5), row(11, "DllHost.exe", 9, 26)],
+            "wsl": [row(12, "wslrelay.exe", 2, 10)],
+            "claude": [row(13, "bash.exe", 6, 8, r'bash.exe -c "source C:\Users\o\.claude\shell-snapshots\snapshot-bash.sh"')],
+        }
+        for proj, rows in cases.items():
+            for r in rows:
+                self.assertEqual(cm.classify(r, R), proj, r["name"] + " " + r["cmd"][:40])
+        keep = {x["id"] for x in R if x.get("keep")}
+        self.assertIn("device", keep)
+        self.assertNotIn("qatar", keep)
+        self.assertIsNone(cm.classify(row(20, "python.exe", 1, 1, "python.exe -c pass"), R))
+
     def test_children_inherit_parent_project_and_unknown_is_other(self):
         owner = cm.assign(ROWS, R)
         self.assertEqual(owner[12], "salma")
