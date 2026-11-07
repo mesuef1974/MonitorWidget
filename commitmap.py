@@ -42,6 +42,14 @@ DEFAULT_RULES = [
                                                 "com.docker.backend.exe", "com.docker.build.exe", "docker.exe"],
      "note": "التزام الآلة الافتراضية كلها؛ ذاكرة كل حاوية داخلها في جدول الحاويات"},
     {"id": "claude", "name": "تطبيق Claude", "exe": ["claude.exe"]},
+    {"id": "browser", "name": "Edge وWebView2", "exe": ["msedge.exe", "msedgewebview2.exe"],
+     "note": "نوافذ التطبيق والمتصفح؛ يتحرر بإغلاق التبويبات والنوافذ غير اللازمة", "keep": True},
+    {"id": "windows", "name": "ويندوز والنظام", "keep": True,
+     "exe": ["explorer.exe", "msmpeng.exe", "dwm.exe", "startmenuexperiencehost.exe", "searchhost.exe", "searchindexer.exe",
+             "shellexperiencehost.exe", "textinputhost.exe", "sihost.exe", "svchost.exe", "system", "registry", "memory compression",
+             "csrss.exe", "winlogon.exe", "lsass.exe", "fontdrvhost.exe", "ctfmon.exe", "runtimebroker.exe", "taskhostw.exe",
+             "widgets.exe", "nissrv.exe", "securityhealthservice.exe", "spoolsv.exe", "audiodg.exe"],
+     "note": "عمليات النظام؛ لا تُقفل ولا تدخل خطوات الحاسبة"},
 ]
 
 _state = {"gpu": (0.0, set()), "docker": (0.0, None), "prs": {}, "busy": False}
