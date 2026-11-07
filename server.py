@@ -1,16 +1,15 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Local monitoring backend for the dashboard window and the mini desktop widget.
 Binds to 127.0.0.1 only; authenticated APIs use a local token or expiring browser session.
 The agent keeps the backend running independently of the dashboard."""
 
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
-import atexit, ctypes, faulthandler, json, os, secrets, subprocess, sys, threading, time, traceback
-import atomic_json
-import math, socket
+import json, os, secrets, socket, sys, threading, time
+import math
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
-import db, health, infra
+import infra
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
 import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
@@ -19,16 +18,14 @@ import shellwin             # البند 6/هـ: نافذة التطبيق وغ�
 import widgetctl            # البند 6/و: ويدجت سطح المكتب (يعمل/ظاهر، إيقاف آمن، تشغيل، إعادة إلى الشاشة)
 import snapshot             # البند 6/ز: القياسات الأصلية والجامع الثقيل وذاكرته والخيوط الخلفية وحمولتا state/mini
 import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
-import startup_mgr          # تسخين قائمة بدء التشغيل عند الإقلاع
-import winguard             # حارس النوافذ: يرصد نوافذ الطرفية الجديدة
-import localai              # لوحة الذكاء المحلي: يرصد اجتماع نموذجين في البطاقة
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
 import askstore             # ذاكرة «اسأل المرصد»: التقييم والمسح والتعليمات
 import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
 import websession           # البند 6/ط: جلسات المتصفح والتذاكر أحادية الاستعمال والرمز المحلي
 import webstatic            # البند 6/ي: الصفحة والأنماط والخطوط والأيقونات وسياسة CSP للصفحة
+import webboot              # البند 6/ك: الإقلاع (النسخة الواحدة، تشخيص الانهيار، الوكيل، الخيوط الخلفية، حلقة الخدمة)
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
-from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
+from paths import PORT
 # التذاكر أحادية الاستعمال والجلسات والرمز في websession.py (البند 6/ط)
 MAX_POST_BYTES = 65536
 REQUEST_TIMEOUT_SECONDS = 15
@@ -54,21 +51,6 @@ def _healthz_ok():
     رافعة على القاعدة ولا ينتظرها (قبل أول نتيجة يُعدّ سليمًا)."""
     return infra.integrity_cached(60)["ok"] is not False
 
-
-IDLE_EXIT_SECONDS = 0  # 0 = never exit on idle; the agent's server_guard job keeps it running
-
-def ensure_agent():
-    """Start the always-on agent if its mutex is not held (idempotent; the agent also enforces a single instance)."""
-    try:
-        if ctypes.windll.kernel32.OpenMutexW(0x00100000, False, "Local\\Azkia-MonitorAgent"):
-            return False
-        exe = sys.executable.replace("python.exe", "pythonw.exe")
-        subprocess.Popen([exe, os.path.join(ROOT, "agent.py")], cwd=ROOT, creationflags=CNW)
-        infra.log.info("agent launched by server")
-        return True
-    except Exception:
-        infra.log.exception("ensure_agent")
-        return False
 
 class LocalHTTPServer(ThreadingHTTPServer):
     """Bound concurrent connections before creating worker threads."""
@@ -231,13 +213,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"error": "internal error", "request_id": request_id})
 
 
-def watchdog():
-    while True:
-        time.sleep(20)
-        if IDLE_EXIT_SECONDS and time.time() - snapshot.last_request() > IDLE_EXIT_SECONDS:
-            os._exit(0)
-
-
 def _timed(fn):
     def w(self, *a, **k):
         t0 = time.time()
@@ -258,64 +233,5 @@ Handler.do_GET = _timed(Handler.do_GET)
 Handler.do_POST = _timed(Handler.do_POST)
 
 
-def _maint():
-    time.sleep(30)
-    while True:
-        try:
-            pass
-        except Exception:
-            infra.log.exception("maintenance")
-        time.sleep(3600)
-
-
-_server_mutex = None
-
-
-def _mark(event):
-    """علامة مباشرة إلى ملف مستقل، لا تعتمد على نظام السجلات (الذي لم يصل من عملية الخادم)."""
-    try:
-        with open(os.path.join(infra.LOG_DIR, "server_marks.txt"), "a", encoding="utf-8") as f:
-            f.write("%s %s pid=%d\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), event, os.getpid()))
-    except Exception:
-        pass
-
-
-def _claim_single_server():
-    global _server_mutex
-    _server_mutex = ctypes.windll.kernel32.CreateMutexW(None, False, "Local\\Azkia-MonitorServer")
-    return ctypes.windll.kernel32.GetLastError() != 183  # ERROR_ALREADY_EXISTS
-
-
 if __name__ == "__main__":
-    try:
-        if not _claim_single_server():
-            raise OSError("server already running")
-        LocalHTTPServer.allow_reuse_address = False
-        srv = LocalHTTPServer(("127.0.0.1", PORT), Handler)
-    except OSError:
-        if "--open" in sys.argv:
-            shellwin.open_window(websession.token())  # already running: just open another window
-        sys.exit(0)
-    # تشخيص الانهيار: الخادم يعمل بـ pythonw بلا نافذة، فنكتب كل توقف إلى السجل وإلى ملف faulthandler
-    _fault_fh = open(os.path.join(infra.LOG_DIR, "server_fault.log"), "a", encoding="utf-8")
-    faulthandler.enable(file=_fault_fh, all_threads=True)
-    atexit.register(lambda: (_mark("exit"), infra.log.info("server exit pid=%d", os.getpid())))
-    threading.excepthook = lambda a: infra.log.error("thread %s crashed:\n%s", a.thread.name if a.thread else "?",
-                                                      "".join(traceback.format_exception(a.exc_type, a.exc_value, a.exc_traceback)))
-    _mark("boot")
-    infra.log.info("server boot pid=%d", os.getpid())
-    snapshot.refresh_extra()
-    c0 = db.bootstrap(); health.init()
-    infra.integrity_cached()   # أول quick_check يبدأ الآن في خيط خلفي حتى لا تعرض صفحة التحكم «قيد الفحص» طويلًا
-    infra.log.info('server start pid=%d schema=%s', os.getpid(), c0.execute('PRAGMA user_version').fetchone()[0])
-    ensure_agent()
-    for fn in (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, _maint, winguard.watch, localai.watch):
-        threading.Thread(target=fn, daemon=True).start()
-    threading.Thread(target=startup_mgr.list_items, daemon=True).start()   # تسخين قائمة بدء التشغيل قبل أول طلب
-    if "--open" in sys.argv:
-        threading.Thread(target=shellwin.open_window, args=(websession.token(),), daemon=True).start()
-    try:
-        srv.serve_forever()
-    except BaseException:
-        infra.log.exception("serve_forever stopped")
-        raise
+    webboot.run(LocalHTTPServer, Handler, sys.argv)   # الإقلاع كله في webboot.py (البند 6/ك)
