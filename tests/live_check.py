@@ -102,7 +102,8 @@ rules = (req("GET", "/api/state", H)["json"] or {}).get("rules", [])
 if rules:
     rid = [r.get("id") for r in rules]
     rec("rule ids unique", len(rid) == len(set(rid)))
-    allowed = {"purge", "quarantine", "command", "report", "online-only", "dism-report", "recycle-quarantine"}
+    # الأفعال التي يعرفها CleanupEngine.ps1 (ALLOW_ROOTS وswitch $rule.action): keep-latest وdev-cache أُضيفا مع تنظيفات extras
+    allowed = {"purge", "quarantine", "command", "report", "online-only", "dism-report", "recycle-quarantine", "keep-latest", "dev-cache"}
     badact = [r.get("id") for r in rules if r.get("action") not in allowed]
     rec("rule actions valid", not badact, ", ".join(map(str, badact)))
 else:
