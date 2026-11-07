@@ -4,7 +4,8 @@
 param(
     [Parameter(Mandatory)][string]$Url,
     [int]$X = 0, [int]$Y = 0, [int]$W = 1280, [int]$H = 900,
-    [string]$Title = 'مرصد الجهاز'
+    [string]$Title = 'مرصد الجهاز',
+    [switch]$Replace   # إعادة تشغيل الخادم: النافذة القائمة جلستها ماتت، فتُغلق وتُفتح جديدة بالتذكرة الجديدة
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
@@ -90,6 +91,68 @@ function Initialize-Vendor {
     $ld = Join-Path $src 'runtimes\win-x64\native\WebView2Loader.dll'
     if (Test-Path $ld) { Copy-Item $ld $vend -Force }
     return (Test-Path (Join-Path $vend 'WebView2Loader.dll'))
+}
+# ---- نسخة واحدة من التطبيق: قفل باسم ثابت؛ النسخة الثانية تُبرز النافذة القائمة وتخرج بلا فتح أخرى ----
+function Test-AppWindowCandidate([string]$expected, [string]$actual, [string]$processName, [int]$windowPid, [int]$selfPid) {
+    # نافذة التطبيق = عنوان مطابق حرفيًا ومضيف معروف (الغلاف أو Edge --app)، وليست نافذة هذه العملية
+    if (-not $expected -or $actual -cne $expected -or $windowPid -eq $selfPid) { return $false }
+    return @('msedge', 'powershell', 'pwsh') -contains ([string]$processName).ToLowerInvariant()
+}
+function Get-SingleInstanceAction([bool]$owned, [bool]$windowExists, [bool]$replace) {
+    # owned: حصلنا على القفل. النتيجة: open (افتح) / activate (أبرز القائمة واخرج) / replace (أغلق القائمة ثم انتظر القفل) / wait (انتظر القفل)
+    if ($owned) { if ($windowExists -and $replace) { return 'replace' }; return 'open' }
+    if ($windowExists) { if ($replace) { return 'replace' }; return 'activate' }
+    return 'wait'   # القفل محجوز بلا نافذة ظاهرة: نسخة تُغلق الآن أو تبدأ؛ ننتظرها قليلًا
+}
+Add-Type -TypeDefinition @'
+using System; using System.Collections.Generic; using System.Runtime.InteropServices; using System.Text;
+public static class AppOne {
+    public delegate bool CB(IntPtr h, IntPtr l);
+    [DllImport("user32.dll")] static extern bool EnumWindows(CB callback, IntPtr parameter);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr h, StringBuilder text, int length);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int command);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr h, uint message, IntPtr w, IntPtr l);
+    public static long[] ByTitle(string title) {
+        var found = new List<long>();
+        EnumWindows((h, l) => {
+            if (!IsWindowVisible(h)) return true;
+            var text = new StringBuilder(1024); GetWindowText(h, text, text.Capacity);
+            if (String.Equals(title, text.ToString(), StringComparison.Ordinal)) found.Add(h.ToInt64());
+            return true;
+        }, IntPtr.Zero);
+        return found.ToArray();
+    }
+    public static int Pid(long h) { uint pid; GetWindowThreadProcessId(new IntPtr(h), out pid); return (int)pid; }
+    public static bool Activate(long h) { var w = new IntPtr(h); if (IsIconic(w)) ShowWindow(w, 9); return SetForegroundWindow(w); }
+    public static bool Close(long h) { return PostMessage(new IntPtr(h), 0x0010, IntPtr.Zero, IntPtr.Zero); }   // WM_CLOSE: لا قتل عمليات
+}
+'@
+function Get-AppWindows([string]$title) {
+    @([AppOne]::ByTitle($title) | Where-Object {
+        $wp = [AppOne]::Pid($_); $name = try { (Get-Process -Id $wp -ErrorAction Stop).ProcessName } catch { '' }
+        Test-AppWindowCandidate $title $title $name $wp $PID
+    })
+}
+$script:appMutex = $null
+try { $script:appMutex = New-Object Threading.Mutex($false, 'Local\Azkia-MonitorApp') } catch { $script:appMutex = $null }   # نسخة مرتفعة تحجبه: نعتمد على النافذة وحدها
+function Enter-AppMutex([int]$ms) {
+    if (-not $script:appMutex) { return $true }
+    try { return $script:appMutex.WaitOne($ms) } catch [Threading.AbandonedMutexException] { return $true }
+}
+$owned = Enter-AppMutex 0
+$existing = Get-AppWindows $Title
+switch (Get-SingleInstanceAction $owned ($existing.Count -gt 0) $Replace.IsPresent) {
+    'activate' { [void][AppOne]::Activate($existing[0]); exit 0 }
+    'replace' {
+        foreach ($h in $existing) { [void][AppOne]::Close($h) }
+        for ($i = 0; $i -lt 40 -and (Get-AppWindows $Title).Count -gt 0; $i++) { Start-Sleep -Milliseconds 125 }
+        if (-not $owned) { $owned = Enter-AppMutex 5000 }
+    }
+    'wait' { $owned = Enter-AppMutex 5000; if (-not $owned -and ($w = Get-AppWindows $Title).Count -gt 0) { [void][AppOne]::Activate($w[0]); exit 0 } }
 }
 if (-not (Initialize-Vendor)) { Write-ShellError 'no_webview2' 'مكتبات WebView2 غير متوفرة في webview2 ولا في إضافة Teams'; Start-EdgeFallback 'no_webview2'; exit 3 }
 

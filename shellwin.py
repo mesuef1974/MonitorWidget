@@ -25,6 +25,13 @@ WIDGET_RESERVE = 530  # عرض الويدجت (409 وحدة منطقية بعد 
 SHELL_STATE_PATH = os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "MonitorWidget", "shell_state.json")
 SHELL_ENGINES = ("webview2", "edge", "browser")                     # من يكتب الحالة: open_window هنا، app_shell.ps1، وزر الويدجت
 SHELL_REASONS = ("", "no_shell", "no_webview2", "init_failed")       # مفاتيح ثابتة تفسّرها صفحة الصحة
+APP_TITLE = "مرصد الجهاز"                                             # عنوان النافذة الثابت (الغلاف وEdge --app والويدجت تعتمد عليه)
+APP_IMAGES = ("msedge.exe", "powershell.exe", "pwsh.exe")            # مضيفو النافذة: Edge --app أو غلاف app_shell.ps1
+
+
+def _is_dashboard_window(expected, actual, image, images=APP_IMAGES):
+    """نافذة التطبيق = عنوان مطابق حرفيًا ومضيف معروف؛ لا تُطابَق نوافذ أخرى تحمل العنوان نفسه (الويدجت WPF مثلًا)."""
+    return bool(expected) and actual == expected and os.path.basename(image or "").casefold() in images
 
 
 def _work_area():
@@ -39,8 +46,8 @@ def _work_area():
     return r.left, r.top, r.right - r.left, r.bottom - r.top
 
 
-def _place_window(title, x, y, w, h):
-    """Place only the exact dashboard title owned by Edge, never a WPF widget."""
+def _dashboard_windows(title, images=APP_IMAGES):
+    """مقابض النوافذ الظاهرة التي عنوانها title ومضيفها من images (بلا انتظار)."""
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
     CB = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -48,44 +55,70 @@ def _place_window(title, x, y, w, h):
     user32.GetWindowTextW.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
     user32.GetWindowThreadProcessId.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.DWORD))
     user32.EnumWindows.argtypes = (CB, wintypes.LPARAM)
-    user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
-    user32.MoveWindow.argtypes = (wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.BOOL)
-    user32.SetForegroundWindow.argtypes = (wintypes.HWND,)
     kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
     kernel32.OpenProcess.restype = wintypes.HANDLE
     kernel32.QueryFullProcessImageNameW.argtypes = (wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD))
     kernel32.QueryFullProcessImageNameW.restype = wintypes.BOOL
     kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
 
-    def owned_by_edge(hwnd):
+    def image_of(hwnd):
         pid = wintypes.DWORD()
         if not user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid)) or not pid.value:
-            return False
+            return ""
         handle = kernel32.OpenProcess(0x1000, False, pid.value)  # PROCESS_QUERY_LIMITED_INFORMATION
         if not handle:
-            return False
+            return ""
         try:
             image = ctypes.create_unicode_buffer(32768)
             count = wintypes.DWORD(len(image))
-            if not kernel32.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(count)):
-                return False
-            return os.path.basename(image.value).casefold() == "msedge.exe"
+            return image.value if kernel32.QueryFullProcessImageNameW(handle, 0, image, ctypes.byref(count)) else ""
         finally:
             kernel32.CloseHandle(handle)
 
+    found = []
+
+    def cb(hwnd, _l):
+        if user32.IsWindowVisible(hwnd):
+            buf = ctypes.create_unicode_buffer(256)
+            user32.GetWindowTextW(hwnd, buf, 256)
+            if buf.value == title and _is_dashboard_window(title, buf.value, image_of(hwnd), images):
+                found.append(hwnd)
+        return True
+    user32.EnumWindows(CB(cb), 0)
+    return found
+
+
+def _bring_to_front(hwnd):
+    user32 = ctypes.windll.user32
+    user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
+    user32.SetForegroundWindow.argtypes = (wintypes.HWND,)
+    user32.ShowWindow(hwnd, 9)  # SW_RESTORE: فتحٌ صريح يجب أن يستعيد نافذة مصغّرة
+    user32.SetForegroundWindow(hwnd)
+
+
+def _activate_existing(title=APP_TITLE):
+    """نسخة واحدة من التطبيق: إن كانت نافذته مفتوحة (غلاف أو Edge) تُستعاد وتُقدَّم ويُعاد True فلا تُفتح أخرى."""
+    try:
+        windows = _dashboard_windows(title)
+    except Exception:
+        infra.log.exception("activate existing app window")
+        return False
+    if not windows:
+        return False
+    _bring_to_front(windows[0])
+    infra.log.info("app window already open: activated instead of opening another")
+    return True
+
+
+def _place_window(title, x, y, w, h):
+    """Place only the exact dashboard title owned by Edge, never a WPF widget."""
+    user32 = ctypes.windll.user32
+    user32.ShowWindow.argtypes = (wintypes.HWND, ctypes.c_int)
+    user32.MoveWindow.argtypes = (wintypes.HWND, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, wintypes.BOOL)
+    user32.SetForegroundWindow.argtypes = (wintypes.HWND,)
     for _ in range(40):
         time.sleep(0.15)
-        found = []
-
-        def cb(hwnd, _l):
-            if user32.IsWindowVisible(hwnd):
-                buf = ctypes.create_unicode_buffer(256)
-                user32.GetWindowTextW(hwnd, buf, 256)
-                if buf.value == title and owned_by_edge(hwnd):
-                    found.append(hwnd)
-                    return False
-            return True
-        user32.EnumWindows(CB(cb), 0)
+        found = _dashboard_windows(title, ("msedge.exe",))
         if found:
             # Explicit Open must restore a previously minimized application.
             # MoveWindow alone leaves that window minimized and appears to do nothing.
@@ -174,6 +207,8 @@ def record_shell_report(body):
 
 
 def open_window(token):
+    if _activate_existing():   # نسخة واحدة: لا نافذة ثانية ولا تذكرة جديدة
+        return
     time.sleep(0.8)
     url = "http://127.0.0.1:%d/?k=%s" % (PORT, _ticket_for_window(token))
     try:
@@ -199,7 +234,7 @@ def open_window(token):
             subprocess.Popen([edge, "--app=" + url, "--user-data-dir=" + prof, "--window-size=" + size, pos])
             # A --open helper exits immediately afterward. Keep placement alive
             # long enough to restore the window instead of killing a daemon thread.
-            threading.Thread(target=_place_window, args=("مرصد الجهاز",) + _place_args, daemon=False).start()
+            threading.Thread(target=_place_window, args=(APP_TITLE,) + _place_args, daemon=False).start()
             return
     _record_shell("browser", reason)
     os.startfile(url)

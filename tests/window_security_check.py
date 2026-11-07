@@ -24,6 +24,9 @@ TREE_WIDGET = ast.parse((ROOT / "widgetctl.py").read_text(encoding="utf-8-sig"))
 TREE_STATIC = ast.parse((ROOT / "webstatic.py").read_text(encoding="utf-8-sig"))   # البند 6/ي: الصفحة وCSP في webstatic.py
 
 
+APP_IMAGES = ("msedge.exe", "powershell.exe", "pwsh.exe")   # كما في shellwin.py؛ اختبار يتحقق من التطابق
+
+
 def functions(names, tree=TREE):
     return ast.Module(body=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names], type_ignores=[])
 
@@ -141,7 +144,7 @@ class WidgetProcessScope(unittest.TestCase):
 
 
 class DashboardPlacementScope(unittest.TestCase):
-    def run_placement(self, windows, denied=()):
+    def run_placement(self, windows, denied=(), activate=False):
         class Call:
             def __init__(self, fn): self.fn = fn
             def __call__(self, *args): return self.fn(*args)
@@ -172,10 +175,16 @@ class DashboardPlacementScope(unittest.TestCase):
         fake_ctypes = types.SimpleNamespace(windll=types.SimpleNamespace(user32=user,kernel32=kernel),
             WINFUNCTYPE=lambda *a:lambda fn:fn, POINTER=ctypes.POINTER, c_int=ctypes.c_int,
             create_unicode_buffer=ctypes.create_unicode_buffer, byref=ctypes.byref)
-        ns = dict(ctypes=fake_ctypes, wintypes=ctypes.wintypes, os=os,
-                  time=types.SimpleNamespace(sleep=lambda _:None))
-        exec(compile(functions({"_place_window"}, TREE_SHELL), "dashboard-placement", "exec"), ns)
-        ns["_place_window"]("مرصد الجهاز", 10,20,800,600)
+        ns = dict(ctypes=fake_ctypes, wintypes=ctypes.wintypes, os=os, APP_IMAGES=APP_IMAGES, APP_TITLE="مرصد الجهاز",
+                  time=types.SimpleNamespace(sleep=lambda _:None),
+                  infra=types.SimpleNamespace(log=types.SimpleNamespace(info=lambda *a:events.append(("log",)), exception=lambda *a:None)))
+        exec(compile(functions({"_place_window", "_dashboard_windows", "_is_dashboard_window", "_bring_to_front", "_activate_existing"}, TREE_SHELL),
+                     "dashboard-placement", "exec"), ns)
+        self.ns = ns
+        if activate:
+            self.activated = ns["_activate_existing"]()
+        else:
+            ns["_place_window"]("مرصد الجهاز", 10,20,800,600)
         return events, closed, queried
 
     def test_only_exact_title_with_edge_owner_is_moved(self):
@@ -202,6 +211,52 @@ class DashboardPlacementScope(unittest.TestCase):
         self.assertEqual(events, [])
         self.assertEqual(set(closed), {101})
         self.assertNotIn(102, queried)
+
+
+class SingleAppWindow(DashboardPlacementScope):
+    """نسخة واحدة من التطبيق: open_window يُبرز النافذة القائمة (غلاف أو Edge) ولا يطلب تذكرة ولا يفتح أخرى."""
+
+    def test_images_constant_matches_module(self):
+        node = next(n for n in TREE_SHELL.body if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "APP_IMAGES")
+        self.assertEqual(ast.literal_eval(node.value), APP_IMAGES)
+
+    def test_dashboard_window_predicate(self):
+        ns = {"os": os, "APP_IMAGES": APP_IMAGES}
+        exec(compile(functions({"_is_dashboard_window"}, TREE_SHELL), "predicate", "exec"), ns)
+        f = ns["_is_dashboard_window"]
+        self.assertTrue(f("مرصد الجهاز", "مرصد الجهاز", r"C:\Windows\System32\WindowsPowerShell\v1.0\PowerShell.EXE"))
+        self.assertTrue(f("مرصد الجهاز", "مرصد الجهاز", r"C:\Edge\msedge.exe"))
+        self.assertTrue(f("مرصد الجهاز", "مرصد الجهاز", r"C:\PS7\pwsh.exe"))
+        self.assertFalse(f("مرصد الجهاز", "مرصد الجهاز — الويدجت", r"C:\PS7\pwsh.exe"))
+        self.assertFalse(f("مرصد الجهاز", "مرصد الجهاز", r"C:\Other\notepad.exe"))
+        self.assertFalse(f("مرصد الجهاز", "مرصد الجهاز", ""))
+        self.assertFalse(f("", "", r"C:\Edge\msedge.exe"))
+
+    def test_existing_shell_window_is_restored_and_focused(self):
+        windows = {1:("مرصد الجهاز — الويدجت",r"C:\PS\powershell.exe"),
+                   2:("مرصد الجهاز",r"C:\PS\powershell.exe")}
+        events, _closed, _queried = self.run_placement(windows, activate=True)
+        self.assertTrue(self.activated)
+        self.assertEqual(events, [("restore",2,9),("foreground",2),("log",)])
+
+    def test_no_window_means_open_a_new_one(self):
+        events, _closed, _queried = self.run_placement({1:("مرصد الجهاز — الويدجت",r"C:\PS\pwsh.exe")}, activate=True)
+        self.assertFalse(self.activated)
+        self.assertEqual(events, [])
+
+    def test_open_window_short_circuits_before_ticket(self):
+        function = next(n for n in TREE_SHELL.body if isinstance(n, ast.FunctionDef) and n.name == "open_window")
+        first = function.body[0]
+        self.assertIsInstance(first, ast.If)   # أول ما يفعله: إن وُجدت النافذة يُبرزها ويعود
+        self.assertEqual(ast.unparse(first.test), "_activate_existing()")
+        self.assertIsInstance(first.body[0], ast.Return)
+        calls = []
+        ns = {"_activate_existing": lambda: True,
+              "_ticket_for_window": lambda token: calls.append("ticket"),
+              "time": types.SimpleNamespace(sleep=lambda _: calls.append("sleep"))}
+        exec(compile(functions({"open_window"}, TREE_SHELL), "open-window", "exec"), ns)
+        self.assertIsNone(ns["open_window"]("synthetic-token"))
+        self.assertEqual(calls, [])   # لا تذكرة ولا غلاف ولا Edge
 
 
 if __name__ == "__main__":unittest.main()
