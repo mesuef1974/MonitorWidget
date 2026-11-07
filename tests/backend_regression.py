@@ -27,18 +27,18 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import atomic_json  # pure stdlib helper, no app initialization or side effects
+import websession   # البند 6/ط: الجلسات والتذاكر والرمز؛ استيراده بلا أثر جانبي (الرمز يُقرأ عند أول طلب فقط)
 
 
 def extracted():
     tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
-    wanted = {"_session_create", "_session_valid", "_session_revoke", "_reject_json_constant",
-              "_validate_json_numbers", "Handler", "LocalHTTPServer"}
+    wanted = {"_reject_json_constant", "_validate_json_numbers", "Handler", "LocalHTTPServer"}
     nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name in wanted]
-    ns = dict(json=json, math=math, re=re, socket=socket, time=time, secrets=secrets, hashlib=hashlib,
+    from urllib.parse import parse_qs, urlparse
+    ns = dict(json=json, math=math, re=re, socket=socket, time=time, secrets=secrets, hashlib=hashlib, parse_qs=parse_qs, urlparse=urlparse,
               hmac=hmac, os=os, threading=threading, BaseHTTPRequestHandler=BaseHTTPRequestHandler,
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
-              MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, SESSION_TTL=60,
-              MAX_SESSIONS=128, _SESSIONS={}, _SLOCK=threading.Lock(),
+              MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, websession=websession,
               POST_MODULES=(), snapshot=types.SimpleNamespace(invalidate=lambda: None))   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها؛ snapshot وهمي (البند 6/ز)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
     return ns
@@ -48,6 +48,8 @@ class BackendRequests(unittest.TestCase):
     def setUp(self):
         self.ns = extracted()
         self.sends = []
+        websession._SESSIONS.clear(); websession._TOKEN = "synthetic-widget-token"   # حالة الوحدة الحقيقية تُصفّر لكل اختبار
+        self.ttl = patch.object(websession, "SESSION_TTL", 60); self.ttl.start(); self.addCleanup(self.ttl.stop)
         self.ns["startup_mgr"] = types.SimpleNamespace(toggle=lambda body: (400, {"error": "rejected"}))
         self.ns["infra"] = types.SimpleNamespace(log=types.SimpleNamespace(exception=lambda *args: None))
         self.ns["POST_MODULES"] = (types.SimpleNamespace(post=lambda route, body, **k: self.ns["startup_mgr"].toggle(body) if route == "/api/startup" else None),)   # /api/startup صار في routes_policy؛ هنا بديل يمرّر إلى startup_mgr
@@ -112,35 +114,56 @@ class BackendRequests(unittest.TestCase):
                                  (400, {"error": "seen_mb required"}))
 
     def test_sessions_independent_expire_and_revoke(self):
-        a, b = self.ns["_session_create"](), self.ns["_session_create"]()
+        a, b = websession.create(), websession.create()
         self.assertNotEqual(a, b)
-        self.assertTrue(self.ns["_session_valid"](a))
-        self.ns["_session_revoke"](a)
-        self.assertFalse(self.ns["_session_valid"](a))
-        self.assertTrue(self.ns["_session_valid"](b))
+        self.assertTrue(websession.valid(a))
+        websession.revoke(a)
+        self.assertFalse(websession.valid(a))
+        self.assertTrue(websession.valid(b))
         with patch.object(time, "time", return_value=time.time() + 61):
-            self.assertFalse(self.ns["_session_valid"](b))
+            self.assertFalse(websession.valid(b))
 
     def test_session_capacity_is_bounded(self):
-        self.ns["MAX_SESSIONS"] = 1
-        self.assertTrue(self.ns["_session_create"]())
-        self.assertIsNone(self.ns["_session_create"]())
+        with patch.object(websession, "MAX_SESSIONS", 1):
+            self.assertTrue(websession.create())
+            self.assertIsNone(websession.create())
 
     def test_widget_token_and_browser_sessions_are_independent(self):
-        self.ns["TOKEN"] = "synthetic-widget-token"
-        value = self.ns["_session_create"]()
+        value = websession.create()
         fake = types.SimpleNamespace(headers={"X-Token": "synthetic-widget-token"},
             _cookie=lambda name: "", _send=lambda *a: self.sends.append(a))
         self.assertTrue(self.ns["Handler"]._authed(fake))
         fake.headers = {}
         fake._cookie = lambda name: value
         self.assertTrue(self.ns["Handler"]._authed(fake))
-        self.ns["_session_revoke"](value)
+        websession.revoke(value)
         self.assertFalse(self.ns["Handler"]._authed(fake))
         self.assertEqual(self.sends[-1][0], 401)
+        fake.headers = {"X-Token": "رمز غير ASCII"}; fake._cookie = lambda name: ""
+        self.assertFalse(self.ns["Handler"]._authed(fake))   # لا استثناء على ترويسة غير ASCII
+
+    def test_ticket_exchange_issues_session_then_serves_page(self):
+        """do_GET: التذكرة تُبدَّل بجلسة في كعكة HttpOnly مع 302 مرة واحدة، والتذكرة المستهلكة تُهمَل وتُقدَّم الصفحة (البند 6/ط)."""
+        websession._TICKETS.clear()
+        self.ns["ROOT"] = str(ROOT); self.ns["_page_csp"] = lambda html: "csp"
+        t = websession.issue_ticket()
+        hdrs, codes = [], []
+        fake = types.SimpleNamespace(_guard=lambda: True, path="/?k=" + t, headers={},
+            send_response=codes.append, send_header=lambda k, v: hdrs.append((k, v)), end_headers=lambda: None,
+            _send=lambda *args, **kwargs: self.sends.append((args, kwargs)))
+        self.ns["Handler"].do_GET(fake)
+        self.assertEqual(codes, [302])
+        cookie = dict(hdrs)["Set-Cookie"]
+        self.assertTrue(cookie.startswith("mw_s=") and "HttpOnly" in cookie and "SameSite=Strict" in cookie)
+        self.assertTrue(websession.valid(cookie.split(";")[0].split("=", 1)[1]))
+        self.assertEqual(dict(hdrs)["Location"], "/")
+        self.ns["Handler"].do_GET(fake)   # التذكرة نفسها ثانيةً: لا جلسة جديدة، الصفحة تُقدَّم عادية
+        self.assertEqual(codes, [302])
+        self.assertEqual(self.sends[-1][0][0], 200)
+        self.assertEqual(self.sends[-1][1]["csp"], "csp")
 
     def test_logout_revokes_only_its_cookie(self):
-        a, b = self.ns["_session_create"](), self.ns["_session_create"]()
+        a, b = websession.create(), websession.create()
         replies = []
         fake = types.SimpleNamespace(_guard=lambda: True, _authed=lambda: True,
             headers={"Content-Type": "application/json", "Content-Length": "2"},
@@ -149,8 +172,8 @@ class BackendRequests(unittest.TestCase):
         self.ns["Handler"].do_POST(fake)
         self.assertEqual(replies[0][0], (200, {"ok": True}))
         self.assertIn("Max-Age=0", replies[0][1]["cookie"])
-        self.assertFalse(self.ns["_session_valid"](a))
-        self.assertTrue(self.ns["_session_valid"](b))
+        self.assertFalse(websession.valid(a))
+        self.assertTrue(websession.valid(b))
 
     def test_partial_protected_engine_fails_closed(self):
         import routes_destructive
