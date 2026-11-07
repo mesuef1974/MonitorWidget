@@ -34,7 +34,7 @@ ROWS = [
     row(20, "llama-server.exe", 5900, 830, r"C:\Users\o\.lmstudio\extensions\llama-server.exe --model x"),
     row(30, "vmmemWSL", 3700, 2400),
     row(40, "claude.exe", 700, 500),
-    row(50, "explorer.exe", 400, 300),
+    row(50, "unknownapp.exe", 400, 300),
     row(60, "pythonw.exe", 90, 60, r"pythonw.exe C:\Users\o\Documents\Scripts\MonitorWidget\server.py"),
 ]
 ST = {"usedGB": 30.0, "limitGB": 50.0, "pct": 60.0}
