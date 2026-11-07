@@ -40,7 +40,7 @@ $haveVend = (Test-Path (Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2\Micr
     (Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in') -Recurse -Filter 'Microsoft.Web.WebView2.Wpf.dll' -ErrorAction SilentlyContinue | Select-Object -First 1)
 if ((Test-Path $shell) -and $haveVend) {
     # نافذة بلا إطار بحواف مستديرة مثل الويدجت
-    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$shell`"", '-Url', "`"http://127.0.0.1:$port/?k=$ticket`""
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$shell`"", '-Url', "`"http://127.0.0.1:$port/?k=$ticket`"", '-Replace'   # الجلسة القديمة ماتت مع الخادم: تُستبدل النافذة القائمة
 } else {
     $edge = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'
     $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'

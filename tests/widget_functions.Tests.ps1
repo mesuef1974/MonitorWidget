@@ -211,6 +211,40 @@ Describe 'Get-IdentityFonts (خطوط الهوية من tokens.css إلى WPF ع
     }
 }
 
+Describe 'app_shell.ps1: نسخة واحدة من نافذة التطبيق' {
+    BeforeAll {
+        $shellSource = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'app_shell.ps1') -Raw
+        $shellTokens = $null; $shellErrors = $null
+        $shellAst = [Management.Automation.Language.Parser]::ParseInput($shellSource, [ref]$shellTokens, [ref]$shellErrors)
+        if ($shellErrors.Count) { throw ($shellErrors.Message -join '; ') }
+        foreach ($name in @('Test-AppWindowCandidate', 'Get-SingleInstanceAction')) {
+            $fn = $shellAst.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
+            if (-not $fn) { throw "Missing $name" }
+            . ([scriptblock]::Create($fn.Extent.Text))
+        }
+    }
+    It 'نافذة التطبيق: العنوان حرفيًا ومضيف معروف وليست نافذة العملية نفسها' {
+        Test-AppWindowCandidate 'مرصد الجهاز' 'مرصد الجهاز' 'powershell' 10 99 | Should -BeTrue
+        Test-AppWindowCandidate 'مرصد الجهاز' 'مرصد الجهاز' 'MSEdge' 10 99 | Should -BeTrue
+        Test-AppWindowCandidate 'مرصد الجهاز' 'مرصد الجهاز' 'pwsh' 10 99 | Should -BeTrue
+        Test-AppWindowCandidate 'مرصد الجهاز' 'مرصد الجهاز' 'pwsh' 99 99 | Should -BeFalse
+        Test-AppWindowCandidate 'مرصد الجهاز' 'مرصد الجهاز — الويدجت' 'pwsh' 10 99 | Should -BeFalse
+        Test-AppWindowCandidate 'مرصد الجهاز' 'مرصد الجهاز' 'notepad' 10 99 | Should -BeFalse
+        Test-AppWindowCandidate '' '' 'pwsh' 10 99 | Should -BeFalse
+    }
+    It 'القرار: تُفتح نافذة واحدة فقط، والنسخة الثانية تُبرز القائمة' {
+        Get-SingleInstanceAction $true $false $false | Should -Be 'open'
+        Get-SingleInstanceAction $false $true $false | Should -Be 'activate'
+        Get-SingleInstanceAction $false $false $false | Should -Be 'wait'
+        Get-SingleInstanceAction $true $true $false | Should -Be 'open'
+    }
+    It 'إعادة تشغيل الخادم (-Replace) تستبدل النافذة القائمة لأن جلستها ماتت' {
+        Get-SingleInstanceAction $false $true $true | Should -Be 'replace'
+        Get-SingleInstanceAction $true $true $true | Should -Be 'replace'
+        Get-SingleInstanceAction $true $false $true | Should -Be 'open'
+    }
+}
+
 Describe 'app_shell.ps1: السقوط إلى Edge وتسجيل المحرك لصفحة الصحة' {
     BeforeAll {
         # الدوال النقية تُستخرج من app_shell.ps1 عبر AST؛ السكربت نفسه لا يُشغَّل (param إلزامي ونافذة WPF)
