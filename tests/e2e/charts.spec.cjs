@@ -94,7 +94,7 @@ test('التحديث الدوري لا يستبدل رسمًا مركَّزًا 
   expect(await page.evaluate(() => document.activeElement.classList.contains('plot'))).toBe(true);
 });
 
-test('الملخص والإعلان يذكران اليوم عندما يتجاوز المدى عشرين ساعة فقط، وتسميات المحور تبقى بالساعة', async ({ page }) => {
+test('الملخص والإعلان وتسميات المحور تذكر اليوم عندما يتجاوز المدى عشرين ساعة فقط', async ({ page }) => {
   await page.goto('/#/mem'); await ready(page);
   const probe = async (hours) => page.evaluate(h => {
     const el = document.createElement('div'); document.querySelector('#main').appendChild(el);
@@ -107,7 +107,8 @@ test('الملخص والإعلان يذكران اليوم عندما يتجا�
   const short = await probe(6), long = await probe(24 * 7);
   expect(short.summary).toMatch(/ من \d\d:\d\d إلى \d\d:\d\d، /);
   expect(short.live).toMatch(/^\d\d:\d\d: /);
+  expect(short.xl).toMatch(/^\d\d:\d\d$/);
   expect(long.summary).toMatch(/ من \d\d\/\d\d \d\d:\d\d إلى \d\d\/\d\d \d\d:\d\d، /);
   expect(long.live).toMatch(/^\d\d\/\d\d \d\d:\d\d: /);
-  expect(long.xl).toMatch(/^\d\d:\d\d$/);
+  expect(long.xl).toMatch(/^\d\d\/\d\d \d\d:\d\d$/);   // الساعة وحدها تتكرّر ليومين مختلفين في مدى أسبوع
 });
