@@ -5,7 +5,7 @@ The agent keeps the backend running independently of the dashboard."""
 
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
-import atexit, base64, hashlib, hmac, ctypes, faulthandler, json, os, re, secrets, subprocess, sys, threading, time, traceback
+import atexit, base64, hashlib, ctypes, faulthandler, json, os, re, secrets, subprocess, sys, threading, time, traceback
 import atomic_json
 import math, socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -25,48 +25,13 @@ import localai              # لوحة الذكاء المحلي: يرصد اج�
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
 import askstore             # ذاكرة «اسأل المرصد»: التقييم والمسح والتعليمات
 import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
+import websession           # البند 6/ط: جلسات المتصفح والتذاكر أحادية الاستعمال والرمز المحلي
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
-# one-time tickets replace the token in URLs: the window opens with ?k=<ticket>, which is consumed once and then
-# exchanged for an HttpOnly session cookie. The long-lived token never appears on a command line.
-try:
-    SESSION_TTL = max(60, min(7 * 86400, int(os.environ.get("MW_SESSION_TTL_SECONDS", "43200"))))
-except ValueError:
-    SESSION_TTL = 43200
-_SESSIONS, _SLOCK = {}, threading.Lock()
-MAX_SESSIONS = 128
+# التذاكر أحادية الاستعمال والجلسات والرمز في websession.py (البند 6/ط)
 MAX_POST_BYTES = 65536
 REQUEST_TIMEOUT_SECONDS = 15
 MAX_HTTP_THREADS = 24
-
-
-def _session_create():
-    now = time.time()
-    with _SLOCK:
-        for key in [key for key, exp in _SESSIONS.items() if exp <= now]:
-            del _SESSIONS[key]
-        if len(_SESSIONS) >= MAX_SESSIONS:
-            return None
-        value = secrets.token_urlsafe(32)
-        _SESSIONS[hashlib.sha256(value.encode("utf-8")).digest()] = now + SESSION_TTL
-        return value
-
-
-def _session_valid(value):
-    if not value or len(value) > 128:
-        return False
-    key = hashlib.sha256(value.encode("utf-8")).digest()
-    with _SLOCK:
-        exp = _SESSIONS.get(key, 0)
-        if exp <= time.time():
-            _SESSIONS.pop(key, None)
-            return False
-        return True
-
-
-def _session_revoke(value):
-    with _SLOCK:
-        _SESSIONS.pop(hashlib.sha256(value.encode("utf-8")).digest(), None)
 
 
 def _reject_json_constant(value):
@@ -83,35 +48,13 @@ def _validate_json_numbers(value):
         for item in value:
             _validate_json_numbers(item)
 
-_TICKETS, _TLOCK = {}, threading.Lock()
 def _healthz_ok():
     """quick_check مخزَّن في infra.integrity_cached ويُجدَّد في خيط خلفي كل 60 ث على الأكثر: مسار بلا مصادقة يجب ألا يكون
     رافعة على القاعدة ولا ينتظرها (قبل أول نتيجة يُعدّ سليمًا)."""
     return infra.integrity_cached(60)["ok"] is not False
 
 
-def _issue_ticket():
-    t = secrets.token_urlsafe(24)
-    with _TLOCK:
-        now = time.time()
-        for k in [k for k, exp in _TICKETS.items() if exp < now]:
-            del _TICKETS[k]
-        if len(_TICKETS) >= 256:
-            del _TICKETS[next(iter(_TICKETS))]
-        _TICKETS[t] = now + 60
-    return t
-def _use_ticket(t):
-    with _TLOCK:
-        exp = _TICKETS.pop(t, None)
-    return bool(exp and exp >= time.time())
 IDLE_EXIT_SECONDS = 0  # 0 = never exit on idle; the agent's server_guard job keeps it running
-
-TOKEN_FILE = os.path.join(ROOT, ".token")
-if not os.path.exists(TOKEN_FILE):
-    with open(TOKEN_FILE, "w") as f:
-        f.write(secrets.token_urlsafe(24))
-TOKEN = open(TOKEN_FILE).read().strip()
-# Browser sessions are independent, time limited, and intentionally invalidated on restart.
 
 def ensure_agent():
     """Start the always-on agent if its mutex is not held (idempotent; the agent also enforces a single instance)."""
@@ -219,17 +162,11 @@ class Handler(BaseHTTPRequestHandler):
         return True
 
     def _cookie(self, name):
-        for part in self.headers.get("Cookie", "").split(";"):
-            k, _, v = part.strip().partition("=")
-            if k == name:
-                return v
-        return ""
+        return websession.read_cookie(self.headers.get("Cookie", ""), name)
 
     def _authed(self):
-        tok = self.headers.get("X-Token", "")
-        ck = self._cookie("mw_s")
-        # constant-time comparison; both sides encoded so a non-ASCII header cannot raise
-        if (tok and hmac.compare_digest(tok.encode("utf-8"), TOKEN.encode("utf-8"))) or            _session_valid(ck):
+        # الرمز بمقارنة زمن ثابت أو جلسة متصفح صالحة (websession)
+        if websession.token_ok(self.headers.get("X-Token", "")) or websession.valid(self._cookie(websession.COOKIE)):
             return True
         self._send(401, {"error": "unauthorized"})
         return False
@@ -240,12 +177,12 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path in ("/", "/index.html", "/v2", "/v2/"):  # /v2 اسم قديم للصفحة نفسها
             k = parse_qs(urlparse(self.path).query).get("k", [""])[0]
-            if k and _use_ticket(k):  # exchange the one-time ticket for a cookie, then drop it from the URL
-                session = _session_create()
+            if k and websession.use_ticket(k):  # exchange the one-time ticket for a cookie, then drop it from the URL
+                session = websession.create()
                 if session is None:
                     return self._send(503, {"error": "session capacity reached"})
                 self.send_response(302)
-                self.send_header("Set-Cookie", "mw_s=%s; Path=/; HttpOnly; SameSite=Strict; Max-Age=%d" % (session, SESSION_TTL))
+                self.send_header("Set-Cookie", websession.cookie(session))
                 self.send_header("Location", "/")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
@@ -335,10 +272,10 @@ class Handler(BaseHTTPRequestHandler):
                 if reply is not None:
                     return self._send(*reply)
             if route == "/api/session/logout":
-                _session_revoke(self._cookie("mw_s"))
-                return self._send(200, {"ok": True}, cookie="mw_s=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+                websession.revoke(self._cookie(websession.COOKIE))
+                return self._send(200, {"ok": True}, cookie=websession.logout_cookie())
             if route == "/api/ticket":
-                return self._send(200, {"ticket": _issue_ticket()})
+                return self._send(200, {"ticket": websession.issue_ticket()})
             return self._send(404, {"error": "not found"})
         except (socket.timeout, TimeoutError):
             self.close_connection = True
@@ -414,7 +351,7 @@ if __name__ == "__main__":
         srv = LocalHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError:
         if "--open" in sys.argv:
-            shellwin.open_window(TOKEN)  # already running: just open another window
+            shellwin.open_window(websession.token())  # already running: just open another window
         sys.exit(0)
     # تشخيص الانهيار: الخادم يعمل بـ pythonw بلا نافذة، فنكتب كل توقف إلى السجل وإلى ملف faulthandler
     _fault_fh = open(os.path.join(infra.LOG_DIR, "server_fault.log"), "a", encoding="utf-8")
@@ -433,7 +370,7 @@ if __name__ == "__main__":
         threading.Thread(target=fn, daemon=True).start()
     threading.Thread(target=startup_mgr.list_items, daemon=True).start()   # تسخين قائمة بدء التشغيل قبل أول طلب
     if "--open" in sys.argv:
-        threading.Thread(target=shellwin.open_window, args=(TOKEN,), daemon=True).start()
+        threading.Thread(target=shellwin.open_window, args=(websession.token(),), daemon=True).start()
     try:
         srv.serve_forever()
     except BaseException:

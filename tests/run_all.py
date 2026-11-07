@@ -21,7 +21,8 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("اسأل المرصد (معزول)", "assistant_check.py"),
     ("ذاكرة اسأل المرصد (معزول)", "askstore_check.py"),
     ("اختيار النموذج المحلي الموحّد (معزول)", "explain_model_check.py"),
-    ("مسارات التطبيق: الشرح وعدّاد الصفحات والإيقاف (معزول)", "routes_app_check.py"))]
+    ("مسارات التطبيق: الشرح وعدّاد الصفحات والإيقاف (معزول)", "routes_app_check.py"),
+    ("جلسات المتصفح والتذاكر والرمز (معزول)", "websession_check.py"))]
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
     ("فتح النافذة وسياسة CSP (معزول)", "window_security_check.py"),
     ("جمع النسخة المحمية (معزول)", "deployment_agent_check.py"),

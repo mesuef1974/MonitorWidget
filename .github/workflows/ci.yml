@@ -44,6 +44,7 @@ jobs:
           python -X utf8 -B tests/askstore_check.py
           python -X utf8 -B tests/explain_model_check.py
           python -X utf8 -B tests/routes_app_check.py
+          python -X utf8 -B tests/websession_check.py
           python -X utf8 -B tests/check_all.py
 
   # دوال widget.ps1 وidentity.ps1 النقية (مستخرجة عبر AST؛ لا نافذة ولا إعدادات)
