@@ -1,0 +1,320 @@
+{
+ "ok": true,
+ "now": 1794067200,
+ "usedGB": 37.9,
+ "limitGB": 55.7,
+ "pct": 68.0,
+ "projects": [
+  {
+   "id": "salma",
+   "name": "سلمى: الإملاء والنطق",
+   "note": "",
+   "keep": false,
+   "commitMB": 7900,
+   "wsMB": 190,
+   "freeMB": 7900,
+   "gpu": true,
+   "count": 2,
+   "procs": [
+    {
+     "pid": 102,
+     "name": "python.exe",
+     "commitMB": 5100,
+     "wsMB": 110,
+     "idle": true,
+     "gpu": true
+    },
+    {
+     "pid": 101,
+     "name": "pythonw.exe",
+     "commitMB": 2800,
+     "wsMB": 80,
+     "idle": true,
+     "gpu": true
+    }
+   ],
+   "containers": {
+    "count": 0,
+    "memMB": 0
+   }
+  },
+  {
+   "id": "lmstudio",
+   "name": "نماذج LM Studio (مشتركة)",
+   "note": "مشتركة بين Bionic والمسابقة وسلمى والمرصد؛ مهمة المسابقة تعيد تحميل النموذج كل 5 دقائق",
+   "keep": true,
+   "commitMB": 6220,
+   "wsMB": 890,
+   "freeMB": 6220,
+   "gpu": true,
+   "count": 2,
+   "procs": [
+    {
+     "pid": 201,
+     "name": "llama-server.exe",
+     "commitMB": 5900,
+     "wsMB": 830,
+     "idle": true,
+     "gpu": true
+    },
+    {
+     "pid": 202,
+     "name": "LM Studio.exe",
+     "commitMB": 320,
+     "wsMB": 60,
+     "idle": true,
+     "gpu": false
+    }
+   ],
+   "containers": {
+    "count": 0,
+    "memMB": 0
+   }
+  },
+  {
+   "id": "wsl",
+   "name": "WSL وDocker",
+   "note": "التزام الآلة الافتراضية كلها؛ ذاكرة كل حاوية داخلها في جدول الحاويات",
+   "keep": false,
+   "commitMB": 3890,
+   "wsMB": 2330,
+   "freeMB": 0,
+   "gpu": false,
+   "count": 2,
+   "procs": [
+    {
+     "pid": 301,
+     "name": "vmmemWSL",
+     "commitMB": 3700,
+     "wsMB": 2200,
+     "idle": false,
+     "gpu": false
+    },
+    {
+     "pid": 302,
+     "name": "com.docker.backend.exe",
+     "commitMB": 190,
+     "wsMB": 130,
+     "idle": false,
+     "gpu": false
+    }
+   ],
+   "containers": {
+    "count": 0,
+    "memMB": 0
+   }
+  },
+  {
+   "id": "claude",
+   "name": "تطبيق Claude",
+   "note": "",
+   "keep": false,
+   "commitMB": 1330,
+   "wsMB": 750,
+   "freeMB": 0,
+   "gpu": false,
+   "count": 2,
+   "procs": [
+    {
+     "pid": 401,
+     "name": "claude.exe",
+     "commitMB": 720,
+     "wsMB": 520,
+     "idle": false,
+     "gpu": false
+    },
+    {
+     "pid": 402,
+     "name": "claude.exe",
+     "commitMB": 610,
+     "wsMB": 230,
+     "idle": false,
+     "gpu": false
+    }
+   ],
+   "containers": {
+    "count": 0,
+    "memMB": 0
+   }
+  },
+  {
+   "id": "shschool",
+   "name": "مشروع مدرسة الشحانية",
+   "note": "",
+   "keep": false,
+   "commitMB": 600,
+   "wsMB": 190,
+   "freeMB": 0,
+   "gpu": false,
+   "count": 1,
+   "procs": [
+    {
+     "pid": 501,
+     "name": "python.exe",
+     "commitMB": 600,
+     "wsMB": 190,
+     "idle": false,
+     "gpu": false
+    }
+   ],
+   "containers": {
+    "count": 4,
+    "memMB": 980
+   }
+  },
+  {
+   "id": "monitor",
+   "name": "مرصد الجهاز",
+   "note": "",
+   "keep": false,
+   "commitMB": 95,
+   "wsMB": 70,
+   "freeMB": 0,
+   "gpu": false,
+   "count": 1,
+   "procs": [
+    {
+     "pid": 601,
+     "name": "pythonw.exe",
+     "commitMB": 95,
+     "wsMB": 70,
+     "idle": false,
+     "gpu": false
+    }
+   ],
+   "containers": {
+    "count": 0,
+    "memMB": 0
+   }
+  },
+  {
+   "id": "other",
+   "name": "غير مصنّف",
+   "note": "",
+   "keep": false,
+   "commitMB": 850,
+   "wsMB": 580,
+   "freeMB": 0,
+   "gpu": false,
+   "count": 2,
+   "procs": [
+    {
+     "pid": 701,
+     "name": "explorer.exe",
+     "commitMB": 430,
+     "wsMB": 320,
+     "idle": false,
+     "gpu": false
+    },
+    {
+     "pid": 702,
+     "name": "MsMpEng.exe",
+     "commitMB": 420,
+     "wsMB": 260,
+     "idle": false,
+     "gpu": false
+    }
+   ],
+   "containers": {
+    "count": 0,
+    "memMB": 0
+   }
+  }
+ ],
+ "plan": {
+  "target": 40,
+  "needGB": 15.62,
+  "met": false,
+  "steps": [
+   {
+    "kind": "idle",
+    "id": "salma",
+    "name": "سلمى: الإملاء والنطق",
+    "freeGB": 7.71,
+    "afterPct": 54.2
+   },
+   {
+    "kind": "docker",
+    "id": "shschool",
+    "name": "demo-preview-a",
+    "pr": 1384,
+    "freeGB": 0.41,
+    "afterPct": 53.5
+   }
+  ],
+  "idleGB": 8.12,
+  "reachable": false,
+  "bestPct": 53.5,
+  "pagefileGB": 39.0
+ },
+ "stale": [
+  {
+   "compose": "demo-preview-a",
+   "project": "shschool",
+   "memMB": 420,
+   "pr": {
+    "number": 1384,
+    "state": "merged",
+    "url": ""
+   },
+   "names": [
+    "demo-preview-a-web-1",
+    "demo-preview-a-worker-1"
+   ]
+  }
+ ],
+ "gpuKnown": true,
+ "docker": {
+  "state": "ok",
+  "containers": [
+   {
+    "name": "demo-preview-a-web-1",
+    "compose": "demo-preview-a",
+    "dir": "C:\\Users\\demo\\delivery_manager_work_wt\\runner-1",
+    "status": "Up 20 minutes (healthy)",
+    "memMB": 260,
+    "project": "shschool",
+    "pr": {
+     "number": 1384,
+     "state": "merged",
+     "url": ""
+    }
+   },
+   {
+    "name": "demo-preview-a-worker-1",
+    "compose": "demo-preview-a",
+    "dir": "C:\\Users\\demo\\delivery_manager_work_wt\\runner-1",
+    "status": "Up 20 minutes (healthy)",
+    "memMB": 160,
+    "project": "shschool",
+    "pr": {
+     "number": 1384,
+     "state": "merged",
+     "url": ""
+    }
+   },
+   {
+    "name": "demo-preview-b-web-1",
+    "compose": "demo-preview-b",
+    "dir": "C:\\Users\\demo\\delivery_manager_work_wt\\runner-2",
+    "status": "Up 5 minutes (healthy)",
+    "memMB": 320,
+    "project": "shschool",
+    "pr": {
+     "number": 1388,
+     "state": "open",
+     "url": ""
+    }
+   },
+   {
+    "name": "shschool-dev-db",
+    "compose": "shschool_mvp",
+    "dir": "D:\\shschool_mvp",
+    "status": "Up 2 hours (healthy)",
+    "memMB": 240,
+    "project": "shschool",
+    "pr": null
+   }
+  ]
+ }
+}

@@ -5,7 +5,8 @@
 هذه الوحدة قراءة فقط وبلا صلاحيات مسؤول، ولا تستورد شيئًا من التطبيق حتى تُختبر معزولة.
 
     status()                  -> الحالة الكلية من GetPerformanceInfo (الرقم نفسه الذي يعطيه GlobalMemoryStatusEx في snapshot)
-    scan()                    -> (صفوف لكل عملية يمكن فتحها بـ PROCESS_QUERY_LIMITED_INFORMATION، عدد المتعذّر فتحها)
+    scan(with_cmd=False)      -> (صفوف لكل عملية يمكن فتحها بـ PROCESS_QUERY_LIMITED_INFORMATION، عدد المتعذّر فتحها)؛
+                                 كل صف فيه ppid، ومع with_cmd سطر الأمر cmd (لتصنيف العمليات حسب المشروع في commitmap)
     rank(rows, n)             -> أعلى n عملية التزامًا (نقية؛ تُختبر بصفوف وهمية)
     payload(n, rows, st, now) -> حمولة GET /api/commit؛ rows وst للحقن في الاختبارات
 """
@@ -40,6 +41,27 @@ class _PMC(ctypes.Structure):   # PROCESS_MEMORY_COUNTERS_EX؛ PrivateUsage = ا
                 ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t), ("PrivateUsage", ctypes.c_size_t)]
 
 
+class _US(ctypes.Structure):   # UNICODE_STRING في رأس ردّ ProcessCommandLineInformation
+    _fields_ = [("Length", wintypes.USHORT), ("MaximumLength", wintypes.USHORT), ("Buffer", ctypes.c_void_p)]
+
+
+def _cmdline(h):
+    """سطر أمر العملية عبر NtQueryInformationProcess(ProcessCommandLineInformation=60)؛ يكفيه PROCESS_QUERY_LIMITED_INFORMATION
+    منذ ويندوز 8.1 فلا يحتاج صلاحيات مسؤول ولا قراءة ذاكرة العملية. "" عند الفشل."""
+    nt = ctypes.windll.ntdll
+    nt.NtQueryInformationProcess.restype = ctypes.c_long
+    nt.NtQueryInformationProcess.argtypes = [ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+    need = ctypes.c_ulong(0)
+    nt.NtQueryInformationProcess(h, 60, None, 0, ctypes.byref(need))
+    if not need.value or need.value > 1 << 20:
+        return ""
+    buf = ctypes.create_string_buffer(need.value)
+    if nt.NtQueryInformationProcess(h, 60, buf, need.value, ctypes.byref(need)) != 0:
+        return ""
+    us = _US.from_buffer(buf)
+    return ctypes.wstring_at(us.Buffer, us.Length // 2) if us.Buffer and us.Length else ""
+
+
 _cache = {"t": 0.0, "rows": None, "skipped": 0}
 _lock = threading.Lock()
 
@@ -56,8 +78,8 @@ def status():
             "headroomGB": round(max(0.0, limit - used), 2), "pct": round(100.0 * used / limit, 1)}
 
 
-def scan():
-    """صفوف {pid, name, commitMB, wsMB} لكل عملية يمكن فتحها بصلاحية المستخدم، وعدد العمليات المحجوبة (عمليات النظام غالبًا)."""
+def scan(with_cmd=False):
+    """صفوف {pid, ppid, name, commitMB, wsMB[, cmd]} لكل عملية يمكن فتحها بصلاحية المستخدم، وعدد العمليات المحجوبة (عمليات النظام غالبًا)."""
     k, ps = ctypes.windll.kernel32, ctypes.windll.psapi
     k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
     k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
@@ -81,7 +103,10 @@ def scan():
                 m = _PMC()
                 m.cb = ctypes.sizeof(m)
                 if ps.GetProcessMemoryInfo(h, ctypes.byref(m), m.cb):
-                    rows.append({"pid": int(pe.pid), "name": pe.exe, "commitMB": m.PrivateUsage / MB, "wsMB": m.WorkingSetSize / MB})
+                    row = {"pid": int(pe.pid), "ppid": int(pe.ppid), "name": pe.exe, "commitMB": m.PrivateUsage / MB, "wsMB": m.WorkingSetSize / MB}
+                    if with_cmd:
+                        row["cmd"] = _cmdline(h)
+                    rows.append(row)
                 else:
                     skipped += 1
                 k.CloseHandle(h)
