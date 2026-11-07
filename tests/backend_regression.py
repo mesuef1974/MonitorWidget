@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 import atomic_json  # pure stdlib helper, no app initialization or side effects
 import websession   # البند 6/ط: الجلسات والتذاكر والرمز؛ استيراده بلا أثر جانبي (الرمز يُقرأ عند أول طلب فقط)
+import webstatic    # البند 6/ي: الصفحة والملفات الثابتة وCSP؛ بلا أثر جانبي
 
 
 def extracted():
@@ -38,7 +39,7 @@ def extracted():
     ns = dict(json=json, math=math, re=re, socket=socket, time=time, secrets=secrets, hashlib=hashlib, parse_qs=parse_qs, urlparse=urlparse,
               hmac=hmac, os=os, threading=threading, BaseHTTPRequestHandler=BaseHTTPRequestHandler,
               ThreadingHTTPServer=ThreadingHTTPServer, PORT=47832, MAX_POST_BYTES=65536,
-              MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, websession=websession,
+              MAX_HTTP_THREADS=2, REQUEST_TIMEOUT_SECONDS=15, websession=websession, webstatic=webstatic,
               POST_MODULES=(), snapshot=types.SimpleNamespace(invalidate=lambda: None))   # وحدات المسارات (البند 6) تُختبر وحدها؛ هنا لا مسار منها؛ snapshot وهمي (البند 6/ز)
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
     return ns
@@ -145,7 +146,6 @@ class BackendRequests(unittest.TestCase):
     def test_ticket_exchange_issues_session_then_serves_page(self):
         """do_GET: التذكرة تُبدَّل بجلسة في كعكة HttpOnly مع 302 مرة واحدة، والتذكرة المستهلكة تُهمَل وتُقدَّم الصفحة (البند 6/ط)."""
         websession._TICKETS.clear()
-        self.ns["ROOT"] = str(ROOT); self.ns["_page_csp"] = lambda html: "csp"
         t = websession.issue_ticket()
         hdrs, codes = [], []
         fake = types.SimpleNamespace(_guard=lambda: True, path="/?k=" + t, headers={},
@@ -160,7 +160,7 @@ class BackendRequests(unittest.TestCase):
         self.ns["Handler"].do_GET(fake)   # التذكرة نفسها ثانيةً: لا جلسة جديدة، الصفحة تُقدَّم عادية
         self.assertEqual(codes, [302])
         self.assertEqual(self.sends[-1][0][0], 200)
-        self.assertEqual(self.sends[-1][1]["csp"], "csp")
+        self.assertTrue(self.sends[-1][1]["csp"].startswith("script-src 'sha256-"))   # الصفحة الحقيقية بسياستها الملبَّدة
 
     def test_logout_revokes_only_its_cookie(self):
         a, b = websession.create(), websession.create()

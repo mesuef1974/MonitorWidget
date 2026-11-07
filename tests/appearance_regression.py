@@ -117,7 +117,8 @@ class AppearancePreferences(unittest.TestCase):
         بمخزن مؤقت بدل APPEARANCE الحقيقي؛ بلا مصادقة لا يُرسل شيء."""
         import routes_settings
         ns = extracted()
-        ns.update(_ASSETS={}, urlparse=urlparse, parse_qs=parse_qs, POST_MODULES=(routes_settings,),
+        import webstatic
+        ns.update(webstatic=webstatic, urlparse=urlparse, parse_qs=parse_qs, POST_MODULES=(routes_settings,),
                   routes_read=types.SimpleNamespace(ROUTES=("/api/appearance",), get=lambda path, q: (200, routes_settings.APPEARANCE.get())))
         sends = []
         def req(method, body=None, authenticated=True):

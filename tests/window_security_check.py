@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TREE = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
 TREE_SHELL = ast.parse((ROOT / "shellwin.py").read_text(encoding="utf-8-sig"))   # البند 6/هـ: فتح النافذة والتذكرة في shellwin.py
 TREE_WIDGET = ast.parse((ROOT / "widgetctl.py").read_text(encoding="utf-8-sig"))   # البند 6/و: الويدجت في widgetctl.py
+TREE_STATIC = ast.parse((ROOT / "webstatic.py").read_text(encoding="utf-8-sig"))   # البند 6/ي: الصفحة وCSP في webstatic.py
 
 
 def functions(names, tree=TREE):
@@ -29,20 +30,20 @@ def functions(names, tree=TREE):
 
 class WindowSecurity(unittest.TestCase):
     def test_csp_hash_uses_html_parser_normalized_newlines(self):
-        namespace = {"re":re, "hashlib":hashlib,"base64":base64,"_csp_cache":{},"_CSP_BASE":"default-src 'none'"}
-        exec(compile(functions({"_page_csp"}), "page-csp", "exec"), namespace)
+        namespace = {"re":re, "hashlib":hashlib,"base64":base64,"_csp_cache":{},"CSP_BASE":"default-src 'none'"}
+        exec(compile(functions({"page_csp"}, TREE_STATIC), "page-csp", "exec"), namespace)
         source = b"const a = 1;\nconst b = 2;\n"
         expected = "'sha256-" + base64.b64encode(hashlib.sha256(source).digest()).decode() + "'"
         for body in (source, source.replace(b"\n",b"\r\n"),source.replace(b"\n",b"\r")):
-            policy = namespace["_page_csp"](b"<script>"+body+b"</script>")
+            policy = namespace["page_csp"](b"<script>"+body+b"</script>")
             self.assertIn(expected,policy)
             self.assertNotIn("unsafe-inline",policy)
 
     def test_actual_html_matches_normalized_hash(self):
-        namespace = {"re":re, "hashlib":hashlib,"base64":base64,"_csp_cache":{},"_CSP_BASE":"default-src 'none'"}
-        exec(compile(functions({"_page_csp"}),"actual-page-csp","exec"),namespace)
+        namespace = {"re":re, "hashlib":hashlib,"base64":base64,"_csp_cache":{},"CSP_BASE":"default-src 'none'"}
+        exec(compile(functions({"page_csp"}, TREE_STATIC),"actual-page-csp","exec"),namespace)
         raw = (ROOT / "web" / "index.html").read_bytes()
-        policy = namespace["_page_csp"](raw)
+        policy = namespace["page_csp"](raw)
         for body in re.findall(rb"<script>(.*?)</script>",raw,re.S):
             normalized=body.replace(b"\r\n",b"\n").replace(b"\r",b"\n")
             self.assertIn("'sha256-"+base64.b64encode(hashlib.sha256(normalized).digest()).decode()+"'",policy)

@@ -5,7 +5,7 @@ The agent keeps the backend running independently of the dashboard."""
 
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
-import atexit, base64, hashlib, ctypes, faulthandler, json, os, re, secrets, subprocess, sys, threading, time, traceback
+import atexit, ctypes, faulthandler, json, os, secrets, subprocess, sys, threading, time, traceback
 import atomic_json
 import math, socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,6 +26,7 @@ import gpupurge             # تفريغ ذاكرة كرت الشاشة عند �
 import askstore             # ذاكرة «اسأل المرصد»: التقييم والمسح والتعليمات
 import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
 import websession           # البند 6/ط: جلسات المتصفح والتذاكر أحادية الاستعمال والرمز المحلي
+import webstatic            # البند 6/ي: الصفحة والأنماط والخطوط والأيقونات وسياسة CSP للصفحة
 POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import ROOT, HOME, PWSH, CNW, ENGINE, POLICY, PROT_ENGINE_DIR, RUNS, MCCFG, TIERS, TIER_TASK, PORT   # noqa: F401 (ثوابت مشتركة مع وحدات المسارات)
 # التذاكر أحادية الاستعمال والجلسات والرمز في websession.py (البند 6/ط)
@@ -68,35 +69,6 @@ def ensure_agent():
     except Exception:
         infra.log.exception("ensure_agent")
         return False
-
-_ASSETS = {
-    "/assets/favicon.svg": "image/svg+xml", "/assets/icon.svg": "image/svg+xml",
-    "/assets/logo_light.svg": "image/svg+xml", "/assets/logo_dark.svg": "image/svg+xml",
-    "/assets/favicon.ico": "image/x-icon", "/assets/icon.ico": "image/x-icon",
-    "/assets/icon_192.png": "image/png", "/assets/icon_512.png": "image/png",
-    "/assets/apple-touch-icon.png": "image/png",
-    "/assets/logo_light.png": "image/png", "/assets/logo_dark.png": "image/png",
-}
-
-
-_CSP_BASE = ("default-src 'none'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
-            "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
-_csp_cache = {}
-
-
-def _page_csp(html):
-    """CSP for the page: inline scripts are allowed only by the hash of the exact <script> bodies in the served file."""
-    key = hash(html)
-    if key not in _csp_cache:
-        _csp_cache.clear()
-        bodies = re.findall(rb"<script>(.*?)</script>", html, re.S)
-        # HTML parsing normalizes CRLF and CR to LF before the browser hashes
-        # inline script text. Windows-written source files must use that exact
-        # normalized text too, otherwise CSP blocks the entire application.
-        hashes = " ".join("'sha256-%s'" % base64.b64encode(hashlib.sha256(b.replace(b"\r\n", b"\n").replace(b"\r", b"\n")).digest()).decode() for b in bodies)
-        _csp_cache[key] = "script-src %s; %s" % (hashes or "'none'", _CSP_BASE)
-    return _csp_cache[key]
-
 
 class LocalHTTPServer(ThreadingHTTPServer):
     """Bound concurrent connections before creating worker threads."""
@@ -175,7 +147,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._guard():
             return
         path = self.path.split("?")[0]
-        if path in ("/", "/index.html", "/v2", "/v2/"):  # /v2 اسم قديم للصفحة نفسها
+        if webstatic.is_page(path):   # تبديل التذكرة بجلسة قبل تقديم الصفحة (البند 6/ط)
             k = parse_qs(urlparse(self.path).query).get("k", [""])[0]
             if k and websession.use_ticket(k):  # exchange the one-time ticket for a cookie, then drop it from the URL
                 session = websession.create()
@@ -187,45 +159,16 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
-            page = open(os.path.join(ROOT, "web", "index.html"), "rb").read()
-            self._send(200, page, "text/html; charset=utf-8", csp=_page_csp(page))
-        elif re.fullmatch(r"/css/[a-z0-9_-]+\.css", path):
-            # أنماط الواجهة المركزية: ملفات web/css الثابتة بلا أسرار؛ ETag بدل التخزين الطويل حتى يظهر أي تعديل فورًا
-            try:
-                body = open(os.path.join(ROOT, "web", "css", path.rsplit("/", 1)[1]), "rb").read()
-            except OSError:
-                return self._send(404, {"error": "not found"})
-            tag = '"%s"' % hashlib.sha1(body).hexdigest()[:16]
-            if self.headers.get("If-None-Match") == tag:
+        st = webstatic.serve(path, self.headers.get("If-None-Match", ""))   # الصفحة والأنماط والخطوط والأيقونات (البند 6/ي)
+        if st is not None:
+            if st["code"] == 304:
                 self.send_response(304)
-                self.send_header("ETag", tag)
-                self.send_header("Cache-Control", "no-cache")
+                self.send_header("ETag", st["etag"])
+                self.send_header("Cache-Control", st["cache"])
                 self.end_headers()
                 return
-            self._send(200, body, "text/css; charset=utf-8", cache="no-cache", etag=tag)
-        elif re.fullmatch(r"/fonts/[a-z0-9-]+\.woff2", path):
-            # خطوط الهوية (OFL) من web/fonts: ملفات ثابتة بلا أسرار؛ ETag + تخزين يومي لأن أسماءها تحمل الوزن ولا تتغيّر إلا مع الملف
-            try:
-                body = open(os.path.join(ROOT, "web", "fonts", path.rsplit("/", 1)[1]), "rb").read()
-            except OSError:
-                return self._send(404, {"error": "not found"})
-            tag = '"%s"' % hashlib.sha1(body).hexdigest()[:16]
-            if self.headers.get("If-None-Match") == tag:
-                self.send_response(304)
-                self.send_header("ETag", tag)
-                self.send_header("Cache-Control", "public, max-age=86400")
-                self.end_headers()
-                return
-            self._send(200, body, "font/woff2", cache="public, max-age=86400", etag=tag)
-        elif path in _ASSETS or path == "/favicon.ico":
-            fn = "favicon.ico" if path == "/favicon.ico" else path
-            fp = os.path.join(ROOT, "assets", fn.lstrip("/").replace("assets/", "", 1))
-            try:
-                # static icons/logos carry ?v=N in the page, so they can be cached; only data replies stay no-store
-                self._send(200, open(fp, "rb").read(), _ASSETS.get(fn, "image/x-icon"), cache="public, max-age=86400")
-            except OSError:
-                self._send(404, {"error": "not found"})
-        elif path == "/api/healthz":
+            return self._send(st["code"], st["body"], st["ctype"], cache=st["cache"], csp=st["csp"], etag=st["etag"])
+        if path == "/api/healthz":
             ok = _healthz_ok()
             self._send(200 if ok else 503, {"ok": ok, "uptime_s": int(time.time() - infra.START), "pid": os.getpid()})
         elif path in routes_read.ROUTES:   # البند 6/ح: المسارات القرائية المصادَق عليها، جدول واحد ومعالجة أخطاء موحّدة
