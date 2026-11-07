@@ -13,5 +13,6 @@
 .t-sm{font-size:13.5px}
 .cap-dlg{max-height:60vh;overflow:auto}
 .mw-260{max-width:260px}.mw-340{max-width:340px}.mw-360{max-width:360px}.mw-420{max-width:420px}
+.minw-10{min-width:10em}   /* عمود الاسم في جدول بدء التشغيل: حدّ أدنى حتى لا يُخنَق بجوار عمود الأمر (cell-path) فتنكسر الأسماء القصيرة */
 .w-90{width:90px}.w-170{width:170px}
 .stack-v{flex-direction:column;justify-content:center;text-align:center}
