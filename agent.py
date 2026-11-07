@@ -8,7 +8,7 @@ ensure_sqlite()
 import ctypes, os, sys, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim  # noqa: E402
+import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch  # noqa: E402
 from paths import PORT  # noqa: E402
 
 log = infra.log
@@ -118,6 +118,7 @@ def main():
     s.register("server_guard", j_server_guard, 60, timeout_s=30, delay=10)
     s.register("sample", j_sample, 60)
     s.register("cpu", cpuwatch.job, cpuwatch.INTERVAL, timeout_s=20, delay=20)
+    s.register("commitwatch", commitwatch.job, commitwatch.INTERVAL, timeout_s=20, delay=35)
     s.register("power", insight.power_job, 60, timeout_s=20, delay=50)
     s.register("gpu", gpuwatch.job, gpuwatch.INTERVAL, timeout_s=25, delay=40)
     def _shots_job():

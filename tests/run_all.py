@@ -25,7 +25,8 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("جلسات المتصفح والتذاكر والرمز (معزول)", "websession_check.py"),
     ("الصفحة والملفات الثابتة وCSP (معزول)", "webstatic_check.py"),
     ("إقلاع الخادم: النسخة الواحدة والوكيل والخيوط الخلفية (معزول)", "webboot_check.py"),
-    ("خريطة الالتزام: المشاريع والحجز الخامل والحاسبة والحاويات (معزول)", "commitmap_check.py"))]
+    ("خريطة الالتزام: المشاريع والحجز الخامل والحاسبة والحاويات (معزول)", "commitmap_check.py"),
+    ("رصد قفزات الالتزام لكل عملية (معزول)", "commitwatch_check.py"))]
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
     ("فتح النافذة وسياسة CSP (معزول)", "window_security_check.py"),
     ("جمع النسخة المحمية (معزول)", "deployment_agent_check.py"),
