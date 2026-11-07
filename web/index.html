@@ -254,8 +254,8 @@ const PAGES = {
 
   mem: {
     title: "الذاكرة", sub: "الفعلية والالتزام والبرامج الأكثر استهلاكًا", icon: "mem",
-    async load() { return settle(api("/api/mem?range=" + state.range), api("/api/commit")); },
-    render([d, c]) {
+    async load() { return settle(api("/api/mem?range=" + state.range), api("/api/commit"), api("/api/commit-map")); },
+    render([d, c, cm]) {
       if (!d) return nodata("بيانات الذاكرة");
       const m = d.m, p = d.perf || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1, pal = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
       let out = panel("القياسات", `<div class="kpis">${kpi("الفعلية", nf(m.ramPct, 0), "%", `متاح ${Q(m.availGB, "GB", 1)}`, meter(m.ramPct, d.thr.ramWarn, d.thr.ramBad))}${kpi("الالتزام", nf(m.commitPct, 0), "%", `${Q(m.commitGB, "", 1)} / ${Q(m.limitGB, "GB", 1)}`, meter(m.commitPct, d.thr.commitWarn, d.thr.commitBad))}${kpi("كاش النظام", nf(p.cacheGB, 1), "GB")}${kpi("ذاكرة النواة", nf(p.kernelGB, 1), "GB", `مقسّمة ${Q(p.kernelPagedGB, "", 2)} · ثابتة ${Q(p.kernelNonpagedGB, "", 2)}`)}${kpi("العمليات", nf(p.procs), "", `${Q(p.threads)} خيط · ${Q(p.handles)} مقبض`)}</div>`);
@@ -264,6 +264,7 @@ const PAGES = {
       out += panel("أكبر البرامج", `<table class="tbl"><thead><tr><th>البرنامج</th><th class="n">نسخ</th><th class="n">خاصة</th><th class="n">مجموعة العمل</th></tr></thead><tbody>${d.top.slice(0, 10).map(p => `<tr><td translate="no">${esc(p.name)}</td><td class="n num">${p.n}</td><td class="n">${Q(p.privMB >= 1024 ? p.privMB / 1024 : p.privMB, p.privMB >= 1024 ? "GB" : "MB", p.privMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.wsMB >= 1024 ? p.wsMB / 1024 : p.wsMB, p.wsMB >= 1024 ? "GB" : "MB", p.wsMB >= 1024 ? 1 : 0)}</td></tr>`).join("")}</tbody></table>`, { cls: "c8" });
       out += panel("إعداد WSL", d.wslcfg?.exists ? `<div class="list">${Object.entries(d.wslcfg.values || {}).map(([k, v]) => `<div class="li"><span class="t num mono" translate="no">${esc(k)}</span><span class="r num">${esc(v)}</span></div>`).join("")}</div>` : `<div class="empty">لا ملف إعداد</div>`, { cls: "c4" });
       out += panel("الالتزام", c && c.usedGB != null ? `<div class="kpis">${kpi("المستخدم", nf(c.usedGB, 1), "GB", `من ${Q(c.limitGB, "GB", 1)} · ${Q(c.pct, "%", 1)}`, meter(c.pct, d.thr.commitWarn, d.thr.commitBad))}${kpi("الهامش قبل الحدّ", nf(c.headroomGB, 1), "GB", "عند نفاده تفشل طلبات الذاكرة الجديدة")}${kpi("الذروة منذ الإقلاع", nf(c.peakGB, 1), "GB")}${kpi("في العمليات المقروءة", nf(c.procsGB, 1), "GB", `${Q(c.procs)} عملية${c.skipped ? ` · ${Q(c.skipped)} محجوبة` : ""}`)}</div><table class="tbl"><thead><tr><th>البرنامج</th><th class="n">PID</th><th class="n">الالتزام</th><th class="n">مجموعة العمل</th><th></th></tr></thead><tbody>${(c.top || []).map(p => `<tr><td translate="no">${esc(p.name)}</td><td class="n num">${p.pid}</td><td class="n">${Q(p.commitMB >= 1024 ? p.commitMB / 1024 : p.commitMB, p.commitMB >= 1024 ? "GB" : "MB", p.commitMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.wsMB >= 1024 ? p.wsMB / 1024 : p.wsMB, p.wsMB >= 1024 ? "GB" : "MB", p.wsMB >= 1024 ? 1 : 0)}</td><td><button class="btn" data-procclose="${p.pid}" data-procname="${esc(p.name)}" data-procmb="${p.commitMB}" title="إغلاق هذه العملية بتأكيد: الطريق الوحيد لخفض التزامها">إغلاق</button></td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا عمليات</td></tr>`}</tbody></table>` : `<div class="empty">تعذّر قراءة الالتزام</div>`, { cls: "c8", meta: "أعلى 10 عمليات التزامًا (PrivateUsage)" });
+      out += commitMap(cm, d.thr);
       out += panel("ما الذي يخفّض الالتزام؟", `<div class="list"><div class="li"><span class="t">إغلاق البرنامج</span><span class="d">يحرّر التزامه كاملًا فورًا؛ زر «إغلاق» في الجدول يفعل ذلك بتأكيد.</span></div><div class="li"><span class="t">تحرير البرنامج ذاكرته بنفسه</span><span class="d">لا سيطرة عليه من الخارج.</span></div><div class="li"><span class="t">تكبير ملف الصفحات</span><span class="d">يرفع الحدّ فتنخفض النسبة، ولا ينقص الرقم.</span></div></div><p class="note">تنظيف الذاكرة بأوضاعه الثلاثة يخفّض الذاكرة الفعلية المستخدمة لا الالتزام: الصفحات تنتقل إلى الاحتياطي أو ملف الصفحات وتبقى ملتزمة لصاحبها. عند بلوغ الحدّ تفشل البرامج في طلب ذاكرة جديدة ولو بقيت ذاكرة فعلية حرّة.</p>`, { cls: "c4" });
       return out;
     },
@@ -882,6 +883,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.explain) { explainAction(t); }
   else if (t.dataset.reaprun) { reaperRun(t); }
   else if (t.dataset.procclose) { procClose(t); }
+  else if (t.dataset.dockerstop) { dockerStop(t); }
   else if (t.dataset.wgfix) { if (await confirmDlg(`تشغيل المهمة «${t.dataset.wgfix}» بلا نوافذ؟ يُحفظ إجراؤها الأصلي قبل التعديل.`, "أسكت")) act(() => post("/api/winguard-silence", { name: t.dataset.wgfix }), "أُسكتت المهمة"); }
   else if (t.dataset.baremin) { const v = Math.round(Number($("#bareMin").value)); if (!(v >= 60 && v <= 2880)) return toast("بين 60 و2880 دقيقة", true); act(() => post("/api/reaper-set", { key: "bareClaudeShellMinutes", value: v }), "حُفظت المدة"); }
   else if (t.dataset.protadd) { const v = $("#protIn").value.trim(); if (!/^[A-Za-z0-9_.\- ]{1,64}$/.test(v)) return toast("حروف إنجليزية وأرقام ونقطة وشرطة فقط", true); act(() => post("/api/reaper-protect", { name: v, op: "add" }), "أُضيف إلى المحميّ"); }
@@ -939,6 +941,27 @@ $("#boost").onclick = async () => {
   if (m && m.before != null) toast(`الذاكرة الفعلية ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB (الالتزام لا يتغيّر)`);
   show(true);
 };
+// خريطة الالتزام: لمن يذهب الالتزام (حسب المشروع)، وما الحجز الخامل، وكم يلزم للهدف، وحاويات Docker وطلباتها
+const mbq = mb => mb >= 1024 ? Q(mb / 1024, "GB", 1) : Q(mb, "MB");   // رقم ووحدة في عزل اتجاه واحد
+const mbt = mb => { const [v, u] = mbUnit(mb); return `${v} ${u}`; };   // نص خام داخل bdi
+const PR_AR = { merged: ["مدموج", "ok"], closed: ["مغلق", "ok"], open: ["مفتوح", "warn"] };
+function commitMap(cm, thr) {
+  if (!cm || !cm.projects) return panel("الالتزام حسب المشروع", `<div class="empty">تعذّر تجميع الالتزام</div>`, { cls: "c12" });
+  const pl = cm.plan || {}, dk = cm.docker || {}, stale = new Set((cm.stale || []).map(g => g.compose));
+  const flags = p => `${p.gpu ? `<span class="tag" title="يستعمل كرت الشاشة؛ CUDA يحجز التزامًا كبيرًا ما دام النموذج محمَّلًا">كرت الشاشة</span>` : ""}${p.freeMB > 0 && !p.keep ? `<span class="tag warn" title="التزام كبير لا تستعمله العملية الآن؛ يتحرر بتفريغ النموذج أو إغلاق البرنامج">حجز خامل ${mbq(p.freeMB)}</span>` : ""}${p.keep ? `<span class="tag" title="${esc(p.note || "")}">لا يُفرَّغ</span>` : ""}`;
+  const procs = p => p.procs.map(x => `<bdi dir="ltr" translate="no">${esc(x.name)} ${mbt(x.commitMB)}${x.idle || x.gpu ? "*" : ""}</bdi>`).join(" · ");
+  let out = panel("الالتزام حسب المشروع", `<div class="scroll"><table class="tbl"><thead><tr><th>المشروع</th><th class="n">الالتزام</th><th class="n">مجموعة العمل</th><th class="n">حاويات</th><th>الحالة</th></tr></thead><tbody>${cm.projects.map(p => `<tr><td><b>${esc(p.name)}</b><div class="note">${p.count} عملية${p.procs.length ? ": " + procs(p) : ""}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</td><td class="n">${mbq(p.commitMB)}</td><td class="n">${mbq(p.wsMB)}</td><td class="n">${p.containers.count ? `${mbq(p.containers.memMB)}<div class="note">${p.containers.count} حاوية</div>` : "—"}</td><td><div class="pill-row">${flags(p)}</div></td></tr>`).join("")}</tbody></table></div>`, { cls: "c12", meta: "* حجز خامل أو كرت الشاشة · المشروع من سطر أمر البرنامج أو أبيه" });
+  const steps = (pl.steps || []).map(x => `<div class="li"><span class="t">${x.kind === "docker" ? `إيقاف حاويات <bdi dir="ltr" translate="no">${esc(x.name)}</bdi>${x.pr ? ` (طلب ${x.pr} منتهٍ)` : ""}` : `تفريغ الحجز الخامل في «${esc(x.name)}»`}</span><span class="r">${Q(x.freeGB, "GB", 1)}</span><span class="d">بعده نحو ${Q(x.afterPct, "%", 1)}</span></div>`).join("");
+  out += panel(`الوصول إلى ${pl.target ?? 40}%`, pl.target == null ? `<div class="empty">تعذّر الحساب</div>` : `<div class="kpis">${kpi("الآن", nf(cm.pct, 1), "%", `${Q(cm.usedGB, "", 1)} / ${Q(cm.limitGB, "GB", 1)}`, meter(cm.pct, thr?.commitWarn, thr?.commitBad))}${kpi("يلزم تحريره", pl.met ? "0" : nf(pl.needGB, 1), "GB", pl.met ? "تحت الهدف الآن" : "")}${kpi("الخامل القابل للتحرير", nf(pl.idleGB, 1), "GB", `أفضل ما يبلغه ${Q(pl.bestPct, "%", 1)}`)}${kpi("بديل: ملف ترحيل أكبر بـ", nf(pl.pagefileGB, 0), "GB", "يخفض النسبة لا الاستهلاك")}</div>${steps ? `<div class="list">${steps}</div>` : ""}${!pl.met && !pl.reachable ? `<div class="note">تحرير الحجز الخامل وحده لا يبلغ الهدف؛ الباقي يحتاج إغلاق برامج تعمل فعلًا أو جلسات خاملة.</div>` : ""}`, { cls: "c12" });
+  const cs = dk.containers || [];
+  out += panel("حاويات Docker", dk.state === "ok" ? (cs.length ? `<div class="scroll"><table class="tbl"><thead><tr><th>الحاوية</th><th>المشروع</th><th class="n">الذاكرة داخل WSL</th><th>طلب الدمج</th><th></th></tr></thead><tbody>${cs.map((c, i) => { const pr = c.pr, st = pr ? PR_AR[pr.state] || [pr.state, ""] : null, first = cs.findIndex(x => x.compose === c.compose) === i; return `<tr><td translate="no" class="minw-10"><bdi dir="ltr">${esc(c.name)}</bdi><div class="note"><bdi dir="ltr">${esc(c.status)}</bdi></div></td><td>${esc((cm.projects.find(p => p.id === c.project) || {}).name || "غير مصنّف")}</td><td class="n">${mbq(c.memMB)}</td><td>${pr ? `<span class="tag ${st[1]}">${pr.number ? pr.number + " · " : ""}${esc(st[0])}</span>` : "—"}</td><td>${c.compose && first ? `<button class="btn${stale.has(c.compose) ? " primary" : ""}" data-dockerstop="${esc(c.compose)}" data-dockerpr="${pr ? esc(pr.state) : ""}" title="إيقاف كل حاويات ${esc(c.compose)} (لا حذف)">إيقاف</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">لا حاويات تعمل</div>`) : `<div class="empty">${dk.state === "pending" ? "تُقرأ الحاويات الآن؛ حدّث الصفحة بعد لحظات" : esc(dk.why || "تعذّرت قراءة Docker")}</div>`, { cls: "c12", meta: "الذاكرة داخل الآلة الافتراضية؛ تعود إلى ويندوز تدريجيًا بعد الإيقاف" });
+  return out;
+}
+async function dockerStop(t) {
+  const project = t.dataset.dockerstop, done = /^(merged|closed)$/.test(t.dataset.dockerpr || "");
+  if (!(await confirmDlg(`إيقاف حاويات «${project}»؟ تتوقف ولا تُحذف، ويعيدها docker start.${done ? "" : " طلب الدمج الذي تخدمه ليس منتهيًا؛ قد يقطع هذا عمل جلسة أخرى."}`, "أوقف", !done))) return;
+  act(() => post("/api/docker-stop", { project }), `أُوقفت حاويات ${project}`);
+}
 async function procClose(t) {
   const pid = Number(t.dataset.procclose), name = t.dataset.procname || "", mb = Number(t.dataset.procmb) || 0;
   const size = mb >= 1024 ? nf(mb / 1024, 1) + " GB" : nf(mb) + " MB", shellish = /^(pwsh|powershell)[.]exe$/i.test(name);

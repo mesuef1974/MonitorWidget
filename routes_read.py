@@ -13,6 +13,7 @@ import sqlite3
 import time
 
 import commitinfo
+import commitmap
 import cpuwatch
 import db
 import dbview
@@ -124,7 +125,8 @@ _TABLE = {
     "/api/gpu": (lambda q: gpuwatch.api_payload(q.get("range", "24h")), "gpu data unavailable"),
     "/api/gpu-purge": (lambda q: gpupurge.view(), None),   # حالة آخر تفريغ لذاكرة الشاشة (الزر في صفحة الرسوميات)
     "/api/mem": (lambda q: insight.mem_payload(snapshot.native_metrics(), snapshot.metrics_extra(), q.get("range", "24h")), "data unavailable"),
-    "/api/commit": (lambda q: commitinfo.payload(_ival(q, "n", 10, 1, 50)), "commit data unavailable"),   # التزام الذاكرة: الحالة الكلية وأعلى العمليات بـ PrivateUsage؛ التنظيف لا يخفّضه
+    "/api/commit": (lambda q: commitinfo.payload(_ival(q, "n", 10, 1, 50)), "commit data unavailable"),
+    "/api/commit-map": (lambda q: commitmap.payload(_ival(q, "target", commitmap.TARGET_PCT, 10, 95)), "commit map unavailable"),   # الالتزام حسب المشروع والحجز الخامل والحاويات والحاسبة   # التزام الذاكرة: الحالة الكلية وأعلى العمليات بـ PrivateUsage؛ التنظيف لا يخفّضه
     "/api/procs": (lambda q: insight.procs_payload(), "data unavailable"),
     "/api/wsl": (lambda q: insight.wsl_payload(q.get("range", "6h")), "data unavailable"),
     "/api/power": (lambda q: insight.power_payload(q.get("range", "24h")), "data unavailable"),

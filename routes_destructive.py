@@ -21,6 +21,7 @@ import subprocess
 import threading
 import time
 
+import commitmap
 import db
 import errlog
 import insight
@@ -30,7 +31,7 @@ import space
 import winguard
 from paths import CNW, ENGINE, MCCFG, POLICY, PROT_ENGINE_DIR, PWSH, TIER_TASK, TIERS
 
-ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close", "/api/winguard-silence")
+ROUTES = ("/api/space", "/api/reaper-run", "/api/run-cleanup", "/api/proc-close", "/api/winguard-silence", "/api/docker-stop")
 CONFIRM_TTL = 120     # ثوانٍ يبقى فيها رمز التأكيد صالحًا
 MAX_CONFIRMS = 256    # سقف الرموز الحية؛ ما زاد يُسقط الأقدم
 
@@ -291,6 +292,32 @@ def _win_silence(route, body, invalidate):
     return 200, res
 
 
+def _docker_stop(route, body, invalidate):
+    """إيقاف حاويات مشروع compose واحد (stop لا حذف؛ يُعاد تشغيلها بـ docker start) بطلب صريح من جدول الحاويات: المشروع يجب أن
+    يكون في آخر قراءة، ثم 428، ثم الإيقاف والتسجيل في actions."""
+    project = body.get("project")
+    if not isinstance(project, str) or not project or len(project) > 128:
+        return 400, {"error": "bad params"}
+    if not commitmap.known_compose(project):
+        return 409, {"error": "not_found", "project": project}
+    r = confirm_required(route, body)
+    if r:
+        return r
+    ok, detail = commitmap.compose_stop(project)
+    try:
+        with db._lock:
+            c = db.conn()
+            c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)",
+                      (int(time.time()), "dockerstop", "page", 1 if ok else 0, ("project=%s containers=%s" % (project, detail))[:500]))
+            c.commit()
+    except Exception:
+        errlog.swallowed()
+    invalidate()
+    if not ok:
+        return 409, {"error": "failed" if detail != "not_found" else "not_found", "project": project}
+    return 200, {"ok": True, "project": project, "containers": detail.split(",")}
+
+
 def post(route, body, invalidate=lambda: None):
     """(رمز الحالة، الردّ) لمسار من ROUTES، أو None إن لم يكن المسار من هذه الوحدة."""
     if route == "/api/space":
@@ -303,4 +330,6 @@ def post(route, body, invalidate=lambda: None):
         return _proc_close(route, body, invalidate)
     if route == "/api/winguard-silence":
         return _win_silence(route, body, invalidate)
+    if route == "/api/docker-stop":
+        return _docker_stop(route, body, invalidate)
     return None
