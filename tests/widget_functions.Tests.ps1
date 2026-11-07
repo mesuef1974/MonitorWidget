@@ -236,7 +236,7 @@ Describe 'app_shell.ps1: نسخة واحدة من نافذة التطبيق' {
         Get-SingleInstanceAction $true $false $false | Should -Be 'open'
         Get-SingleInstanceAction $false $true $false | Should -Be 'activate'
         Get-SingleInstanceAction $false $false $false | Should -Be 'wait'
-        Get-SingleInstanceAction $true $true $false | Should -Be 'open'
+        Get-SingleInstanceAction $true $true $false | Should -Be 'activate'   # نافذة Edge أو غلاف أقدم لا يحملان القفل
     }
     It 'إعادة تشغيل الخادم (-Replace) تستبدل النافذة القائمة لأن جلستها ماتت' {
         Get-SingleInstanceAction $false $true $true | Should -Be 'replace'
