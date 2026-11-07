@@ -7,7 +7,7 @@
  {
   "name": "healthz integrity ok",
   "status": "PASS",
-  "detail": "{\"ok\": true, \"uptime_s\": 2473, \"pid\": 26496}"
+  "detail": "{\"ok\": true, \"uptime_s\": 354, \"pid\": 19916}"
  },
  {
   "name": "no token -> 401",
@@ -52,7 +52,7 @@
  {
   "name": "/api/state latency < 8000ms",
   "status": "PASS",
-  "detail": "16ms"
+  "detail": "12ms"
  },
  {
   "name": "GET /api/mini 200 JSON",
@@ -62,7 +62,7 @@
  {
   "name": "/api/mini latency < 8000ms",
   "status": "PASS",
-  "detail": "44ms"
+  "detail": "13ms"
  },
  {
   "name": "GET /api/space 200 JSON",
@@ -77,7 +77,7 @@
  {
   "name": "/api/space latency < 8000ms",
   "status": "PASS",
-  "detail": "5140ms"
+  "detail": "42ms"
  },
  {
   "name": "GET /api/startup 200 JSON",
@@ -92,7 +92,7 @@
  {
   "name": "/api/startup latency < 8000ms",
   "status": "PASS",
-  "detail": "4047ms"
+  "detail": "2ms"
  },
  {
   "name": "GET /api/health 200 JSON",
@@ -102,7 +102,7 @@
  {
   "name": "/api/health latency < 8000ms",
   "status": "PASS",
-  "detail": "136ms"
+  "detail": "38ms"
  },
  {
   "name": "GET /api/widget 200 JSON",
@@ -112,7 +112,7 @@
  {
   "name": "/api/widget latency < 8000ms",
   "status": "PASS",
-  "detail": "33ms"
+  "detail": "17ms"
  },
  {
   "name": "GET /api/history 200 JSON",
@@ -122,7 +122,7 @@
  {
   "name": "/api/history latency < 8000ms",
   "status": "PASS",
-  "detail": "64ms"
+  "detail": "32ms"
  },
  {
   "name": "GET /api/db-info 200 JSON",
@@ -132,7 +132,7 @@
  {
   "name": "/api/db-info latency < 8000ms",
   "status": "PASS",
-  "detail": "35ms"
+  "detail": "14ms"
  },
  {
   "name": "GET /api/theme 200 JSON",
@@ -152,7 +152,7 @@
  {
   "name": "/api/infra latency < 8000ms",
   "status": "PASS",
-  "detail": "445ms"
+  "detail": "34ms"
  },
  {
   "name": "GET /api/jobs 200 JSON",
@@ -162,7 +162,7 @@
  {
   "name": "/api/jobs latency < 8000ms",
   "status": "PASS",
-  "detail": "29ms"
+  "detail": "5ms"
  },
  {
   "name": "GET /api/actions 200 JSON",
@@ -172,12 +172,12 @@
  {
   "name": "/api/actions latency < 8000ms",
   "status": "PASS",
-  "detail": "16ms"
+  "detail": "14ms"
  },
  {
   "name": "startup items present",
   "status": "PASS",
-  "detail": "15 عنصر"
+  "detail": "23 عنصر"
  },
  {
   "name": "startup ids unique",
