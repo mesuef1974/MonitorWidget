@@ -606,6 +606,20 @@ def alerts_set(body):
 _obk = {"t": 0.0, "k": None, "v": None, "busy": False}
 
 
+def _ar_folders(n):
+    """مطابقة العدد: «مجلد واحد» و«مجلدان» و«3 مجلدات» و«11 مجلدًا»."""
+    if n == 1:
+        return "مجلد واحد"
+    if n == 2:
+        return "مجلدان"
+    return "%d %s" % (n, "مجلدات" if 3 <= n % 100 <= 10 else "مجلدًا")
+
+
+def _gb_text(gb):
+    """حجم مقروء: أقل من جيجابايت يُعرض بالميجابايت بدل «0.0 GB»."""
+    return "%.1f GB" % gb if gb >= 1 else "%.0f MB" % (gb * 1024)
+
+
 def _oldbak_gb(paths, ttl=900):
     """حجم نسخ التنظيف القديمة بالجيجابايت، يُحسب في خيط خلفي ويُخزَّن 15 دقيقة (None حتى أول حساب): المشي على آلاف الملفات عند كل فتح لصفحة التوصيات كان يكلّف ثانيتين."""
     k = tuple(paths)
@@ -708,7 +722,7 @@ def advice_payload(m, extra, maint, trim):
             olds = [p for p in glob.glob(os.path.join(APPDIR, "cleanup_apps", "*_backup_*")) if os.path.isdir(p)]
             if olds:
                 sz = _oldbak_gb(olds[:8])
-                add("oldbak", "info", "نسخ تنظيف احتياطية قديمة (%d مجلداً)" % len(olds), "مرّ موعد مراجعتها (25 أكتوبر)%s. احذفها إن لم تعد تحتاجها." % (" وحجمها نحو %.1f GB" % sz if sz is not None else ""), None, None)
+                add("oldbak", "info", "نسخ تنظيف احتياطية قديمة (%s)" % _ar_folders(len(olds)), "مرّ موعد مراجعتها (25 أكتوبر)%s. احذفها إن لم تعد تحتاجها." % (" وحجمها نحو " + _gb_text(sz) if sz is not None else ""), None, None)
     except Exception:
         errlog.swallowed()
     order = {"bad": 0, "warn": 1, "info": 2, "ok": 3}
