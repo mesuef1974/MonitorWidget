@@ -27,9 +27,9 @@ if ((Test-Path "$Root\widget.log") -and ((Get-Item "$Root\widget.log").Length -g
 
 # ------------------------------------------------------------------ settings
 $script:setPath = "$Root\widget.settings.json"
-$script:S = @{ left = $null; top = $null; opacity = 0.96; topmost = $false; theme = 'auto'; palette = 'teal'; restorePos = $true; expanded = $false; showChart = $false; muteAlerts = $false }
+$script:S = @{ left = $null; top = $null; opacity = 0.96; topmost = $false; theme = 'auto'; palette = 'teal'; restorePos = $true; expanded = $false; showChart = $false; muteAlerts = $false; tiersOpen = $false }
 if (Test-Path $script:setPath) {
-    try { $j = Get-Content $script:setPath -Raw | ConvertFrom-Json; foreach ($k in 'left','top','opacity','topmost','theme','restorePos','expanded','showChart','muteAlerts') { if ($null -ne $j.$k) { $script:S[$k] = $j.$k } } } catch {}
+    try { $j = Get-Content $script:setPath -Raw | ConvertFrom-Json; foreach ($k in 'left','top','opacity','topmost','theme','restorePos','expanded','showChart','muteAlerts','tiersOpen') { if ($null -ne $j.$k) { $script:S[$k] = $j.$k } } } catch {}
 }
 function Save-Settings {
     # Geometry and widget preferences remain local. Appearance is owned by the backend.
@@ -331,9 +331,14 @@ $UI.headerBrand=$brand
 $UI.pill = New-Object Windows.Controls.Border; $UI.pill.CornerRadius = 8; $UI.pill.Padding = '8,1,8,2'; $UI.pill.Margin = '0,0,8,0'; $UI.pill.VerticalAlignment = 'Center'
 $UI.pillText = New-Text '—' 11 $C.pilltxt 'SemiBold'; $UI.pill.Child = $UI.pillText; $UI.pill.Background = Brush $C.muted
 $UI.pill.MinWidth=42
+# درجة الصحة (من 100) بجوار حالة الاستقرار في الرأس (قرار المالك 7/11/2026)؛ تُطوى حتى يصل أول حساب من /api/mini -> score
+$UI.scorePill = New-Object Windows.Controls.Border; $UI.scorePill.CornerRadius = 8; $UI.scorePill.Padding = '8,1,8,2'; $UI.scorePill.Margin = '0,0,6,0'; $UI.scorePill.VerticalAlignment = 'Center'; $UI.scorePill.Visibility = 'Collapsed'
+$UI.scoreText = New-Text 'صحة —' 11 $C.pilltxt 'SemiBold'; $UI.scorePill.Child = $UI.scoreText; $UI.scorePill.Background = Brush $C.muted
+$pills = New-Object Windows.Controls.StackPanel; $pills.Orientation = 'Horizontal'; $pills.VerticalAlignment = 'Center'
+[void]$pills.Children.Add($UI.scorePill); [void]$pills.Children.Add($UI.pill)
 $statusRow=New-Object Windows.Controls.Grid; $statusRow.Margin='0,8,0,0'
 foreach($width in @('*','Auto')){$column=New-Object Windows.Controls.ColumnDefinition;$column.Width=$width;[void]$statusRow.ColumnDefinitions.Add($column)}
-[void]$statusRow.Children.Add($UI.sub);[Windows.Controls.Grid]::SetColumn($UI.pill,1);[void]$statusRow.Children.Add($UI.pill)
+[void]$statusRow.Children.Add($UI.sub);[Windows.Controls.Grid]::SetColumn($pills,1);[void]$statusRow.Children.Add($pills)
 [Windows.Controls.Grid]::SetRow($statusRow,1);[Windows.Controls.Grid]::SetColumnSpan($statusRow,2);[void]$hdr.Children.Add($statusRow)
 $UI.headerStatus=$statusRow
 $UI.adm = New-Text 'صلاحية الخادم: مسؤول' 11.5 $C.muted
@@ -400,9 +405,10 @@ function Set-Ring($r, [double]$pct, [string]$lvl, [string]$val, [string]$unit, [
     $r.Arc.Data = Ring-Arc ([Math]::Min(99.6, $pct)); $r.Arc.Stroke = if ($lvl -in @('warn','bad')) { Level-Brush $lvl } else { Brush $C.accent }; $r.Val.Text = $val; $r.Unit.Text = $unit; $r.Root.ToolTip = $tip
     [Windows.Automation.AutomationProperties]::SetName($r.Val, (($r.Label + ': ' + $val + ' ' + $unit).Trim())); [Windows.Automation.AutomationProperties]::SetHelpText($r.Val, $tip)
 }
-$ringsGrid = New-Object Windows.Controls.Primitives.UniformGrid; $ringsGrid.Columns = 3
-$UI.rCommit = New-Ring 'التزام الذاكرة'; $UI.rRam = New-Ring 'الذاكرة الفعلية'; $UI.rDisk = New-Ring 'القرص C'
-foreach ($r in @($UI.rCommit, $UI.rRam, $UI.rDisk)) { $ringsGrid.Children.Add($r.Root) | Out-Null }
+# أربعة مقاييس في صفّ واحد (المعالج أُضيف 7/11/2026 بقرار المالك: حال الجهاز من نظرة واحدة)؛ التسميات قصيرة كي تتسع لأربعة أعمدة والتفاصيل في التلميح
+$ringsGrid = New-Object Windows.Controls.Primitives.UniformGrid; $ringsGrid.Columns = 4
+$UI.rCpu = New-Ring 'المعالج'; $UI.rCommit = New-Ring 'الالتزام'; $UI.rRam = New-Ring 'الذاكرة'; $UI.rDisk = New-Ring 'القرص C'
+foreach ($r in @($UI.rCpu, $UI.rCommit, $UI.rRam, $UI.rDisk)) { $ringsGrid.Children.Add($r.Root) | Out-Null }
 $stack.Children.Add($ringsGrid) | Out-Null
 $stack.Children.Add((Gap 10)) | Out-Null
 
@@ -554,6 +560,26 @@ foreach ($t in $TIERS) {
     $row.Child = $g; $stack.Children.Add($row) | Out-Null
     $UI.tiers[$key] = @{ Switch = $sw; Name = $nm; S1 = $s1; S2 = $s2; Run = $run; RunText = $rt; Label = $t[1]; Paused = $false }
 }
+# المستويات الأربعة مطوية في سطر ملخّص واحد (آخر تنظيف والتالي وأي توقف أو فشل) وزرّ يفتح الصفوف الكاملة (قرار المالك 7/11/2026)
+$UI.tierSummary = New-Card 7; $UI.tierSummary.Margin = '0,0,0,8'; $UI.tierSummary.MinHeight = 44
+$tsg = New-Object Windows.Controls.Grid
+foreach ($w in @('*', 'Auto')) { $cd = New-Object Windows.Controls.ColumnDefinition; $cd.Width = $w; $tsg.ColumnDefinitions.Add($cd) }
+$UI.tierSummaryText = New-Text 'جارٍ القراءة…' 12 $C.muted; $UI.tierSummaryText.VerticalAlignment = 'Center'; $UI.tierSummaryText.Margin = '0,0,8,0'; $UI.tierSummaryText.TextWrapping = 'Wrap'; $UI.tierSummaryText.TextTrimming = 'None'   # سطران عند الضيق بدل قصّ موعد التنظيف التالي
+[void]$tsg.Children.Add($UI.tierSummaryText)
+$UI.tierToggle = New-ActionButton 'عرض مستويات التنظيف الأربعة'; $UI.tierToggle.Padding = '10,3,10,4'; $UI.tierToggle.VerticalAlignment = 'Center'
+$UI.tierToggle.Background = Brush (Alpha $C.accent '2A'); $UI.tierToggle.BorderBrush = Brush (Alpha $C.accent '66'); $UI.tierToggle.BorderThickness = 1
+$UI.tierToggleText = New-Text 'تفاصيل ▾' 12 $C.accentText 'SemiBold'; $UI.tierToggle.Content = $UI.tierToggleText
+[Windows.Controls.Grid]::SetColumn($UI.tierToggle, 1); [void]$tsg.Children.Add($UI.tierToggle)
+$UI.tierSummary.Child = $tsg
+$UI.tierRows = New-Object Windows.Controls.StackPanel; $UI.tierRows.Visibility = 'Collapsed'
+function Set-TiersOpen([bool]$open) {
+    $script:S.tiersOpen = $open
+    $UI.tierRows.Visibility = if ($open) { 'Visible' } else { 'Collapsed' }
+    $UI.tierToggleText.Text = if ($open) { 'طيّ ▴' } else { 'تفاصيل ▾' }
+    [Windows.Automation.AutomationProperties]::SetName($UI.tierToggle, $(if ($open) { 'طيّ مستويات التنظيف الأربعة' } else { 'عرض مستويات التنظيف الأربعة' }))
+    $UI.cleanHint.Text = if ($open) { 'المفتاح للجدولة' } else { '4 مستويات' }
+}
+$UI.tierToggle.Add_Click({ Set-TiersOpen (-not [bool]$script:S.tiersOpen); Save-Settings; if (Get-Command Set-RestoredLayout -ErrorAction SilentlyContinue) { Set-RestoredLayout } })
 
 # ---- inline confirm strip (hidden until ▶ is pressed)
 $UI.confirm = New-Object Windows.Controls.Border; $UI.confirm.Visibility = 'Collapsed'; $UI.confirm.CornerRadius = 12; $UI.confirm.Padding = 10
@@ -610,7 +636,9 @@ foreach($n in @($compact,$ringsGrid,$gpuCard,$chartCard,$compCard,$chips)){if($n
 # معلومة الصلاحية تبقى في تفاصيل اللوحة لا في الرأس (مطوية ما لم يعمل الخادم كمسؤول)
 [void]$UI.restoredMetrics.Children.Insert(0,$UI.adm)
 [void]$UI.restoredActions.Children.Add($cleanHead)
-foreach($n in $fullTierRows){$n.Padding='6,6,6,6';$n.Margin='0,0,0,8';$n.MinHeight=60;[void]$UI.restoredActions.Children.Add($n)}
+[void]$UI.restoredActions.Children.Add($UI.tierSummary)
+foreach($n in $fullTierRows){$n.Padding='6,6,6,6';$n.Margin='0,0,0,8';$n.MinHeight=60;[void]$UI.tierRows.Children.Add($n)}
+[void]$UI.restoredActions.Children.Add($UI.tierRows); Set-TiersOpen ([bool]$script:S.tiersOpen)
 [void]$UI.restoredActions.Children.Add($UI.trim)
 # The approved full-width open action belongs after maintenance, not cramped into the guard footer.
 $foot.Children.Remove($UI.open);[Windows.Controls.Grid]::SetColumn($UI.open,0);$UI.open.Margin='0,8,0,0';$UI.open.BorderThickness=1;$UI.open.BorderBrush=Brush $C.line;$UI.open.Background=Brush $C.card
@@ -763,6 +791,7 @@ function Ago($iso) {
     $m = [int]((Get-Date) - [datetime]::Parse([string]$iso)).TotalMinutes
     if ($m -lt 1) { 'الآن' } elseif ($m -lt 60) { "قبل $m د" } elseif ($m -lt 1440) { "قبل $([int]($m / 60)) س" } else { "قبل $([int]($m / 1440)) يوم" }
 }
+function Ar-Minutes([int]$n) { if ($n -eq 1) { 'دقيقة' } elseif ($n -eq 2) { 'دقيقتين' } elseif (($n % 100) -ge 3 -and ($n % 100) -le 10) { "$n دقائق" } else { "$n دقيقة" } }   # مطابقة العدد في نصّ التنبيه
 function Fmt-Bytes($n) { $n = [double]$n; if ($n -ge 1GB) { '{0:N2} GB' -f ($n / 1GB) } elseif ($n -ge 1MB) { '{0:N1} MB' -f ($n / 1MB) } elseif ($n -ge 1KB) { '{0:N0} KB' -f ($n / 1KB) } else { "$([int]$n) B" } }
 
 function Get-ChartSummary($commit, $ram) {
@@ -830,6 +859,9 @@ function Update-Widget {
     Load-Thr $d.thr
     $lc = Lvl $m.commitPct $script:THR.cmW $script:THR.cmB; $lr = Lvl $m.ramPct $script:THR.ramW $script:THR.ramB
     $ld = if ($m.diskFreeGB -lt $script:THR.dB) { 'bad' } elseif ($m.diskFreeGB -lt $script:THR.dW) { 'warn' } else { 'ok' }
+    $cpuNow = $d.cpuNow
+    if ($cpuNow -and $null -ne $cpuNow.pct) { Set-Ring $UI.rCpu ([double]$cpuNow.pct) (Lvl ([double]$cpuNow.pct) 70 90) ([string][Math]::Round([double]$cpuNow.pct)) '%' ('{0:N1} من {1} نواة · عمر القياس {2} ث' -f [double]$cpuNow.cores, $cpuNow.n, [int]$cpuNow.age) }
+    else { Set-Ring $UI.rCpu 0 'ok' '—' '' 'لا قياس للمعالج بعد' }
     Set-Ring $UI.rCommit $m.commitPct $lc ([string][Math]::Round($m.commitPct)) '%' "$($m.commitGB) من $($m.limitGB) GB (الذاكرة + ملف الصفحات)"
     Set-Ring $UI.rRam $m.ramPct $lr ([string][Math]::Round($m.ramPct)) '%' "متاح $($m.availGB) GB من $($m.totalGB) GB"
     Set-Ring $UI.rDisk $m.diskPct $ld ([string][Math]::Round($m.diskFreeGB)) 'GB حر' "حر $($m.diskFreeGB) GB من $($m.diskTotalGB) GB"
@@ -862,9 +894,29 @@ function Update-Widget {
         $running = ($d.manual.running -and $d.manual.tier -eq $k)
         $u.RunText.Text = if ($running) { '… يعمل' } else { '▶ تشغيل' }
     }
+    # سطر الملخّص: أحدث تنظيف جرى، وأقرب موعد قادم، وأي مستوى موقوف أو فاشل
+    try {
+        $lastTier = $null; $lastTs = [datetime]::MinValue; $nextTier = $null; $nextTs = [datetime]::MaxValue; $paused = @(); $failed = @()
+        foreach ($t in $TIERS) {
+            $k = $t[0]; $ti = $d.tiers.$k
+            if (-not $ti) { continue }
+            if ($ti.paused) { $paused += $t[1] }
+            if ($ti.last -and $ti.last.failed -gt 0) { $failed += $t[1] }
+            if ($ti.last -and $ti.last.ts) { $ts = [datetime]::Parse([string]$ti.last.ts); if ($ts -gt $lastTs) { $lastTs = $ts; $lastTier = $t[1] } }
+            if (-not $ti.paused -and $ti.next) { $ts = [datetime]::Parse([string]$ti.next); if ($ts -lt $nextTs) { $nextTs = $ts; $nextTier = $t[1] } }
+        }
+        $parts = @()
+        if ($failed.Count) { $parts += ('فشل جزئي: ' + ($failed -join '، ')) }
+        if ($paused.Count) { $parts += ('موقوف: ' + ($paused -join '، ')) }
+        $parts += if ($lastTier) { ('آخر: ' + $lastTier + ' ' + (Ago $lastTs.ToString('s'))) } else { 'لم يعمل أي مستوى بعد' }
+        if ($nextTier) { $parts += ('التالي: ' + $nextTier + ' ' + $nextTs.ToString('dd/MM HH:mm')) }
+        $UI.tierSummaryText.Text = $parts -join ' · '; $UI.tierSummaryText.ToolTip = $UI.tierSummaryText.Text
+        $UI.tierSummaryText.Foreground = if ($failed.Count -or $paused.Count) { Brush $C.warn } else { Brush $C.muted }
+    } catch { $UI.tierSummaryText.Text = 'تعذّرت قراءة حالة المستويات' }
     $tr = $d.trim
     if ($tr) {
         if ($tr.running) { $UI.trimText.Text = '… جارٍ تنظيف الذاكرة' }
+        elseif ($tr.err -and $tr.freedMB -gt 0) { $UI.trimText.Text = ('⚡ تنظيف الذاكرة الآن · نجح جزئيًا، حُرّر {0}' -f (Fmt-Bytes ([double]$tr.freedMB * 1MB))) }   # انتهت المهلة بعد تحرير فعلي: لا نقول «تعذّر»
         elseif ($tr.err) { $UI.trimText.Text = '⚡ تنظيف الذاكرة الآن · تعذّر' }
         elseif ($null -ne $tr.before -and $tr.ts) { $UI.trimText.Text = ('⚡ تنظيف الذاكرة الآن · {0}% ← {1}% ({2})' -f $tr.before, $tr.after, (Ago $tr.ts)) }
         else { $UI.trimText.Text = '⚡ تنظيف الذاكرة الآن' }
@@ -875,11 +927,18 @@ function Update-Widget {
     try {
         $ca = $d.cpuAlert
         if ($ca -and $ca.name) {
-            $UI.cpuAlert.Text = ('⚠ المعالج: {0} يستهلك {1:N1} نواة منذ ~{2} دقيقة' -f $ca.name, [double]$ca.avg, [int]$ca.minutes); $UI.cpuAlert.Visibility = 'Visible'
+            $UI.cpuAlert.Text = ('⚠ المعالج: {0} يستهلك {1:N1} نواة منذ نحو {2}' -f $ca.name, [double]$ca.avg, (Ar-Minutes ([int]$ca.minutes))); $UI.cpuAlert.Visibility = 'Visible'
             if ($worst -eq 'ok') { $worst = 'warn' }
         } else { $UI.cpuAlert.Visibility = 'Collapsed' }
     } catch {}
     $UI.pill.Background = Level-Brush $worst; $UI.pillText.Text = switch ($worst) { 'bad' { 'حرج' } 'warn' { 'تنبيه' } default { 'مستقر' } }
+    $sc = $d.score
+    if ($sc -and $null -ne $sc.score) {
+        $sv = [int][Math]::Round([double]$sc.score); $UI.scoreText.Text = ('صحة {0}' -f $sv)
+        $UI.scorePill.Background = Level-Brush $(if ($sv -lt 60) { 'bad' } elseif ($sv -lt 80) { 'warn' } else { 'ok' })
+        $UI.scorePill.ToolTip = ('درجة الصحة {0} من 100' -f $sv) + $(if ($sc.status -ne 'complete') { (' · تغطية القياس {0}% (بعض المكوّنات غير مقيسة)' -f $sc.coveragePct) } else { '' }) + ' · التفاصيل في صفحة الصحة'
+        [Windows.Automation.AutomationProperties]::SetName($UI.scoreText, $UI.scorePill.ToolTip); $UI.scorePill.Visibility = 'Visible'
+    } else { $UI.scorePill.Visibility = 'Collapsed' }
     Update-Compact $d
     if ($d.guard) { $UI.guard.Text = if ($guardOk) { 'حارس الذاكرة: ● تنفيذ' } else { 'حارس الذاكرة: ○ تجربة فقط' }; $UI.guard.Foreground = if ($guardOk) { Brush $C.muted } else { Brush $C.warn } } else { $UI.guard.Text = '' }
 }

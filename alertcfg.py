@@ -12,7 +12,7 @@ _lock = threading.Lock()
 _cache = {"t": 0.0, "v": None}
 
 DEFAULTS = {
-    "cpu": {"minCores": 0.6, "windowMin": 10, "ignore": []},
+    "cpu": {"minCores": 2.0, "windowMin": 10, "ignore": ["System"]},   # 0.6 نواة كانت تُنبّه على أي تحميل عادي؛ عمليةُ System لا يملك المستخدم إغلاقها (قرار المالك 7/11/2026)
     "mem": {"ramWarn": 80, "ramBad": 92, "commitWarn": 85, "commitBad": 95},
     "disk": {"freeWarnGB": 40, "freeBadGB": 20},
     "gpu": {"tempWarn": 80, "tempBad": 85},

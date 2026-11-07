@@ -244,6 +244,28 @@ def _gpu_safe():
         return None
 
 
+_score_cache = {"id": None, "t": 0.0, "v": None}
+
+
+def _score_safe(m):
+    """درجة الصحة لرأس الويدجت: تُحسب مرة لكل لقطة جمع أو كل 60 ثانية (الويدجت يستطلع /api/mini كل بضع ثوانٍ)، وNone قبل أول لقطة."""
+    data = _cache["data"]
+    if not data:
+        return None
+    now = time.time()
+    if _score_cache["id"] == id(data) and now - _score_cache["t"] < 60:
+        return _score_cache["v"]
+    try:
+        import health
+        sc = health.score(m, tasks())
+        v = {"score": sc.get("score"), "status": sc.get("status"), "coveragePct": sc.get("coveragePct")}
+    except Exception:
+        errlog.swallowed()
+        v = None
+    _score_cache.update(id=id(data), t=now, v=v)
+    return v
+
+
 def _agent_hb_age():
     try:
         v = db._meta_get("agent_hb", 0)
@@ -273,7 +295,7 @@ def mini_payload():
         "tiers": tiers, "guard": (data or {}).get("guard"),
         "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
         "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
-        "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "gpu": _gpu_safe(), "thr": alertcfg.get(),
+        "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "gpu": _gpu_safe(), "thr": alertcfg.get(), "score": _score_safe(m),
     }
 
 

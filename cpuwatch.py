@@ -178,7 +178,7 @@ def evaluate(now=None):
             last[res["name"]] = int(now)
             _meta_set("cpu_alert_last", json.dumps(last))
             db.add_event(now, "cpu", "warn", "المعالج: %s يستهلك %.1f نواة" % (res["name"], res["avg"]),
-                         "متوسط %.1f من %d نواة (%.0f%%) منذ نحو %d دقيقة. %s" % (res["avg"], res["ncpu"], res["pct"], res["minutes"], res["hint"]))
+                         "متوسط %.1f من %d نواة (%.0f%%) منذ نحو %s. %s" % (res["avg"], res["ncpu"], res["pct"], ar_minutes(res["minutes"]), res["hint"]))
     return res
 
 
@@ -224,6 +224,16 @@ def api_payload():
         ser = c.execute("SELECT ts,cores FROM cpu_top WHERE name='__total__' AND ts>=? ORDER BY ts", (int(now - 3600),)).fetchall()
     return {"ok": True, "ts": last, "ncpu": ncpu, "total": tot, "now": cur, "avg10": a10, "avg60": a60,
             "series": {"t": [r[0] for r in ser], "v": [r[1] for r in ser]}, "alert": alert_state(), "stale": now - last > 180}
+
+
+def ar_minutes(n):
+    """«دقيقة» و«دقيقتين» و«3 دقائق» و«15 دقيقة»: مطابقة العدد في نصّ التنبيه."""
+    n = int(n or 0)
+    if n == 1:
+        return "دقيقة"
+    if n == 2:
+        return "دقيقتين"
+    return "%d %s" % (n, "دقائق" if 3 <= n % 100 <= 10 else "دقيقة")
 
 
 def now_total():
