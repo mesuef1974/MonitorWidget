@@ -58,3 +58,7 @@ tests/e2e/test-results/
 
 # ثنائيات مبنيّة
 purge.exe
+
+# أدوات معاينة محلية
+.claude/devproxy_map.py
+.claude/launch.json
