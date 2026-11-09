@@ -1359,5 +1359,36 @@ class SpaceCleanJob(unittest.TestCase):
             self.assertEqual(dry["emptyDirs"], 0)                                       # المعاينة لا تحذف شيئًا
 
 
+class OtherDrives(unittest.TestCase):
+    """snapshot.other_drives: الأقراص الثابتة غير النظام فقط، بقرص وهمي بلا لمس أقراص الجهاز."""
+
+    def _fn(self, mask, types_, usage):
+        tree = ast.parse((ROOT / "snapshot.py").read_text(encoding="utf-8-sig"))
+        node = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "other_drives")
+        k32 = types.SimpleNamespace(GetLogicalDrives=lambda: mask, GetDriveTypeW=lambda root: types_.get(root[0], 1))
+
+        def du(root):
+            if root[0] not in usage:
+                raise OSError("not ready")
+            return types.SimpleNamespace(**usage[root[0]])
+        ns = {"ctypes": types.SimpleNamespace(windll=types.SimpleNamespace(kernel32=k32)),
+              "shutil": types.SimpleNamespace(disk_usage=du)}
+        exec(compile(ast.Module([node], []), "snapshot.other_drives", "exec"), ns)
+        return ns["other_drives"]
+
+    def test_lists_fixed_non_system_drives_only(self):
+        g = 1024 ** 3
+        fn = self._fn(0b11101, {"A": 2, "C": 3, "D": 3, "E": 5, "F": 3},     # A فلاش، C نظام، D ثابت، E قرص ضوئي، F ثابت غير جاهز
+                      {"C": dict(total=475 * g, free=231 * g, used=244 * g),
+                       "D": dict(total=500 * g, free=350 * g, used=150 * g)})
+        self.assertEqual(fn(), [{"letter": "D", "freeGB": 350.0, "totalGB": 500.0, "pct": 30.0}])
+
+    def test_system_letter_param_and_empty_total(self):
+        g = 1024 ** 3
+        fn = self._fn(0b1100, {"C": 3, "D": 3}, {"C": dict(total=100 * g, free=50 * g, used=50 * g), "D": dict(total=0, free=0, used=0)})
+        self.assertEqual(fn(), [])   # C نظام، وD بلا سعة فيُهمَل
+        self.assertEqual(fn("D"), [{"letter": "C", "freeGB": 50.0, "totalGB": 100.0, "pct": 50.0}])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
