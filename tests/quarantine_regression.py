@@ -146,6 +146,22 @@ class Quarantine(unittest.TestCase):
         self.store.listing()
         self.assertEqual(self.row(qid)["status"],"purged")
 
+    def test_purge_sweeps_empty_dirs_and_only_stale_failed_rows_with_intact_original(self):
+        gone = self.store.move(str(self.source()))
+        self.expire(gone)
+        keep = self.store.move(str(self.source("keep.txt", b"k")))
+        old, fresh = int(time.time()) - 2 * 86400, int(time.time())
+        busy, missing, young = self.source("busy.txt", b"busy"), self.orig / "missing.txt", self.source("young.txt", b"y")
+        for p, ts in ((busy, old), (missing, old), (young, fresh)):
+            self.db.execute("INSERT INTO quarantine(ts,orig,qpath,bytes,expires,status,op_updated) VALUES(?,?,?,4,0,'failed',?)", (ts, str(p), str(self.root / "zz" / p.name), ts))
+        self.db.commit()
+        self.store.purge()
+        self.assertFalse(pathlib.Path(self.row(gone)["qpath"]).parent.exists())   # the purged item's folder is gone
+        self.assertEqual(pathlib.Path(self.row(keep)["qpath"]).read_bytes(), b"k")   # a held item and its folder stay
+        left = {pathlib.Path(r[0]).name for r in self.db.execute("SELECT orig FROM quarantine WHERE status='failed'")}
+        self.assertEqual(left, {"missing.txt", "young.txt"})   # only the stale row with an intact original is dropped
+        self.assertEqual(busy.read_bytes(), b"busy")
+
     def test_outside_quarantine_path_is_never_deleted(self):
         outside=self.source("outside.txt",b"keep")
         self.db.execute("INSERT INTO quarantine(ts,orig,qpath,bytes,expires) VALUES(0,?,?,4,0)",(str(self.orig/'fake'),str(outside)))

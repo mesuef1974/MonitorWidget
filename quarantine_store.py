@@ -296,4 +296,32 @@ class QuarantineStore:
                     amount += row["bytes"] or 0
                 except OSError as exc:
                     self._mark(row["id"], "failed", error=str(exc)[:200])
-        return "purged %d (%.1f MB)" % (count, amount / 2**20)
+            dirs, rows = self._sweep()
+        return "purged %d (%.1f MB), empty dirs %d, failed rows %d" % (count, amount / 2**20, dirs, rows)
+
+    def _sweep(self):
+        """After a purge: remove the empty per-operation folders it left behind, and the failed rows older than a day whose original
+        file is still in place with nothing in the quarantine (an in-use file refused the move each hour: no state left to reconcile).
+        rmdir refuses a folder that holds anything, so nothing quarantined is ever touched."""
+        dirs = rows = 0
+        for name in os.listdir(self.root):
+            path = os.path.join(self.root, name)
+            try:
+                info = os.lstat(path)
+                if stat.S_ISDIR(info.st_mode) and not getattr(info, "st_file_attributes", 0) & 0x400:
+                    os.rmdir(path)
+                    dirs += 1
+            except OSError:
+                pass
+        cut = int(time.time()) - 86400
+        for row in self._rows("SELECT id,orig,qpath FROM quarantine WHERE status='failed' AND COALESCE(op_updated,ts)<?", (cut,)):
+            try:
+                qpath = os.path.abspath(row["qpath"])
+                if _inside(qpath, self.root) and not os.path.lexists(qpath) and os.path.lexists(row["orig"]):
+                    with self.db._lock:
+                        c = self.connection()
+                        rows += c.execute("DELETE FROM quarantine WHERE id=? AND status='failed'", (row["id"],)).rowcount
+                        c.commit()
+            except OSError:
+                pass
+        return dirs, rows
