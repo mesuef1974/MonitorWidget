@@ -453,6 +453,33 @@ def drive_overview(L):
     return {"parts": parts, "ts": t, "scanning": bool(state.get("big"))}
 
 
+ROOT_MIN_GB = 0.1
+ROOT_SKIP = {"users"}   # the profile is its own part; other users' profiles are not readable anyway
+
+
+def _root_rows(ts, deadline):
+    """Readable top-level folders of C:\\ that BIG does not cover (e.g. a projects folder), so they are named instead of lumped into "other"."""
+    covered = {os.path.normcase(os.path.normpath(p)) for _, p, _ in BIG.values()} | {os.path.normcase(os.path.normpath(H))}
+    rows = []
+    try:
+        entries = list(os.scandir("C:\\"))
+    except OSError:
+        errlog.swallowed()
+        return rows
+    for e in entries:
+        try:
+            if not e.is_dir(follow_symlinks=False) or e.name.lower() in ROOT_SKIP or os.path.normcase(os.path.normpath(e.path)) in covered:
+                continue
+            if e.stat(follow_symlinks=False).st_file_attributes & 0x400:
+                continue
+            b, n = _size(e.path, deadline)
+            if b / 2**30 >= ROOT_MIN_GB:
+                rows.append((ts, "big_root_" + e.name, round(b / 2**30, 3), -1 if time.time() > deadline else n))
+        except OSError:
+            errlog.swallowed()
+    return rows
+
+
 def scan_big(budget=900):
     """Slow whole-volume pass (daily). Partial results are flagged, never presented as exact."""
     ts = int(time.time()); deadline = time.time() + budget; rows = []
@@ -467,6 +494,7 @@ def scan_big(budget=900):
         else:
             b, n = _size(p, deadline, dedupe=(k in ("windows", "progdata", "progfiles")))
             rows.append((ts, "big_" + k, round(b / 2**30, 3), -1 if time.time() > deadline else n))  # files=-1 marks a truncated scan
+    rows += _root_rows(ts, deadline)
     if rows:
         with db._lock:
             c = _c(); c.executemany("INSERT OR REPLACE INTO dirsize VALUES(?,?,?,?)", rows); c.commit()
@@ -596,6 +624,7 @@ def overview():
         r = bigrows.get("big_" + k)
         if r:
             parts.append({"key": k, "label": label, "gb": r["gb"], "partial": r["files"] == -1})
+    parts += [{"key": k, "label": "C:\\" + k[len("big_root_"):], "gb": r["gb"], "partial": r["files"] == -1} for k, r in bigrows.items() if k.startswith("big_root_")]
     known = sum(x["gb"] for x in parts)
     used = round(du.used / 2**30, 1)
     volume = {"used": used, "total": round(du.total / 2**30, 1), "free": round(du.free / 2**30, 1), "parts": parts,

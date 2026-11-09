@@ -1233,6 +1233,27 @@ class SpacePreviewJob(unittest.TestCase):
             self.assertIsNone(self.sp.fresh_preview_mb("npmcache"))
 
 
+class SpaceRootParts(unittest.TestCase):
+    """مجلدات جذر C: المقروءة غير المغطّاة بـBIG تُسمّى أجزاءً بدل «غير مصنّف»: لا تكرار لما في BIG، ولا Users، ولا وصلات، ولا الصغير."""
+
+    def test_root_rows_only_uncovered_readable_large_real_dirs(self):
+        import types
+
+        import space
+        gb = 2**30
+
+        def ent(name, link=False):
+            attrs = 0x400 if link else 0x10
+            return types.SimpleNamespace(name=name, path="C:\\" + name, is_dir=lambda follow_symlinks=True: True,
+                                         stat=lambda follow_symlinks=True: types.SimpleNamespace(st_file_attributes=attrs))
+        names = ["Codex", "Windows", "Program Files", "Users", "tiny", "linked"]
+        entries = [ent(n, n == "linked") for n in names]
+        sizes = {"C:\\Codex": 5 * gb, "C:\\tiny": 1000}
+        with patch.object(space.os, "scandir", return_value=entries), patch.object(space, "_size", side_effect=lambda p, d, **k: (sizes.get(p, 9 * gb), 7)):
+            rows = space._root_rows(123, time.time() + 60)
+        self.assertEqual([(r[1], r[2]) for r in rows], [("big_root_Codex", 5.0)])
+
+
 class SpaceCleanJob(unittest.TestCase):
     """التنظيف الفعلي مهمة خلفية: البدء فوري، والقياس يسبق الحذف فيُرفض نموّ المرشّحين فوق التسامح بلا حذف، والمعاينة الحديثة تغني عن القياس،
     والتوقّع المقاس يُمرَّر فلا يُقاس مرتين، ومهمة تنظيف واحدة في كل وقت، والحذف الحقيقي يُبلغ التقدّم. لا قاعدة حية ولا مسح لاحق."""
