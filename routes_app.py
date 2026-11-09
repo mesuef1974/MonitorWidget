@@ -17,6 +17,7 @@ import time
 import db
 import errlog
 import health
+import health_score
 import infra
 import pageuse
 import snapshot
@@ -25,7 +26,6 @@ from paths import ROOT
 ROUTES = ("/api/explain-errors", "/api/llm-unload", "/api/explain", "/api/page-open", "/api/shutdown", "/api/ask")
 EXIT = os._exit      # الخروج بعد ردّ /api/shutdown؛ يُستبدل في الاختبارات
 EXIT_DELAY = 0.4     # ثوانٍ بين إرسال الردّ والخروج (كما كان في الخادم)
-TASK_OK_RESULTS = (0, 267009, 267011, 267014, 267008, 267010, 2147946720, None)   # نتائج المهام المجدولة التي لا تُعدّ فشلًا
 
 
 def _log_explain(what, res, ms):
@@ -64,7 +64,7 @@ def _explain(body):
         extra += ["أكبر العمليات: %s ×%s بذاكرة خاصة %s MB" % (x["name"], x["n"], round(x["private_mb"] or 0)) for x in health.top_procs(5)]
         extra += ["تسرّب محتمل: %s من %s إلى %s MB" % (x["name"], x["fromMB"], x["toMB"]) for x in health.leaks()[:3]]
         extra += ["مهمة فاشلة: %s (النتيجة %s)" % (x.get("label"), x.get("result"))
-                  for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") not in TASK_OK_RESULTS][:4]
+                  for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") is not None and not health_score.task_ok(x)][:4]
     except Exception:
         errlog.swallowed()
     t0 = time.time()

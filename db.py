@@ -172,6 +172,8 @@ def note_tasks(tasks):
             continue
         code = t.get("result")
         s = sev.get(code, "bad") if code is not None else "info"
+        if code == 3 and t.get("group") == "clean":
+            s = "info"   # تخطٍّ بسبب قفل جولة أخرى (health_score.LOCK_SKIP)
         title = "مهمة: %s" % t.get("label", t.get("name"))
         add_event(ts, "task", s, title, "النتيجة 0x%X" % (code & 0xFFFFFFFF) if code not in (None, 0) else "نجحت")
 
