@@ -59,6 +59,30 @@ class PE32(ctypes.Structure):
                 ("exe", ctypes.c_wchar * 260)]
 
 
+def other_drives(system="C"):
+    """الأقراص الثابتة غير قرص النظام: [{letter, freeGB, totalGB, pct}] (استعلام استخدام فقط، بلا مسح)."""
+    out = []
+    try:
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        for i in range(26):
+            letter = chr(65 + i)
+            if not mask & (1 << i) or letter == system:
+                continue
+            root = letter + ":\\"
+            if ctypes.windll.kernel32.GetDriveTypeW(root) != 3:   # DRIVE_FIXED
+                continue
+            try:
+                du = shutil.disk_usage(root)
+            except OSError:
+                continue
+            if du.total:
+                out.append({"letter": letter, "freeGB": round(du.free / 1024 ** 3, 1), "totalGB": round(du.total / 1024 ** 3, 1),
+                            "pct": round(100 * (du.total - du.free) / du.total, 1)})
+    except OSError:
+        pass
+    return out
+
+
 def native_metrics():
     ms = MEMSTAT()
     ms.dwLength = ctypes.sizeof(ms)
@@ -89,7 +113,7 @@ def native_metrics():
         "commitPct": round(100 * commit_used / limit, 1), "commitGB": round(commit_used, 1), "limitGB": round(limit, 1),
         "totalGB": round(total, 1), "availGB": round(avail, 2), "ramPct": round(100 * (total - avail) / total, 1),
         "diskFreeGB": round(du.free / gb, 1), "diskTotalGB": round(du.total / gb, 1),
-        "diskPct": round(100 * (du.total - du.free) / du.total, 1),
+        "diskPct": round(100 * (du.total - du.free) / du.total, 1), "drives": other_drives(),
         "claude": counts["claude.exe"], "shells": counts["pwsh.exe"] + counts["powershell.exe"], "conhost": counts["conhost.exe"],
     }
 
