@@ -39,6 +39,20 @@ class ScoreTests(unittest.TestCase):
         self.assertEqual(r["coveragePct"], 75)
         self.assertTrue(all(p["status"] == "stale" for p in r["parts"] if p["key"] in ("hw", "sec", "therm")))
 
+    def test_cleanup_lock_skip_is_not_failure(self):
+        last = datetime.fromtimestamp(self.now, timezone.utc).isoformat()
+        clean = {"enabled": True, "result": 3, "group": "clean", "label": "تنظيف ربع سنوي", "last": last}
+        r = self.run_score(tasks=self.args["tasks"] + [clean])
+        tasks = next(p for p in r["parts"] if p["key"] == "tasks")
+        self.assertEqual((tasks["pts"], tasks["why"]), (15, "كلها سليمة"))
+
+    def test_exit_3_outside_cleanup_still_fails(self):
+        last = datetime.fromtimestamp(self.now, timezone.utc).isoformat()
+        other = {"enabled": True, "result": 3, "group": "backup", "label": "نسخ", "last": last}
+        r = self.run_score(tasks=[other])
+        tasks = next(p for p in r["parts"] if p["key"] == "tasks")
+        self.assertLess(tasks["pts"], 15)
+
     def test_no_measurements(self):
         r = self.run_score(metrics={}, tasks=[], hardware={}, updates={}, gpu={})
         self.assertIsNone(r["score"])

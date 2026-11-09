@@ -6,6 +6,14 @@ PROBE_MAX_AGE = 8 * 3600  # collector refreshes every 6h; allow 2h scheduling gr
 UPDATES_MAX_AGE = 36 * 3600
 GPU_MAX_AGE = 180
 MIN_COVERAGE = 50
+TASK_OK = frozenset({0, 267009, 267011, 267014, 267008, 267010, 2147946720})   # نتائج المهام المجدولة التي لا تُعدّ فشلًا
+LOCK_SKIP = 3   # CleanupEngine يخرج بـ3 حين تعمل جولة أخرى (engine.lock)؛ تخطٍّ مقصود لا فشل
+
+
+def task_ok(task):
+    """True إن لم تفشل المهمة: نجاح/جارية، أو تنظيف (group=clean) تخطّى بسبب قفل جولة أخرى (الرمز 3)."""
+    r = task.get("result")
+    return r in TASK_OK or (r == LOCK_SKIP and task.get("group") == "clean")
 
 
 def number(value):
@@ -38,7 +46,6 @@ def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, no
 
     enabled = [t for t in (tasks or []) if t.get("enabled")]
     task_data = bool(enabled) and all(not t.get("missing") and isinstance(t.get("result"), int) for t in enabled)
-    success = {0, 267009, 267011, 267014, 267008, 267010, 2147946720}
 
     def age_hours(task):
         try:
@@ -46,7 +53,7 @@ def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, no
         except (ValueError, TypeError, KeyError, OverflowError):
             return math.inf
 
-    bad = [t for t in enabled if t.get("result") not in success]
+    bad = [t for t in enabled if not task_ok(t)]
     recent_bad = sum(age_hours(t) <= 7 * 24 for t in bad)
     add("tasks", "المهام المجدولة", max(0, 15 - 5 * recent_bad - 2 * (len(bad) - recent_bad)) if task_data else None,
         15, ("فشلت: " + "، ".join(str(t.get("label", t.get("name", "مهمة"))) for t in bad[:3])) if task_data and bad
