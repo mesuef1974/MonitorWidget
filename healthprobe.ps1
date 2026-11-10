@@ -44,10 +44,27 @@ try {
 if ($d -and $f) { $o.battery = [ordered]@{ designed = $d; full = $f; healthPct = [math]::Round(100 * $f / $d, 1); cycles = $c; charge = $b.EstimatedChargeRemaining; status = $b.BatteryStatus } }
 } catch {}
 
-# --- boot time (ms) from Diagnostics-Performance event 100
+# --- boot from Diagnostics-Performance: event 100 = durations (ms) of each boot, events 101-110 = what slowed it (app, driver, service...)
 try {
-    $ev = Get-WinEvent -FilterHashtable @{ LogName = 'Microsoft-Windows-Diagnostics-Performance/Operational'; Id = 100 } -MaxEvents 8
-    $o.boots = @($ev | ForEach-Object { $x = [xml]$_.ToXml(); $bt = ($x.Event.EventData.Data | Where-Object Name -eq 'BootTime').'#text'; [ordered]@{ ts = [int][DateTimeOffset]::new($_.TimeCreated).ToUnixTimeSeconds(); bootSec = [math]::Round([double]$bt / 1000, 1) } })
+    $bootLog = 'Microsoft-Windows-Diagnostics-Performance/Operational'
+    $ev = Get-WinEvent -FilterHashtable @{ LogName = $bootLog; Id = 100 } -MaxEvents 8
+    $sec = { param($ms) if ("$ms" -match '^\d+$') { [math]::Round([double]$ms / 1000, 1) } else { $null } }
+    $o.boots = @($ev | ForEach-Object {
+        $x = [xml]$_.ToXml(); $d = @{}; foreach ($n in $x.Event.EventData.Data) { $d[$n.Name] = $n.'#text' }
+        [ordered]@{ ts = [int][DateTimeOffset]::new($_.TimeCreated).ToUnixTimeSeconds(); bootSec = [math]::Round([double]$d['BootTime'] / 1000, 1)
+            mainSec = (& $sec $d['MainPathBootTime']); postSec = (& $sec $d['BootPostBootTime']); explorerSec = (& $sec $d['BootExplorerInitTime']) }
+    })
+    if ($ev) {
+        $from = ($ev | Sort-Object TimeCreated | Select-Object -First 1).TimeCreated.AddMinutes(-5)
+        $cu = Get-WinEvent -FilterHashtable @{ LogName = $bootLog; Id = 101..110; StartTime = $from } -MaxEvents 120
+        $o.bootCulprits = @($cu | ForEach-Object {
+            $x = [xml]$_.ToXml(); $d = @{}; foreach ($n in $x.Event.EventData.Data) { $d[$n.Name] = $n.'#text' }
+            $name = "$($d['FriendlyName'])".Trim(); if (-not $name) { $name = "$($d['Name'])".Trim() }; if (-not $name) { $name = "$($d['FileName'])".Trim() }
+            if ($name.Length -gt 80) { $name = $name.Substring(0, 80) }
+            [ordered]@{ ts = [int][DateTimeOffset]::new($_.TimeCreated).ToUnixTimeSeconds(); id = [int]$_.Id; name = $name
+                totalSec = (& $sec $d['TotalTime']); degSec = (& $sec $d['DegradationTime']) }
+        })
+    }
 } catch {}
 
 # --- startup items + uptime + reboot flag
