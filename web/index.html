@@ -709,7 +709,19 @@ Object.assign(PAGES, {
     render([d]) {
       if (!d) return nodata("المساحة");
       const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
-      let out = panel("القرص C", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
+      // بطاقة لكل قرص: الحر مع المقياس، المستخدم % بحالته (تحذير 85 وخطر 93 كمقياس «الأقراص»)؛ C يزيد تغيّر 24 ساعة وتقدير الامتلاء من سجل الحر، وغير C أكبر مجلد وعمر القياس
+      const ageQ = ts => { const m = (Date.now() / 1000 - ts) / 60; return m < 90 ? Q(m, "د") : m < 2880 ? Q(m / 60, "س", 1) : Q(m / 1440, "يوم", 1); };
+      const lvlTag = p => { const l = level(p, 85, 93); return l === "ok" ? "" : `<span class="tag ${l}">${l === "bad" ? "شبه ممتلئ" : "يقترب من الامتلاء"}</span>`; };
+      const driveKpis = x => { const p = x.total ? x.used / x.total * 100 : 0; return kpi("حرّ", Q(x.free, "GB", 1), "", `من ${Q(x.total, "GB", 1)}`, meter(x.used, 85, 93, x.total)) + kpi("المستخدم", Q(p, "%", 1), "", lvlTag(p)); };
+      const cD = (d.drives || []).find(x => x.letter === "C") || { used: 0, total: 0, free: d.free };
+      const hs = d.hist || [], hl = hs.length ? hs[hs.length - 1] : null, hb = hl ? hs.find(x => x[0] >= hl[0] - 86400) : null;
+      const dlt = hl && hb && hl[0] - hb[0] >= 6 * 3600 ? hl[1] - hb[1] : null, days = dlt !== null && dlt < -0.5 ? d.free / -dlt : null;
+      const trend = kpi("التغير خلال 24 ساعة", dlt === null ? "—" : `<span class="tag ${dlt < -0.5 ? "warn" : "ok"}">${dlt < 0 ? "−" : "+"}${Q(Math.abs(dlt), "GB", 1)}</span>`, "", days !== null && days < 90 ? `يمتلئ بعد نحو ${Q(days, "يوم", 0)} بهذا المعدل` : "");
+      let out = panel("القرص C", `<div class="kpis">${driveKpis(cD)}${trend}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", ageQ(d.ts))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
+      for (const x of (d.drives || []).filter(z => z.letter !== "C")) {
+        const dp = d.dvol?.[x.letter], top = dp?.parts?.[0];
+        out += panel(`القرص ${x.letter}${x.label ? " · " + x.label : ""}`, `<div class="kpis">${driveKpis(x)}${kpi("أكبر مجلد", top ? `<bdi dir="auto">${esc(top.label)}</bdi>` : "—", "", top ? Q(top.gb, "GB", 1) : "")}${kpi("عمر القياس", dp?.ts ? ageQ(dp.ts) : "—")}</div>`, { cls: "c12" });
+      }
       out += panel("المجلدات المراقبة", `<table class="tbl"><thead><tr><th>المجلد</th><th class="n">الحجم</th><th class="n">التغير</th><th class="n">ملفات</th><th>نصيحة</th></tr></thead><tbody>${(d.items || []).map(i => `<tr><td>${esc(i.label)}</td><td class="n">${Q(i.gb, "GB", 2)}</td><td class="n">${i.delta ? `<span class="tag ${i.delta > 0 ? "warn" : "ok"}">${i.delta > 0 ? "+" : ""}${Q(i.delta, "", 2)}</span>` : "—"}</td><td class="n">${Q(i.files)}</td><td class="note">${esc(i.advice || "")}</td></tr>`).join("")}</tbody></table>`);
       out += panel("المساحة الحرة", `<div id="spChart" class="grow"></div>`, { cls: "c8" });
       out += panel("أكبر الهبوط", `<div class="list">${(d.drops || []).map(x => `<div class="li"><span class="t">${when(x.from)}</span><span class="r"><span class="tag bad">−${Q(x.gb, "GB", 1)}</span></span><span class="d">من ${Q(x.hi, "GB", 1)} إلى ${Q(x.lo, "GB", 1)}</span></div>`).join("") || '<div class="empty">لا هبوط ملحوظ</div>'}</div>`, { cls: "c4" });
