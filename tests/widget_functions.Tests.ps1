@@ -9,7 +9,7 @@ BeforeAll {
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors.Message -join '; ') }
-    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-Palette')) {
+    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-Palette', 'Get-DriveLevel')) {
         $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
         if (-not $fn) { throw "Missing $name" }
         . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -27,6 +27,18 @@ Describe 'إتمام الطلبات الخلفية' {
         $ps.Dispose()
         $source | Should -Not -Match 'HadErrors\s*\)'
         $source | Should -Match 'Streams\.Error\.Count -gt 0'
+    }
+}
+
+Describe 'حلقات الأقراص الإضافية' {
+    It 'مستوى القرص بنسبة المستخدم: تحذير عند 85 وخطر عند 93' {
+        Get-DriveLevel 29.7 | Should -Be 'ok'
+        Get-DriveLevel 84.9 | Should -Be 'ok'
+        Get-DriveLevel 85 | Should -Be 'warn'
+        Get-DriveLevel 93 | Should -Be 'bad'
+    }
+    It 'التحديث يستدعي Update-DriveRings بأقراص m.drives قبل الـGPU' {
+        $source | Should -Match 'Update-DriveRings \$m\.drives\s+Update-Gpu'
     }
 }
 

@@ -411,6 +411,20 @@ $UI.rCpu = New-Ring 'المعالج'; $UI.rCommit = New-Ring 'الالتزام';
 foreach ($r in @($UI.rCpu, $UI.rCommit, $UI.rRam, $UI.rDisk)) { $ringsGrid.Children.Add($r.Root) | Out-Null }
 $stack.Children.Add($ringsGrid) | Out-Null
 $stack.Children.Add((Gap 10)) | Out-Null
+# حلقة لكل قرص ثابت إضافي (D: وغيره) بعد الأربع؛ الشبكة 4 أعمدة فتنتقل الزائدة إلى صفٍّ ثانٍ، والعرض ثابت لا يتّسع لخمسة أعمدة
+# المستخدم %: التحذير عند 85 والخطر عند 93 كمقياس «الأقراص» في الواجهة؛ تُزال حلقة القرص الذي اختفى
+function Get-DriveLevel([double]$usedPct) { if ($usedPct -ge 93) { 'bad' } elseif ($usedPct -ge 85) { 'warn' } else { 'ok' } }
+function Update-DriveRings($drives) {
+    $seen = @{}
+    foreach ($x in @($drives)) {
+        if (-not $x -or -not $x.letter -or $null -eq $x.pct -or $null -eq $x.freeGB) { continue }
+        $k = 'rDrive_' + $x.letter; $seen[$k] = $true
+        if (-not $UI[$k]) { $UI[$k] = New-Ring ('القرص ' + $x.letter); $ringsGrid.Children.Add($UI[$k].Root) | Out-Null }
+        $lvl = Get-DriveLevel ([double]$x.pct)
+        Set-Ring $UI[$k] ([double]$x.pct) $lvl ([string][Math]::Round([double]$x.freeGB)) 'GB حر' ('حر {0} GB من {1} GB' -f $x.freeGB, $x.totalGB)
+    }
+    foreach ($k in @($UI.Keys | Where-Object { $_ -like 'rDrive_*' -and -not $seen[$_] })) { $ringsGrid.Children.Remove($UI[$k].Root); $UI.Remove($k) }
+}
 
 # ---- GPU bars: the four «الآن» readings of the gpu page (temperature, load, power, video memory) from /api/mini -> gpu
 $gpuCard = New-Card 8; $script:gpuCardH = 0.0
@@ -865,6 +879,7 @@ function Update-Widget {
     Set-Ring $UI.rCommit $m.commitPct $lc ([string][Math]::Round($m.commitPct)) '%' "$($m.commitGB) من $($m.limitGB) GB (الذاكرة + ملف الصفحات)"
     Set-Ring $UI.rRam $m.ramPct $lr ([string][Math]::Round($m.ramPct)) '%' "متاح $($m.availGB) GB من $($m.totalGB) GB"
     Set-Ring $UI.rDisk $m.diskPct $ld ([string][Math]::Round($m.diskFreeGB)) 'GB حر' "حر $($m.diskFreeGB) GB من $($m.diskTotalGB) GB"
+    Update-DriveRings $m.drives
     Update-Gpu $d.gpu
     $sig = '{0}|{1}|{2}|{3}' -f @($d.hist.commit).Count, @($d.hist.commit)[-1], @($d.hist.ram)[-1], $script:isLight
     if ($sig -ne $script:chartSig) { $script:chartSig = $sig; Draw-Chart $d.hist.commit $d.hist.ram }
