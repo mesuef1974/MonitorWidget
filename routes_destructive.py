@@ -175,7 +175,7 @@ def _space(route, body):
         threading.Thread(target=space.scan, daemon=True).start()
         if not space.state.get("big"):
             space.state["big"] = True
-            threading.Thread(target=lambda: (space.scan_big(), space.state.update(big=False)), daemon=True).start()
+            threading.Thread(target=space.run_scan_big, daemon=True).start()
         return 200, {"ok": True}
     if act == "qrestore":
         return 200, space.quarantine_restore(int(body.get("id", 0)))
