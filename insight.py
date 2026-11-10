@@ -14,6 +14,7 @@ import health
 import errlog
 import alertcfg
 import gpuwatch
+import powerhealth
 
 CNW = 0x08000000
 HOME = os.environ.get("USERPROFILE") or os.path.expanduser("~")
@@ -578,9 +579,26 @@ def power_payload(rng="24h"):
         add("warn", "حرارة كرت الشاشة مرتفعة", "الحرارة الآن %d°." % gl["temp"])
     if up and up > 14 * 86400:
         add("info", "الجهاز يعمل منذ أيام طويلة", "إعادة التشغيل تصفّر تسرّب الذاكرة وتُكمل التحديثات.")
+    crit = {"ok": False}
+    shut = {"days": powerhealth.DAYS, "items": [], "counts": {}}
+    if not (ps and ps.get("noBattery")):
+        try:
+            crit = _cached("battpolicy", 60, powerhealth.policy)
+        except Exception:
+            errlog.swallowed()
+        try:
+            shut = powerhealth.shutdowns()
+        except Exception:
+            errlog.swallowed()
+    if crit.get("risk"):
+        add("bad", "إجراء البطارية الحرجة لا ينفع", crit["riskText"] + " غيّره إلى «إيقاف تشغيل» من خيارات الطاقة.")
+    if shut["counts"].get("battery"):
+        add("warn", "إيقافات مفاجئة بسبب فراغ البطارية", "%d في آخر %d يومًا: الجهاز انطفأ والبطارية فارغة. وصّل الشاحن قبل %s%%." % (
+            shut["counts"]["battery"], shut["days"], crit.get("lowLevel") or 10))
     add("info", "حرارة المعالج غير متاحة", "ويندوز لا يعطي حرارة المعالج دون صلاحية إدارية أو أداة مخصصة؛ نعرض تردده الفعلي كمؤشر على التقييد، وحرارة كرت الشاشة من برنامج التعريف.")
     return {"ok": True, "now": int(time.time()), "status": ps, "mhz": mh, "limited": limited, "uptimeS": up, "plan": hw.get("powerPlan"), "pendingReboot": hw.get("pendingReboot"),
-            "battery": bt, "gpu": gl, "plans": power_plans(), "series": ser, "range": rng if rng in RANGES else "24h", "span": span, "notes": notes}
+            "battery": bt, "gpu": gl, "plans": power_plans(), "series": ser, "range": rng if rng in RANGES else "24h", "span": span, "notes": notes,
+            "critical": crit, "shutdowns": shut}
 
 
 # ------------------------------------------------------------------ alerts page

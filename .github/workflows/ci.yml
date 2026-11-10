@@ -50,6 +50,7 @@ jobs:
           python -X utf8 -B tests/commitmap_check.py
           python -X utf8 -B tests/commitwatch_check.py
           python -X utf8 -B tests/bootwatch_check.py
+          python -X utf8 -B tests/powerhealth_check.py
           python -X utf8 -B tests/portwatch_check.py
           python -X utf8 -B tests/check_all.py
 
