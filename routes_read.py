@@ -71,6 +71,7 @@ def _space(q):
     d = space.overview()
     infra.log.info("space: overview built in %.2fs" % (time.time() - t0))
     d["quarantine"] = space.quarantine_list()
+    d["qpurge"] = dict(space.QP)
     return d
 
 

@@ -179,6 +179,15 @@ def _space(route, body):
         return 200, {"ok": True}
     if act == "qrestore":
         return 200, space.quarantine_restore(int(body.get("id", 0)))
+    if act == "qpurge":   # حذف دائم لكل المحجوز قبل انقضاء الأيام: رمز تأكيد مربوط بما رآه المالك (seen_mb)، والحذف في الخلفية
+        seen = body.get("seen_mb")
+        if isinstance(seen, bool) or not isinstance(seen, (int, float)) or not 0 <= seen <= 1e12 or not math.isfinite(seen):
+            return 400, {"error": "seen_mb required"}
+        r = confirm_required(route, body)
+        if r:
+            return r
+        r = space.quarantine_purge_now(seen)
+        return (200 if r["ok"] else 409 if r.get("running") else 400), r
     if act == "auto":
         return 200, {"ok": space.set_auto(kind, bool(body.get("on")))}
     if act == "report":
