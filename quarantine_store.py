@@ -275,10 +275,14 @@ class QuarantineStore:
         except OSError:
             return {"ok": False, "error": "تعذر الاسترجاع: مسار غير آمن أو العملية مشغولة"}
 
-    def purge(self):
+    def held_bytes(self):
+        return sum(r["bytes"] or 0 for r in self._rows("SELECT bytes FROM quarantine WHERE status='held'"))
+
+    def purge(self, force=False):
+        """Permanently delete held items whose hold has expired; force=True (explicit owner action) ignores the expiry."""
         count, amount = 0, 0
         with self._operation():
-            rows = self._rows("SELECT * FROM quarantine WHERE status='held' AND expires<=?", (int(time.time()),))
+            rows = self._rows("SELECT * FROM quarantine WHERE status='held'" + ("" if force else " AND expires<=?"), () if force else (int(time.time()),))
             for row in rows:
                 try:
                     path = self._qpath(row["qpath"])

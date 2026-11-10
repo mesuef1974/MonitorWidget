@@ -162,6 +162,17 @@ class Quarantine(unittest.TestCase):
         self.assertEqual(left, {"missing.txt", "young.txt"})   # only the stale row with an intact original is dropped
         self.assertEqual(busy.read_bytes(), b"busy")
 
+    def test_purge_waits_for_expiry_but_force_purges_every_held_item(self):
+        a = self.store.move(str(self.source("a.txt", b"aa")))
+        b = self.store.move(str(self.source("b.txt", b"bbb")))
+        self.assertEqual(self.store.held_bytes(), 5)
+        self.store.purge()
+        self.assertEqual({self.row(a)["status"], self.row(b)["status"]}, {"held"})   # not expired: untouched
+        self.store.purge(force=True)
+        self.assertEqual({self.row(a)["status"], self.row(b)["status"]}, {"purged"})
+        self.assertEqual(self.store.held_bytes(), 0)
+        self.assertFalse(pathlib.Path(self.row(a)["qpath"]).exists())
+
     def test_outside_quarantine_path_is_never_deleted(self):
         outside=self.source("outside.txt",b"keep")
         self.db.execute("INSERT INTO quarantine(ts,orig,qpath,bytes,expires) VALUES(0,?,?,4,0)",(str(self.orig/'fake'),str(outside)))

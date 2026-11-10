@@ -1254,6 +1254,55 @@ class SpaceRootParts(unittest.TestCase):
         self.assertEqual([(r[1], r[2]) for r in rows], [("big_root_Codex", 5.0)])
 
 
+class SpaceQuarantinePurgeNow(unittest.TestCase):
+    """تفريغ الحجر الفوري: يرفض إن كبر المحجوز عمّا رآه المالك، ويعمل في الخلفية، ولا يتكرر وهو جارٍ، ويحتاج رمز تأكيد في المسار."""
+
+    def setUp(self):
+        import space
+        self.sp = space
+        space.QP.update(running=False, res=None)
+        self.addCleanup(space.QP.update, running=False, res=None)
+
+    def fake_store(self, held_bytes, gate=None, calls=None):
+        import types
+
+        def purge(force=False):
+            if calls is not None:
+                calls.append(force)
+            if gate:
+                gate.wait(5)
+            return "purged"
+        return types.SimpleNamespace(held_bytes=lambda: held_bytes, purge=purge)
+
+    def test_refuses_when_held_grew_past_what_the_owner_saw(self):
+        calls = []
+        with patch.object(self.sp, "_quarantine_store", return_value=self.fake_store(300 * 2**20, calls=calls)):
+            r = self.sp.quarantine_purge_now(100)
+        self.assertFalse(r["ok"])
+        self.assertEqual(calls, [])
+
+    def test_runs_forced_purge_in_background_and_refuses_a_second_start(self):
+        gate, calls = threading.Event(), []
+        with patch.object(self.sp, "_quarantine_store", return_value=self.fake_store(100 * 2**20, gate=gate, calls=calls)):
+            self.assertTrue(self.sp.quarantine_purge_now(100)["ok"])
+            self.assertTrue(self.sp.QP["running"])
+            again = self.sp.quarantine_purge_now(100)
+            self.assertFalse(again["ok"])
+            self.assertTrue(again.get("running"))
+            gate.set()
+            end = time.time() + 5
+            while self.sp.QP["running"] and time.time() < end:
+                time.sleep(0.01)
+        self.assertEqual(calls, [True])
+        self.assertEqual(self.sp.QP["res"], "purged")
+
+    def test_route_requires_seen_mb_and_confirm_token(self):
+        import routes_destructive as rd
+        self.assertEqual(rd._space("/api/space", {"action": "qpurge"})[0], 400)
+        status, body = rd._space("/api/space", {"action": "qpurge", "seen_mb": 10})
+        self.assertEqual((status, body["error"]), (428, "confirm_required"))
+
+
 class SpaceCleanJob(unittest.TestCase):
     """التنظيف الفعلي مهمة خلفية: البدء فوري، والقياس يسبق الحذف فيُرفض نموّ المرشّحين فوق التسامح بلا حذف، والمعاينة الحديثة تغني عن القياس،
     والتوقّع المقاس يُمرَّر فلا يُقاس مرتين، ومهمة تنظيف واحدة في كل وقت، والحذف الحقيقي يُبلغ التقدّم. لا قاعدة حية ولا مسح لاحق."""

@@ -589,6 +589,13 @@ async function spAction(t) {
     else if (a === "dismmonthly") { await post("/api/space", { action: "dismmonthly", on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
     else if (a === "scan") { await post("/api/space", { action: "scan" }); toast("بدأ القياس"); later(20000, reload); reload(); }
     else if (a === "report") { await post("/api/space", { action: "report" }); toast("بدأ إعداد التقرير"); later(15000, reload); later(45000, reload); }
+    else if (a === "qpurge") {
+      const mb = Math.round(((d.quarantine || []).filter(q => q.status === "held").reduce((s, q) => s + (q.bytes || 0), 0)) / 1048576);
+      if (!(await confirmDlg(`سيُحذف كل المحجوز (${fmtMB(mb)}) نهائيًا الآن قبل انقضاء أيام الحجز، ولن تستطيع استرجاع أي عنصر منه ولا التراجع. هل تريد المتابعة؟`, "احذف المحجوز نهائيًا", true))) return;
+      const r = await post("/api/space", { action: "qpurge", seen_mb: mb });
+      toast(r.ok ? "بدأ تفريغ الحجر في الخلفية" : "تعذّر التفريغ: " + (r.error || ""), !r.ok);
+      later(4000, reload); later(15000, reload); later(45000, reload);
+    }
     else if (a === "qr") { const r = await post("/api/space", { action: "qrestore", id: Number(t.dataset.id) }); toast(r.ok ? "استُرجع العنصر إلى مكانه الأصلي" : "تعذّر الاسترجاع: " + (r.error || ""), !r.ok); reload(); }
   } catch (e) { toast("تعذّر: " + e.message, true); }
 }
@@ -725,7 +732,7 @@ Object.assign(PAGES, {
       out += spaceCleanPanel(d) + spaceReportPanel(d);
       out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc(r.kind)} <span class="note">${esc(r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`, { cls: "c6" });
       const qh = (d.quarantine || []).filter(q => q.status === "held"), qhMB = qh.reduce((a, q) => a + (q.bytes || 0), 0) / 1048576, qn = (d.quarantine || []).length;
-      out += panel("الحجر (استرجاع خلال 7 أيام)", `<p class="note">المحجوز ${fmtMB(qhMB)} في ${Q(qh.length)} عنصرًا على القرص C؛ يتحرّر آليًا عند انقضاء أيام الحجز، ولا يدخل في «القابل للتحرير».${qn > 40 ? ` يُعرض أحدث 40 من ${Q(qn)}.` : ""}</p><div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note cell-path" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c6", meta: `${Q(qn)} عنصرًا · ${fmtMB(qhMB)}` });
+      out += panel("الحجر (استرجاع خلال 7 أيام)", `<p class="note">المحجوز ${fmtMB(qhMB)} في ${Q(qh.length)} عنصرًا على القرص C؛ يتحرّر آليًا عند انقضاء أيام الحجز، ولا يدخل في «القابل للتحرير».${qn > 40 ? ` يُعرض أحدث 40 من ${Q(qn)}.` : ""}</p><p>${d.qpurge && d.qpurge.running ? '<span class="tag warn">تفريغ الحجر جارٍ…</span>' : `<button class="btn" data-sp="qpurge"${qh.length ? "" : " disabled"} title="حذف دائم لكل المحجوز قبل انقضاء الأيام">فرّغ الحجر الآن (حذف نهائي)</button>`}${d.qpurge && d.qpurge.res ? ` <span class="note">${esc(d.qpurge.res)}</span>` : ""}</p><div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note cell-path" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc(q.status)}</span></td><td>${q.status === "held" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c6", meta: `${Q(qn)} عنصرًا · ${fmtMB(qhMB)}` });
       return out;
     }
   },

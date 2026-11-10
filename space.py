@@ -284,6 +284,35 @@ def purge_quarantine():
     return _quarantine_store().purge()
 
 
+QP = {"running": False, "res": None}
+_qp_lock = threading.Lock()
+QP_TOLERANCE_MB = 5
+
+
+def quarantine_purge_now(seen_mb):
+    """Owner-triggered permanent deletion of everything held, before the 7 days end. Refuses when what is held now exceeds what the
+    owner saw (new items arrived after the confirmation dialog); the deletion itself runs in the background."""
+    store = _quarantine_store()
+    held_mb = store.held_bytes() / 2**20
+    if held_mb > seen_mb * 1.02 + QP_TOLERANCE_MB:
+        return {"ok": False, "error": "تغيّر محتوى الحجر منذ آخر عرض؛ حدّث الصفحة وأعد المحاولة"}
+    with _qp_lock:
+        if QP["running"]:
+            return {"ok": False, "running": True, "error": "تفريغ الحجر جارٍ"}
+        QP.update(running=True, res=None)
+
+    def run():
+        try:
+            QP["res"] = store.purge(force=True)
+        except Exception as exc:
+            errlog.swallowed()
+            QP["res"] = "failed: %s" % str(exc)[:200]
+        finally:
+            QP["running"] = False
+    threading.Thread(target=run, daemon=True, name="quarantine-purge-now").start()
+    return {"ok": True, "started": True}
+
+
 def auto_run():
     """Hourly: run the cleanups the user switched on (each is limited to disposable data)."""
     for k, on in get_auto().items():
