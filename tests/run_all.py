@@ -28,6 +28,7 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("خريطة الالتزام: المشاريع والحجز الخامل والحاسبة والحاويات (معزول)", "commitmap_check.py"),
     ("رصد قفزات الالتزام لكل عملية (معزول)", "commitwatch_check.py"),
     ("رصد الإقلاع غير النظيف (معزول)", "bootwatch_check.py"),
+    ("صحة الطاقة: إجراء البطارية الحرجة وأسباب الإيقافات المفاجئة (معزول)", "powerhealth_check.py"),
     ("رصد استنفاد المنافذ (معزول)", "portwatch_check.py"))]
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
     ("فتح النافذة وسياسة CSP (معزول)", "window_security_check.py"),

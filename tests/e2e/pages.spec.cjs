@@ -68,7 +68,11 @@ test('صفحة الصحة: لا تحذير مع WebView2، وتحذير ظاهر
   expect(text).not.toContain('أعد فتح النافذة');   // المكتبات متوفرة لكن التهيئة فشلت: إعادة الفتح لا تكفي
 });
 
-test('عدّاد فتح الصفحات: بلاغ واحد لكل انتقال إلى صفحة مختلفة، وصفحة التحكم تعرض الاستخدام والصفحات التي لم تُفتح', async ({ page }) => {
+test('عدّاد فتح الصفحات: بلاغ واحد لكل انتقال إلى صفحة مختلفة، وصفحة التحكم تعرض الاستخدام والصفحات التي لم تُفتح', async ({ browser }) => {
+  // العدّاد يتجاهل المتصفح المُساق آليًا (hwhealth.spec.cjs)، فهذا الاختبار يحاكي متصفح المالك: لا webdriver ولا Headless
+  const ctx = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0' });
+  await ctx.addInitScript(() => Object.defineProperty(Navigator.prototype, 'webdriver', { get: () => false }));
+  const page = await ctx.newPage();
   const opens = [];
   await page.route('**/api/page-open', async route => {
     const req = route.request();

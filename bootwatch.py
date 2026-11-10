@@ -12,6 +12,7 @@ import time
 INTERVAL = 3600
 LOOKBACK_DAYS = 14
 SOURCE = "boot"
+TITLE = "إقلاع غير نظيف: %s"     # powerhealth.shutdowns يقرأ الحوادث من جدول events بهذه البادئة
 _CNW = 0x08000000
 
 
@@ -59,7 +60,7 @@ def emit(events, add_event):
     """حدث لكل حادثة؛ يعيد العدد."""
     for ev in events:
         kind, sev, desc = classify(ev)
-        add_event(ev["ts"], SOURCE, sev, "إقلاع غير نظيف: %s" % kind, desc)
+        add_event(ev["ts"], SOURCE, sev, TITLE % kind, desc)
     return len(events)
 
 

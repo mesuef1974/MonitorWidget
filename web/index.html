@@ -226,6 +226,7 @@ const PAGES = {
       const ig = h.gpu?.igpu;
       out += panel("الاعتمادية والأحداث", rl && rl.ok ? reliabBody(rl) : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6", meta: rl?.ok ? `آخر ${Q(rl.days)} يومًا` : "" });
       out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", nf(ig.shared_mb), "MB", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
+      out += panel("زمن الإقلاع", bootBody(h.hw), { cls: "c6" });
       return out;
     },
     after([h]) {
@@ -391,6 +392,26 @@ function pageUseBody(pu) {   // البند 5: فتحات كل صفحة خلال 
   const unused = rows.filter(r => !r.opens).length, day = d => `<bdi dir="ltr" class="q">${esc(d)}</bdi>`;
   const note = !pu.since ? "لم يُسجَّل فتح أي صفحة بعد؛ يبدأ العدّ مع أول انتقال." : pu.complete ? `اكتملت مدة القياس (${nf(pu.windowDays)} يومًا منذ ${day(pu.since)})؛ الأرقام لآخر ${nf(pu.windowDays)} يومًا، و${nf(unused)} صفحة لم تُفتح فيها مرشّحة للقصّ.` : `بدأ القياس يوم ${day(pu.since)} ومضى ${nf(pu.elapsedDays)} من ${nf(pu.windowDays)} يومًا؛ قرار القصّ بعد اكتمال المدة.`;
   return `<p class="note">${note}</p><table class="tbl"><thead><tr><th>الصفحة</th><th class="n">مرات الفتح</th><th class="n">أيام</th><th>آخر فتح</th></tr></thead><tbody>${rows.map(r => `<tr><td>${esc(r.title)} <span class="note num">${esc(r.key)}</span></td><td class="n num">${nf(r.opens)}</td><td class="n num">${nf(r.days)}</td><td>${r.opens ? when(r.last) : `<span class="tag ${pu.complete ? "warn" : ""}">لم تُفتح</span>`}</td></tr>`).join("")}</tbody></table>`;
+}
+function battBody(b, c) {   // صحة البطارية وما يفعله الجهاز حين تبلغ المستوى الحرج
+  const wear = b.healthPct != null ? Math.max(0, 100 - b.healthPct) : null;
+  let out = b.full != null ? `<div class="kpis">${kpi("السعة الآن", nf(b.full / 1000, 1), "Wh", b.designed ? `من ${Q(b.designed / 1000, "Wh", 0)} أصلية` : "", b.healthPct != null ? meter(b.healthPct, 101, 101) : "")}${kpi("التقادم", wear != null ? nf(wear, 1) : "—", "%", "", wear != null ? meter(wear, 20, 40) : "")}${kpi("دورات الشحن", b.cycles != null ? nf(b.cycles) : "—")}</div>` : `<div class="empty">سعة البطارية غير مقروءة بعد؛ يقرؤها الفحص المرتفع الدوري.</div>`;
+  if (c?.ok) out += `<div class="pill-row"><span class="tag ${c.risk ? "bad" : "ok"}">عند ${Q(c.level, "%")}: ${esc(c.actionName)}</span>${c.hibernate === false ? '<span class="tag">السبات معطّل</span>' : ""}</div><p class="note">${esc(c.riskText || "حين تبلغ البطارية هذا المستوى ينفّذ الجهاز الإجراء بدل أن ينطفئ فجأة.")}</p>`;
+  return out;
+}
+const SHUT_TAG = { battery: "warn", sleep: "warn", crash: "bad", unknown: "bad" };
+function shutBody(s) {   // الإيقافات المفاجئة (Kernel-Power 41) بسببها وقراءتَي البطارية قبل الانطفاء وبعد الإقلاع
+  if (!s) return `<div class="empty">غير متاح</div>`;
+  if (!s.items.length) return `<div class="empty">لا إيقاف مفاجئ خلال ${Q(s.days)} يومًا</div>`;
+  const pct = v => v == null ? "—" : Q(v, "%");
+  return `<table class="tbl"><thead><tr><th>وقت الإقلاع</th><th>السبب</th><th class="n">البطارية قبله</th><th class="n">بعده</th></tr></thead><tbody>${s.items.map(i => `<tr><td>${when(i.ts)}</td><td><span class="tag ${SHUT_TAG[i.cause] || ""}">${esc(i.text)}</span></td><td class="n">${pct(i.battBefore)}${i.acBefore === false ? ' <span class="note">على البطارية</span>' : ""}</td><td class="n">${pct(i.battAfter)}</td></tr>`).join("")}</tbody></table>`;
+}
+const NOTE_LVL = { bad: "خطر", warn: "تنبيه", info: "معلومة" };
+function bootBody(hw) {   // زمن الإقلاع من سجل أداء ويندوز (يقرؤه الفحص المرتفع الدوري)
+  const bs = (hw?.boots || []).filter(b => b.bootSec != null).sort((x, y) => y.ts - x.ts);
+  if (!bs.length) return `<div class="empty">لا قياس لزمن الإقلاع بعد؛ يقرؤه الفحص المرتفع الدوري.</div>`;
+  const v = bs.map(b => b.bootSec), avg = v.reduce((x, y) => x + y, 0) / v.length;
+  return `<div class="kpis">${kpi("آخر إقلاع", nf(bs[0].bootSec, 1), "ث", when(bs[0].ts), meter(bs[0].bootSec, 60, 90, 120))}${kpi("المتوسط", nf(avg, 1), "ث", `من آخر ${arN(bs.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}`)}${kpi("الأبطأ", nf(Math.max(...v), 1), "ث")}</div><div class="list">${bs.slice(0, 6).map(b => `<div class="li"><span class="t">${when(b.ts)}</span><span class="r">${Q(b.bootSec, "ث", 1)}</span></div>`).join("")}</div>`;
 }
 function reliabBody(r) {
   const kinds = Object.entries(r.counts || {}).filter(([, c]) => c.d30 > 0).sort((x, y) => y[1].d30 - x[1].d30);
@@ -668,8 +689,13 @@ Object.assign(PAGES, {
       const s = d.status || {}, b = d.battery || {}, f = d.mhz || {};
       let out = panel("الآن", `<div class="gauges">${gauge({ value: s.pct, label: "البطارية", sub: s.charging ? "تُشحن" : s.ac ? "موصولة" : "على البطارية", warn: 101, bad: 101 })}${gauge({ value: f.cur, label: "تردد المعالج", unit: "MHz", max: f.max || 1, warn: 101, bad: 101 })}${b.healthPct != null ? gauge({ value: b.healthPct, label: "صحة البطارية", sub: `${Q(b.cycles)} دورة شحن`, warn: 101, bad: 101, decimals: 1 }) : ""}</div>`, { cls: "c7" });
       out += panel("خطة الطاقة", `<div class="list">${(d.plans || []).map(p => `<div class="li"><span class="t">${esc(p.name)}</span><span class="r">${p.active ? '<span class="tag ok">مُفعّلة</span>' : `<button class="btn" data-plan="${esc(p.guid)}" data-pname="${esc(p.name)}">تفعيل</button>`}</span></div>`).join("")}</div><p class="note">مدة التشغيل ${dur(d.uptimeS)}${d.pendingReboot ? " · يلزم إعادة تشغيل" : ""}</p>`, { cls: "c5" });
+      if (!s.noBattery) {
+        out += panel("صحة البطارية", battBody(b, d.critical), { cls: "c6" });
+        out += panel("الإيقافات المفاجئة", shutBody(d.shutdowns), { cls: "c6", meta: d.shutdowns ? `آخر ${Q(d.shutdowns.days)} يومًا` : "" });
+      }
       out += panel("التردد خلال الفترة", `<div id="pwChart" class="grow"></div>`, { cls: "c6", meta: rangeChips() });
       out += panel("شحن البطارية", `<div id="pbChart" class="grow"></div>`, { cls: "c6" });
+      out += panel("ملاحظات", `<div class="list">${(d.notes || []).map(n => `<div class="li"><span class="t"><span class="tag ${sev(n.lvl)}">${NOTE_LVL[n.lvl] || esc(n.lvl)}</span> ${esc(n.title)}</span><span class="d">${esc(n.text)}</span></div>`).join("") || '<div class="empty">لا ملاحظات</div>'}</div>`);
       return out;
     },
     after([d]) {
@@ -843,6 +869,7 @@ Object.assign(PAGES, {
         out += panel("النسخ الاحتياطية", `<div class="list">${(inf.backups || []).map(b => `<div class="li"><span class="t num t-sm" translate="no">${esc(b.name)}</span><span class="r">${Q(b.bytes / 1048576, "MB", 1)}</span><span class="d">${when(b.ts)}</span></div>`).join("") || '<div class="empty">لا نسخ</div>'}</div>`, { cls: "c4" });
       }
       out += panel("ويدجت سطح المكتب", `<div class="row-sw"><span>${wg?.running ? "ظاهر الآن" : "مخفي"}</span>${sw(!!wg?.running, 'data-widget="1"', "إظهار ويدجت سطح المكتب")}</div>`, { cls: "c12" });
+      out += panel("صفحات خارج القائمة", `<p class="note">قليلتا الاستعمال فأُخرجتا من القائمة الجانبية، وما زالتا تعملان.</p><div class="acts"><a class="btn" href="#/history">السجل</a><a class="btn" href="#/dbx">قاعدة البيانات</a></div>`, { cls: "c12" });
       out += panel("استخدام الصفحات", pageUseBody(pu), { cls: "c12", meta: pu ? (pu.complete ? `<span class="tag ok">اكتملت مدة القياس</span>` : `<span class="tag">${nf(pu.elapsedDays)} من ${nf(pu.windowDays)} يومًا</span>`) : "" });
       out += panel("المهام الخلفية", j ? `<table class="tbl"><thead><tr><th>المهمة</th><th class="n">كل</th><th>آخر تشغيل</th><th>الحالة</th><th class="n">التالي</th><th></th></tr></thead><tbody>${j.jobs.map(x => `<tr><td><b>${esc(x.name)}</b></td><td class="n">${dur(x.interval_s)}</td><td class="note">${when(x.last_end)} · ${Q(x.last_ms / 1000, "ث", 1)}</td><td><span class="tag ${x.last_status === "ok" ? "ok" : "bad"}">${esc(x.last_status || "—")}</span> <span class="note">${Q(x.runs)} تشغيل · ${Q(x.fails)} فشل</span></td><td class="n note">${when(x.next_run)}</td><td><button class="btn" data-job="${esc(x.name)}">تشغيل</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty">غير متاح</div>');
       return out;
@@ -935,7 +962,7 @@ const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
   ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
   ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
-  ["السجل والإعدادات", [["history", "السجل"], ["dbx", "القاعدة"], ["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]
+  ["الإعدادات", [["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
 ];
 
 /* ───────── shell + router ───────── */
@@ -1050,7 +1077,9 @@ async function prefetch() {
 }
 function schedule() { clearInterval(timer); const ms = +$("#every").value; if (ms) timer = setInterval(() => { if (!document.hidden) show(); }, ms); }
 let trackedKey = "";
-function track(key) {   // عدّاد فتح الصفحات (البند 5): بلاغ واحد لكل انتقال إلى صفحة مختلفة؛ يُعدّ في الخادم لا في localStorage، والفشل صامت
+const AUTOMATED = navigator.webdriver === true || /Headless/i.test(navigator.userAgent);   // جولات Playwright ولقطات المتصفح بلا واجهة ليست فتحًا من المالك؛ كانت تلوّث العدّاد
+function track(key) {
+  if (AUTOMATED) return;   // عدّاد فتح الصفحات (البند 5): بلاغ واحد لكل انتقال إلى صفحة مختلفة؛ يُعدّ في الخادم لا في localStorage، والفشل صامت
   if (key === trackedKey) return; trackedKey = key;
   fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
 }
