@@ -92,6 +92,22 @@ def set_auto(kind, on):
     return True
 
 
+def _held_note(r):
+    """The audit row's expected MB counts what went to the quarantine, its actual MB does not: say so, or the gap reads as a shortfall."""
+    h = r.get("heldMB") or 0
+    return "حُجز %.1f MB في الحجر؛ يتحرّر بعد %d أيام" % (h, Q_DAYS) if h > 0 else None
+
+
+def run_scan_big():
+    """The slow whole-volume pass in a thread: the 'scanning' flag is always cleared, also when the pass raises (it used to stay on forever)."""
+    try:
+        scan_big()
+    except Exception:
+        errlog.swallowed()
+    finally:
+        state["big"] = False
+
+
 def clean(kind, dry=True, src="manual", early=False, prog=None, exp=None):
     """Preview (dry=True) or run a whitelisted cleanup. Every real run is audited: expected vs actual and free space before/after.
     early: owner's explicit override of the Windows.old age gate (the UI asks for a separate confirmation).
@@ -109,13 +125,13 @@ def clean(kind, dry=True, src="manual", early=False, prog=None, exp=None):
         _pv.pop(kind, None)   # the preview no longer describes the folder
     fa = shutil.disk_usage("C:\\").free
     r.update(expectedMB=exp, freeBeforeGB=round(fb / 2**30, 2), freeAfterGB=round(fa / 2**30, 2))
-    if kind in ("dism", "claudearchive", "dockercompact"):
-        return r   # background jobs write their own audit row when they finish
+    if kind in ("dism", "claudearchive", "dockercompact") or r.get("started"):
+        return r   # background jobs (dism, archive, compact, and a started Windows.old delete) write their own audit row when they finish
     try:
         with db._lock:
             c = _c()
             cur = c.execute("INSERT INTO actions(ts,kind,src,expected_mb,actual_mb,files,skipped,free_before_gb,free_after_gb,ok,detail) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                            (int(time.time()), kind, src, exp, r.get("mb", 0), r.get("files", 0), r.get("skipped", 0), r["freeBeforeGB"], r["freeAfterGB"], 1 if r.get("ok") else 0, r.get("error")))
+                            (int(time.time()), kind, src, exp, r.get("mb", 0), r.get("files", 0), r.get("skipped", 0), r["freeBeforeGB"], r["freeAfterGB"], 1 if r.get("ok") else 0, r.get("error") or _held_note(r)))
             c.commit(); r["actionId"] = cur.lastrowid
     except Exception:
         errlog.swallowed()
@@ -541,7 +557,7 @@ def scan_if_due(hours=6):
         r = _c().execute("SELECT MAX(ts) FROM dirsize WHERE key LIKE 'big_%'").fetchone()
     if (not r[0] or time.time() - r[0] > BIG_HOURS * 3600) and not state.get("big"):
         state["big"] = True
-        threading.Thread(target=lambda: (scan_big(), state.update(big=False)), daemon=True).start()
+        threading.Thread(target=run_scan_big, daemon=True).start()
 
 
 LIVE_KEYS = ("docker", "temp", "edge", "npm", "swdist", "downloads")

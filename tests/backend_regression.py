@@ -1303,6 +1303,34 @@ class SpaceQuarantinePurgeNow(unittest.TestCase):
         self.assertEqual((status, body["error"]), (428, "confirm_required"))
 
 
+class SpaceReviewFixes(unittest.TestCase):
+    """مراجعة المساحة 4-7: ملاحظة الحجر في صف التدقيق، علم «يقيس» يُمسح عند خطأ scan_big، لا صف تدقيق مزدوج لحذف Windows.old الخلفي."""
+
+    def setUp(self):
+        import space
+        self.sp = space
+
+    def test_held_note_only_when_something_was_quarantined(self):
+        self.assertIsNone(self.sp._held_note({"heldMB": 0}))
+        self.assertIsNone(self.sp._held_note({}))
+        self.assertIn("10.5", self.sp._held_note({"heldMB": 10.5}))
+
+    def test_run_scan_big_clears_scanning_flag_even_when_scan_raises(self):
+        self.sp.state["big"] = True
+        self.addCleanup(self.sp.state.update, big=False)
+        with patch.object(self.sp, "scan_big", side_effect=OSError("boom")):
+            self.sp.run_scan_big()
+        self.assertFalse(self.sp.state["big"])
+
+    def test_started_background_delete_writes_no_audit_row_from_clean(self):
+        def no_db():
+            raise AssertionError("clean() must not audit a started background job")
+        with patch.object(self.sp, "_clean_impl", return_value={"ok": True, "started": True}), patch.object(self.sp, "_c", no_db), \
+                patch.object(self.sp, "dry_mb", return_value=1.0):
+            r = self.sp.clean("winold", dry=False, exp=1.0)
+        self.assertTrue(r["started"])
+
+
 class SpaceCleanJob(unittest.TestCase):
     """التنظيف الفعلي مهمة خلفية: البدء فوري، والقياس يسبق الحذف فيُرفض نموّ المرشّحين فوق التسامح بلا حذف، والمعاينة الحديثة تغني عن القياس،
     والتوقّع المقاس يُمرَّر فلا يُقاس مرتين، ومهمة تنظيف واحدة في كل وقت، والحذف الحقيقي يُبلغ التقدّم. لا قاعدة حية ولا مسح لاحق."""
