@@ -423,3 +423,29 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         $AP::GetName($UI.closeBtn) | Should -Be 'إخفاء الويدجت'
     }
 }
+
+Describe 'restart_widget.ps1: لا يدّعي إعادة تشغيل لم تحدث' {
+    BeforeAll {
+        $script:rwPath = Join-Path $script:widgetRepoRoot 'restart_widget.ps1'
+        $script:rwText = Get-Content -LiteralPath $script:rwPath -Raw
+    }
+    It 'يبدأ بـ BOM ليُحلَّل نصّه العربي في Windows PowerShell 5 أيضًا' {
+        $head = [IO.File]::ReadAllBytes($script:rwPath)[0..2]
+        ($head | ForEach-Object { $_.ToString('x2') }) -join '' | Should -Be 'efbbbf'
+    }
+    It 'يُحلَّل بلا أخطاء صياغة' {
+        $t = $null; $e = $null
+        [void][Management.Automation.Language.Parser]::ParseFile($script:rwPath, [ref]$t, [ref]$e)
+        $e.Count | Should -Be 0
+    }
+    It 'يرفع نفسه حين تكون مهمة الويدجت مرتفعة والجلسة عادية، بلا نافذة' {
+        $script:rwText | Should -Match "RunLevel -eq 'Highest' -and -not \`$isAdmin"
+        $script:rwText | Should -Match '-Verb RunAs -WindowStyle Hidden -Wait -PassThru'
+    }
+    It 'لا يطبع النجاح إلا بعد ظهور عملية جديدة أو نجاح النسخة المرتفعة، ويخرج بـ1 عند الفشل' {
+        $script:rwText | Should -Not -Match "(?m)^'widget restarted'\s*$"
+        $script:rwText | Should -Match "'widget restarted \(pid '"
+        $script:rwText | Should -Match 'ProcessId -notin \$oldIds'
+        $script:rwText | Should -Match '(?m)^\s*exit 1\s*$'
+    }
+}
