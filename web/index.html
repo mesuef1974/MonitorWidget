@@ -227,6 +227,7 @@ const PAGES = {
       out += panel("الاعتمادية والأحداث", rl && rl.ok ? reliabBody(rl) : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6", meta: rl?.ok ? `آخر ${Q(rl.days)} يومًا` : "" });
       out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", nf(ig.shared_mb), "MB", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
       out += panel("زمن الإقلاع", bootBody(h.hw), { cls: "c6" });
+      out += panel("مسبّبات بطء الإقلاع", culpritBody(h.hw), { cls: "c6", meta: h.hw?.boots?.length ? `آخر ${arN(h.hw.boots.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}` : "" });
       return out;
     },
     after([h]) {
@@ -407,11 +408,37 @@ function shutBody(s) {   // الإيقافات المفاجئة (Kernel-Power 41
   return `<table class="tbl"><thead><tr><th>وقت الإقلاع</th><th>السبب</th><th class="n">البطارية قبله</th><th class="n">بعده</th></tr></thead><tbody>${s.items.map(i => `<tr><td>${when(i.ts)}</td><td><span class="tag ${SHUT_TAG[i.cause] || ""}">${esc(i.text)}</span></td><td class="n">${pct(i.battBefore)}${i.acBefore === false ? ' <span class="note">على البطارية</span>' : ""}</td><td class="n">${pct(i.battAfter)}</td></tr>`).join("")}</tbody></table>`;
 }
 const NOTE_LVL = { bad: "خطر", warn: "تنبيه", info: "معلومة" };
+const BOOT_KIND = { 101: "تطبيق", 102: "تعريف", 103: "خدمة", 106: "تحسين خلفي", 107: "سياسة الجهاز", 108: "سياسة المستخدم", 109: "جهاز", 110: "مدير الجلسات" };   // أحداث Diagnostics-Performance 101-110
+function bootList(hw) {   // الإقلاعات من الأحدث، وكل مسبّب مربوط بإقلاعه: ويندوز يسجّلهما في اللحظة نفسها، والهامش 5 دقائق احتياط
+  const cs = (hw?.bootCulprits || []).filter(c => c.name && c.degSec != null);
+  return (hw?.boots || []).filter(b => b.bootSec != null).sort((x, y) => y.ts - x.ts)
+    .map(b => ({ ...b, culprits: cs.filter(c => Math.abs(c.ts - b.ts) <= 300).sort((x, y) => y.degSec - x.degSec) }));
+}
+function bootDetail(b) {   // «حتى سطح المكتب» = MainPathBootTime، «بعده» = ما بعد ظهور سطح المكتب حتى يهدأ الجهاز
+  const parts = [];
+  if (b.mainSec != null) parts.push(`حتى سطح المكتب ${Q(b.mainSec, "ث", 1)}`);
+  if (b.postSec != null) parts.push(`بعده ${Q(b.postSec, "ث", 1)}`);
+  if (b.culprits[0]) parts.push(`الأبطأ: ${esc(b.culprits[0].name)} (${Q(b.culprits[0].degSec, "ث", 1)})`);
+  return parts.length ? `<span class="d">${parts.join(" · ")}</span>` : "";
+}
+function culpritBody(hw) {   // ما أخّر الإقلاع بحسب ويندوز، مجموعًا بالاسم عبر آخر الإقلاعات ومرتّبًا بمجموع التأخير
+  const bs = bootList(hw);
+  if (!bs.length) return `<div class="empty">لا قياس لزمن الإقلاع بعد؛ يقرؤه الفحص المرتفع الدوري.</div>`;
+  if (!Array.isArray(hw.bootCulprits)) return `<div class="empty">الفحص المرتفع المثبّت قديم ولا يقرأ المسبّبات؛ شغّل المثبّت المحمي كمسؤول مرة واحدة.</div>`;
+  const by = new Map();
+  for (const b of bs) for (const c of b.culprits) {
+    const k = c.id + "|" + c.name, a = by.get(k) || { name: c.name, id: c.id, boots: new Set(), deg: 0, max: 0 };
+    a.boots.add(b.ts); a.deg += c.degSec; a.max = Math.max(a.max, c.degSec); by.set(k, a);
+  }
+  const rows = [...by.values()].sort((x, y) => y.deg - x.deg);
+  if (!rows.length) return `<div class="empty">لم يسجّل ويندوز مسبّبًا للبطء في آخر ${arN(bs.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}</div>`;
+  return `<table class="tbl"><thead><tr><th>المسبّب</th><th>النوع</th><th class="n">الإقلاعات</th><th class="n">متوسط التأخير</th><th class="n">أقصاه</th></tr></thead><tbody>${rows.map(a => { const avg = a.deg / a.boots.size; return `<tr><td>${esc(a.name)}</td><td>${BOOT_KIND[a.id] || "مكوّن"}</td><td class="n">${Q(a.boots.size)} من ${Q(bs.length)}</td><td class="n"><span class="tag ${level(avg, 3, 10)}">${Q(avg, "ث", 1)}</span></td><td class="n">${Q(a.max, "ث", 1)}</td></tr>`; }).join("")}</tbody></table><p class="note">التأخير هو ما زاد على الزمن المعتاد للمكوّن كما يقيسه ويندوز عند كل إقلاع.</p>`;
+}
 function bootBody(hw) {   // زمن الإقلاع من سجل أداء ويندوز (يقرؤه الفحص المرتفع الدوري)
-  const bs = (hw?.boots || []).filter(b => b.bootSec != null).sort((x, y) => y.ts - x.ts);
+  const bs = bootList(hw);
   if (!bs.length) return `<div class="empty">لا قياس لزمن الإقلاع بعد؛ يقرؤه الفحص المرتفع الدوري.</div>`;
   const v = bs.map(b => b.bootSec), avg = v.reduce((x, y) => x + y, 0) / v.length;
-  return `<div class="kpis">${kpi("آخر إقلاع", nf(bs[0].bootSec, 1), "ث", when(bs[0].ts), meter(bs[0].bootSec, 60, 90, 120))}${kpi("المتوسط", nf(avg, 1), "ث", `من آخر ${arN(bs.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}`)}${kpi("الأبطأ", nf(Math.max(...v), 1), "ث")}</div><div class="list">${bs.slice(0, 6).map(b => `<div class="li"><span class="t">${when(b.ts)}</span><span class="r">${Q(b.bootSec, "ث", 1)}</span></div>`).join("")}</div>`;
+  return `<div class="kpis">${kpi("آخر إقلاع", nf(bs[0].bootSec, 1), "ث", when(bs[0].ts), meter(bs[0].bootSec, 60, 90, 120))}${kpi("المتوسط", nf(avg, 1), "ث", `من آخر ${arN(bs.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}`)}${kpi("الأبطأ", nf(Math.max(...v), 1), "ث")}</div><div class="list">${bs.slice(0, 6).map(b => `<div class="li"><span class="t">${when(b.ts)}</span><span class="r">${Q(b.bootSec, "ث", 1)}</span>${bootDetail(b)}</div>`).join("")}</div>`;
 }
 function reliabBody(r) {
   const kinds = Object.entries(r.counts || {}).filter(([, c]) => c.d30 > 0).sort((x, y) => y[1].d30 - x[1].d30);

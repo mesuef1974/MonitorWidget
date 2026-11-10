@@ -63,6 +63,50 @@ test('صفحة الصحة: زمن الإقلاع من الفحص المرتفع�
   await page.reload();
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
   await expect(panelOf(page, 'زمن الإقلاع').locator('.empty')).toContainText('لا قياس لزمن الإقلاع');
+  await expect(panelOf(page, 'مسبّبات بطء الإقلاع').locator('.empty')).toContainText('لا قياس لزمن الإقلاع');
+});
+
+test('صفحة الصحة: تفصيل زمن الإقلاع ومسبّبات البطء مجموعةً بالاسم ومرتّبةً بالتأخير', async ({ page }) => {
+  await page.goto('/#/health');
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  const rows = panelOf(page, 'زمن الإقلاع').locator('.list .li');
+  await expect(rows.nth(0).locator('.d')).toContainText('حتى سطح المكتب 22.1');
+  await expect(rows.nth(0).locator('.d')).toContainText('بعده 38.2');
+  await expect(rows.nth(0).locator('.d')).toContainText('الأبطأ: Claude (30.3');   // الأكبر تأخيرًا لا الأول ورودًا
+  await expect(rows.nth(3).locator('.d')).toHaveCount(0);                          // إقلاع من فحص قديم: بلا تفصيل ولا مسبّب
+  const cul = panelOf(page, 'مسبّبات بطء الإقلاع');
+  const tr = cul.locator('tbody tr');
+  await expect(tr).toHaveCount(4);                                                 // المسبّب خارج نافذة الإقلاعات لا يظهر
+  await expect(cul).not.toContainText('خارج النافذة');
+  await expect(tr.nth(0)).toContainText('Claude');
+  await expect(tr.nth(0)).toContainText('تطبيق');
+  await expect(tr.nth(0)).toContainText('2 من 5');
+  await expect(tr.nth(0).locator('.tag.bad')).toContainText('28.5');               // متوسط 30.3 و26.7
+  await expect(tr.nth(0).locator('td.n').last()).toContainText('30.3');
+  await expect(tr.nth(1)).toContainText('Web Management Service');
+  await expect(tr.nth(1)).toContainText('خدمة');
+  await expect(tr.nth(1).locator('.tag.warn')).toContainText('3.6');
+  await expect(tr.nth(2).locator('td').first()).toHaveText('<b>Audio</b> Device'); // الاسم نصّ لا HTML، ومربوط بإقلاعه بفارق 40 ث
+  await expect(tr.nth(2).locator('b')).toHaveCount(0);
+  await expect(tr.nth(2)).toContainText('جهاز');
+  await expect(tr.nth(3).locator('.tag.ok')).toContainText('0.3');
+});
+
+test('صفحة الصحة: فحص مرتفع قديم بلا مسبّبات يطلب تشغيل المثبّت، وقائمة فارغة تقول لا مسبّب', async ({ page }) => {
+  let mode = 'old';
+  await page.route('**/api/health', async route => {
+    const res = await route.fetch(); const body = await res.json();
+    if (mode === 'old') delete body.hw.bootCulprits; else body.hw.bootCulprits = [];
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.goto('/#/health');
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(panelOf(page, 'مسبّبات بطء الإقلاع').locator('.empty')).toContainText('شغّل المثبّت المحمي كمسؤول');
+  await expect(panelOf(page, 'زمن الإقلاع').locator('.list .li').nth(0).locator('.d')).not.toContainText('الأبطأ');
+  mode = 'none';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(panelOf(page, 'مسبّبات بطء الإقلاع').locator('.empty')).toContainText('لم يسجّل ويندوز مسبّبًا');
 });
 
 test('القائمة بلا «السجل» و«القاعدة»، وهما تعملان برابط من صفحة التحكم', async ({ page }) => {
