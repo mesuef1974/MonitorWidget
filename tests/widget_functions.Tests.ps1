@@ -9,7 +9,7 @@ BeforeAll {
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors.Message -join '; ') }
-    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-Palette', 'Get-DriveLevel')) {
+    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Get-Palette', 'Get-DriveLevel')) {
         $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
         if (-not $fn) { throw "Missing $name" }
         . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -447,5 +447,42 @@ Describe 'restart_widget.ps1: لا يدّعي إعادة تشغيل لم تحد�
         $script:rwText | Should -Match "'widget restarted \(pid '"
         $script:rwText | Should -Match 'ProcessId -notin \$oldIds'
         $script:rwText | Should -Match '(?m)^\s*exit 1\s*$'
+    }
+}
+
+Describe 'تخطيط الويدجت عند الإقلاع: تباطؤ وقاطع تأرجح' {
+    It 'القرار الأصلي دون تغيّر: عمودان تحت الأقصى من 1150 وطول المحتوى + 12، وإلا عمود واحد' {
+        Get-WidgetLayoutMode 1232 1100 $false | Should -BeFalse   # 1232 فوق 1150 والمحتوى 1112
+        Get-WidgetLayoutMode 1140 900 $false | Should -BeTrue     # تحت 1150
+        Get-WidgetLayoutMode 1232 1230 $false | Should -BeTrue    # المحتوى + 12 = 1242 فوق منطقة العمل
+        Get-WidgetLayoutMode 1232 1220 $false | Should -BeFalse   # المحتوى + 12 = 1232 يساوي منطقة العمل
+    }
+    It 'العودة من عمودين إلى عمود تحتاج هامشًا، فمنطقة العمل التي تتأرجح حول الحدّ لا تبدّل الوضع' {
+        # المحتوى 1230 فالحدّ 1242: عند 1232 يبقى العمودان إن كان الوضع الحالي عمودين، ولا ينتقل إليهما إن كان عمودًا واحدًا إلا تحت 1242
+        Get-WidgetLayoutMode 1232 1230 $true | Should -BeTrue
+        Get-WidgetLayoutMode 1270 1230 $true | Should -BeTrue     # ما زال دون 1242 + 40
+        Get-WidgetLayoutMode 1283 1230 $true | Should -BeFalse    # فوق الحدّ والهامش: يعود إلى عمود
+        # تتابع منطقة عمل متأرجحة (1280 ثم 1232 وهكذا) لا يقلب الوضع أكثر من مرة
+        $mode = $false; $flips = 0
+        foreach ($h in 1280, 1232, 1280, 1232, 1280, 1232, 1280, 1232) {
+            $next = Get-WidgetLayoutMode $h 1230 $mode
+            if ($next -ne $mode) { $flips++ }
+            $mode = $next
+        }
+        $flips | Should -Be 1
+    }
+    It 'قاطع التأرجح: يسمح بأقل من 4 تبديلات في 10 ثوانٍ ثم يمنع، ويستعيد بعد انقضاء النافذة' {
+        $now = Get-Date
+        Test-WidgetLayoutFlipAllowed @() $now | Should -BeTrue
+        Test-WidgetLayoutFlipAllowed @($now.AddSeconds(-1), $now.AddSeconds(-2), $now.AddSeconds(-3)) $now | Should -BeTrue
+        Test-WidgetLayoutFlipAllowed @($now.AddSeconds(-1), $now.AddSeconds(-2), $now.AddSeconds(-3), $now.AddSeconds(-4)) $now | Should -BeFalse
+        Test-WidgetLayoutFlipAllowed @($now.AddSeconds(-30), $now.AddSeconds(-31), $now.AddSeconds(-32), $now.AddSeconds(-33)) $now | Should -BeTrue
+    }
+    It 'انتظار الشِّل قبل إظهار النافذة، وسجلّ البدء والخروج وتوقف الواجهة موجودة في المصدر' {
+        $src = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw
+        $src.IndexOf('Wait-WidgetShellReady 45 2') | Should -BeLessThan $src.IndexOf('$app.Run($win)')
+        $src | Should -Match "Log 'exit'"
+        $src | Should -Match 'ui stall'
+        $src | Should -Match "Log \('layout: "
     }
 }

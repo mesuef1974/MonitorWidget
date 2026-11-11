@@ -16,7 +16,7 @@ function Add-WidgetTypes {
     $refs = [Windows.Controls.TextBlock], [Windows.UIElement], [Windows.DependencyObject], [System.Windows.Markup.IQueryAmbient] | ForEach-Object { $_.Assembly.Location } | Select-Object -Unique
     Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.Runtime.InteropServices;
-public static class W32{[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern int SetWindowLong(IntPtr h,int i,int v);}
+public static class W32{[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern int SetWindowLong(IntPtr h,int i,int v);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern IntPtr FindWindow(string c,string t);}
 public class QuietText : System.Windows.Controls.TextBlock { protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return null; } }
 '@
 }
@@ -664,6 +664,31 @@ $UI.confirm.Margin=16;$UI.confirm.VerticalAlignment='Center';$UI.confirm.Backgro
 $UI.toast.Margin=16;$UI.toast.Padding='12,9,12,9';$UI.toast.VerticalAlignment='Center';$UI.toast.HorizontalAlignment='Stretch';$UI.toast.TextAlignment='Center';$UI.toast.Background=Brush $C.card;[Windows.Controls.Panel]::SetZIndex($UI.toast,11);if($UI.toast.Parent -is [Windows.Controls.Panel]){$UI.toast.Parent.Children.Remove($UI.toast)};[void]$UI.restoredBody.Children.Add($UI.toast)
 $UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'
 [void]$stack.Children.Add($UI.restoredBody);[void]$stack.Children.Add($foot)
+function Get-WidgetLayoutMode([double]$height, [double]$natural, [bool]$wasWide, [double]$margin = 40) {
+    # عمودان (726) تحت الحدّ كما كان: الأقصى من 1150 وطول المحتوى + 12. والعودة إلى عمود واحد (385) تحتاج هامشًا إضافيًا (تباطؤ):
+    # عند الإقلاع تتبدّل منطقة العمل بضع DIP حين يظهر شريط المهام، فلا يتأرجح التخطيط عند الحدّ ويُغرق خيط الواجهة بالقياس.
+    $need = [Math]::Max(1150.0, $natural + 12)
+    if ($wasWide) { return ($height -lt ($need + $margin)) }
+    return ($height -lt $need)
+}
+function Test-WidgetLayoutFlipAllowed([datetime[]]$flips, [datetime]$now, [int]$windowSec = 10, [int]$maxFlips = 4) {
+    # قاطع أخير: أكثر من $maxFlips تبديلات تخطيط في $windowSec ثوانٍ تعني حلقة؛ يُجمَّد الوضع الحالي بدل متابعتها
+    return (@($flips | Where-Object { ($now - $_).TotalSeconds -le $windowSec }).Count -lt $maxFlips)
+}
+function Wait-WidgetShellReady([int]$maxSec = 45, [int]$stableSec = 2) {
+    # عند الدخول يُطلَق الويدجت قبل أن يستقر سطح المكتب: شريط المهام ومنطقة العمل والمقياس تتبدّل، والتخطيط يعتمد عليها.
+    # ننتظر نافذة شريط المهام ثم ثبات منطقة العمل بضع ثوانٍ قبل أن تظهر النافذة (لا نافذة بعد، فلا تعليق ظاهر).
+    $t0 = Get-Date; $last = $null; $since = Get-Date
+    try { Add-Type -AssemblyName System.Windows.Forms } catch { return }
+    while (((Get-Date) - $t0).TotalSeconds -lt $maxSec) {
+        $wa = [string][Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+        $tray = [W32]::FindWindow('Shell_TrayWnd', $null) -ne [IntPtr]::Zero
+        if ($wa -ne $last -or -not $tray) { $last = $wa; $since = Get-Date }
+        elseif (((Get-Date) - $since).TotalSeconds -ge $stableSec) { break }
+        Start-Sleep -Milliseconds 250
+    }
+    Log ('start: pid {0}, shell ready after {1:N1} s, work area {2}' -f $PID, ((Get-Date) - $t0).TotalSeconds, $last)
+}
 function Set-RestoredLayout([double]$height=0){
  if($height -le 0){$height=if($script:widgetWorkHeightOverride){$script:widgetWorkHeightOverride}elseif(Get-Command Get-WidgetWorkArea -ErrorAction SilentlyContinue){(Get-WidgetWorkArea).Height}else{[Windows.SystemParameters]::WorkArea.Height}}
  $natural=56.0;foreach($node in @($UI.restoredMetrics,$UI.restoredActions)+@($stack.Children|Where-Object {$_ -ne $UI.restoredBody})){$node.Measure([Windows.Size]::new(323,[double]::PositiveInfinity));$natural+=$node.DesiredSize.Height}
@@ -671,7 +696,7 @@ function Set-RestoredLayout([double]$height=0){
  $mH=$UI.restoredMetrics.DesiredSize.Height;$aH=$UI.restoredActions.DesiredSize.Height;if($gpuCard.Visibility -eq 'Visible'){$script:gpuCardH=$gpuCard.DesiredSize.Height;$extra=0.0}else{$extra=[double]$script:gpuCardH};$natural+=$extra;$script:restoredPortraitHeight=$natural
  $wideNeed=$natural-$mH-$aH-$extra+[Math]::Max($mH+$extra,$aH)
  # Same reference breakpoint:385DIPportrait at1150DIPusableheight,726DIPtwo columns below it (both +10% on 28/10/2026).
- $wide=$height -lt 1150 -or $height -lt ($natural+12);$gpuVis=if(-not $wide -or $height -ge ($wideNeed+12)){'Visible'}else{'Collapsed'};if($gpuCard.Visibility -ne $gpuVis){$gpuCard.Visibility=$gpuVis};$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
+ $wasWide=[bool]$script:layoutWide;$wide=Get-WidgetLayoutMode $height $natural $wasWide;if($wide -ne $wasWide){$now=Get-Date;if(Test-WidgetLayoutFlipAllowed @($script:layoutFlips | Where-Object { $_ }) $now){$script:layoutFlips=@(@($script:layoutFlips|Where-Object {($now-$_).TotalSeconds -le 10})+$now);Log ('layout: {0} (work {1:N0}, natural {2:N0}, dpi {3})' -f $(if($wide){'wide 726'}else{'portrait 385'}),$height,$natural,$(try{[int](96*[Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11)}catch{0}))}else{$wide=$wasWide;if(-not $script:layoutFrozenLogged){$script:layoutFrozenLogged=$true;Log 'layout: flip loop stopped, mode frozen'}}};$script:layoutWide=$wide;$gpuVis=if(-not $wide -or $height -ge ($wideNeed+12)){'Visible'}else{'Collapsed'};if($gpuCard.Visibility -ne $gpuVis){$gpuCard.Visibility=$gpuVis};$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
  $grid=$UI.restoredBody;$grid.ColumnDefinitions.Clear();$grid.RowDefinitions.Clear()
  if($wide){foreach($x in 1..2){$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c)};$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r);[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,1);[Windows.Controls.Grid]::SetRow($UI.restoredActions,0);$UI.restoredMetrics.Margin='0,0,14,0';$UI.chart.Height=86}
  else{$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c);foreach($x in 1..2){$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r)};[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,0);[Windows.Controls.Grid]::SetRow($UI.restoredActions,1);$UI.restoredMetrics.Margin='0';$UI.chart.Height=92}
@@ -1288,7 +1313,7 @@ function Update-Countdown {
     } catch { $UI.trimCd.Text = '' }
 }
 $timer = New-Object Windows.Threading.DispatcherTimer; $timer.Interval = [TimeSpan]::FromMilliseconds(1000)
-$timer.Add_Tick({ try { Update-Countdown; Update-Widget } catch { Log ('update: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) } })
+$timer.Add_Tick({ $tickAt = Get-Date; if ($script:lastTickAt -and ($tickAt - $script:lastTickAt).TotalSeconds -gt 5) { Log ('ui stall: {0:N1} s between ticks' -f ($tickAt - $script:lastTickAt).TotalSeconds) }; $script:lastTickAt = $tickAt; try { Update-Countdown; Update-Widget } catch { Log ('update: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) } })
 $timer.Start()
 
 try {
@@ -1322,7 +1347,8 @@ try {
         $script:tray.ContextMenuStrip = $tm
         $script:tray.Add_MouseClick({ param($snd, $ev) if ($ev.Button -eq [System.Windows.Forms.MouseButtons]::Left) { & $trayToggle } })
         $win.Add_Closed({ try { $script:tray.Visible = $false; $script:tray.Dispose() } catch {} })
-    } catch { Log ('tray: ' + $_.Exception.Message) }    $app = New-Object Windows.Application; $app.ShutdownMode = 'OnMainWindowClose'
+    } catch { Log ('tray: ' + $_.Exception.Message) }    Wait-WidgetShellReady 45 2
+    $app = New-Object Windows.Application; $app.ShutdownMode = 'OnMainWindowClose'
     [void]$app.Run($win)
 } catch { Log ('fatal: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) }
-finally { try { $script:mutex.ReleaseMutex() } catch {} }
+finally { Log 'exit'; try { $script:mutex.ReleaseMutex() } catch {} }
