@@ -26,6 +26,7 @@ from ctypes import wintypes
 
 import alertcfg
 import cpuwatch
+import cpuprio
 import db
 import errlog
 import gpuwatch
@@ -255,7 +256,11 @@ def state():
 
 def _cpu_alert_safe():
     try:
-        return cpuwatch.alert_state()
+        alert = cpuwatch.alert_state()
+        if alert:   # الويدجت يعرض زر «اخفض أولويتها» لغير المحمي، و«مخفّضة» إن سبق خفضها وما زالت تعمل
+            alert["canLower"] = alert["name"].lower() not in cpuprio.PROTECTED
+            alert["lowered"] = cpuprio.lowered_state(alert["name"])
+        return alert
     except Exception:
         return None
 
