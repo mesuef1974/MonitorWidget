@@ -53,6 +53,8 @@ jobs:
           python -X utf8 -B tests/powerhealth_check.py
           python -X utf8 -B tests/cpuprio_check.py
           python -X utf8 -B tests/widgetwatch_check.py
+          python -X utf8 -B tests/boothist_check.py
+          python -X utf8 -B tests/sleepwatch_check.py
           python -X utf8 -B tests/portwatch_check.py
           python -X utf8 -B tests/check_all.py
 

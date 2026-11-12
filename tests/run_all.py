@@ -31,6 +31,8 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("صحة الطاقة: إجراء البطارية الحرجة وأسباب الإيقافات المفاجئة (معزول)", "powerhealth_check.py"),
     ("حارس المعالج: خفض أولوية العملية المستنزِفة (معزول)", "cpuprio_check.py"),
     ("مراقب الويدجت: قراءة السجل وإعادة التشغيل بعد السقوط فقط (معزول)", "widgetwatch_check.py"),
+    ("سجل الإقلاعات: الحفظ والاتجاه والمسبّب الجديد والتنبيه (معزول)", "boothist_check.py"),
+    ("تشخيص السكون: الاستيقاظ الفوري والبطيء ومصدره (معزول)", "sleepwatch_check.py"),
     ("رصد استنفاد المنافذ (معزول)", "portwatch_check.py"))]
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
     ("فتح النافذة وسياسة CSP (معزول)", "window_security_check.py"),

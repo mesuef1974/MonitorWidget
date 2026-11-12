@@ -15,6 +15,7 @@ import errlog
 import alertcfg
 import gpuwatch
 import powerhealth
+import sleepwatch
 
 CNW = 0x08000000
 HOME = os.environ.get("USERPROFILE") or os.path.expanduser("~")
@@ -595,10 +596,17 @@ def power_payload(rng="24h"):
     if shut["counts"].get("battery"):
         add("warn", "إيقافات مفاجئة بسبب فراغ البطارية", "%d في آخر %d يومًا: الجهاز انطفأ والبطارية فارغة. وصّل الشاحن قبل %s%%." % (
             shut["counts"]["battery"], shut["days"], crit.get("lowLevel") or 10))
+    slp = None
+    try:
+        slp = _cached("sleepwatch", 300, sleepwatch.payload)   # قراءة سجل النظام مرة كل 5 دقائق
+        for lvl, title, text in sleepwatch.notes(slp):
+            add(lvl, title, text)
+    except Exception:
+        errlog.swallowed()
     add("info", "حرارة المعالج غير متاحة", "ويندوز لا يعطي حرارة المعالج دون صلاحية إدارية أو أداة مخصصة؛ نعرض تردده الفعلي كمؤشر على التقييد، وحرارة كرت الشاشة من برنامج التعريف.")
     return {"ok": True, "now": int(time.time()), "status": ps, "mhz": mh, "limited": limited, "uptimeS": up, "plan": hw.get("powerPlan"), "pendingReboot": hw.get("pendingReboot"),
             "battery": bt, "gpu": gl, "plans": power_plans(), "series": ser, "range": rng if rng in RANGES else "24h", "span": span, "notes": notes,
-            "critical": crit, "shutdowns": shut}
+            "critical": crit, "shutdowns": shut, "sleep": slp}
 
 
 # ------------------------------------------------------------------ alerts page

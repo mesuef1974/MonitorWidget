@@ -17,6 +17,7 @@ import commitmap
 import cpuwatch
 import db
 import dbview
+import errlog
 import gpupurge
 import gpuwatch
 import health
@@ -27,6 +28,7 @@ import pageuse
 import routes_policy
 import routes_settings
 import sched
+import boothist
 import shellwin
 import widgetwatch
 import snapshot
@@ -89,6 +91,12 @@ def _health(q):
     except Exception:
         errlog.swallowed()
         out["widget"] = None
+    try:
+        with db._lock:
+            out["bootTrend"] = boothist.payload(db.conn())   # اتجاه زمن الإقلاع من كل الإقلاعات المحفوظة
+    except Exception:
+        errlog.swallowed()
+        out["bootTrend"] = None
     return out
 
 

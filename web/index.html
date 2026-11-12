@@ -229,10 +229,12 @@ const PAGES = {
       out += panel("الويدجت", widgetBody(h.widget), { cls: "c12" });
       out += panel("زمن الإقلاع", bootBody(h.hw), { cls: "c6" });
       out += panel("مسبّبات بطء الإقلاع", culpritBody(h.hw), { cls: "c6", meta: h.hw?.boots?.length ? `آخر ${arN(h.hw.boots.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}` : "" });
+      out += panel("اتجاه زمن الإقلاع", bootTrendBody(h.bootTrend), { cls: "c12" });
       return out;
     },
     after([h]) {
       const ig = h?.gpu?.igpu; if (ig?.hist?.length > 1 && $("#igChart")) { const ix = compact(ig.hist, 120), H = ix.map(i => ig.hist[i]); chart($("#igChart"), { t: H.map(x => x.t), series: [{ id: "ig", name: "3D", color: "var(--accent2)", v: H.map(x => x.util3d), fmt: v => nf(v, 1) + "%" }], min: 0, height: 120, yFmt: v => nf(v) + "%" }); }
+      const bp = h?.bootTrend?.points; if (bp?.length > 1 && $("#btChart")) chart($("#btChart"), { t: bp.map(x => x.ts), series: [{ id: "bt", name: "زمن الإقلاع", color: "var(--accent2)", v: bp.map(x => x.bootSec), fmt: v => nf(v, 1) + " ث" }], min: 0, height: 150, yFmt: v => nf(v) + " ث" });
       const el = $("#hhChart"); if (!h || !el) return; const hs = h.history || []; if (hs.length < 2) return;
       chart(el, { t: hs.map(d => Date.parse(d.day + "T12:00:00") / 1000), series: [{ id: "h", name: "الدرجة", color: "var(--accent)", v: hs.map(d => d.score) }], min: 40, max: 100, height: 190, yFmt: v => nf(v) });
     }
@@ -410,6 +412,24 @@ function shutBody(s) {   // الإيقافات المفاجئة (Kernel-Power 41
 }
 const NOTE_LVL = { bad: "خطر", warn: "تنبيه", info: "معلومة" };
 const BOOT_KIND = { 101: "تطبيق", 102: "تعريف", 103: "خدمة", 106: "تحسين خلفي", 107: "سياسة الجهاز", 108: "سياسة المستخدم", 109: "جهاز", 110: "مدير الجلسات" };   // أحداث Diagnostics-Performance 101-110
+const bootKind = c => c.kind === "service" ? "خدمة" : c.kind === "driver" ? "تعريف" : BOOT_KIND[c.id] || "مكوّن";   // kind يصحّحه الخادم حين يسجّل ويندوز الخدمة كتطبيق
+const BOOT_TREND = { learning: ["", "يتعلّم المعتاد"], steady: ["ok", "ضمن المعتاد"], slower: ["bad", "أبطأ من المعتاد"], faster: ["ok", "أسرع من المعتاد"] };
+function bootTrendBody(t) {   // اتجاه زمن الإقلاع من كل الإقلاعات المحفوظة: وسيط آخر 3 مقابل وسيط ما قبلها
+  if (!t) return `<div class="empty">غير متاح</div>`;
+  if (!t.n) return `<div class="empty">لا إقلاع محفوظ بعد؛ يُحفظ مع كل فحص مرتفع دوري.</div>`;
+  const [cls, text] = BOOT_TREND[t.state] || ["", t.state];
+  const diff = t.deltaSec != null && t.state !== "learning" ? ` ${t.deltaSec > 0 ? "+" : "−"}${Q(Math.abs(t.deltaSec), "ث", 1)}${t.deltaPct != null ? ` (${Q(Math.abs(t.deltaPct), "%")})` : ""}` : "";
+  let out = `<div class="pill-row"><span class="tag ${cls}">${text}${t.state === "learning" ? `: ${Q(t.n)} من ${Q(t.need)}` : diff}</span>${t.phase ? `<span class="tag warn">الزيادة ${t.phase === "main" ? "قبل" : "بعد"} ظهور سطح المكتب</span>` : ""}${(t.newCulprits || []).map(c => `<span class="tag warn">مسبّب جديد: ${esc(c.name)} (${Q(c.degSec, "ث", 1)})</span>`).join("")}</div>`;
+  out += `<div class="kpis">${kpi("وسيط آخر 3", t.recentSec != null ? nf(t.recentSec, 1) : "—", "ث")}${kpi("المعتاد", t.baseSec != null ? nf(t.baseSec, 1) : "—", "ث", t.baseSec != null ? "وسيط ما قبلها" : "يلزم إقلاعات أكثر")}${kpi("الإقلاعات المحفوظة", Q(t.n))}</div>`;
+  return out + ((t.points || []).length > 1 ? `<div id="btChart" class="grow"></div>` : "");
+}
+function sleepBody(s) {   // جلسات السكون من سجل النظام: كم نام، لماذا نام، ما أيقظه، وكم استغرق الخروج
+  if (!s) return `<div class="empty">غير متاح</div>`;
+  if (!s.n) return `<div class="empty">لا سكون مسجّل خلال ${Q(s.days)} يومًا</div>`;
+  let out = `<div class="kpis">${kpi("مرات السكون", Q(s.n))}${kpi("استيقاظ قبل دقيقتين", Q(s.instant), "", s.instantSources?.[0] ? esc(s.instantSources[0].source) : "", meter(s.instant, 2, 5, Math.max(s.n, 1)))}${kpi("متوسط الخروج", s.avgWakeS != null ? nf(s.avgWakeS, 1) : "—", "ث")}${kpi("أبطأ خروج", s.maxWakeS != null ? nf(s.maxWakeS, 1) : "—", "ث", s.slow ? `${Q(s.slow)} فوق 10 ث` : "")}</div>`;
+  out += `<table class="tbl"><thead><tr><th>نام</th><th class="n">المدة</th><th>سبب النوم</th><th>ما أيقظه</th><th class="n">الخروج</th></tr></thead><tbody>${s.items.map(i => `<tr><td>${when(i.sleepTs)}${i.hibernate ? ' <span class="tag">سبات</span>' : ""}</td><td class="n">${i.instant ? `<span class="tag warn">${dur(i.asleepS)}</span>` : dur(i.asleepS)}</td><td>${esc(i.reason || "—")}</td><td>${esc(i.source)}</td><td class="n">${i.wakeS == null ? "—" : i.slow ? `<span class="tag warn">${Q(i.wakeS, "ث", 1)}</span>` : Q(i.wakeS, "ث", 1)}</td></tr>`).join("")}</tbody></table>`;
+  return out;
+}
 function bootList(hw) {   // الإقلاعات من الأحدث، وكل مسبّب مربوط بإقلاعه: ويندوز يسجّلهما في اللحظة نفسها، والهامش 5 دقائق احتياط
   const cs = (hw?.bootCulprits || []).filter(c => c.name && c.degSec != null);
   return (hw?.boots || []).filter(b => b.bootSec != null).sort((x, y) => y.ts - x.ts)
@@ -428,12 +448,12 @@ function culpritBody(hw) {   // ما أخّر الإقلاع بحسب ويندو
   if (!Array.isArray(hw.bootCulprits)) return `<div class="empty">الفحص المرتفع المثبّت قديم ولا يقرأ المسبّبات؛ شغّل المثبّت المحمي كمسؤول مرة واحدة.</div>`;
   const by = new Map();
   for (const b of bs) for (const c of b.culprits) {
-    const k = c.id + "|" + c.name, a = by.get(k) || { name: c.name, id: c.id, boots: new Set(), deg: 0, max: 0 };
+    const k = c.id + "|" + c.name, a = by.get(k) || { name: c.name, id: c.id, kind: c.kind, boots: new Set(), deg: 0, max: 0 };
     a.boots.add(b.ts); a.deg += c.degSec; a.max = Math.max(a.max, c.degSec); by.set(k, a);
   }
   const rows = [...by.values()].sort((x, y) => y.deg - x.deg);
   if (!rows.length) return `<div class="empty">لم يسجّل ويندوز مسبّبًا للبطء في آخر ${arN(bs.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}</div>`;
-  return `<table class="tbl"><thead><tr><th>المسبّب</th><th>النوع</th><th class="n">الإقلاعات</th><th class="n">متوسط التأخير</th><th class="n">أقصاه</th></tr></thead><tbody>${rows.map(a => { const avg = a.deg / a.boots.size; return `<tr><td>${esc(a.name)}</td><td>${BOOT_KIND[a.id] || "مكوّن"}</td><td class="n">${Q(a.boots.size)} من ${Q(bs.length)}</td><td class="n"><span class="tag ${level(avg, 3, 10)}">${Q(avg, "ث", 1)}</span></td><td class="n">${Q(a.max, "ث", 1)}</td></tr>`; }).join("")}</tbody></table><p class="note">التأخير هو ما زاد على الزمن المعتاد للمكوّن كما يقيسه ويندوز عند كل إقلاع.</p>`;
+  return `<table class="tbl"><thead><tr><th>المسبّب</th><th>النوع</th><th class="n">الإقلاعات</th><th class="n">متوسط التأخير</th><th class="n">أقصاه</th></tr></thead><tbody>${rows.map(a => { const avg = a.deg / a.boots.size; return `<tr><td>${esc(a.name)}</td><td>${bootKind(a)}</td><td class="n">${Q(a.boots.size)} من ${Q(bs.length)}</td><td class="n"><span class="tag ${level(avg, 3, 10)}">${Q(avg, "ث", 1)}</span></td><td class="n">${Q(a.max, "ث", 1)}</td></tr>`; }).join("")}</tbody></table><p class="note">التأخير هو ما زاد على الزمن المعتاد للمكوّن كما يقيسه ويندوز عند كل إقلاع.</p>`;
 }
 const WIDGET_STATE = { running: ["ok", "يعمل"], crashed: ["bad", "سقط"], killed: ["bad", "توقفت عمليته"], exited: ["warn", "أُغلق دون طلب"], closed: ["", "أغلقه المالك"], never: ["", "لم يُشغَّل بعد"] };
 function widgetBody(w) {   // مراقب الويدجت: حالته الآن، وسقطاته وتوقفات واجهته وإعادات تشغيله خلال 24 ساعة (من widget.log)
@@ -730,6 +750,7 @@ Object.assign(PAGES, {
         out += panel("صحة البطارية", battBody(b, d.critical), { cls: "c6" });
         out += panel("الإيقافات المفاجئة", shutBody(d.shutdowns), { cls: "c6", meta: d.shutdowns ? `آخر ${Q(d.shutdowns.days)} يومًا` : "" });
       }
+      out += panel("السكون والاستيقاظ", sleepBody(d.sleep), { cls: "c12", meta: d.sleep ? `آخر ${Q(d.sleep.days)} يومًا` : "" });
       out += panel("التردد خلال الفترة", `<div id="pwChart" class="grow"></div>`, { cls: "c6", meta: rangeChips() });
       out += panel("شحن البطارية", `<div id="pbChart" class="grow"></div>`, { cls: "c6" });
       out += panel("ملاحظات", `<div class="list">${(d.notes || []).map(n => `<div class="li"><span class="t"><span class="tag ${sev(n.lvl)}">${NOTE_LVL[n.lvl] || esc(n.lvl)}</span> ${esc(n.title)}</span><span class="d">${esc(n.text)}</span></div>`).join("") || '<div class="empty">لا ملاحظات</div>'}</div>`);

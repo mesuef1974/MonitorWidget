@@ -361,7 +361,19 @@ def run_probe(skip_updates=False):
     # التحديثات لها تخزين مستقل بطابع زمني، فلا تُعاد قراءة قيمة قديمة إلى ما لا نهاية
     obj["updates"] = get_hw("updates")[1]  # القيمة يحدّثها خيط التحديثات وحده
     obj.pop("PSComputerName", None); obj.pop("RunspaceId", None); obj.pop("PSShowComputerName", None)
+    try:
+        import boothist   # استيراد متأخر: الوحدة لا تلزم إلا هنا
+        boothist.annotate(obj.get("bootCulprits"), boothist.service_kinds())   # ويندوز يسجّل الخدمة أحيانًا كتطبيق
+    except Exception:
+        errlog.swallowed()
     set_hw("probe", obj)
+    try:   # الفحص يقرأ آخر 8 إقلاعات فقط؛ السجل يحفظها كلها للاتجاه، وينبّه مرة لكل إقلاع أبطأ أو فيه مسبّب جديد
+        with db._lock:
+            boothist.record(db.conn(), obj)
+            trend = boothist.payload(db.conn())
+        boothist.alert(trend, db.add_event)
+    except Exception:
+        errlog.swallowed()
     for b in obj.get("boots") or []:
         db.add_event(b["ts"], "boot", "info", "إقلاع الجهاز", "زمن الإقلاع %s ث" % b["bootSec"])
     return obj
