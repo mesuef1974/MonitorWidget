@@ -3,7 +3,9 @@
 # Data comes from the local backend (server.py /api/mini), polled on a background runspace so the UI never blocks.
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
-$script:mutex = New-Object Threading.Mutex($false, 'Local\Azkia-MiniWidget')
+# MW_SMOKE=1: وضع اختبار التشغيل (tests/widget_functions.Tests.ps1): نسخة معزولة بقفل آخر، شفافة، بلا شبكة، تبدّل التخطيط ثم تُغلق نفسها
+$script:smoke = $env:MW_SMOKE -eq '1'
+$script:mutex = New-Object Threading.Mutex($false, $(if ($script:smoke) { 'Local\Azkia-MiniWidget-Smoke' } else { 'Local\Azkia-MiniWidget' }))
 $wait = if ($env:MW_REPLACE -eq '1') { 12000 } else { 0 }
 $got = $false
 try { $got = $script:mutex.WaitOne($wait) } catch [Threading.AbandonedMutexException] { $got = $true }   # previous owner crashed: the mutex is now ours
@@ -284,7 +286,7 @@ $card.Effect = $shadow
 function Set-CardOpacity($value) {
     # شفافية شاملة: النافذة كلها (الخلفية والنص والأزرار والرسم والظل) تحمل العتامة؛ الأسطح بسُمكها الثابت عند 100%
     $v=Normalize-WidgetOpacity $value; $script:S.opacity=$v
-    if ($win) { $win.Opacity=$v }
+    if ($win) { $win.Opacity = if ($script:smoke) { 0 } else { $v } }
     $card.Background=Surface-Brush ('#'+$C.base) 1.0
     $card.BorderBrush=Surface-Brush $C.edge .8
     if ($shadow) { $shadow.Opacity=.22 }
@@ -687,6 +689,25 @@ function Add-WidgetLayoutFlip($flips, [datetime]$now, [int]$windowSec = 10) {
     # و$null | Where-Object يمرّر عنصرًا فارغًا واحدًا، وطرحه من تاريخ يرمي op_Subtraction فيُسقط الويدجت (حادثة 11/11/2026).
     return , @(@($flips | Where-Object { $_ -is [datetime] -and ($now - $_).TotalSeconds -le $windowSec }) + $now)
 }
+function Start-WidgetSmoke {
+    # يغذّي الواجهة بثابت الاختبار بدل الخادم، ثم على مؤقّت: 4 تبديلات تخطيط بمنطقة عمل مصطنعة، تحديث كامل، فإغلاق كإغلاق المالك.
+    # أي استثناء يُسجَّل «fatal:» فيفشل الاختبار؛ والاستثناء خارج المؤقّت يخرج من $app.Run كما في التشغيل الحقيقي.
+    $win.Opacity = 0; $win.ShowActivated = $false
+    $fixture = Join-Path $PSScriptRoot 'tests\fixtures\api\mini.json'
+    if (Test-Path -LiteralPath $fixture) { $script:sync.data = Get-Content -LiteralPath $fixture -Raw -Encoding UTF8 | ConvertFrom-Json; $script:sync.lastAt = Get-Date; $script:sync.stamp = 1 }
+    $script:smokeStep = 0
+    $script:smokeTimer = New-Object Windows.Threading.DispatcherTimer; $script:smokeTimer.Interval = [TimeSpan]::FromMilliseconds(700)
+    $script:smokeTimer.Add_Tick({
+        $script:smokeStep++
+        try {
+            if ($script:smokeStep -in 2, 4) { Set-RestoredLayout 1000 }
+            elseif ($script:smokeStep -in 3, 5) { Set-RestoredLayout 1400 }
+            elseif ($script:smokeStep -eq 6) { $script:sync.stamp = 2; Update-Countdown; Update-Widget }
+            elseif ($script:smokeStep -ge 7) { $script:smokeTimer.Stop(); Log 'smoke: ok'; $script:userExit = $true; $win.Close() }
+        } catch { $script:smokeTimer.Stop(); Log ('fatal: smoke step ' + $script:smokeStep + ': ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage); $win.Close() }
+    })
+    $script:smokeTimer.Start()
+}
 function Wait-WidgetShellReady([int]$maxSec = 45, [int]$stableSec = 2) {
     # عند الدخول يُطلَق الويدجت قبل أن يستقر سطح المكتب: شريط المهام ومنطقة العمل والمقياس تتبدّل، والتخطيط يعتمد عليها.
     # ننتظر نافذة شريط المهام ثم ثبات منطقة العمل بضع ثوانٍ قبل أن تظهر النافذة (لا نافذة بعد، فلا تعليق ظاهر).
@@ -825,7 +846,7 @@ $poll = {
         Start-Sleep -Seconds 2
     }
 }
-$script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:pyw); [void]$script:ps.BeginInvoke()
+if (-not $script:smoke) { $script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:pyw); [void]$script:ps.BeginInvoke() }
 $appearancePoll = {
     param($sync, $Root)
     $token = Get-Content -LiteralPath (Join-Path $Root '.token') | Select-Object -First 1
@@ -834,7 +855,7 @@ $appearancePoll = {
         Start-Sleep -Milliseconds 650
     }
 }
-$script:appearancePs = [powershell]::Create(); [void]$script:appearancePs.AddScript($appearancePoll).AddArgument($script:sync).AddArgument($Root); [void]$script:appearancePs.BeginInvoke()
+if (-not $script:smoke) { $script:appearancePs = [powershell]::Create(); [void]$script:appearancePs.AddScript($appearancePoll).AddArgument($script:sync).AddArgument($Root); [void]$script:appearancePs.BeginInvoke() }
 
 # ------------------------------------------------------------------ rendering
 function Ago($iso) {
@@ -1362,7 +1383,7 @@ try {
         $script:tray.ContextMenuStrip = $tm
         $script:tray.Add_MouseClick({ param($snd, $ev) if ($ev.Button -eq [System.Windows.Forms.MouseButtons]::Left) { & $trayToggle } })
         $win.Add_Closed({ try { $script:tray.Visible = $false; $script:tray.Dispose() } catch {} })
-    } catch { Log ('tray: ' + $_.Exception.Message) }    Wait-WidgetShellReady 45 2
+    } catch { Log ('tray: ' + $_.Exception.Message) }    if ($script:smoke) { Wait-WidgetShellReady 0 0; Start-WidgetSmoke } else { Wait-WidgetShellReady 45 2 }
     $app = New-Object Windows.Application; $app.ShutdownMode = 'OnMainWindowClose'
     [void]$app.Run($win)
 } catch { Log ('fatal: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) }
