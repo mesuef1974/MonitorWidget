@@ -671,9 +671,14 @@ function Get-WidgetLayoutMode([double]$height, [double]$natural, [bool]$wasWide,
     if ($wasWide) { return ($height -lt ($need + $margin)) }
     return ($height -lt $need)
 }
-function Test-WidgetLayoutFlipAllowed([datetime[]]$flips, [datetime]$now, [int]$windowSec = 10, [int]$maxFlips = 4) {
+function Test-WidgetLayoutFlipAllowed($flips, [datetime]$now, [int]$windowSec = 10, [int]$maxFlips = 4) {
     # قاطع أخير: أكثر من $maxFlips تبديلات تخطيط في $windowSec ثوانٍ تعني حلقة؛ يُجمَّد الوضع الحالي بدل متابعتها
-    return (@($flips | Where-Object { ($now - $_).TotalSeconds -le $windowSec }).Count -lt $maxFlips)
+    return (@($flips | Where-Object { $_ -is [datetime] -and ($now - $_).TotalSeconds -le $windowSec }).Count -lt $maxFlips)
+}
+function Add-WidgetLayoutFlip($flips, [datetime]$now, [int]$windowSec = 10) {
+    # سجلّ التبديلات الحديثة مضافًا إليه التبديل الحالي. الشرط -is [datetime] لازم: القائمة فارغة ($null) عند أول تبديل،
+    # و$null | Where-Object يمرّر عنصرًا فارغًا واحدًا، وطرحه من تاريخ يرمي op_Subtraction فيُسقط الويدجت (حادثة 11/11/2026).
+    return , @(@($flips | Where-Object { $_ -is [datetime] -and ($now - $_).TotalSeconds -le $windowSec }) + $now)
 }
 function Wait-WidgetShellReady([int]$maxSec = 45, [int]$stableSec = 2) {
     # عند الدخول يُطلَق الويدجت قبل أن يستقر سطح المكتب: شريط المهام ومنطقة العمل والمقياس تتبدّل، والتخطيط يعتمد عليها.
@@ -696,7 +701,7 @@ function Set-RestoredLayout([double]$height=0){
  $mH=$UI.restoredMetrics.DesiredSize.Height;$aH=$UI.restoredActions.DesiredSize.Height;if($gpuCard.Visibility -eq 'Visible'){$script:gpuCardH=$gpuCard.DesiredSize.Height;$extra=0.0}else{$extra=[double]$script:gpuCardH};$natural+=$extra;$script:restoredPortraitHeight=$natural
  $wideNeed=$natural-$mH-$aH-$extra+[Math]::Max($mH+$extra,$aH)
  # Same reference breakpoint:385DIPportrait at1150DIPusableheight,726DIPtwo columns below it (both +10% on 28/10/2026).
- $wasWide=[bool]$script:layoutWide;$wide=Get-WidgetLayoutMode $height $natural $wasWide;if($wide -ne $wasWide){$now=Get-Date;if(Test-WidgetLayoutFlipAllowed @($script:layoutFlips | Where-Object { $_ }) $now){$script:layoutFlips=@(@($script:layoutFlips|Where-Object {($now-$_).TotalSeconds -le 10})+$now);Log ('layout: {0} (work {1:N0}, natural {2:N0}, dpi {3})' -f $(if($wide){'wide 726'}else{'portrait 385'}),$height,$natural,$(try{[int](96*[Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11)}catch{0}))}else{$wide=$wasWide;if(-not $script:layoutFrozenLogged){$script:layoutFrozenLogged=$true;Log 'layout: flip loop stopped, mode frozen'}}};$script:layoutWide=$wide;$gpuVis=if(-not $wide -or $height -ge ($wideNeed+12)){'Visible'}else{'Collapsed'};if($gpuCard.Visibility -ne $gpuVis){$gpuCard.Visibility=$gpuVis};$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
+ $wasWide=[bool]$script:layoutWide;$wide=Get-WidgetLayoutMode $height $natural $wasWide;if($wide -ne $wasWide){$now=Get-Date;if(Test-WidgetLayoutFlipAllowed $script:layoutFlips $now){$script:layoutFlips=Add-WidgetLayoutFlip $script:layoutFlips $now;Log ('layout: {0} (work {1:N0}, natural {2:N0}, dpi {3})' -f $(if($wide){'wide 726'}else{'portrait 385'}),$height,$natural,$(try{[int](96*[Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11)}catch{0}))}else{$wide=$wasWide;if(-not $script:layoutFrozenLogged){$script:layoutFrozenLogged=$true;Log 'layout: flip loop stopped, mode frozen'}}};$script:layoutWide=$wide;$gpuVis=if(-not $wide -or $height -ge ($wideNeed+12)){'Visible'}else{'Collapsed'};if($gpuCard.Visibility -ne $gpuVis){$gpuCard.Visibility=$gpuVis};$width=if($wide){726}else{385};if($win.Width -ne $width){$win.MinWidth=0;$win.MaxWidth=[double]::PositiveInfinity;$win.Width=$width;$win.MinWidth=$width;$win.MaxWidth=$width}
  $grid=$UI.restoredBody;$grid.ColumnDefinitions.Clear();$grid.RowDefinitions.Clear()
  if($wide){foreach($x in 1..2){$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c)};$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r);[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,1);[Windows.Controls.Grid]::SetRow($UI.restoredActions,0);$UI.restoredMetrics.Margin='0,0,14,0';$UI.chart.Height=86}
  else{$c=New-Object Windows.Controls.ColumnDefinition;$c.Width='*';[void]$grid.ColumnDefinitions.Add($c);foreach($x in 1..2){$r=New-Object Windows.Controls.RowDefinition;$r.Height='Auto';[void]$grid.RowDefinitions.Add($r)};[Windows.Controls.Grid]::SetColumn($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetRow($UI.restoredMetrics,0);[Windows.Controls.Grid]::SetColumn($UI.restoredActions,0);[Windows.Controls.Grid]::SetRow($UI.restoredActions,1);$UI.restoredMetrics.Margin='0';$UI.chart.Height=92}
