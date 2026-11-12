@@ -8,7 +8,7 @@ ensure_sqlite()
 import ctypes, os, sys, threading, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch, bootwatch, portwatch  # noqa: E402
+import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch, bootwatch, portwatch, widgetwatch  # noqa: E402
 from paths import PORT  # noqa: E402
 
 log = infra.log
@@ -117,6 +117,7 @@ def main():
     s.register("heartbeat", j_heartbeat, 15)
     s.register("server_guard", j_server_guard, 60, timeout_s=30, delay=10)
     s.register("sample", j_sample, 60)
+    s.register("widget_guard", widgetwatch.guard, 60, timeout_s=30, delay=90)   # يعيد الويدجت بعد سقوطه أو قتله، لا بعد إغلاق طلبه المالك
     s.register("cpu", cpuwatch.job, cpuwatch.INTERVAL, timeout_s=20, delay=20)
     s.register("commitwatch", commitwatch.job, commitwatch.INTERVAL, timeout_s=20, delay=35)
     s.register("bootwatch", bootwatch.job, bootwatch.INTERVAL, timeout_s=40, delay=60)

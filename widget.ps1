@@ -1254,7 +1254,7 @@ foreach ($pal in @(@('teal','أخضر بحري'),@('blue','أزرق'),@('violet'
 $restoreAppearance = New-Object Windows.Controls.MenuItem; $restoreAppearance.Header='استعادة المظهر الافتراضي'; $restoreAppearance.Add_Click({ Request-Appearance 'auto' 'teal' }); [void]$appearanceMenu.Items.Add($restoreAppearance)
 [void]$menu.Items.Add($appearanceMenu)
 $menu.Items.Add((New-Object Windows.Controls.Separator)) | Out-Null
-$miClose = New-Object Windows.Controls.MenuItem; $miClose.Header = 'إغلاق الويدجت'; $miClose.Add_Click({ $win.Close() }); $menu.Items.Add($miClose) | Out-Null
+$miClose = New-Object Windows.Controls.MenuItem; $miClose.Header = 'إغلاق الويدجت'; $miClose.Add_Click({ $script:userExit = $true; $win.Close() }); $menu.Items.Add($miClose) | Out-Null
 $UI.menuBtn.Add_Click({ $menu.PlacementTarget = $UI.menuBtn; $menu.IsOpen = $true })
 $card.ContextMenu = $menu
 Set-WidgetMenuTheme
@@ -1358,7 +1358,7 @@ try {
         }
         [void]$tm.Items.Add($tmAppearance)
         $tmExit = $tm.Items.Add('إغلاق الويدجت')
-        $tmExit.Add_Click({ $win.Close() })
+        $tmExit.Add_Click({ $script:userExit = $true; $win.Close() })
         $script:tray.ContextMenuStrip = $tm
         $script:tray.Add_MouseClick({ param($snd, $ev) if ($ev.Button -eq [System.Windows.Forms.MouseButtons]::Left) { & $trayToggle } })
         $win.Add_Closed({ try { $script:tray.Visible = $false; $script:tray.Dispose() } catch {} })
@@ -1366,4 +1366,4 @@ try {
     $app = New-Object Windows.Application; $app.ShutdownMode = 'OnMainWindowClose'
     [void]$app.Run($win)
 } catch { Log ('fatal: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) }
-finally { Log 'exit'; try { $script:mutex.ReleaseMutex() } catch {} }
+finally { Log $(if ($script:userExit) { 'exit: user' } else { 'exit' }); try { $script:mutex.ReleaseMutex() } catch {} }

@@ -481,7 +481,8 @@ Describe 'تخطيط الويدجت عند الإقلاع: تباطؤ وقاطع
     It 'انتظار الشِّل قبل إظهار النافذة، وسجلّ البدء والخروج وتوقف الواجهة موجودة في المصدر' {
         $src = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw
         $src.IndexOf('Wait-WidgetShellReady 45 2') | Should -BeLessThan $src.IndexOf('$app.Run($win)')
-        $src | Should -Match "Log 'exit'"
+        $src | Should -Match "Log \`$\(if \(\`$script:userExit\) \{ 'exit: user' \} else \{ 'exit' \}\)"
+        ([regex]::Matches($src, '\$script:userExit = \$true; \$win\.Close\(\)')).Count | Should -Be 2   # القائمة وأيقونة الصينية
         $src | Should -Match 'ui stall'
         $src | Should -Match "Log \('layout: "
     }

@@ -131,6 +131,8 @@ def post(route, body, invalidate=lambda: None):
     if route != "/api/widget":
         return None
     want = bool(body.get("show"))
+    import widgetwatch   # استيراد متأخر: widgetwatch يستورد هذه الوحدة
+    widgetwatch.set_wanted(want)   # إخفاء الويدجت من التطبيق قرار من المالك، فلا يعيده مراقب الوكيل
     if want:
         if widget_running():
             widget_stop()

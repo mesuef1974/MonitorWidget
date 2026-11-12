@@ -226,6 +226,7 @@ const PAGES = {
       const ig = h.gpu?.igpu;
       out += panel("الاعتمادية والأحداث", rl && rl.ok ? reliabBody(rl) : `<div class="empty">${rl?.pending ? "قياس الاعتمادية قيد التحضير — يظهر بعد اكتمال أول مسح." : "غير متاح الآن."}</div>`, { cls: "c6", meta: rl?.ok ? `آخر ${Q(rl.days)} يومًا` : "" });
       out += panel("العتاد — الرسوميات المدمجة", ig && ig.present ? `<div class="kpis">${kpi("الحمل ثلاثي الأبعاد", Q(ig.util3d, "%", 1))}${kpi("ذاكرة مشتركة", nf(ig.shared_mb), "MB", `من ${Q(ig.shared_total / 1024, "GB", 1)}`)}${kpi("أعلى حمل 24س", Q(ig.max24, "%", 1))}${kpi("متوسط 24س", Q(ig.avg24, "%", 1))}</div><div id="igChart" class="grow"></div>` : `<div class="empty">لا رسوميات مدمجة</div>`, { cls: "c6" });
+      out += panel("الويدجت", widgetBody(h.widget), { cls: "c12" });
       out += panel("زمن الإقلاع", bootBody(h.hw), { cls: "c6" });
       out += panel("مسبّبات بطء الإقلاع", culpritBody(h.hw), { cls: "c6", meta: h.hw?.boots?.length ? `آخر ${arN(h.hw.boots.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}` : "" });
       return out;
@@ -433,6 +434,15 @@ function culpritBody(hw) {   // ما أخّر الإقلاع بحسب ويندو
   const rows = [...by.values()].sort((x, y) => y.deg - x.deg);
   if (!rows.length) return `<div class="empty">لم يسجّل ويندوز مسبّبًا للبطء في آخر ${arN(bs.length, "إقلاع", "إقلاعين", "إقلاعات", "إقلاعًا")}</div>`;
   return `<table class="tbl"><thead><tr><th>المسبّب</th><th>النوع</th><th class="n">الإقلاعات</th><th class="n">متوسط التأخير</th><th class="n">أقصاه</th></tr></thead><tbody>${rows.map(a => { const avg = a.deg / a.boots.size; return `<tr><td>${esc(a.name)}</td><td>${BOOT_KIND[a.id] || "مكوّن"}</td><td class="n">${Q(a.boots.size)} من ${Q(bs.length)}</td><td class="n"><span class="tag ${level(avg, 3, 10)}">${Q(avg, "ث", 1)}</span></td><td class="n">${Q(a.max, "ث", 1)}</td></tr>`; }).join("")}</tbody></table><p class="note">التأخير هو ما زاد على الزمن المعتاد للمكوّن كما يقيسه ويندوز عند كل إقلاع.</p>`;
+}
+const WIDGET_STATE = { running: ["ok", "يعمل"], crashed: ["bad", "سقط"], killed: ["bad", "توقفت عمليته"], exited: ["warn", "أُغلق دون طلب"], closed: ["", "أغلقه المالك"], never: ["", "لم يُشغَّل بعد"] };
+function widgetBody(w) {   // مراقب الويدجت: حالته الآن، وسقطاته وتوقفات واجهته وإعادات تشغيله خلال 24 ساعة (من widget.log)
+  if (!w) return `<div class="empty">غير متاح</div>`;
+  const [cls, text] = WIDGET_STATE[w.state] || ["", w.state];
+  let out = `<div class="pill-row"><span class="tag ${cls}">${text}</span>${w.wanted === false ? '<span class="tag">مخفيّ من التطبيق</span>' : ""}${w.lastStart ? `<span class="note">آخر بدء ${when(w.lastStart)}</span>` : ""}</div>`;
+  out += `<div class="kpis">${kpi("سقطات", Q(w.fatals), "", "خلال 24 ساعة", meter(w.fatals, 1, 3, 5))}${kpi("توقفات الواجهة", Q(w.stalls), "", w.stalls ? `أطولها ${Q(w.stallMaxS, "ث", 1)}` : "خلال 24 ساعة", meter(w.stalls, 20, 100, 200))}${kpi("إعادات تشغيل آلية", Q(w.relaunches), "", "خلال 24 ساعة")}</div>`;
+  if (w.lastFatal) out += `<p class="note">آخر سقوط ${when(w.lastFatal.ts)}: ${esc(w.lastFatal.text)}</p>`;
+  return out;
 }
 function bootBody(hw) {   // زمن الإقلاع من سجل أداء ويندوز (يقرؤه الفحص المرتفع الدوري)
   const bs = bootList(hw);
