@@ -104,7 +104,7 @@ class RealChild(unittest.TestCase):
     """تغيير حقيقي على عملية ابن يملكها الاختبار وحده: NORMAL ← BELOW_NORMAL، ثم «already»، وحالة الحياة قبل الإنهاء وبعده."""
 
     def test_set_below_and_alive_on_own_child(self):
-        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], creationflags=0x08000000)
+        child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], creationflags=0x08000000 | 0x20)   # NORMAL_PRIORITY_CLASS صريحة: مشغّل CI نفسه بأولوية منخفضة فيرثها الابن
         try:
             created = cpuprio.cpuwatch._snap()[child.pid][1]
             self.assertEqual(cpuprio._set_below(child.pid), "lowered")
