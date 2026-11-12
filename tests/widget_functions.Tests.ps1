@@ -534,3 +534,33 @@ Describe 'مسار تبديل التخطيط كما هو في Set-RestoredLayout
         @($script:flipLog | Where-Object { $_ -like '*flip loop stopped*' }).Count | Should -Be 1
     }
 }
+
+Describe 'حارس المعالج في الويدجت: زر «اخفض أولويتها»' {
+    BeforeAll { $script:cpuSrc = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw }
+    It 'الزر مسمّى لقارئ الشاشة، مخفيّ افتراضيًا، ويُعاد إلى المكدّس مع التنبيه في التخطيط المستعاد' {
+        $script:cpuSrc | Should -Match "\`$UI\.cpuLower = New-ActionButton 'اخفض أولوية العملية التي تستهلك المعالج'"
+        $script:cpuSrc | Should -Match "\`$UI\.cpuLower\.Visibility = 'Collapsed'; \`$stack\.Children\.Add\(\`$UI\.cpuLower\)"
+        $script:cpuSrc | Should -Match '@\(\$hdr,\$UI\.cpuAlert,\$UI\.cpuLower,\$UI\.appearanceWarning\)'
+    }
+    It 'الضغط يرسل اسم العملية المنبَّه إليها إلى /api/cpu-lower ويعرض ردّ الخادم' {
+        $script:cpuSrc | Should -Match "Start-Bg '/api/cpu-lower' @\{ name = \`$target \}"
+        $script:cpuSrc | Should -Match 'Show-Toast \(\[string\]\$r\.text\)'
+    }
+    It 'منطق الإظهار كما في Update-Widget: يظهر لغير المحمي وغير المخفّض، ويختفي مع زوال التنبيه' {
+        $m = [regex]::Match($script:cpuSrc, '(?s)\$ca = \$d\.cpuAlert.*?\$script:cpuAlertName = \$null \}')
+        $m.Success | Should -BeTrue
+        $step = [scriptblock]::Create($m.Value)
+        function Ar-Minutes($n) { "$n دقائق" }
+        $UI = @{ cpuAlert = [pscustomobject]@{ Text = ''; Visibility = '' }; cpuLower = [pscustomobject]@{ Visibility = '' } }
+        $worst = 'ok'
+        $d = [pscustomobject]@{ cpuAlert = [pscustomobject]@{ name = 'python.exe'; avg = 12.7; minutes = 10; canLower = $true; lowered = $false } }
+        . $step
+        $UI.cpuLower.Visibility | Should -Be 'Visible'; $script:cpuAlertName | Should -Be 'python.exe'; $worst | Should -Be 'warn'
+        $d.cpuAlert.lowered = $true; . $step
+        $UI.cpuLower.Visibility | Should -Be 'Collapsed'; $UI.cpuAlert.Text | Should -Match 'أولويتها مخفّضة'
+        $d.cpuAlert.lowered = $false; $d.cpuAlert.canLower = $false; . $step
+        $UI.cpuLower.Visibility | Should -Be 'Collapsed'
+        $d = [pscustomobject]@{ cpuAlert = $null }; . $step
+        $UI.cpuAlert.Visibility | Should -Be 'Collapsed'; $UI.cpuLower.Visibility | Should -Be 'Collapsed'; $script:cpuAlertName | Should -BeNullOrEmpty
+    }
+}

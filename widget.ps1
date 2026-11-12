@@ -366,6 +366,13 @@ $btnRow.Children.Add($UI.menuBtn) | Out-Null; $btnRow.Children.Add($UI.closeBtn)
 $UI.headerButtons=$btnRow
 $stack.Children.Add($hdr) | Out-Null
 $UI.cpuAlert = New-Text '' 11.5 $C.warn; $UI.cpuAlert.TextWrapping = 'Wrap'; $UI.cpuAlert.Margin = '0,6,0,0'; $UI.cpuAlert.Visibility = 'Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.cpuAlert, 'Assertive'); $stack.Children.Add($UI.cpuAlert) | Out-Null
+# حارس المعالج: يخفض أولوية العملية المنبَّه إليها (لا يوقفها)؛ الخادم يستثني عمليات النظام والمرصد
+$UI.cpuLower = New-ActionButton 'اخفض أولوية العملية التي تستهلك المعالج'; $UI.cpuLower.Content = 'اخفض أولويتها'; $UI.cpuLower.Foreground = Brush $C.accentText; $UI.cpuLower.Background = Brush $C.card; $UI.cpuLower.BorderBrush = Brush $C.line; $UI.cpuLower.BorderThickness = 1; $UI.cpuLower.FontSize = 12; $UI.cpuLower.FontFamily = $FONTS.list; $UI.cpuLower.Padding = '10,2,10,2'; $UI.cpuLower.HorizontalAlignment = 'Left'; $UI.cpuLower.HorizontalContentAlignment = 'Center'; $UI.cpuLower.Margin = '0,4,0,0'; $UI.cpuLower.Visibility = 'Collapsed'; $stack.Children.Add($UI.cpuLower) | Out-Null
+$UI.cpuLower.Add_Click({
+    $target = [string]$script:cpuAlertName; if (-not $target) { return }
+    $UI.cpuLower.IsEnabled = $false
+    Start-Bg '/api/cpu-lower' @{ name = $target } { param($r) $UI.cpuLower.IsEnabled = $true; $script:lastStamp = -1; Show-Toast ([string]$r.text) } { param($m) $UI.cpuLower.IsEnabled = $true; Show-Toast ('تعذّر خفض الأولوية: ' + $m) }
+})
 $UI.toast = New-Text '' 12 $C.ink; $UI.toast.TextWrapping = 'Wrap'; $UI.toast.TextTrimming = 'None'; $UI.toast.Margin='0,8,0,0'; $UI.toast.Visibility='Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.toast, 'Polite'); [void]$stack.Children.Add($UI.toast)   # قارئ الشاشة يعلن الإشعار (يختفي بعد 7 ثوانٍ)
 $UI.appearanceWarning = New-Text '' 12 $C.warn; $UI.appearanceWarning.TextWrapping='Wrap'; $UI.appearanceWarning.TextTrimming='None'; $UI.appearanceWarning.Margin='0,8,0,0'; $UI.appearanceWarning.Visibility='Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.appearanceWarning, 'Polite'); [void]$stack.Children.Add($UI.appearanceWarning)
 $stack.Children.Add((Gap 10)) | Out-Null
@@ -642,7 +649,7 @@ foreach ($spec in @(@('cpu','المعالج'), @('ram','الذاكرة الفع�
     $UI[('compact'+$spec[0])]=$value;$UI.approvedReadingRows+=@{Root=$row;Label=$label;Value=$value}
 }
 $UI.compactAlert=New-Text '' 12 $C.muted;$UI.compactAlert.TextWrapping='Wrap';$UI.compactAlert.Margin='0,4,0,0';[void]$compact.Children.Clear();[void]$compact.Children.Add($UI.compactAlert)
-foreach($n in @($hdr,$UI.cpuAlert,$UI.appearanceWarning)){[void]$stack.Children.Add($n)}
+foreach($n in @($hdr,$UI.cpuAlert,$UI.cpuLower,$UI.appearanceWarning)){[void]$stack.Children.Add($n)}
 $UI.historyNotice=New-Text '' 12 $C.muted;$UI.historyNotice.TextWrapping='Wrap';$UI.historyNotice.Visibility='Collapsed';[void]$stack.Children.Add($UI.historyNotice)
 $UI.restoredBody=New-Object Windows.Controls.Grid
 $UI.restoredMetrics=New-Object Windows.Controls.StackPanel;$UI.restoredActions=New-Object Windows.Controls.StackPanel
@@ -973,8 +980,11 @@ function Update-Widget {
         $ca = $d.cpuAlert
         if ($ca -and $ca.name) {
             $UI.cpuAlert.Text = ('⚠ المعالج: {0} يستهلك {1:N1} نواة منذ نحو {2}' -f $ca.name, [double]$ca.avg, (Ar-Minutes ([int]$ca.minutes))); $UI.cpuAlert.Visibility = 'Visible'
+            $script:cpuAlertName = [string]$ca.name
+            if ($ca.lowered) { $UI.cpuAlert.Text += ' · أولويتها مخفّضة' }
+            $UI.cpuLower.Visibility = if ($ca.canLower -and -not $ca.lowered) { 'Visible' } else { 'Collapsed' }
             if ($worst -eq 'ok') { $worst = 'warn' }
-        } else { $UI.cpuAlert.Visibility = 'Collapsed' }
+        } else { $UI.cpuAlert.Visibility = 'Collapsed'; $UI.cpuLower.Visibility = 'Collapsed'; $script:cpuAlertName = $null }
     } catch {}
     $UI.pill.Background = Level-Brush $worst; $UI.pillText.Text = switch ($worst) { 'bad' { 'حرج' } 'warn' { 'تنبيه' } default { 'مستقر' } }
     $sc = $d.score

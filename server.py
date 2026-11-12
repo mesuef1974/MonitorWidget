@@ -20,11 +20,12 @@ import snapshot             # البند 6/ز: القياسات الأصلية �
 import routes_read          # البند 6/ح: جدول GET /api/* القرائية بمعالجة أخطاء موحّدة وتسجيل سبب كل 500
 import gpupurge             # تفريغ ذاكرة كرت الشاشة عند الطلب (POST /api/gpu-purge يبدأ، GET يعرض الحالة)
 import askstore             # ذاكرة «اسأل المرصد»: التقييم والمسح والتعليمات
+import cpuprio              # حارس المعالج: POST /api/cpu-lower يخفض أولوية العملية المنبَّه إليها
 import routes_app           # البند 8: ما بقي من POST في الخادم (explain وexplain-errors وllm-unload وpage-open وshutdown)
 import websession           # البند 6/ط: جلسات المتصفح والتذاكر أحادية الاستعمال والرمز المحلي
 import webstatic            # البند 6/ي: الصفحة والأنماط والخطوط والأيقونات وسياسة CSP للصفحة
 import webboot              # البند 6/ك: الإقلاع (النسخة الواحدة، تشخيص الانهيار، الوكيل، الخيوط الخلفية، حلقة الخدمة)
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, cpuprio, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import PORT
 # التذاكر أحادية الاستعمال والجلسات والرمز في websession.py (البند 6/ط)
 MAX_POST_BYTES = 65536
