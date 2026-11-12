@@ -154,3 +154,32 @@ test.describe('عدّاد فتح الصفحات والجولات الآلية', 
     await ctx.close();
   });
 });
+
+test('صفحة الصحة: لوحة الويدجت تعرض حالته وسقطاته وتوقفات واجهته وآخر خطأ نصًّا لا HTML', async ({ page }) => {
+  await page.goto('/#/health');
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  const w = panelOf(page, 'الويدجت');
+  await expect(w.locator('.tag.bad')).toHaveText('سقط');
+  await expect(w.locator('.kpi', { hasText: 'سقطات' })).toContainText('2');
+  await expect(w.locator('.kpi', { hasText: 'توقفات الواجهة' })).toContainText('37');
+  await expect(w.locator('.kpi', { hasText: 'توقفات الواجهة' })).toContainText('93.7');
+  await expect(w.locator('.kpi', { hasText: 'إعادات تشغيل آلية' })).toContainText('1');
+  await expect(w.locator('p.note')).toContainText('<b>op_Subtraction</b>');
+  await expect(w.locator('p.note b')).toHaveCount(0);
+  let mode = 'running';
+  await page.route('**/api/health', async route => {
+    const res = await route.fetch(); const body = await res.json();
+    if (mode === 'running') body.widget = { running: true, state: 'running', starts: 1, fatals: 0, stalls: 0, stallMaxS: 0, stallSumS: 0, lastStart: 1793015330, lastFatal: null, lastLayout: null, relaunches: 0, wanted: false };
+    else body.widget = null;
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(panelOf(page, 'الويدجت').locator('.tag.ok')).toHaveText('يعمل');
+  await expect(panelOf(page, 'الويدجت').locator('.tag', { hasText: 'مخفيّ من التطبيق' })).toHaveCount(1);
+  await expect(panelOf(page, 'الويدجت').locator('p.note')).toHaveCount(0);
+  mode = 'none';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(panelOf(page, 'الويدجت').locator('.empty')).toContainText('غير متاح');
+});

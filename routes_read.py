@@ -28,6 +28,7 @@ import routes_policy
 import routes_settings
 import sched
 import shellwin
+import widgetwatch
 import snapshot
 import space
 import startup_mgr
@@ -83,6 +84,11 @@ def _infra(q):
 def _health(q):
     out = health.overview(snapshot.native_metrics(), snapshot.tasks())
     out["shell"] = shellwin.shell_status()
+    try:
+        out["widget"] = widgetwatch.payload()   # سقطات الويدجت وتوقفات واجهته وإعادات تشغيله من widget.log
+    except Exception:
+        errlog.swallowed()
+        out["widget"] = None
     return out
 
 
