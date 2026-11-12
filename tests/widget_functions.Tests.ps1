@@ -481,8 +481,9 @@ Describe 'تخطيط الويدجت عند الإقلاع: تباطؤ وقاطع
     It 'انتظار الشِّل قبل إظهار النافذة، وسجلّ البدء والخروج وتوقف الواجهة موجودة في المصدر' {
         $src = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw
         $src.IndexOf('Wait-WidgetShellReady 45 2') | Should -BeLessThan $src.IndexOf('$app.Run($win)')
+        $src.IndexOf('Wait-WidgetShellReady 45 2') | Should -BeGreaterThan 0
         $src | Should -Match "Log \`$\(if \(\`$script:userExit\) \{ 'exit: user' \} else \{ 'exit' \}\)"
-        ([regex]::Matches($src, '\$script:userExit = \$true; \$win\.Close\(\)')).Count | Should -Be 2   # القائمة وأيقونة الصينية
+        ([regex]::Matches($src, '\$script:userExit = \$true; \$win\.Close\(\)')).Count | Should -Be 3   # القائمة وأيقونة الصينية ووضع الاختبار MW_SMOKE
         $src | Should -Match 'ui stall'
         $src | Should -Match "Log \('layout: "
     }
@@ -563,5 +564,40 @@ Describe 'حارس المعالج في الويدجت: زر «اخفض أولو�
         $UI.cpuLower.Visibility | Should -Be 'Collapsed'
         $d = [pscustomobject]@{ cpuAlert = $null }; . $step
         $UI.cpuAlert.Visibility | Should -Be 'Collapsed'; $UI.cpuLower.Visibility | Should -Be 'Collapsed'; $script:cpuAlertName | Should -BeNullOrEmpty
+    }
+}
+
+Describe 'تشغيل الويدجت الحقيقي (MW_SMOKE): widget.ps1 كله يعمل، يبدّل التخطيط، ويُغلق بلا fatal' {
+    # اختبارات الدوال المنفردة فاتها سطر أسقط الويدجت عند أول تبديل تخطيط (PR 128)؛ هذا يشغّل السكربت نفسه في عملية مستقلة
+    # بقفل آخر ومجلد حالة مؤقت ونافذة شفافة، فلا يمسّ ويدجت المالك ولا إعداداته ولا الشبكة.
+    It 'يبدأ، يسجّل تبديلات التخطيط، يحدّث الواجهة من ثابت الاختبار، ثم يخرج «exit: user» برمز 0' {
+        $root = Join-Path ([IO.Path]::GetTempPath()) ('mw-smoke-' + [guid]::NewGuid().ToString('N'))
+        New-Item -ItemType Directory -Path $root | Out-Null
+        $widget = Join-Path $script:widgetRepoRoot 'widget.ps1'
+        $old = $env:MW_SMOKE
+        try {
+            $env:MW_SMOKE = '1'
+            $p = Start-Process -FilePath (Get-Process -Id $PID).Path -WindowStyle Hidden -PassThru -ArgumentList @('-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', ('"{0}"' -f $widget), '-Root', ('"{0}"' -f $root))
+            $done = $p.WaitForExit(120000)
+            if (-not $done) { try { $p.Kill() } catch {} }
+            $log = @(Get-Content -LiteralPath (Join-Path $root 'widget.log') -Encoding UTF8 -ErrorAction SilentlyContinue)
+            $text = $log -join "`n"
+            $done | Should -BeTrue -Because "الويدجت لم يخرج خلال دقيقتين. السجل:`n$text"
+            @($log | Where-Object { $_ -match ' fatal: ' }) | Should -BeNullOrEmpty -Because $text
+            @($log | Where-Object { $_ -match ' start: pid \d+' }).Count | Should -Be 1 -Because $text
+            @($log | Where-Object { $_ -match ' layout: (wide 726|portrait 385) ' }).Count | Should -BeGreaterThan 1 -Because $text
+            @($log | Where-Object { $_ -match ' smoke: ok$' }).Count | Should -Be 1 -Because $text
+            $log[-1] | Should -Match ' exit: user$'
+            $p.ExitCode | Should -Be 0
+        } finally {
+            $env:MW_SMOKE = $old
+            Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+    It 'خارج وضع الاختبار لا يتغيّر شيء: القفل الأصلي، والشفافية من الإعداد، والاستطلاع يعمل' {
+        $src = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw
+        $src | Should -Match "else \{ 'Local\\Azkia-MiniWidget' \}"
+        $src | Should -Match 'if \(\$script:smoke\) \{ 0 \} else \{ \$v \}'
+        ([regex]::Matches($src, 'if \(-not \$script:smoke\) \{ \$script:(ps|appearancePs) = ')).Count | Should -Be 2
     }
 }
