@@ -183,3 +183,72 @@ test('صفحة الصحة: لوحة الويدجت تعرض حالته وسقط�
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
   await expect(panelOf(page, 'الويدجت').locator('.empty')).toContainText('غير متاح');
 });
+
+test('صفحة الصحة: اتجاه زمن الإقلاع يعرض الحالة والمرحلة والمسبّب الجديد نصًّا والرسم، ونوع الخدمة المصحَّح', async ({ page }) => {
+  let mode = 'slower';
+  await page.route('**/api/health', async route => {
+    const res = await route.fetch(); const body = await res.json();
+    if (mode === 'learning') body.bootTrend = { n: 2, need: 7, state: 'learning', recentSec: 40.1, baseSec: null, deltaSec: null, deltaPct: null, phase: null, newCulprits: [], lastTs: 1793015330, points: [{ ts: 1793015330, bootSec: 40.1 }] };
+    if (mode === 'empty') body.bootTrend = { n: 0, need: 7, state: 'learning', recentSec: null, baseSec: null, deltaSec: null, deltaPct: null, phase: null, newCulprits: [], lastTs: null, points: [] };
+    if (mode === 'none') body.bootTrend = null;
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.goto('/#/health');
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  const tr = panelOf(page, 'اتجاه زمن الإقلاع');
+  await expect(tr.locator('.tag.bad')).toContainText('أبطأ من المعتاد');
+  await expect(tr.locator('.tag.bad')).toContainText('11.2');
+  await expect(tr.locator('.tag.warn').nth(0)).toHaveText('الزيادة بعد ظهور سطح المكتب');
+  await expect(tr.locator('.tag.warn').nth(1)).toContainText('<i>New</i> Updater');   // الاسم نصّ لا HTML
+  await expect(tr.locator('.tag i')).toHaveCount(0);
+  await expect(tr.locator('.kpi .l', { hasText: 'المعتاد' })).toHaveCount(1);
+  await expect(tr.locator('#btChart svg')).toHaveCount(1);
+  const row = panelOf(page, 'مسبّبات بطء الإقلاع').locator('tbody tr').filter({ hasText: 'Lenovo.Modern.ImController' });
+  await expect(row.locator('td').nth(1)).toHaveText('خدمة');   // حدث 101 (تطبيق) لكن الخادم عرفه خدمة
+  mode = 'learning';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(tr.locator('.tag').first()).toContainText('يتعلّم المعتاد');
+  await expect(tr.locator('.tag').first()).toContainText('2 من 7');
+  await expect(tr.locator('#btChart')).toHaveCount(0);   // نقطة واحدة لا تُرسم
+  mode = 'empty';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(tr.locator('.empty')).toContainText('لا إقلاع محفوظ بعد');
+  mode = 'none';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(tr.locator('.empty')).toHaveText('غير متاح');
+});
+
+test('صفحة الطاقة: السكون والاستيقاظ بجلساته وأسبابه ومصادره، والفوري والبطيء معلَّمان، وحالتاه الفارغتان', async ({ page }) => {
+  let mode = 'full';
+  await page.route('**/api/power*', async route => {
+    const res = await route.fetch(); const body = await res.json();
+    if (mode === 'empty') body.sleep = { days: 14, n: 0, instant: 0, slow: 0, avgWakeS: null, maxWakeS: null, slowest: null, instantSources: [], items: [] };
+    if (mode === 'none') { body.sleep = null; body.status.noBattery = true; }
+    await route.fulfill({ response: res, json: body });
+  });
+  await page.goto('/#/power');
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 4);
+  const sl = panelOf(page, 'السكون والاستيقاظ');
+  await expect(sl.locator('.kpi .l', { hasText: 'مرات السكون' })).toHaveCount(1);
+  await expect(sl.locator('.kpi .l', { hasText: 'استيقاظ قبل دقيقتين' })).toHaveCount(1);
+  const rows = sl.locator('tbody tr');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('خمول الجهاز');
+  await expect(rows.nth(0).locator('.tag')).toHaveCount(0);
+  await expect(rows.nth(1).locator('.tag.warn')).toHaveCount(2);                      // المدة القصيرة والخروج البطيء
+  await expect(rows.nth(1).locator('td').nth(3)).toHaveText('جهاز: <b>USB</b> Root Hub'); // النص من سجل ويندوز لا يُفسَّر HTML
+  await expect(rows.nth(1).locator('b')).toHaveCount(0);
+  await expect(rows.nth(2).locator('.tag', { hasText: 'سبات' })).toHaveCount(1);
+  await expect(rows.nth(2).locator('td').nth(2)).toHaveText('—');
+  mode = 'empty';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 4);
+  await expect(sl.locator('.empty')).toContainText('لا سكون مسجّل خلال 14');
+  mode = 'none';
+  await page.reload();
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 2);
+  await expect(sl.locator('.empty')).toHaveText('غير متاح');   // تظهر حتى بلا بطارية: السكون يخصّ المكتبي أيضًا
+});
