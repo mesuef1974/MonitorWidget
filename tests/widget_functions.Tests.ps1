@@ -9,7 +9,7 @@ BeforeAll {
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors.Message -join '; ') }
-    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Get-Palette', 'Get-DriveLevel')) {
+    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Add-WidgetLayoutFlip', 'Get-Palette', 'Get-DriveLevel')) {
         $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
         if (-not $fn) { throw "Missing $name" }
         . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -484,5 +484,53 @@ Describe 'تخطيط الويدجت عند الإقلاع: تباطؤ وقاطع
         $src | Should -Match "Log 'exit'"
         $src | Should -Match 'ui stall'
         $src | Should -Match "Log \('layout: "
+    }
+}
+
+Describe 'سجلّ تبديلات التخطيط: أول تبديل لا يُسقط الويدجت' {
+    It 'القائمة الفارغة ($null) عند أول تبديل: لا استثناء، والناتج تبديل واحد' {
+        $now = Get-Date
+        { Add-WidgetLayoutFlip $null $now } | Should -Not -Throw
+        $r = Add-WidgetLayoutFlip $null $now
+        @($r).Count | Should -Be 1
+        $r[0] | Should -Be $now
+        { Test-WidgetLayoutFlipAllowed $null $now } | Should -Not -Throw
+        Test-WidgetLayoutFlipAllowed $null $now | Should -BeTrue
+    }
+    It 'يُسقط التبديلات الأقدم من النافذة ويبقي الحديثة مع الحالي' {
+        $now = Get-Date
+        $r = Add-WidgetLayoutFlip @($now.AddSeconds(-30), $now.AddSeconds(-3)) $now
+        @($r).Count | Should -Be 2
+        $r[-1] | Should -Be $now
+    }
+    It 'تتابع التبديلات كما في Set-RestoredLayout: 4 مسموحة ثم يمنع القاطع الخامس' {
+        $now = Get-Date; $flips = $null; $allowed = 0
+        foreach ($i in 0..5) {
+            $t = $now.AddMilliseconds(200 * $i)
+            if (Test-WidgetLayoutFlipAllowed $flips $t) { $flips = Add-WidgetLayoutFlip $flips $t; $allowed++ }
+        }
+        $allowed | Should -Be 4
+    }
+    It 'المصدر لا يطرح تاريخًا من عنصر غير مفحوص في مسار التبديل' {
+        $src = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw
+        $src | Should -Match 'layoutFlips=Add-WidgetLayoutFlip \$script:layoutFlips \$now'
+        $src | Should -Not -Match 'layoutFlips\|Where-Object \{\(\$now-\$_\)'
+    }
+}
+
+Describe 'مسار تبديل التخطيط كما هو في Set-RestoredLayout (مقتطع من المصدر ومُنفَّذ)' {
+    It 'يعمل من حالة فارغة، يسجّل كل تبديل، ويجمّد الوضع بعد 4 تبديلات متتابعة' {
+        $src = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw
+        $m = [regex]::Match($src, '(?s)\$wasWide=\[bool\]\$script:layoutWide;.*?\$script:layoutWide=\$wide;')
+        $m.Success | Should -BeTrue
+        $step = [scriptblock]::Create($m.Value)
+        $script:layoutWide = $null; $script:layoutFlips = $null; $script:layoutFrozenLogged = $null; $script:flipLog = @()
+        function Log($text) { $script:flipLog += [string]$text }
+        $win = $null; $natural = 1230.0; $modes = @()
+        foreach ($height in 1000, 1400, 1000, 1400, 1000, 1400) { { . $step } | Should -Not -Throw; $modes += [bool]$script:layoutWide }
+        $modes | Should -Be @($true, $false, $true, $false, $false, $false)
+        @($script:flipLog | Where-Object { $_ -like 'layout: wide 726*' }).Count | Should -Be 2
+        @($script:flipLog | Where-Object { $_ -like 'layout: portrait 385*' }).Count | Should -Be 2
+        @($script:flipLog | Where-Object { $_ -like '*flip loop stopped*' }).Count | Should -Be 1
     }
 }
