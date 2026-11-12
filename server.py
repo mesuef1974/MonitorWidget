@@ -25,7 +25,7 @@ import routes_app           # البند 8: ما بقي من POST في الخا�
 import websession           # البند 6/ط: جلسات المتصفح والتذاكر أحادية الاستعمال والرمز المحلي
 import webstatic            # البند 6/ي: الصفحة والأنماط والخطوط والأيقونات وسياسة CSP للصفحة
 import webboot              # البند 6/ك: الإقلاع (النسخة الواحدة، تشخيص الانهيار، الوكيل، الخيوط الخلفية، حلقة الخدمة)
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, routes_app, cpuprio)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, cpuprio, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import PORT
 # التذاكر أحادية الاستعمال والجلسات والرمز في websession.py (البند 6/ط)
 MAX_POST_BYTES = 65536
