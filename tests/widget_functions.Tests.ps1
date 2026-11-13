@@ -542,7 +542,7 @@ Describe 'حارس المعالج في الويدجت: زر «اخفض أولو�
     It 'الزر مسمّى لقارئ الشاشة، مخفيّ افتراضيًا، ويُعاد إلى المكدّس مع التنبيه في التخطيط المستعاد' {
         $script:cpuSrc | Should -Match "\`$UI\.cpuLower = New-ActionButton 'اخفض أولوية العملية التي تستهلك المعالج'"
         $script:cpuSrc | Should -Match "\`$UI\.cpuLower\.Visibility = 'Collapsed'; \`$stack\.Children\.Add\(\`$UI\.cpuLower\)"
-        $script:cpuSrc | Should -Match '@\(\$hdr,\$UI\.cpuAlert,\$UI\.cpuLower,\$UI\.appearanceWarning\)'
+        $script:cpuSrc | Should -Match '@\(\$hdr,\$UI\.battAlert,\$UI\.cpuAlert,\$UI\.cpuLower,\$UI\.appearanceWarning\)'
     }
     It 'الضغط يرسل اسم العملية المنبَّه إليها إلى /api/cpu-lower ويعرض ردّ الخادم' {
         $script:cpuSrc | Should -Match "Start-Bg '/api/cpu-lower' @\{ name = \`$target \}"
@@ -599,5 +599,30 @@ Describe 'تشغيل الويدجت الحقيقي (MW_SMOKE): widget.ps1 كله
         $src | Should -Match "else \{ 'Local\\Azkia-MiniWidget' \}"
         $src | Should -Match 'if \(\$script:smoke\) \{ 0 \} else \{ \$v \}'
         ([regex]::Matches($src, 'if \(-not \$script:smoke\) \{ \$script:(ps|appearancePs) = ')).Count | Should -Be 2
+    }
+}
+
+Describe 'إنذار البطارية في الويدجت (battAlert)' {
+    BeforeAll { $script:battSrc = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'widget.ps1') -Raw }
+    It 'النص مخفيّ افتراضيًا، يُعلَن لقارئ الشاشة، ويُعاد إلى المكدّس في التخطيط المستعاد' {
+        $script:battSrc | Should -Match "\`$UI\.battAlert\.Visibility = 'Collapsed'; \[Windows\.Automation\.AutomationProperties\]::SetLiveSetting\(\`$UI\.battAlert, 'Assertive'\); \`$stack\.Children\.Add\(\`$UI\.battAlert\)"
+    }
+    It 'منطق الإظهار كما في Update-Widget: تنبيه ثم خطر بإشعار واحد، ويختفي بزوال الإنذار' {
+        $m = [regex]::Match($script:battSrc, '(?s)\$ba = \$d\.battAlert.*?\$script:battToasted = \$false \}')
+        $m.Success | Should -BeTrue
+        $step = [scriptblock]::Create($m.Value)
+        $C = @{ warn = 'W'; bad = 'B' }
+        function Brush($c) { $c }
+        $script:toasts = @(); function Show-Toast([string]$msg) { $script:toasts += $msg }
+        $UI = @{ battAlert = [pscustomobject]@{ Text = ''; Visibility = ''; Foreground = '' } }
+        $script:battToasted = $false; $worst = 'ok'
+        $d = [pscustomobject]@{ battAlert = [pscustomobject]@{ level = 'warn'; text = 'البطارية 14%؛ وصّل الشاحن.' } }
+        . $step
+        $UI.battAlert.Visibility | Should -Be 'Visible'; $UI.battAlert.Text | Should -Be '⚠ البطارية 14%؛ وصّل الشاحن.'; $UI.battAlert.Foreground | Should -Be 'W'
+        $worst | Should -Be 'warn'; $script:toasts.Count | Should -Be 0
+        $d.battAlert.level = 'bad'; . $step; . $step
+        $UI.battAlert.Foreground | Should -Be 'B'; $worst | Should -Be 'bad'; $script:toasts.Count | Should -Be 1
+        $d = [pscustomobject]@{ battAlert = $null }; . $step
+        $UI.battAlert.Visibility | Should -Be 'Collapsed'; $script:battToasted | Should -BeFalse
     }
 }
