@@ -165,7 +165,7 @@ dialog.dlg p{margin-bottom:var(--s4);line-height:1.7}.dlg-act{display:flex;gap:v
 .ask-text{white-space:pre-wrap;overflow-wrap:anywhere}
 .ask-form{display:flex;gap:10px;align-items:flex-end;margin-block-start:14px}
 .ask-form textarea,.ask-form input{flex:1;min-width:0;resize:vertical;padding:9px 12px;border:1px solid var(--line2);border-radius:10px;background:var(--panel2);color:var(--ink);font:inherit}
-.ask-msg .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.ask-msg .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent-text)}
 .ask-facts{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 .ask-facts li{display:flex;gap:10px;align-items:center;justify-content:space-between}
 .ask-facts span{overflow-wrap:anywhere}

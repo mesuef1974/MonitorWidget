@@ -75,3 +75,27 @@ test('الصفحة الحالية في القائمة والزر الأساسي 
     expect(r.skipBg, `${theme}: خلفية رابط التخطّي`).toBe(r.accentSolid);
   }
 });
+
+// حارس: لون accent الخام 3.0:1 في teal الفاتح، فلا يُكتب به نصّ؛ النص يأخذ accent-text. يمسح كل قواعد الأنماط المحمّلة.
+test('لا قاعدة تلوّن نصًّا بـ accent الخام؛ النص بلون الهوية يستعمل accent-text', async ({ page }) => {
+  await page.goto('/#/overview');
+  await page.waitForFunction(() => document.querySelector('#main .panel'));
+  const raw = await page.evaluate(() => {
+    const out = [];
+    const walk = rules => { for (const r of rules) { if (r.cssRules) walk(r.cssRules); if (r.style && r.style.getPropertyValue('color').trim() === 'var(--accent)') out.push(r.selectorText); } };
+    for (const s of document.styleSheets) walk(s.cssRules);
+    return out;
+  });
+  expect(raw, raw.join('\n')).toEqual([]);
+  const r = await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light'; document.documentElement.dataset.palette = 'teal';
+    const box = document.createElement('div'); box.className = 'ask-msg';
+    box.innerHTML = '<button class="btn" aria-pressed="true">مفيد</button>';
+    document.body.appendChild(box);
+    const tok = document.createElement('i'); document.body.appendChild(tok); tok.style.color = 'var(--accent-text)';
+    const res = { btn: getComputedStyle(box.firstChild).color, accentText: getComputedStyle(tok).color };
+    box.remove(); tok.remove();
+    return res;
+  });
+  expect(r.btn, 'زر التقييم المضغوط في صفحة اسأل').toBe(r.accentText);
+});
