@@ -97,10 +97,27 @@ class Notes(unittest.TestCase):
 class Payload(unittest.TestCase):
     def test_payload_queries_the_last_14_days(self):
         asked = []
-        p = sw.payload(now=ts("2026-11-12T12:00:00Z"), query=lambda since: asked.append(since) or XML)
+        p = sw.payload(now=ts("2026-11-12T12:00:00Z"), query=lambda since: asked.append(since) or XML, armed_query=lambda: "HID Keyboard Device\r\n\r\n")
+        self.assertEqual(p["armed"], ["HID Keyboard Device"])
         self.assertEqual(asked, ["2026-10-29T12:00:00.000Z"])
         self.assertEqual((p["n"], len(p["items"])), (4, 4))
-        self.assertEqual(sw.payload(now=ts("2026-11-12T12:00:00Z"), query=lambda since: "")["n"], 0)
+        self.assertEqual(sw.payload(now=ts("2026-11-12T12:00:00Z"), query=lambda since: "", armed_query=lambda: None)["n"], 0)
+        self.assertIsNone(sw.payload(now=ts("2026-11-12T12:00:00Z"), query=lambda since: "", armed_query=lambda: 1 / 0)["armed"])
+
+    def test_armed_parses_powercfg_output(self):
+        self.assertEqual(sw.armed("HID-compliant mouse (002)\r\nHID Keyboard Device\r\n\r\n"), ["HID-compliant mouse (002)", "HID Keyboard Device"])
+        self.assertEqual(sw.armed("NONE\r\n"), [])
+        self.assertEqual(sw.armed(""), [])
+        self.assertIsNone(sw.armed(None))
+
+    def test_note_lists_armed_devices_only_when_a_device_woke_it(self):
+        s = sw.summary(sw.sessions(*sw.parse(XML)))
+        s["armed"] = ["HID Keyboard Device", "HID-compliant mouse"]
+        self.assertIn("المسموح لها بالإيقاظ الآن: HID Keyboard Device، HID-compliant mouse.", sw.notes(s)[0][2])
+        self.assertIn("لا يسمّي التعريف", sw.notes(s)[1][2])
+        btn = sw.summary(sw.sessions(*sw.parse(wake("2026-11-12T07:00:00Z", "2026-11-12T07:00:30Z") + wake("2026-11-12T08:00:00Z", "2026-11-12T08:00:40Z"))))
+        btn["armed"] = ["HID Keyboard Device"]
+        self.assertNotIn("المسموح", sw.notes(btn)[0][2])
 
 
 if __name__ == "__main__":
