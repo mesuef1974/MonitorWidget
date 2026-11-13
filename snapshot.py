@@ -26,6 +26,7 @@ from ctypes import wintypes
 
 import alertcfg
 import cpuwatch
+import battwatch
 import cpuprio
 import db
 import errlog
@@ -323,7 +324,7 @@ def mini_payload():
         "hist": {"t": [x[0] for x in h], "commit": [x[1] for x in h], "ram": [x[2] for x in h]},
         "tiers": tiers, "guard": (data or {}).get("guard"),
         "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
-        "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(),
+        "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(), "battAlert": battwatch.mini(),
         "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "gpu": _gpu_safe(), "thr": alertcfg.get(), "score": _score_safe(m),
     }
 
