@@ -52,8 +52,11 @@ def service_kinds():
                         out[key.lower()] = kind
                         try:
                             disp = winreg.QueryValueEx(k, "DisplayName")[0]
+                            image = str(winreg.QueryValueEx(k, "ImagePath")[0])
                         except OSError:
-                            disp = None
+                            disp = image = None
+                        if image and "\\windowsapps\\" in image.lower():
+                            continue   # خدمة مساعدة داخل حزمة تطبيق تحمل اسمه (Claude): الحدث يخصّ التطبيق لا الخدمة
                         if isinstance(disp, str) and disp and not disp.startswith("@"):   # «@ملف,-رقم» اسم غير مباشر لا يطابق شيئًا
                             out.setdefault(disp.strip().lower(), kind)
                 except OSError:

@@ -118,6 +118,7 @@ class Kinds(unittest.TestCase):
         self.assertIsInstance(k, dict)
         if os.name == "nt":
             self.assertEqual(k.get("eventlog"), "service")
+            self.assertNotIn("claude", k)   # خدمة حزمة التطبيق لا تُطابَق باسمها المعروض
             self.assertTrue(all(v in ("service", "driver") for v in k.values()))
 
 

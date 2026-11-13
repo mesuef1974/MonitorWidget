@@ -127,7 +127,7 @@ def notes(s):
         top = s["instantSources"][0]
         lvl = "info" if top["source"] == "زر الطاقة" and top["n"] == s["instant"] else "warn"   # كلها بزر الطاقة = المالك أيقظه، لا خلل
         dev = any(x["source"].startswith("جهاز:") for x in s["instantSources"]) and s.get("armed")
-        more = " المسموح لها بالإيقاظ الآن: %s." % "، ".join(s["armed"][:6]) if dev else ""
+        more = " %d أجهزة مسموح لها بالإيقاظ؛ أسماؤها في لوحة «السكون والاستيقاظ»." % len(s["armed"]) if dev else ""
         out.append((lvl, "الجهاز يستيقظ بُعيد نومه", "%d من %d مرة خلال %d يومًا عاد الجهاز قبل دقيقتين من نومه؛ المصدر الأغلب: %s (%d).%s" % (
             s["instant"], s["n"], s["days"], top["source"], top["n"], more)))
     sl = s.get("slowest")
