@@ -164,7 +164,7 @@ test('صفحة الصحة: لوحة الويدجت تعرض حالته وسقط�
   await expect(w.locator('.kpi', { hasText: 'توقفات الواجهة' })).toContainText('37');
   await expect(w.locator('.kpi', { hasText: 'توقفات الواجهة' })).toContainText('93.7');
   await expect(w.locator('.kpi', { hasText: 'إعادات تشغيل آلية' })).toContainText('1');
-  await expect(w.locator('p.note')).toContainText('<b>op_Subtraction</b>');
+  await expect(w.locator('p.note').last().locator('bdi[dir=ltr]')).toContainText('<b>op_Subtraction</b>');   // النص الإنجليزي معزول باتجاهه
   await expect(w.locator('p.note b')).toHaveCount(0);
   let mode = 'running';
   await page.route('**/api/health', async route => {
@@ -197,7 +197,8 @@ test('صفحة الصحة: اتجاه زمن الإقلاع يعرض الحال�
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
   const tr = panelOf(page, 'اتجاه زمن الإقلاع');
   await expect(tr.locator('.tag.bad')).toContainText('أبطأ من المعتاد');
-  await expect(tr.locator('.tag.bad')).toContainText('11.2');
+  await expect(tr.locator('.tag.bad')).toHaveText('أبطأ من المعتاد');                    // الفرق في وسم مستقل لا داخل وسم الحالة
+  await expect(tr.locator('.pill-row .tag').nth(1)).toContainText('11.2');
   await expect(tr.locator('.tag.warn').nth(0)).toHaveText('الزيادة بعد ظهور سطح المكتب');
   await expect(tr.locator('.tag.warn').nth(1)).toContainText('<i>New</i> Updater');   // الاسم نصّ لا HTML
   await expect(tr.locator('.tag i')).toHaveCount(0);
@@ -246,7 +247,8 @@ test('صفحة الطاقة: السكون والاستيقاظ بجلساته و
   await expect(sl.locator('p.note .tag')).toHaveCount(2);                                // الأجهزة المسموح لها بالإيقاظ
   await expect(sl.locator('p.note .tag').nth(0)).toHaveText('<u>HID</u> Keyboard Device'); // اسم الجهاز نصّ لا HTML
   await expect(sl.locator('p.note u')).toHaveCount(0);
-  await expect(sl.locator('p.note').last()).toContainText('powercfg /devicedisablewake');
+  await expect(sl.locator('p.note.ellipsis').first()).toHaveText('powercfg /devicedisablewake "<u>HID</u> Keyboard Device"');
+  await expect(sl.locator('p.note.ellipsis').last()).toHaveText('powercfg /systemsleepdiagnostics');
   mode = 'empty';
   await page.reload();
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 4);
