@@ -246,6 +246,13 @@ def _run_cleanup(route, body, invalidate):
             args.append("-DryRun")
         proc = subprocess.Popen(args, creationflags=CNW)
     MANUAL.update(proc=proc, tier=tier, dry=dry, started=time.strftime("%Y-%m-%dT%H:%M:%S"))
+    try:   # كل تشغيل يدوي يُسجَّل: جولات فعلية ظهرت في سجل المحرّك (11 و13/11/2026) بلا أثر يدلّ على مُطلقها
+        with db._lock:
+            c = db.conn()
+            c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)", (int(time.time()), "run-cleanup", tier, 1, "dry=" + str(dry).lower()))
+            c.commit()
+    except Exception:
+        errlog.swallowed()
     invalidate()
     return 200, {"ok": True}
 

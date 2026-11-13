@@ -53,6 +53,12 @@ test('مفاتيح الصفحات تحمل أسماءً مفهومة من بيا
   await page.waitForFunction(() => location.hash === '#/rules' && document.querySelector('#main [data-tier]'));
   expect(await page.locator('#main [data-tier]').first().getAttribute('aria-label')).toMatch(/^إيقاف المستوى .+ مؤقتًا$/);
   expect(await page.locator('#main [data-rule]').first().getAttribute('aria-label')).toMatch(/^القاعدة .+/);
+  // معايير القاعدة من السياسة تحت وصفها، والحالة والإجراء والتفصيل بالعربية لا بألفاظ المحرّك
+  const row = page.locator('#main tr', { has: page.locator('[data-rule="user-temp"]') });
+  expect(await row.locator('.crit').textContent()).toBe('%LOCALAPPDATA%\\Temp · أقدم من يوم');
+  expect(await row.locator('td').nth(1).textContent()).toBe('حذف');
+  expect(await row.locator('td').nth(3).locator('.tag').textContent()).toBe('تم');
+  expect(await row.locator('td').nth(3).locator('div.note').textContent()).toBe('24,948 ملف');
 });
 
 test('زر الويدجت اسمه ثابت وحالته في aria-pressed؛ زر القائمة يعلن فتح الدرج', async ({ page }) => {

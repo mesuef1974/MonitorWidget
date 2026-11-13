@@ -35,7 +35,7 @@ function TrigText($t) {
                 $m = ([Convert]::ToString([int]$t.MonthsOfYear, 2).ToCharArray() | Where-Object { $_ -eq '1' }).Count
                 if ($m -ge 12) { return "شهرياً $at" } else { return "$m مرات سنوياً $at" }
             }
-            if ($t.StartBoundary) { return 'تقويمي (يبدأ ' + ([datetime]$t.StartBoundary).ToString('yyyy-MM-dd HH:mm') + ')' }
+            if ($t.StartBoundary) { return 'حسب التقويم ' + ([datetime]$t.StartBoundary).ToString('HH:mm') }   # الموعد التالي تعرضه الصفحة؛ تاريخ البدء القديم كان يُقرأ كأنه موعد
             return $c
         }
     }
@@ -89,8 +89,14 @@ $polPath = "$u\Documents\Scripts\Cleanup\v2\cleanup-policy.json"
 $rules = @()
 $pol = Get-Content $polPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($pol) {
+    # معايير القاعدة تُعرض في الصفحة: المالك يرى ما ستمسّه القاعدة قبل تفعيلها. الخصائص اختيارية في السياسة فتُقرأ بلا افتراض وجودها.
+    $pv = { param($o, $n) $p = $o.PSObject.Properties[$n]; if ($p) { $p.Value } }
     $rules = @($pol.rules | ForEach-Object {
-        [pscustomobject]@{ id = $_.id; tier = $_.tier; enabled = [bool]$_.enabled; action = $_.action; minFreeGB = $_.minFreeGB; description = $_.description }
+        $cmd = & $pv $_ 'command'
+        [pscustomobject]@{ id = $_.id; tier = $_.tier; enabled = [bool]$_.enabled; action = $_.action; minFreeGB = $_.minFreeGB; description = $_.description
+            path = (& $pv $_ 'path'); days = (& $pv $_ 'olderThanDays'); minMB = (& $pv $_ 'minSizeMB'); keep = (& $pv $_ 'keepNewest'); folder = (& $pv $_ 'folderName')
+            ext = @(@(& $pv $_ 'extensions') | Where-Object { $_ }); skip = @(@(& $pv $_ 'excludeDirs') + @(& $pv $_ 'exclude') | Where-Object { $_ })
+            cmd = $(if ($cmd) { (@($cmd) + @(& $pv $_ 'arguments') | Where-Object { $_ }) -join ' ' }) }
     })
 }
 $ruleLast = @{}
@@ -98,7 +104,8 @@ $evPath = "$u\Documents\Scripts\Cleanup\logs\cleanup_events.jsonl"
 if (Test-Path $evPath) {
     foreach ($ln in (Get-Content $evPath -Tail 4000 -Encoding UTF8)) {
         try { $e = $ln | ConvertFrom-Json } catch { continue }
-        if ($e.dryRun -eq $false) { $ruleLast[$e.rule] = @{ ts = $e.ts; status = $e.status; bytes = $e.bytes; detail = [string]$e.detail } }
+        # التقارير للقراءة فقط، فنتيجتها من زر «تشغيل التقرير» (تجربة) صالحة للعرض مثل نتيجة الجولة الفعلية
+        if ($e.dryRun -eq $false -or $e.action -in 'report', 'dism-report') { $ruleLast[$e.rule] = @{ ts = $e.ts; status = $e.status; bytes = $e.bytes; detail = [string]$e.detail } }
     }
 }
 $runs = @()
