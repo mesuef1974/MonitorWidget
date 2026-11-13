@@ -7,16 +7,20 @@ $r = $PSScriptRoot
 $port = 47832
 $tasks = @('MonitorWidget-Agent', 'MonitorWidget-Server-Logon')   # الثانية تشغّل server.py مباشرة عند الدخول
 $ap = [regex]::Escape($r) + '[\\/](agent|server)\.py'   # [\\/] = شرطة عكسية أو أمامية؛ [\/] كانت تطابق الأمامية فقط
-function Get-Listener { (Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1).OwningProcess }
+function Get-ServerPid {
+    # رقم عملية الخادم من /api/healthz (بلا مصادقة). Get-NetTCPConnection يعيد 0 لمالك مرتفع حين تسأله جلسة عادية.
+    try { [int](Invoke-RestMethod "http://127.0.0.1:$port/api/healthz" -TimeoutSec 3).pid }
+    catch { if ($_.Exception.Response) { -1 } else { 0 } }   # -1: حيّ لكنه أجاب بخطأ؛ 0: لا خادم
+}
 function Get-Backend { @(Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.Name -in 'python.exe', 'pythonw.exe' -and $_.CommandLine -match $ap }) }
 try {
     $task = Get-ScheduledTask -TaskName 'MonitorWidget-Agent' -ErrorAction SilentlyContinue
-    $before = Get-Listener
+    $before = Get-ServerPid
     foreach ($t in $tasks) { Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue }
     Get-Backend | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     Start-Sleep 2
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-    $alive = [bool]($before -and (Get-Listener) -eq $before)
+    $alive = [bool]($before -gt 0 -and (Get-ServerPid) -eq $before)
     if ($alive -and -not $isAdmin -and -not $Elevated) {
         $exe = (Get-Process -Id $PID).Path
         try { $p = Start-Process $exe -Verb RunAs -WindowStyle Hidden -Wait -PassThru -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', ('"' + $PSCommandPath + '"'), '-Elevated' }
@@ -28,9 +32,10 @@ try {
     if ($alive) { throw "العملية القديمة $before ما زالت تستمع؛ لم تُستبدل." }
     if ($task) { Start-ScheduledTask -TaskName 'MonitorWidget-Agent' }
     else { Start-Process pythonw.exe -ArgumentList ('"' + (Join-Path $r 'agent.py') + '"') -WindowStyle Hidden }
-    $after = $null
-    for ($i = 0; $i -lt 30 -and -not $after; $i++) { Start-Sleep -Milliseconds 500; $after = Get-Listener }
-    if (-not $after) { throw 'لم يستمع خادم جديد على المنفذ خلال 15 ثانية؛ راجع monitor.log' }
+    $after = 0
+    for ($i = 0; $i -lt 40 -and $after -le 0; $i++) { Start-Sleep -Milliseconds 500; $after = Get-ServerPid }
+    if ($after -le 0) { throw 'لم يُجب خادم جديد خلال 20 ثانية؛ راجع monitor.log' }
+    if ($after -eq $before) { throw "العملية القديمة $before ما زالت تجيب؛ لم تُستبدل." }
     'agent restarted (pid ' + $after + ')'
 }
 catch {
