@@ -60,5 +60,5 @@ test('الانتقال بين الصفحات ينقل التركيز إلى ال
   expect((await active(page)).tag).toBe('BODY');
   await page.locator('#nav a[href="#/health"]').click();
   await page.waitForFunction(() => location.hash === '#/health' && document.querySelector('#main .panel'));
-  expect((await active(page)).id).toBe('main');
+  await expect.poll(async () => (await active(page)).id).toBe('main');   // لوحات الصفحة السابقة تحقق شرط الانتظار قبل رسم الجديدة؛ التركيز ينتقل بعد الرسم
 });
