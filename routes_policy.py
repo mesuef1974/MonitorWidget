@@ -23,7 +23,7 @@ import startup_mgr
 from paths import CNW, POLICY, PWSH, ROOT, TIERS
 
 ROUTES = ("/api/rule", "/api/tier-pause", "/api/maintenance", "/api/task", "/api/startup", "/api/jobs/run")
-MAINT_RULES = ("docker-dangling", "docker-build-cache", "claude-file-history")
+MAINT_RULES = ("docker-dangling", "claude-file-history")   # docker-build-cache حُذفت من السياسة (23/10/2026) فلا تُعرض
 _whitelist = None
 
 

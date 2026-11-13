@@ -490,6 +490,45 @@ const advSnoozed = () => { try { const o = JSON.parse(localStorage.getItem(ADV_K
 const advSave = o => { try { localStorage.setItem(ADV_KEY, JSON.stringify(o)); } catch { } };
 const sw = (on, attrs, name) => `<button class="switch" role="switch" aria-checked="${on}"${name ? ` aria-label="${esc(name)}"` : ""} ${attrs}><i></i></button>`;   // name: ما يقرؤه قارئ الشاشة؛ المفتاح بلا نص مرئي
 const sev = s => /err|crit|bad|fail/.test(s) ? "bad" : /warn/.test(s) ? "warn" : /ok|success/.test(s) ? "ok" : "";
+// صفحة قواعد التنظيف: المحرّك يسجّل الإجراء والحالة والتفصيل بالإنجليزية؛ هنا تُعرض بالعربية مع معايير القاعدة من السياسة
+const RULE_ACT = { purge: "حذف", quarantine: "حجر", command: "أمر", report: "تقرير", "dism-report": "تقرير DISM", "recycle-quarantine": "حجر السلة", "online-only": "عند الطلب", "keep-latest": "إبقاء الأحدث", "dev-cache": "مخابئ تطوير" };
+const RULE_ST = { ok: ["تم", "ok"], found: ["وُجد", ""], skipped: ["تخطٍّ", ""], gated: ["فوق العتبة", ""], dryrun: ["تجربة", ""], partial: ["جزئي", "warn"], "enum-errors": ["أخطاء قراءة", "warn"], failed: ["فشل", "bad"], blocked: ["محجوب", "bad"], "file-failed": ["فشل", "bad"], unparsed: ["تعذّرت القراءة", "bad"] };
+const RULE_WHY = [[/path not found|bin folder not found/, "المسار غير موجود"], [/OneDrive not running/, "OneDrive غير مشغّل"], [/docker daemon not running/, "Docker غير مشغّل"], [/not installed/, "البرنامج غير مثبّت"], [/needs admin/, "يحتاج صلاحية مسؤول"], [/safety guard/, "منعه حارس المسارات"], [/not in engine allowlist/, "خارج قائمة السماح في المحرّك"], [/language or format not recognized/, "مخرجات DISM غير مقروءة"]];
+const ltrSpan = v => `<span dir="ltr">${esc(v)}</span>`;
+const daysAr = n => n === 1 ? "يوم" : n === 2 ? "يومين" : n <= 10 ? `${nf(n)} أيام` : `${nf(n)} يومًا`;
+function ruleCrit(r) {
+  const p = [];
+  if (r.cmd) p.push("الأمر " + ltrSpan(r.cmd));
+  if (r.path) p.push((r.folder ? `مجلدات ${ltrSpan(r.folder)} تحت ` : "") + ltrSpan(r.path));
+  if (r.days > 0) p.push("أقدم من " + daysAr(r.days)); else if (r.days === 0 && r.action === "purge") p.push("كل الملفات مهما كان عمرها");
+  if (r.minMB > 0) p.push(`أكبر من ${nf(r.minMB)} MB`);
+  if (r.ext?.length) p.push("الامتدادات " + ltrSpan(r.ext.join(" ")));
+  if (r.skip?.length) p.push("يستثني " + ltrSpan(r.skip.join("، ")));
+  if (r.keep > 0) p.push(`يبقى أحدث ${nf(r.keep)}`);
+  if (r.minFreeGB != null) p.push(`فقط إن قلّ الحر عن ${nf(r.minFreeGB)} GB`);
+  return p.length ? `<div class="crit">${p.join(" · ")}</div>` : "";
+}
+function ruleDetail(s) {
+  s = String(s || ""); if (!s) return "";
+  for (const [re, t] of RULE_WHY) if (re.test(s)) return t;
+  const m = s.match(/Total reclaimed space:\s*(\S+)/); if (m) return "المحرَّر " + ltrSpan(m[1]);
+  const kv = {}; s.replace(/(\w+)=([^\s;]+(?: GB)?)/g, (_, k, v) => { kv[k] = v; });
+  const out = [], num = k => nf(+kv[k]), pos = k => +kv[k] > 0;
+  if (kv.files != null) out.push(pos("files") ? `${num("files")} ملف` : "لا ملفات مطابقة");
+  if (kv.folders != null) out.push(pos("folders") ? `${num("folders")} مجلد` : "لا مجلدات مطابقة");
+  if (kv.pairs != null) out.push(pos("pairs") ? `${num("pairs")} عنصر` : "لا عناصر مطابقة");
+  if (kv.converted != null) out.push(`حُوّل ${num("converted")}`);
+  if (pos("kept")) out.push(`أُبقي أحدث ${num("kept")}`);
+  if (pos("fresh")) out.push(`حديث متروك ${num("fresh")}`);
+  if (pos("pinnedSkipped")) out.push(`مثبّت متروك ${num("pinnedSkipped")}`);
+  if (pos("failed")) out.push(`تعذّر ${num("failed")}`);
+  if (pos("enumErrors")) out.push(`${num("enumErrors")} خطأ قراءة`);
+  if (kv.store) out.push("المخزن " + ltrSpan(kv.store));
+  if (kv.reclaimable != null) out.push(`${num("reclaimable")} حزمة قابلة للاسترداد`);
+  if (kv.recommended) out.push(kv.recommended === "True" ? "يُنصح بالتنظيف" : "لا حاجة للتنظيف");
+  if (kv.free && kv.threshold) out.push(`الحر ${ltrSpan(kv.free + " GB")} فوق العتبة ${ltrSpan(kv.threshold + " GB")}`);
+  return out.join(" · ") || ltrSpan(s);
+}
 const SRC = { cpu: "المعالج", mem: "الذاكرة", disk: "القرص", gpu: "الرسوميات", boot: "الإقلاع", task: "المهام", localai: "الذكاء المحلي", guard: "الحارس", trim: "تنظيف الذاكرة", commit: "الالتزام", net: "الشبكة" };   // مصادر سجل التنبيهات (db.add_event) بالعربية
 const stack = (items, pal) => `<div class="stackbar">${items.map((c, i) => `<i title="${esc(c.label)}" style="flex:${Math.max(c.v, .001)};background:${pal[i % pal.length]}"></i>`).join("")}</div>`;
 const PAL = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
@@ -862,7 +901,7 @@ Object.assign(PAGES, {
     render([d, mini]) {
       if (!d) return nodata("القواعد");
       const tiers = [["daily", "يومي"], ["weekly", "أسبوعي"], ["monthly", "شهري"], ["quarterly", "ربع سنوي"]], last = d.ruleLast || {};
-      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts">${d.manual?.running && d.manual.tier === k ? '<span class="tag warn">يعمل الآن</span>' : `<button class="btn" data-runtier="${k}" data-dry="1">${k === "quarterly" ? "تشغيل التقرير" : "تجربة"}</button>${k === "quarterly" ? "" : `<button class="btn primary" data-runtier="${k}" data-dry="0">تنفيذ فعلي</button>`}`}<span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`, `إيقاف المستوى ${l} مؤقتًا`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id]; return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(r.action)}</span></td><td class="note mw-420">${esc(r.description || "")}</td><td>${x ? `<span class="tag ${sev(x.status)}">${esc(x.status)}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`, `القاعدة ${r.id}`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
+      return tiers.map(([k, l]) => { const rs = d.rules.filter(r => r.tier === k); if (!rs.length) return ""; const ti = mini?.tiers?.[k]; return panel("مستوى " + l, (ti ? `<div class="row-sw"><span>${esc(ti.schedule || "")} · التالي ${whenIso(ti.next)}${ti.paused ? ' <span class="tag warn">متوقف مؤقتًا</span>' : ""}</span><span class="acts">${d.manual?.running && d.manual.tier === k ? '<span class="tag warn">يعمل الآن</span>' : `<button class="btn" data-runtier="${k}" data-dry="1">${k === "quarterly" ? "تشغيل التقرير" : "تجربة"}</button>${k === "quarterly" ? "" : `<button class="btn primary" data-runtier="${k}" data-dry="0">تنفيذ فعلي</button>`}`}<span class="note">إيقاف المستوى</span>${sw(!!ti.paused, `data-tier="${k}"`, `إيقاف المستوى ${l} مؤقتًا`)}</span></div>` : "") + `<table class="tbl"><thead><tr><th>القاعدة</th><th>الإجراء</th><th>الوصف وما تمسّه</th><th>آخر نتيجة</th><th></th></tr></thead><tbody>${rs.map(r => { const x = last[r.id], st = x && (RULE_ST[x.status] || [esc(x.status), sev(x.status)]), det = x && ruleDetail(x.detail); return `<tr><td><b>${esc(r.id)}</b></td><td><span class="tag">${esc(RULE_ACT[r.action] || r.action)}</span></td><td class="note mw-420">${esc(r.description || "")}${ruleCrit(r)}</td><td>${x ? `<span class="tag ${st[1]}">${st[0]}</span> <span class="note">${x.bytes ? Q(x.bytes / 1048576, "MB", 1) + " · " : ""}${whenIso(x.ts)}</span>${det ? `<div class="note">${det}</div>` : ""}` : "—"}</td><td>${sw(r.enabled, `data-rule="${esc(r.id)}"`, `القاعدة ${r.id}`)}</td></tr>`; }).join("")}</tbody></table>`, { meta: `${Q(rs.filter(r => r.enabled).length)} / ${Q(rs.length)} مفعّلة` }); }).join("");
     }
   },
 
