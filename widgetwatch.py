@@ -97,12 +97,16 @@ def _meta_set(key, value):
         c.commit()
 
 
-def set_wanted(on):
-    _meta_set("widget_wanted", bool(on))
+def set_wanted(on, now=None):
+    """الإخفاء يُحفظ بوقته: بدءٌ للويدجت بعده (من اختصاره أو قائمة ابدأ) يعني أن المالك أعاده، فيعود المراقب إلى حراسته."""
+    _meta_set("widget_wanted", True if on else {"hiddenAt": int(now or time.time())})
 
 
-def wanted():
-    return _meta_json("widget_wanted", True) is not False
+def wanted(last_start=None):
+    v = _meta_json("widget_wanted", True)
+    if isinstance(v, dict):
+        return bool(last_start and last_start > int(v.get("hiddenAt") or 0))
+    return v is not False   # False قيمة قديمة بلا وقت: مخفيّ حتى يراه المراقب يعمل
 
 
 def _launch():
@@ -118,13 +122,15 @@ def _launch():
 def guard(now=None, running=widgetctl.widget_running, lines=read_tail, launch=_launch):
     now = now or time.time()
     if running():
+        if _meta_json("widget_wanted", True) is False:
+            set_wanted(True)   # علم إخفاء قديم بلا وقت والويدجت يعمل: المالك أعاده بعد الإخفاء
         return "up"
     st = parse(lines(), now)
     if st["state"] == "never":
         return "down: never started"
     if st["state"] == "closed":
         return "down: closed cleanly"
-    if not wanted():
+    if not wanted(st["lastStart"]):
         return "down: hidden from the app"
     if st["lastLine"] and now - st["lastLine"] < SETTLE_S:
         return "down: settling"
@@ -147,4 +153,4 @@ def payload(now=None, running=widgetctl.widget_running, lines=read_tail):
     relaunches = [t for t in _meta_json("widget_relaunches", []) if now - t < 86400]
     return {"running": up, "state": state, "starts": st["starts"], "fatals": st["fatals"], "stalls": st["stalls"],
             "stallMaxS": st["stallMaxS"], "stallSumS": st["stallSumS"], "lastStart": st["lastStart"], "lastFatal": st["lastFatal"],
-            "lastLayout": st["lastLayout"], "relaunches": len(relaunches), "wanted": wanted()}
+            "lastLayout": st["lastLayout"], "relaunches": len(relaunches), "wanted": wanted(st["lastStart"])}
