@@ -9,7 +9,7 @@ BeforeAll {
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors.Message -join '; ') }
-    foreach ($name in @('Alpha', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Add-WidgetLayoutFlip', 'Get-Palette', 'Get-DriveLevel')) {
+    foreach ($name in @('Alpha', 'Restore-WidgetPriority', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Add-WidgetLayoutFlip', 'Get-Palette', 'Get-DriveLevel')) {
         $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
         if (-not $fn) { throw "Missing $name" }
         . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -421,6 +421,26 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         $AP::GetHelpText($opSl) | Should -Not -BeNullOrEmpty
         $AP::GetName($UI.menuBtn) | Should -Be 'خيارات الويدجت'
         $AP::GetName($UI.closeBtn) | Should -Be 'إخفاء الويدجت'
+    }
+}
+
+Describe 'أولوية عملية الويدجت' {
+    It 'ترفع صنف المجدول (أقل من العادي أو خامل) إلى العادي وتعيد الصنف السابق' {
+        foreach ($c in 'BelowNormal', 'Idle') {
+            $p = [pscustomobject]@{ PriorityClass = $c }
+            Restore-WidgetPriority $p | Should -Be $c
+            $p.PriorityClass | Should -Be 'Normal'
+        }
+    }
+    It 'لا تمسّ صنفًا عاديًّا أو أعلى' {
+        foreach ($c in 'Normal', 'AboveNormal', 'High') {
+            $p = [pscustomobject]@{ PriorityClass = $c }
+            Restore-WidgetPriority $p | Should -BeNullOrEmpty
+            $p.PriorityClass | Should -Be $c
+        }
+    }
+    It 'تُستدعى عند بدء الويدجت على العملية الحالية' {
+        $source | Should -Match 'Restore-WidgetPriority \(\[Diagnostics\.Process\]::GetCurrentProcess\(\)\)'
     }
 }
 
