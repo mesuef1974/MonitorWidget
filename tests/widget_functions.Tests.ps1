@@ -424,6 +424,64 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
     }
 }
 
+Describe 'set_backend_privilege.ps1: يغيّر مستوى التشغيل وحده' {
+    BeforeAll {
+        $script:bpPath = Join-Path $script:widgetRepoRoot 'set_backend_privilege.ps1'
+        $script:bpText = Get-Content -LiteralPath $script:bpPath -Raw
+        $t = $null; $e = $null
+        $script:bpAst = [Management.Automation.Language.Parser]::ParseFile($script:bpPath, [ref]$t, [ref]$e)
+        $script:bpErrors = $e
+        $fn = $script:bpAst.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Set-TaskRunLevelXml' }, $true)
+        . ([scriptblock]::Create($fn.Extent.Text))
+        function TaskXml([string]$principal) {
+            '<?xml version="1.0" encoding="UTF-16"?><Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><Triggers><LogonTrigger><Delay>PT30S</Delay></LogonTrigger></Triggers>' +
+            '<Principals><Principal id="Author"><UserId>S-1-5-21-1</UserId><LogonType>InteractiveToken</LogonType>' + $principal + '</Principal></Principals>' +
+            '<Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><Hidden>true</Hidden></Settings><Actions Context="Author"><Exec><Command>pythonw.exe</Command><Arguments>"server.py"</Arguments></Exec></Actions></Task>'
+        }
+        function Level([string]$xml) { ([xml]$xml).Task.Principals.Principal.RunLevel }
+    }
+    It 'يبدأ بـ BOM ويُحلَّل بلا أخطاء، وكذلك restart_agent.ps1' {
+        $script:bpErrors.Count | Should -Be 0
+        foreach ($f in $script:bpPath, (Join-Path $script:widgetRepoRoot 'restart_agent.ps1')) {
+            (([IO.File]::ReadAllBytes($f)[0..2] | ForEach-Object { $_.ToString('x2') }) -join '') | Should -Be 'efbbbf'
+            $t = $null; $e = $null
+            [void][Management.Automation.Language.Parser]::ParseFile($f, [ref]$t, [ref]$e)
+            $e.Count | Should -Be 0
+        }
+    }
+    It 'يضيف RunLevel حين يغيب، ويبدّله حين يوجد، في الاتجاهين' {
+        Level (Set-TaskRunLevelXml (TaskXml '') 'Highest') | Should -Be 'HighestAvailable'
+        Level (Set-TaskRunLevelXml (TaskXml '<RunLevel>HighestAvailable</RunLevel>') 'Limited') | Should -Be 'LeastPrivilege'
+        Level (Set-TaskRunLevelXml (TaskXml '<RunLevel>LeastPrivilege</RunLevel>') 'Highest') | Should -Be 'HighestAvailable'
+    }
+    It 'لا يمسّ الأمر ولا الوسائط ولا المشغّلات ولا الإعدادات' {
+        $in = TaskXml ''
+        $out = Set-TaskRunLevelXml $in 'Highest'
+        $out.Replace('<RunLevel>HighestAvailable</RunLevel>', '') | Should -Be $in.Replace('<?xml version="1.0" encoding="UTF-16"?>', ([xml]$in).FirstChild.OuterXml)
+        ([xml]$out).Task.Triggers.LogonTrigger.Delay | Should -Be 'PT30S'
+        ([xml]$out).Task.Actions.Exec.Arguments | Should -Be '"server.py"'
+    }
+    It 'يرفض تعريفًا بلا مبدأ واحد' {
+        { Set-TaskRunLevelXml '<Task xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task"><Principals /></Task>' 'Highest' } | Should -Throw
+    }
+    It 'يشمل المهام الثلاث، ينسخ قبل التسجيل، يرفع نفسه بلا نافذة، ولا يضع الرمز في رابط' {
+        foreach ($n in 'MonitorWidget-Server-Logon', 'MonitorWidget-Agent', 'MonitorWidget-Collector') { $script:bpText | Should -Match ([regex]::Escape("'$n'")) }
+        $script:bpText.IndexOf('before_{2}.xml') | Should -BeLessThan $script:bpText.IndexOf('Register-ScheduledTask')
+        $script:bpText | Should -Match '-Verb RunAs -WindowStyle Hidden -Wait -PassThru'
+        $script:bpText | Should -Match "Headers @\{ 'X-Token' = \`$tok \}"
+        $script:bpText | Should -Not -Match '\?(k|token)='
+        $script:bpText | Should -Match '\[bool\]\$m\.admin -ne \(\$Level -eq ''Highest''\)'
+    }
+    It 'restart_agent.ps1 يوقف المهمتين، يرفع نفسه إن نجت العملية القديمة، ولا يدّعي نجاحًا بلا مستمع جديد' {
+        $ra = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'restart_agent.ps1') -Raw
+        $ra | Should -Match "'MonitorWidget-Agent', 'MonitorWidget-Server-Logon'"
+        $ra | Should -Match '\$alive -and -not \$isAdmin -and -not \$Elevated'
+        $ra | Should -Match '-Verb RunAs -WindowStyle Hidden -Wait -PassThru'
+        $ra | Should -Not -Match "(?m)^'agent restarted'\s*$"
+        $ra | Should -Match '(?m)^\s*exit 1\s*$'
+    }
+}
+
 Describe 'restart_widget.ps1: لا يدّعي إعادة تشغيل لم تحدث' {
     BeforeAll {
         $script:rwPath = Join-Path $script:widgetRepoRoot 'restart_widget.ps1'
