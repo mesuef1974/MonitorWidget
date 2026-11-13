@@ -84,6 +84,21 @@ class Guard(unittest.TestCase):
         self.assertTrue(self.guard([START, FATAL]).startswith("relaunched"))
         self.assertEqual(len(self.launched), 1)
 
+    def test_a_start_after_hiding_means_the_owner_brought_it_back(self):
+        hidden_at = NOW - 1800                                  # أُخفي 17:30، والبدء في السجل 17:00: ما زال مخفيًّا
+        ww.set_wanted(False, now=hidden_at)
+        self.assertEqual(self.guard([START, FATAL]), "down: hidden from the app")
+        self.assertFalse(ww.payload(now=NOW, running=lambda: False, lines=lambda: [START])["wanted"])
+        later = START.replace("17:00:00", "17:40:00")           # المالك شغّله 17:40 من اختصاره ثم سقط
+        self.assertTrue(ww.payload(now=NOW, running=lambda: True, lines=lambda: [later])["wanted"])
+        self.assertTrue(self.guard([later, FATAL.replace("17:10", "17:45")]).startswith("relaunched"))
+
+    def test_legacy_hidden_flag_is_cleared_once_the_widget_is_seen_running(self):
+        ww._meta_set("widget_wanted", False)
+        self.assertEqual(self.guard([START, FATAL]), "down: hidden from the app")
+        self.assertEqual(self.guard([START], running=True), "up")
+        self.assertTrue(self.guard([START, FATAL]).startswith("relaunched"))
+
     def test_waits_while_a_restart_is_in_flight(self):
         self.assertEqual(self.guard([START.replace("17:00:00", "17:59:50")]), "down: settling")
         self.assertEqual(self.launched, [])
