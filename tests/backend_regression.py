@@ -356,6 +356,35 @@ class PageUse(unittest.TestCase):
         pageuse.record(c, {"page": "health"}, now=self.T0 + 14 * self.DAY)
         self.assertEqual([p["opens"] for p in pageuse.stats(c, now=self.T0 + 14 * self.DAY)["pages"]], [1])
 
+    def test_transient_opens_are_retracted_so_automated_tours_do_not_count(self):
+        import pageuse
+        c = self._c()
+        opens = lambda: {p["page"]: (p["opens"], p["last"]) for p in pageuse.stats(c, now=self.T0 + 3600)["pages"]}
+        pageuse.record(c, {"page": "overview"}, now=self.T0)             # مكث دقيقة: محسوب
+        for i, page in enumerate(["cpu", "mem", "gpu", "io", "power"]):   # جولة: صفحة كل ثانيتين
+            pageuse.record(c, {"page": page}, now=self.T0 + 60 + 2 * i)
+        self.assertEqual(opens(), {"overview": (1, self.T0), "power": (1, self.T0 + 68)})   # آخر صفحة في الجولة تبقى حتى الفتح التالي
+        pageuse.record(c, {"page": "health"}, now=self.T0 + 70)           # انتقال بعد ثانيتين: آخر الجولة عابر أيضًا
+        self.assertEqual(opens(), {"overview": (1, self.T0), "health": (1, self.T0 + 70)})
+        pageuse.record(c, {"page": "overview"}, now=self.T0 + 75)         # 5 ث بالضبط: مكث كافٍ
+        pageuse.record(c, {"page": "health"}, now=self.T0 + 76)           # مرور عابر على overview: يُسحب ويعود وقت فتحها السابق
+        self.assertEqual(opens(), {"overview": (1, self.T0), "health": (2, self.T0 + 76)})
+        pageuse.record(c, {"page": "health"}, now=self.T0 + 77)           # الصفحة نفسها لا تسحب نفسها
+        self.assertEqual(opens()["health"][0], 3)
+
+    def test_clean_window_starts_once_and_drops_the_polluted_counts(self):
+        import pageuse
+        c = self._c()
+        pageuse.ensure(c)
+        c.execute("INSERT INTO page_opens VALUES('2027-01-01','dbx',21,1)")
+        c.execute("INSERT INTO meta VALUES(?,?)", (pageuse.SINCE_KEY, "2026-10-27"))
+        st = pageuse.stats(c, now=self.T0)
+        self.assertEqual((st["pages"], st["since"], st["complete"]), ([], None, False))
+        pageuse.record(c, {"page": "health"}, now=self.T0)
+        c.execute("INSERT INTO page_opens VALUES(?,'kept',4,1)", (pageuse._day(self.T0),))
+        st = pageuse.stats(c, now=self.T0 + 60)   # التنظيف لا يتكرر
+        self.assertEqual((sorted(p["page"] for p in st["pages"]), st["since"]), (["health", "kept"], pageuse._day(self.T0)))
+
     def test_prune_old_rows_and_cap_distinct_pages(self):
         import pageuse
         c = self._c()
@@ -364,9 +393,9 @@ class PageUse(unittest.TestCase):
         pageuse.record(c, {"page": "fresh"}, now=self.T0 + pageuse.KEEP_DAYS * self.DAY + self.DAY)   # أول تسجيل بعد 60 يومًا يحذف الأقدم فقط
         self.assertEqual(sorted(r[0] for r in c.execute("SELECT page FROM page_opens")), ["fresh", "kept"])
         for i in range(pageuse.MAX_PAGES - 2):
-            self.assertEqual(pageuse.record(c, {"page": "p%d" % i}, now=self.T0 + 70 * self.DAY)[0], 200)
-        self.assertEqual(pageuse.record(c, {"page": "one-too-many"}, now=self.T0 + 70 * self.DAY), (400, {"error": "too many pages"}))
-        self.assertEqual(pageuse.record(c, {"page": "kept"}, now=self.T0 + 70 * self.DAY)[0], 200)   # المعروف يُقبل رغم السقف
+            self.assertEqual(pageuse.record(c, {"page": "p%d" % i}, now=self.T0 + 70 * self.DAY + 10 * i)[0], 200)   # 10 ث بين الفتحين: ليس عابرًا
+        self.assertEqual(pageuse.record(c, {"page": "one-too-many"}, now=self.T0 + 71 * self.DAY), (400, {"error": "too many pages"}))
+        self.assertEqual(pageuse.record(c, {"page": "kept"}, now=self.T0 + 71 * self.DAY)[0], 200)   # المعروف يُقبل رغم السقف
         self.assertEqual(c.execute("SELECT COUNT(DISTINCT page) FROM page_opens").fetchone()[0], pageuse.MAX_PAGES)
 
     def test_server_and_page_are_wired(self):
