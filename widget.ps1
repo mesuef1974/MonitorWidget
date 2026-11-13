@@ -18,7 +18,7 @@ function Add-WidgetTypes {
     $refs = [Windows.Controls.TextBlock], [Windows.UIElement], [Windows.DependencyObject], [System.Windows.Markup.IQueryAmbient] | ForEach-Object { $_.Assembly.Location } | Select-Object -Unique
     Add-Type -ReferencedAssemblies $refs -TypeDefinition @'
 using System;using System.Runtime.InteropServices;
-public static class W32{[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern int SetWindowLong(IntPtr h,int i,int v);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern IntPtr FindWindow(string c,string t);}
+public static class W32{[DllImport("user32.dll")]public static extern int GetWindowLong(IntPtr h,int i);[DllImport("user32.dll")]public static extern int SetWindowLong(IntPtr h,int i,int v);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern IntPtr FindWindow(string c,string t);[DllImport("kernel32.dll")]public static extern bool QueryUnbiasedInterruptTime(out ulong t);}
 public class QuietText : System.Windows.Controls.TextBlock { protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() { return null; } }
 '@
 }
@@ -32,6 +32,18 @@ function Restore-WidgetPriority($proc) {
     if ($was -notin 'BelowNormal', 'Idle') { return $null }
     $proc.PriorityClass = 'Normal'
     $was
+}
+function Get-WidgetAwakeSeconds {
+    # زمن يقظة النظام منذ الإقلاع بالثواني: لا يتقدّم أثناء السكون أو الإسبات، بخلاف ساعة الحائط. $null إن تعذّر.
+    try { $t = [uint64]0; if ([W32]::QueryUnbiasedInterruptTime([ref]$t)) { return $t / 1e7 } } catch {}
+    $null
+}
+function Get-WidgetTickGap([double]$wallSec, $awakeSec, [double]$limitSec = 5) {
+    # يفصل تجمّد الواجهة عن سكون الجهاز بين نبضتين: التجمّد يُقاس بزمن اليقظة، والسكون هو فرق ساعة الحائط عنه
+    # (قيس 13/11/2026: سكون 84.6 دقيقة سُجّل «ui stall: 5,074.1 s»). بلا زمن يقظة يبقى القياس بساعة الحائط كما كان.
+    $stall = if ($null -eq $awakeSec) { $wallSec } else { [Math]::Min($wallSec, [double]$awakeSec) }
+    $slept = if ($null -eq $awakeSec) { 0 } else { [Math]::Max(0.0, $wallSec - [double]$awakeSec) }
+    @{ stall = $(if ($stall -gt $limitSec) { $stall } else { 0 }); slept = $(if ($slept -gt $limitSec) { $slept } else { 0 }) }
 }
 try { $was = Restore-WidgetPriority ([Diagnostics.Process]::GetCurrentProcess()); if ($was) { Log "priority: $was -> Normal" } } catch { Log ('priority: ' + $_.Exception.Message) }
 if ((Test-Path "$Root\widget.log") -and ((Get-Item "$Root\widget.log").Length -gt 200KB)) { Remove-Item "$Root\widget.log" -Force }
@@ -1367,7 +1379,16 @@ function Update-Countdown {
     } catch { $UI.trimCd.Text = '' }
 }
 $timer = New-Object Windows.Threading.DispatcherTimer; $timer.Interval = [TimeSpan]::FromMilliseconds(1000)
-$timer.Add_Tick({ $tickAt = Get-Date; if ($script:lastTickAt -and ($tickAt - $script:lastTickAt).TotalSeconds -gt 5) { Log ('ui stall: {0:N1} s between ticks' -f ($tickAt - $script:lastTickAt).TotalSeconds) }; $script:lastTickAt = $tickAt; try { Update-Countdown; Update-Widget } catch { Log ('update: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) } })
+$timer.Add_Tick({
+    $tickAt = Get-Date; $awakeAt = Get-WidgetAwakeSeconds
+    if ($script:lastTickAt) {
+        $gap = Get-WidgetTickGap ($tickAt - $script:lastTickAt).TotalSeconds $(if ($null -ne $awakeAt -and $null -ne $script:lastAwakeAt) { $awakeAt - $script:lastAwakeAt })
+        if ($gap.slept) { Log ('resume: slept {0:N1} s' -f $gap.slept) }
+        if ($gap.stall) { Log ('ui stall: {0:N1} s between ticks' -f $gap.stall) }
+    }
+    $script:lastTickAt = $tickAt; $script:lastAwakeAt = $awakeAt
+    try { Update-Countdown; Update-Widget } catch { Log ('update: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) }
+})
 $timer.Start()
 
 try {

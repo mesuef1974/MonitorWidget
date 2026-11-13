@@ -9,7 +9,7 @@ BeforeAll {
     $tokens = $null; $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$tokens, [ref]$errors)
     if ($errors.Count) { throw ($errors.Message -join '; ') }
-    foreach ($name in @('Alpha', 'Restore-WidgetPriority', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Add-WidgetLayoutFlip', 'Get-Palette', 'Get-DriveLevel')) {
+    foreach ($name in @('Alpha', 'Restore-WidgetPriority', 'Get-WidgetTickGap', 'Normalize-WidgetOpacity', 'Get-WidgetKeyAction', 'Test-WidgetOpacityLow', 'Lvl', 'Fmt-Bytes', 'Get-SummaryLevel', 'Test-AppearanceRecord', 'Get-WidgetPlacement', 'Get-WidgetLayoutMode', 'Test-WidgetLayoutFlipAllowed', 'Add-WidgetLayoutFlip', 'Get-Palette', 'Get-DriveLevel')) {
         $fn = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }.GetNewClosure(), $true)
         if (-not $fn) { throw "Missing $name" }
         . ([scriptblock]::Create((Resolve-WidgetFunctionText $fn.Extent.Text)))
@@ -441,6 +441,40 @@ Describe 'أولوية عملية الويدجت' {
     }
     It 'تُستدعى عند بدء الويدجت على العملية الحالية' {
         $source | Should -Match 'Restore-WidgetPriority \(\[Diagnostics\.Process\]::GetCurrentProcess\(\)\)'
+    }
+}
+
+Describe 'كاشف تجمّد الواجهة: السكون ليس تجمّدًا' {
+    It 'سكون الجهاز بين نبضتين: لا تجمّد، ويُسجَّل زمن السكون' {
+        $g = Get-WidgetTickGap 5074.1 1.0
+        $g.stall | Should -Be 0
+        $g.slept | Should -BeGreaterThan 5073
+    }
+    It 'تجمّد حقيقي والجهاز يقظ: يُحسب بزمن اليقظة' {
+        $g = Get-WidgetTickGap 30.2 30.2
+        $g.stall | Should -Be 30.2
+        $g.slept | Should -Be 0
+    }
+    It 'تجمّد ثم سكون في الفجوة نفسها: يُسجَّلان معًا كلٌّ بمقداره' {
+        $g = Get-WidgetTickGap 1000 40
+        $g.stall | Should -Be 40
+        $g.slept | Should -Be 960
+    }
+    It 'نبضة عادية: لا شيء، وحدّ 5 ثوانٍ غير شامل' {
+        $g = Get-WidgetTickGap 1.0 1.0
+        $g.stall | Should -Be 0
+        $g.slept | Should -Be 0
+        (Get-WidgetTickGap 5 5).stall | Should -Be 0
+    }
+    It 'بلا زمن يقظة: يبقى القياس بساعة الحائط' {
+        $g = Get-WidgetTickGap 12 $null
+        $g.stall | Should -Be 12
+        $g.slept | Should -Be 0
+    }
+    It 'النبضة تقيس بزمن اليقظة من QueryUnbiasedInterruptTime' {
+        $source | Should -Match 'QueryUnbiasedInterruptTime\(out ulong t\)'
+        $source | Should -Match 'Get-WidgetTickGap \(\$tickAt - \$script:lastTickAt\)\.TotalSeconds'
+        $source | Should -Match '\$script:lastAwakeAt = \$awakeAt'
     }
 }
 
