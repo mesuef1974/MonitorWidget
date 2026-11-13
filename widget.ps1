@@ -25,6 +25,15 @@ public class QuietText : System.Windows.Controls.TextBlock { protected override 
 Add-WidgetTypes
 
 function Log($m) { try { Add-Content "$Root\widget.log" ("{0:s} {1}" -f (Get-Date), $m) -Encoding UTF8 } catch {} }
+function Restore-WidgetPriority($proc) {
+    # مهمة المجدول MonitorWidget-Launch تولّد الويدجت بصنف «أقل من العادي»، فتتجمّد واجهته حين تشغل مهمة عادية كل الأنوية
+    # (قيس 13/11/2026: 461 تجمّدًا أقصاها 116 ث). يعيد الصنف السابق إن رفع، وإلا $null. لا يخفض صنفًا أعلى.
+    $was = [string]$proc.PriorityClass
+    if ($was -notin 'BelowNormal', 'Idle') { return $null }
+    $proc.PriorityClass = 'Normal'
+    $was
+}
+try { $was = Restore-WidgetPriority ([Diagnostics.Process]::GetCurrentProcess()); if ($was) { Log "priority: $was -> Normal" } } catch { Log ('priority: ' + $_.Exception.Message) }
 if ((Test-Path "$Root\widget.log") -and ((Get-Item "$Root\widget.log").Length -gt 200KB)) { Remove-Item "$Root\widget.log" -Force }
 
 # ------------------------------------------------------------------ settings

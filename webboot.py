@@ -15,6 +15,7 @@ import db
 import health
 import infra
 import localai
+import procprio
 import shellwin
 import snapshot
 import startup_mgr
@@ -83,6 +84,7 @@ def background_workers():
 
 def run(server_cls, handler_cls, argv):
     """يحتكر النسخة الواحدة ويربط المنفذ؛ إن كان الخادم يعمل أصلًا يكتفي بفتح نافذة أخرى عند --open ثم يخرج 0."""
+    procprio.restore_normal()   # الخادم يرث «أقل من العادي» من مهمة المجدول أو من الوكيل؛ الواجهة تنتظره فيعمل بالأولوية العادية
     try:
         if not claim_single_server():
             raise OSError("server already running")

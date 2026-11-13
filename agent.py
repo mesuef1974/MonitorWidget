@@ -6,6 +6,7 @@ Single instance (named mutex). Started at logon and re-started every 5 minutes b
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
 import ctypes, os, sys, threading, time
+import procprio
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch, bootwatch, portwatch, widgetwatch, battwatch  # noqa: E402
@@ -110,8 +111,9 @@ def register_protected_collector(scheduler):
 def main():
     if not single_instance():
         return
+    prio = procprio.restore_normal(io=False)   # مهمة المجدول تولد «أقل من العادي» فتُجوَّع العيّنات تحت الحمل؛ القرص يبقى مهذّبًا للمسوح
     c = db.bootstrap()
-    log.info("agent start pid=%d", os.getpid())
+    log.info("agent start pid=%d priority=%s", os.getpid(), prio)
     s = sched.Scheduler()
     register_protected_collector(s)
     s.register("heartbeat", j_heartbeat, 15)
