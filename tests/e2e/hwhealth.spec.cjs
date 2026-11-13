@@ -243,6 +243,10 @@ test('صفحة الطاقة: السكون والاستيقاظ بجلساته و
   await expect(rows.nth(1).locator('b')).toHaveCount(0);
   await expect(rows.nth(2).locator('.tag', { hasText: 'سبات' })).toHaveCount(1);
   await expect(rows.nth(2).locator('td').nth(2)).toHaveText('—');
+  await expect(sl.locator('p.note .tag')).toHaveCount(2);                                // الأجهزة المسموح لها بالإيقاظ
+  await expect(sl.locator('p.note .tag').nth(0)).toHaveText('<u>HID</u> Keyboard Device'); // اسم الجهاز نصّ لا HTML
+  await expect(sl.locator('p.note u')).toHaveCount(0);
+  await expect(sl.locator('p.note').last()).toContainText('powercfg /devicedisablewake');
   mode = 'empty';
   await page.reload();
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 4);

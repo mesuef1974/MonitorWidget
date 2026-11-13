@@ -5,6 +5,7 @@ Power-Troubleshooter 1 = استيقاظ: وقت النوم ووقت الاستي
     sessions(wakes, enters) -> جلسات نوم من الأحدث، مع instant (استيقظ قبل INSTANT_S) وslow (خروج بطيء)
     summary(items, days)    -> حمولة صفحة الطاقة
     notes(s)                -> ملاحظات (المستوى، العنوان، النص)
+    armed(text)             -> أسماء الأجهزة المسموح لها بإيقاظ الجهاز من مخرج powercfg /devicequery wake_armed
     payload()               -> يقرأ السجل الحي لآخر DAYS يومًا
 
 الانطفاء أثناء دخول السكون (Kernel-Power 41) يرصده bootwatch ويظهر في «الإيقافات المفاجئة»؛ هنا ما نجح دخوله ثم كيف خرج.
@@ -30,6 +31,20 @@ def _query(since_iso):
     r = subprocess.run(["wevtutil", "qe", "System", "/q:" + xp, "/c:600", "/rd:true", "/f:xml"], capture_output=True, text=True,
                        encoding="utf-8", errors="replace", creationflags=_CNW, timeout=30, check=False)
     return r.stdout if r.returncode == 0 else ""
+
+
+def _armed_query():
+    r = subprocess.run(["powercfg", "/devicequery", "wake_armed"], capture_output=True, text=True, encoding="oem", errors="replace",
+                       creationflags=_CNW, timeout=15, check=False)
+    return r.stdout if r.returncode == 0 else None
+
+
+def armed(text):
+    """None إن تعذّرت القراءة؛ وإلا قائمة الأسماء (قد تكون فارغة: powercfg يكتب NONE)."""
+    if text is None:
+        return None
+    names = [ln.strip()[:80] for ln in text.splitlines() if ln.strip()]
+    return [n for n in names if n.upper() != "NONE"][:20]
 
 
 def _ts(text):
@@ -111,17 +126,24 @@ def notes(s):
     if s["instant"] >= 2:
         top = s["instantSources"][0]
         lvl = "info" if top["source"] == "زر الطاقة" and top["n"] == s["instant"] else "warn"   # كلها بزر الطاقة = المالك أيقظه، لا خلل
-        out.append((lvl, "الجهاز يستيقظ بُعيد نومه", "%d من %d مرة خلال %d يومًا عاد الجهاز قبل دقيقتين من نومه؛ المصدر الأغلب: %s (%d)." % (
-            s["instant"], s["n"], s["days"], top["source"], top["n"])))
+        dev = any(x["source"].startswith("جهاز:") for x in s["instantSources"]) and s.get("armed")
+        more = " المسموح لها بالإيقاظ الآن: %s." % "، ".join(s["armed"][:6]) if dev else ""
+        out.append((lvl, "الجهاز يستيقظ بُعيد نومه", "%d من %d مرة خلال %d يومًا عاد الجهاز قبل دقيقتين من نومه؛ المصدر الأغلب: %s (%d).%s" % (
+            s["instant"], s["n"], s["days"], top["source"], top["n"], more)))
     sl = s.get("slowest")
     if sl and sl["wakeS"] is not None and sl["wakeS"] * 1000 >= SLOW_MS:
         part = "، منها %s ث في تهيئة التعريفات" % sl["driverS"] if sl.get("driverS") is not None and sl["driverS"] >= sl["wakeS"] / 2 else ""
-        out.append(("info", "الخروج من السكون بطيء أحيانًا", "تجاوز الاستيقاظ 10 ث في %d من %d مرة خلال %d يومًا؛ أبطؤها %s ث%s." % (s["slow"], s["n"], s["days"], sl["wakeS"], part)))
+        out.append(("info", "الخروج من السكون بطيء أحيانًا", "تجاوز الاستيقاظ 10 ث في %d من %d مرة خلال %d يومًا؛ أبطؤها %s ث%s. سجل ويندوز هنا لا يسمّي التعريف." % (s["slow"], s["n"], s["days"], sl["wakeS"], part)))
     return out
 
 
-def payload(now=None, query=_query):
+def payload(now=None, query=_query, armed_query=_armed_query):
     now = now or time.time()
     since = time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(now - DAYS * 86400))
     wakes, enters = parse(query(since))
-    return summary(sessions(wakes, enters))
+    out = summary(sessions(wakes, enters))
+    try:
+        out["armed"] = armed(armed_query())
+    except Exception:
+        out["armed"] = None
+    return out
