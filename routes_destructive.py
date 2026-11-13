@@ -132,7 +132,8 @@ def _tier_paused(tier):
 
 
 def _start_task(tier):
-    """الخادم عادي فالمحرّك المباشر لا يصل إلى مجلدات النظام (font-cache يفشل، وwindows-temp لا يحذف شيئًا)؛ المهمة تعمل بأعلى صلاحية.
+    """خادم عادي: المحرّك المباشر لا يصل إلى مجلدات النظام (font-cache يفشل، وwindows-temp لا يحذف شيئًا) فتُشغَّل المهمة المرتفعة.
+    خادم مسؤول (set_backend_privilege.ps1 -Level Highest): يشغّل النسخة المحمية من المحرّك مباشرة.
     يعيد _TaskRun، أو None ليعمل التشغيل المباشر."""
     if IS_ADMIN or _tier_paused(tier):
         return None
