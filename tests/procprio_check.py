@@ -40,12 +40,18 @@ class ProcPrio(unittest.TestCase):
     def test_normal_and_higher_are_left_alone(self):
         for flags in (NORMAL, ABOVE):
             r = run(flags)
-            self.assertEqual(r["after"], r["before"])
-            self.assertEqual(r["after"]["cpu"], flags)
+            self.assertEqual((r["before"]["cpu"], r["after"]["cpu"]), (flags, flags))
+            # الإدخال/الإخراج والذاكرة قد يولدان منخفضين مع صنف عادي (مشغّل CI يورّثهما 1 و2): يُرفعان ولا يُخفضان أبدًا
+            self.assertGreaterEqual(r["after"]["io"], max(2, r["before"]["io"]))
+            self.assertGreaterEqual(r["after"]["page"], max(5, r["before"]["page"]))
+            off = run(flags, io=False)
+            self.assertEqual(off["after"], off["before"])
 
     def test_entry_points_call_it_before_any_work(self):
-        agent = open(os.path.join(ROOT, "agent.py"), encoding="utf-8").read()
-        boot = open(os.path.join(ROOT, "webboot.py"), encoding="utf-8").read()
+        with open(os.path.join(ROOT, "agent.py"), encoding="utf-8") as f:
+            agent = f.read()
+        with open(os.path.join(ROOT, "webboot.py"), encoding="utf-8") as f:
+            boot = f.read()
         self.assertLess(agent.index("procprio.restore_normal(io=False)"), agent.index("db.bootstrap()"))
         self.assertLess(boot.index("procprio.restore_normal()"), boot.index("claim_single_server()", boot.index("def run(")))
 
