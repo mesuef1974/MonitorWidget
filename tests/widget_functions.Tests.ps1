@@ -467,6 +467,8 @@ Describe 'set_backend_privilege.ps1: يغيّر مستوى التشغيل وحد
     It 'يشمل المهام الثلاث، ينسخ قبل التسجيل، يرفع نفسه بلا نافذة، ولا يضع الرمز في رابط' {
         foreach ($n in 'MonitorWidget-Server-Logon', 'MonitorWidget-Agent', 'MonitorWidget-Collector') { $script:bpText | Should -Match ([regex]::Escape("'$n'")) }
         $script:bpText.IndexOf('before_{2}.xml') | Should -BeLessThan $script:bpText.IndexOf('Register-ScheduledTask')
+        # التسجيل قبل الإيقاف: وإلا شغّل الويدجت مهمة الوكيل بالتعريف القديم في الفجوة (حدث حيًّا 13/11)
+        $script:bpText.IndexOf('Register-ScheduledTask') | Should -BeLessThan $script:bpText.IndexOf('Stop-ScheduledTask')
         $script:bpText | Should -Match '-Verb RunAs -WindowStyle Hidden -Wait -PassThru'
         $script:bpText | Should -Match "Headers @\{ 'X-Token' = \`$tok \}"
         $script:bpText | Should -Not -Match '\?(k|token)='
@@ -476,6 +478,9 @@ Describe 'set_backend_privilege.ps1: يغيّر مستوى التشغيل وحد
         $ra = Get-Content -LiteralPath (Join-Path $script:widgetRepoRoot 'restart_agent.ps1') -Raw
         $ra | Should -Match "'MonitorWidget-Agent', 'MonitorWidget-Server-Logon'"
         $ra | Should -Match '\$alive -and -not \$isAdmin -and -not \$Elevated'
+        # رقم العملية من healthz لا من Get-NetTCPConnection: الأخير يعيد 0 لخادم مرتفع من جلسة عادية (إنذار كاذب حيًّا 13/11)
+        foreach ($txt in $ra, $script:bpText) { $txt | Should -Match '/api/healthz'; $txt | Should -Not -Match 'Get-NetTCPConnection -LocalPort' }
+        $ra | Should -Match '\$after -eq \$before'
         $ra | Should -Match '-Verb RunAs -WindowStyle Hidden -Wait -PassThru'
         $ra | Should -Not -Match "(?m)^'agent restarted'\s*$"
         $ra | Should -Match '(?m)^\s*exit 1\s*$'
