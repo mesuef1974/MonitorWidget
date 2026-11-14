@@ -243,7 +243,14 @@ def _maintenance(c):
         t0 = time.time()
         try:
             bk, ms = backup(c)
-            c.execute("PRAGMA optimize"); c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            c.execute("PRAGMA optimize")
+            # TRUNCATE holds the WAL writer lock for its whole busy timeout when a reader pins the log;
+            # 30 s there outlasts the shared connection's 15 s and starves every writer. Wait 2 s at most.
+            c.execute("PRAGMA busy_timeout=2000")
+            try:
+                c.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                c.execute("PRAGMA busy_timeout=30000")
             record_job(c, "backup", True, ms)
             put("last_backup", now)
         except Exception as e:
