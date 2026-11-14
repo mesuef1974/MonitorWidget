@@ -13,6 +13,36 @@ SCHEMA_VERSION = 3  # target schema version; actual databases report PRAGMA user
 _lock = threading.RLock()
 _conn = None
 
+
+class _Conn(sqlite3.Connection):
+    """The shared connection. A statement that fails (typically "database is locked") after Python's implicit BEGIN
+    used to leave that transaction open forever: nobody called rollback(). The open transaction pinned a stale WAL
+    snapshot, so every later write failed at once (SQLITE_BUSY_SNAPSHOT ignores busy_timeout) and reads were frozen
+    until the process restarted (incident 14/11/2026, 194 errors in 26 minutes). Roll back at the point of failure."""
+
+    def _guarded(self, fn, *a):
+        try:
+            return fn(*a)
+        except sqlite3.Error:
+            if self.in_transaction:
+                try:
+                    sqlite3.Connection.rollback(self)
+                except sqlite3.Error:
+                    pass
+            raise
+
+    def execute(self, *a):
+        return self._guarded(super().execute, *a)
+
+    def executemany(self, *a):
+        return self._guarded(super().executemany, *a)
+
+    def executescript(self, *a):
+        return self._guarded(super().executescript, *a)
+
+    def commit(self):
+        return self._guarded(super().commit)
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS samples(
   ts INTEGER NOT NULL, source TEXT NOT NULL DEFAULT 'live',
@@ -42,7 +72,7 @@ def conn():
     global _conn
     with _lock:
         if _conn is None:
-            c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=15)
+            c = sqlite3.connect(DB_PATH, check_same_thread=False, timeout=15, factory=_Conn)
             c.row_factory = sqlite3.Row
             c.execute("PRAGMA journal_mode=WAL"); c.execute("PRAGMA synchronous=NORMAL"); c.execute("PRAGMA foreign_keys=ON")
             c.executescript(SCHEMA)
