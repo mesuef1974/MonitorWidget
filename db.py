@@ -191,14 +191,27 @@ def get_json(key, default=None):
         return default
 
 
-def note_tasks(tasks):
-    """Record a task's last run as an event once (dedup by ts+title)."""
+TASK_FUTURE_SLACK = 600   # ثوانٍ: فرق ساعة مقبول بين قراءة المجدول وكتابة الحدث
+
+
+def note_tasks(tasks, now=None):
+    """Record a task's last run as an event once (dedup by ts+title).
+    A task that ran while the system clock was set forward keeps that LastRunTime in Task Scheduler until its next
+    run (incident 14/11/2026: 26 tasks stamped 31/12/2026, 11 of them copied here and pinned to the top of the
+    timeline). A last run later than now + TASK_FUTURE_SLACK is not recorded, and seeing one drops the future task
+    events an earlier pass wrote. Returns the number of events dropped."""
+    now = time.time() if now is None else now
+    limit = int(now) + TASK_FUTURE_SLACK
     sev = {0: "ok", 267014: "warn", 267009: "info", 267011: "info"}
+    future = 0
     for t in tasks or []:
         if t.get("missing") or not t.get("last"):
             continue
         ts = _epoch(str(t["last"]))
         if not ts or ts < 86400 * 365:
+            continue
+        if ts > limit:
+            future += 1
             continue
         code = t.get("result")
         s = sev.get(code, "bad") if code is not None else "info"
@@ -206,6 +219,22 @@ def note_tasks(tasks):
             s = "info"   # تخطٍّ بسبب قفل جولة أخرى (health_score.LOCK_SKIP)
         title = "مهمة: %s" % t.get("label", t.get("name"))
         add_event(ts, "task", s, title, "النتيجة 0x%X" % (code & 0xFFFFFFFF) if code not in (None, 0) else "نجحت")
+    return _drop_future_task_events(limit) if future else 0
+
+
+def _drop_future_task_events(limit):
+    with _lock:
+        c = conn()
+        n = c.execute("DELETE FROM events WHERE source='task' AND ts>?", (int(limit),)).rowcount
+        c.commit()
+    if n:
+        try:
+            import infra
+            infra.log.warning("clock guard: dropped %d task event(s) dated in the future", n)
+        except Exception:
+            import errlog
+            errlog.swallowed()
+    return n
 
 
 # ------------------------------------------------------------------ importers (idempotent, incremental)
