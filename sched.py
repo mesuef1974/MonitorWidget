@@ -5,12 +5,38 @@ mode "after_finish": next run = end + interval (the countdown starts when the wo
 A job never overlaps itself; an overdue job at startup runs immediately (catch-up).
 timeout_s is a cooperative deadline, not permission to kill a Python thread.
 IO callers use remaining_timeout(); loops use check_cancelled(). Uncooperative
-work remains marked running/stuck and is never started again concurrently."""
+work remains marked running/stuck and is never started again concurrently.
+Wall-clock guard: next_run is wall time, so a clock set forward and back (31/12/2026 for 18 s on 14/11/2026)
+left 17 jobs scheduled for 2027. heal_clock() pulls any job scheduled past FUTURE_SLACK back to now."""
 import threading, time, traceback
 
 import db, infra
 
 log = infra.log
+HEAL_EVERY = 60     # seconds between wall-clock guard passes in the loop
+
+
+def future_slack(interval_s):
+    """How far past now a legitimate next_run can be: one interval (or a manual push such as trim's 600 s), with margin."""
+    return 2 * int(interval_s) + 600
+
+
+def heal_clock(now=None):
+    """Pull jobs scheduled impossibly far ahead (the clock went forward, then back) to now, and unstick their
+    future last_start/last_end. Returns the healed job names."""
+    now = int(time.time() if now is None else now)
+    with db._lock:
+        c = db.conn()
+        names = [r[0] for r in c.execute("SELECT name FROM jobs WHERE next_run > ? + 2*interval_s + 600", (now,))]
+        if names:
+            c.execute("UPDATE jobs SET next_run=? WHERE next_run > ? + 2*interval_s + 600", (now, now))
+        stamped = c.execute("UPDATE jobs SET last_start=? WHERE last_start > ? + 600", (now, now)).rowcount
+        stamped += c.execute("UPDATE jobs SET last_end=? WHERE last_end > ? + 600", (now, now)).rowcount
+        if names or stamped:
+            c.commit()
+    if names:
+        log.warning("clock guard: %d job(s) were scheduled in the far future, reset to now: %s", len(names), ", ".join(names))
+    return names
 _context = threading.local()
 
 
@@ -106,8 +132,12 @@ class Scheduler:
             infra.record_job(db.conn(), name, False, (t1 - t0) * 1000, err)
 
     def loop(self):
+        healed = None
         while True:
             try:
+                if healed is None or time.monotonic() - healed >= HEAL_EVERY:
+                    healed = time.monotonic()
+                    heal_clock()
                 for n in self._due():
                     if n in self.fns:
                         with self._l:
