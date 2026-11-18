@@ -137,6 +137,22 @@ def _check_io_deadline(deadline):
         raise TimeoutError("backup IO deadline exceeded")
 
 
+def by_age(folder):
+    """Backups oldest first by modification time, not by name.
+
+    The date in a backup's name comes from the wall clock when it was taken; a
+    clock jump (14/11/2026 jumped to 31/12/2026) leaves a future-named file that
+    would sort last forever and freeze "latest" selection and rotation.
+    """
+    files = glob.glob(os.path.join(folder, "monitor-*.db"))
+    def key(f):
+        try:
+            return (os.path.getmtime(f), f)
+        except OSError:
+            return (0.0, f)
+    return sorted(files, key=key)
+
+
 def backup(c):
     os.makedirs(BK_DIR, exist_ok=True)
     name = os.path.join(BK_DIR, "monitor-%s.db" % time.strftime("%Y%m%d"))
@@ -154,7 +170,7 @@ def backup(c):
         os.remove(tmp)
         raise RuntimeError("backup failed integrity: " + msg)
     os.replace(tmp, name)
-    files = sorted(glob.glob(os.path.join(BK_DIR, "monitor-*.db")))
+    files = by_age(BK_DIR)
     for f in files[:-KEEP_BACKUPS]:
         try:
             os.remove(f)
@@ -166,7 +182,7 @@ def backup(c):
 
 def backups():
     out = []
-    for f in sorted(glob.glob(os.path.join(BK_DIR, "monitor-*.db")), reverse=True):
+    for f in reversed(by_age(BK_DIR)):
         out.append({"name": os.path.basename(f), "bytes": os.path.getsize(f), "ts": int(os.path.getmtime(f))})
     return out
 
@@ -212,7 +228,7 @@ def _extra_backup(src):
     finally:
         if os.path.exists(tmp):
             os.remove(tmp)
-    for f in sorted(glob.glob(os.path.join(d, "monitor-*.db")))[:-KEEP_BACKUPS]:
+    for f in by_age(d)[:-KEEP_BACKUPS]:
         try:
             os.remove(f)
         except OSError:
@@ -323,7 +339,7 @@ def _external_backup_retry():
         def get(key):
             row = c.execute("SELECT value FROM meta WHERE key=?", (key,)).fetchone()
             return int(row[0]) if row else 0
-        files = sorted(glob.glob(os.path.join(BK_DIR, "monitor-*.db")))
+        files = by_age(BK_DIR)
         if not files or now - get("backup_extra_last_attempt") < 300:
             return "not due"
         src = files[-1]
