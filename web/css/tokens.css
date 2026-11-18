@@ -42,11 +42,14 @@
   --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
   --mark-ink:#089770;   /* لون العلامة v2؛ ≥3.09:1 على كل الأسطح الفاتحة (رسم معلوماتي، WCAG 1.4.11) */
   --c5:#be185d;--c6:#0f766e;--c7:#b45309;--c8:#5b6b7f;   /* ≥4.5:1 لسلاسل المخططات على الأسطح الفاتحة كلها */
-  --pal-teal:#089770;--pal-blue:#2f62d6;--pal-violet:#6f4fd0;--pal-graphite:#3f4a5a;
+  --pal-teal:#089770;--pal-blue:#497ff6;--pal-violet:#8b6ff2;--pal-graphite:#798597;
 }
 :root[data-palette="blue"][data-theme="dark"]{--accent:#6aa6ff;--accent-ink:#04122b;--accent2:#3ee6b0;--bg-glow:rgba(106,166,255,.08)}
-:root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent-text:#2654bd;--accent-solid:#2f62d6;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
+/* اللوحات البديلة في الفاتح ببنية هوية v2 نفسها (2026-11-18): accent لون الرسم بأفتح إضاءة تبلغ 3.09:1 على كل الأسطح،
+   accent-text أفتح إضاءة تبلغ 5.9:1 على كل الأسطح وفوق accent-bg، accent-solid أفتح إضاءة يبلغ عليها الأبيض 5.2:1؛ كلها بصبغة اللوحة في OKLCH.
+   الشعار يبقى بلون العلامة (--mark-ink) في كل اللوحات. الداكن بلا تغيير: يتجاوز 5:1 أصلًا. */
+:root[data-palette="blue"][data-theme="light"]{--accent:#497ff6;--accent-ink:#fff;--accent-text:#1746b8;--accent-solid:#3265d9;--accent2:#089770;--bg-glow:rgba(73,127,246,.09)}
 :root[data-palette="violet"][data-theme="dark"]{--accent:#b79cff;--accent-ink:#160a33;--accent2:#7ca6ff;--bg-glow:rgba(183,156,255,.08)}
-:root[data-palette="violet"][data-theme="light"]{--accent:#6f4fd0;--accent-ink:#fff;--accent-text:#5f40b8;--accent-solid:#6f4fd0;--accent2:#2f62d6;--bg-glow:rgba(111,79,208,.09)}
+:root[data-palette="violet"][data-theme="light"]{--accent:#8b6ff2;--accent-ink:#fff;--accent-text:#5a35b6;--accent-solid:#7455d7;--accent2:#2f62d6;--bg-glow:rgba(139,111,242,.09)}
 :root[data-palette="graphite"][data-theme="dark"]{--accent:#c4ccd8;--accent-ink:#0c1118;--accent2:#7ca6ff;--bg-glow:rgba(196,204,216,.06)}
-:root[data-palette="graphite"][data-theme="light"]{--accent:#3f4a5a;--accent-ink:#fff;--accent-text:#3f4a5a;--accent-solid:#3f4a5a;--accent2:#2f62d6;--bg-glow:rgba(63,74,90,.08)}   /* accent-text في الفاتح: اللوحات الأزرق والبنفسجي تُغمَّق للنصّ (4.1-4.4 فوق accent-bg) والرمادي يكفي أصلًا */
+:root[data-palette="graphite"][data-theme="light"]{--accent:#798597;--accent-ink:#fff;--accent-text:#465162;--accent-solid:#626d7f;--accent2:#2f62d6;--bg-glow:rgba(121,133,151,.08)}

@@ -166,7 +166,7 @@ Describe 'Get-Palette (من web/css/tokens.css عبر identity.ps1)' {
     }
     It 'الوضع الداكن وبقية اللوحات: نصّ accent يساوي accent' {
         $script:S.palette = 'teal'; (Get-Palette $false).accentText | Should -Be (Get-Palette $false).accent
-        $script:S.palette = 'blue'; (Get-Palette $true).accentText | Should -Be '#2654BD'
+        $script:S.palette = 'blue'; (Get-Palette $true).accentText | Should -Be '#1746B8'
     }
     It 'onWarn وknob أبيضان في الفاتح' {
         $script:S.palette = 'teal'
@@ -190,7 +190,7 @@ Describe 'Read-IdentityTokens' {
         $t['--accent'] | Should -Be '#089770'
         $t['--accent-text'] | Should -Be '#006247'
         $t['--bg'] | Should -Not -BeNullOrEmpty
-        (Read-IdentityTokens $script:widgetRepoRoot $true 'blue')['--accent'] | Should -Be '#2f62d6'
+        (Read-IdentityTokens $script:widgetRepoRoot $true 'blue')['--accent'] | Should -Be '#497ff6'
         (Read-IdentityTokens $script:widgetRepoRoot $false 'teal')['--accent'] | Should -Be '#3ee6b0'
     }
     It 'يعيد null لجذر بلا رموز' { Read-IdentityTokens $env:TEMP $true 'teal' | Should -BeNullOrEmpty }
