@@ -156,8 +156,13 @@ Describe 'Get-Palette (من web/css/tokens.css عبر identity.ps1)' {
     It 'teal الفاتح يغمّق accent للنصّ فقط' {
         $script:S.palette = 'teal'
         $p = Get-Palette $true
-        $p.accent | Should -Be '#08A177'
-        $p.accentText | Should -Be '#066B4F'
+        $p.accent | Should -Be '#089770'
+        $p.accentText | Should -Be '#006247'
+    }
+    It 'حبر الشعار من --mark-ink: أخضر العلامة فاتحًا وأبيض داكنًا' {
+        $script:S.palette = 'teal'
+        (Get-Palette $true).markInk | Should -Be '#089770'
+        (Get-Palette $false).markInk | Should -Be '#FFFFFF'
     }
     It 'الوضع الداكن وبقية اللوحات: نصّ accent يساوي accent' {
         $script:S.palette = 'teal'; (Get-Palette $false).accentText | Should -Be (Get-Palette $false).accent
@@ -182,8 +187,8 @@ Describe 'Convert-IdentityColor' {
 Describe 'Read-IdentityTokens' {
     It 'يطبّق الجذر ثم الثيم ثم اللوحة' {
         $t = Read-IdentityTokens $script:widgetRepoRoot $true 'teal'
-        $t['--accent'] | Should -Be '#08a177'
-        $t['--accent-text'] | Should -Be '#066b4f'
+        $t['--accent'] | Should -Be '#089770'
+        $t['--accent-text'] | Should -Be '#006247'
         $t['--bg'] | Should -Not -BeNullOrEmpty
         (Read-IdentityTokens $script:widgetRepoRoot $true 'blue')['--accent'] | Should -Be '#2f62d6'
         (Read-IdentityTokens $script:widgetRepoRoot $false 'teal')['--accent'] | Should -Be '#3ee6b0'
