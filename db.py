@@ -460,8 +460,11 @@ def _vacuum_if_due(c):
 
 def prune(days=400):
     """Apply RETENTION (days argument overrides the samples/events window), thin live samples, VACUUM when due."""
+    import clockguard
     with _lock:
-        c = conn(); now = int(time.time())
+        c = conn()
+        now = clockguard.safe_now(c, "prune_clock_db")   # قفزة الساعة لا تحذف أسابيع دفعة واحدة
+        c.commit()
         have = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         for tbl, (col, keep, extra) in RETENTION.items():
             if tbl not in have:
