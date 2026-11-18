@@ -99,3 +99,23 @@ test('لا قاعدة تلوّن نصًّا بـ accent الخام؛ النص ب
   });
   expect(r.btn, 'زر التقييم المضغوط في صفحة اسأل').toBe(r.accentText);
 });
+
+// عيّنات صفحة المظهر تطابق لون accent الفعلي لكل لوحة في الوضعين (لا قيمة منفصلة عن اللوحة)
+test('عيّنة كل لوحة في صفحة المظهر بلون accent الفعلي لتلك اللوحة في الوضعين', async ({ page }) => {
+  await page.goto('/#/appearance');
+  await page.waitForFunction(() => document.querySelectorAll('#main .swatch i').length === 4);
+  const bad = [];
+  for (const theme of THEMES) for (const palette of PALETTES) {
+    const r = await page.evaluate(([t, p]) => {
+      const root = document.documentElement; root.dataset.theme = t;
+      root.dataset.palette = 'teal';
+      const sw = getComputedStyle(document.querySelector(`#main .swatch[data-palette="${p}"] i`)).backgroundColor;
+      root.dataset.palette = p;
+      const probe = document.createElement('i'); probe.style.color = 'var(--accent)'; document.body.appendChild(probe);
+      const accent = getComputedStyle(probe).color; probe.remove();
+      return { sw, accent };
+    }, [theme, palette]);
+    if (r.sw !== r.accent) bad.push(`${theme}/${palette}: العيّنة ${r.sw} واللوحة ${r.accent}`);
+  }
+  expect(bad, bad.join('\n')).toEqual([]);
+});

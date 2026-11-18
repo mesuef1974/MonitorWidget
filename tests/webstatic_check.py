@@ -19,7 +19,7 @@ for d in ("web/css", "web/fonts", "assets"):
     os.makedirs(os.path.join(TMP, d), exist_ok=True)
 PAGE = b"<!doctype html><html><head></head><body><script>const a = 1;\r\nconst b = 2;\r\n</script><script>x()</script></body></html>"
 FILES = {"web/index.html": PAGE, "web/css/tokens.css": b":root{--x:1}", "web/fonts/amiri-400-1.woff2": b"wOF2fake",
-         "assets/favicon.ico": b"ICO", "assets/icon.svg": b"<svg/>"}
+         "assets/favicon.ico": b"ICO", "assets/icon.svg": b"<svg/>", "assets/site.webmanifest": b'{"id":"/"}'}
 for rel, data in FILES.items():
     with open(os.path.join(TMP, rel), "wb") as f:
         f.write(data)
@@ -84,7 +84,22 @@ class Files(unittest.TestCase):
         self.assertEqual((r["code"], r["ctype"], r["cache"], r["body"]), (200, "image/x-icon", "public, max-age=86400", b"ICO"))
         r = webstatic.serve("/assets/icon.svg")
         self.assertEqual((r["code"], r["ctype"], r["body"]), (200, "image/svg+xml", b"<svg/>"))
-        self.assertEqual(set(webstatic.ASSETS.values()), {"image/svg+xml", "image/x-icon", "image/png"})
+        self.assertEqual(set(webstatic.ASSETS.values()), {"image/svg+xml", "image/x-icon", "image/png", "application/manifest+json"})
+
+    def test_webmanifest_served_and_allowed_by_csp(self):
+        r = webstatic.serve("/assets/site.webmanifest")
+        self.assertEqual((r["code"], r["ctype"], r["body"]), (200, "application/manifest+json", b'{"id":"/"}'))
+        self.assertIn("manifest-src 'self'", webstatic.page_csp(PAGE))
+
+    def test_repo_manifest_icons_exist(self):
+        # كل أيقونة في site.webmanifest الحقيقي مقدَّمة من ASSETS وموجودة على القرص
+        import json
+        with open(os.path.join(ROOT, "assets", "site.webmanifest"), encoding="utf-8") as f:
+            icons = json.load(f)["icons"]
+        self.assertTrue(any(i.get("purpose") == "maskable" for i in icons))
+        for i in icons:
+            self.assertIn(i["src"], webstatic.ASSETS, i["src"])
+            self.assertTrue(os.path.isfile(os.path.join(ROOT, i["src"].lstrip("/"))), i["src"])
 
 
 if __name__ == "__main__":

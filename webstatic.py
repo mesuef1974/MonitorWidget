@@ -22,10 +22,11 @@ ASSETS = {
     "/assets/logo_light.svg": "image/svg+xml", "/assets/logo_dark.svg": "image/svg+xml",
     "/assets/favicon.ico": "image/x-icon", "/assets/icon.ico": "image/x-icon",
     "/assets/icon_192.png": "image/png", "/assets/icon_512.png": "image/png",
-    "/assets/apple-touch-icon.png": "image/png",
+    "/assets/apple-touch-icon.png": "image/png", "/assets/maskable_512.png": "image/png",
     "/assets/logo_light.png": "image/png", "/assets/logo_dark.png": "image/png",
+    "/assets/site.webmanifest": "application/manifest+json",
 }
-CSP_BASE = ("default-src 'none'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
+CSP_BASE = ("default-src 'none'; connect-src 'self'; manifest-src 'self';img-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; "
             "base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'")
 CSS_RE = re.compile(r"/css/[a-z0-9_-]+\.css")
 FONT_RE = re.compile(r"/fonts/[a-z0-9-]+\.woff2")
