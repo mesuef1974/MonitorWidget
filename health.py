@@ -327,7 +327,7 @@ def _updates_probe():
         r = subprocess.run([PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "healthprobe.ps1"), "-UpdatesOnly"],
                            capture_output=True, timeout=120, creationflags=CNW)
         u = json.loads(r.stdout.decode("utf-8", "replace").strip()).get("updates")
-        return {"n": u.get("n"), "titles": u.get("titles")} if isinstance(u, dict) else None
+        return {k: u.get(k) for k in ("n", "titles", "optional", "optionalTitles")} if isinstance(u, dict) else None
     except Exception:
         return None
 
