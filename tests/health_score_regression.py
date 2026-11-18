@@ -46,6 +46,25 @@ class ScoreTests(unittest.TestCase):
         tasks = next(p for p in r["parts"] if p["key"] == "tasks")
         self.assertEqual((tasks["pts"], tasks["why"]), (15, "كلها سليمة"))
 
+    def test_future_last_run_failure_not_counted(self):
+        # نتيجة سُجّلت بساعة قافزة إلى المستقبل (14/11/2026) لا تُخصم، وتُذكر في السبب؛ وفشل حقيقي حديث يبقى محسوبًا
+        future = datetime.fromtimestamp(self.now + 40 * 86400, timezone.utc).isoformat()
+        jump = {"enabled": True, "result": 1, "group": "clean", "label": "تنظيف شهري", "last": future}
+        r = self.run_score(tasks=self.args["tasks"] + [jump])
+        tasks = next(p for p in r["parts"] if p["key"] == "tasks")
+        self.assertEqual(tasks["pts"], 15)
+        self.assertIn("كلها سليمة", tasks["why"]); self.assertIn("تنظيف شهري", tasks["why"])
+        last = datetime.fromtimestamp(self.now - 3600, timezone.utc).isoformat()
+        real = {"enabled": True, "result": 1, "group": "clean", "label": "تنظيف يومي", "last": last}
+        r = self.run_score(tasks=self.args["tasks"] + [jump, real])
+        tasks = next(p for p in r["parts"] if p["key"] == "tasks")
+        self.assertEqual(tasks["pts"], 10)
+        self.assertTrue(tasks["why"].startswith("فشلت: تنظيف يومي"))
+        # ضمن هامش الساعة (أقل من 10 دقائق) يبقى فشلًا عاديًا
+        near = dict(jump, last=datetime.fromtimestamp(self.now + 300, timezone.utc).isoformat())
+        tasks = next(p for p in self.run_score(tasks=self.args["tasks"] + [near])["parts"] if p["key"] == "tasks")
+        self.assertEqual(tasks["pts"], 10)
+
     def test_exit_3_outside_cleanup_still_fails(self):
         last = datetime.fromtimestamp(self.now, timezone.utc).isoformat()
         other = {"enabled": True, "result": 3, "group": "backup", "label": "نسخ", "last": last}

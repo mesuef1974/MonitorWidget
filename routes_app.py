@@ -64,7 +64,7 @@ def _explain(body):
         extra += ["أكبر العمليات: %s ×%s بذاكرة خاصة %s MB" % (x["name"], x["n"], round(x["private_mb"] or 0)) for x in health.top_procs(5)]
         extra += ["تسرّب محتمل: %s من %s إلى %s MB" % (x["name"], x["fromMB"], x["toMB"]) for x in health.leaks()[:3]]
         extra += ["مهمة فاشلة: %s (النتيجة %s)" % (x.get("label"), x.get("result"))
-                  for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") is not None and not health_score.task_ok(x)][:4]
+                  for x in tasks if x.get("enabled") and not x.get("missing") and x.get("result") is not None and health_score.task_failed(x, time.time())][:4]
     except Exception:
         errlog.swallowed()
     t0 = time.time()
