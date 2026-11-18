@@ -3,10 +3,22 @@ param([switch]$SkipUpdates, [switch]$UpdatesOnly)
 $ErrorActionPreference = 'SilentlyContinue'
 $o = [ordered]@{ ts = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds() }
 
+# Pending updates as Settings shows them: n = updates Windows auto-selects (main page), optional = the rest
+# (optional drivers etc. listed only under "Optional updates"; they never make Settings say "not up to date").
+$UpdatesQuery = {
+    $s = New-Object -ComObject Microsoft.Update.Session
+    $q = $s.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0")
+    $all = @($q.Updates)
+    $req = @($all | Where-Object { $_.AutoSelectOnWebSites })
+    $opt = @($all | Where-Object { -not $_.AutoSelectOnWebSites })
+    @{ n = $req.Count; titles = @($req | Select-Object -First 5 | ForEach-Object { $_.Title })
+       optional = $opt.Count; optionalTitles = @($opt | Select-Object -First 5 | ForEach-Object { $_.Title }) }
+}
+
 # --- updates-only mode: used by the server to refresh the pending-update count on its own schedule
 if ($UpdatesOnly) {
     try {
-        $job = Start-Job { $s = New-Object -ComObject Microsoft.Update.Session; $q = $s.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0"); @{ n = $q.Updates.Count; titles = @($q.Updates | Select-Object -First 5 | ForEach-Object { $_.Title }) } }
+        $job = Start-Job $UpdatesQuery
         if (Wait-Job $job -Timeout 75) { $o.updates = Receive-Job $job } else { Stop-Job $job }
         Remove-Job $job -Force
     } catch {}
@@ -81,7 +93,7 @@ try { $o.powerPlan = (powercfg /getactivescheme) -replace '^.*\((.*)\).*$', '$1'
 # --- pending Windows updates (slow; COM search, hard cap)
 if (-not $SkipUpdates) {
     try {
-        $job = Start-Job { $s = New-Object -ComObject Microsoft.Update.Session; $q = $s.CreateUpdateSearcher().Search("IsInstalled=0 and IsHidden=0"); @{ n = $q.Updates.Count; titles = @($q.Updates | Select-Object -First 5 | ForEach-Object { $_.Title }) } }
+        $job = Start-Job $UpdatesQuery
         if (Wait-Job $job -Timeout 75) { $o.updates = Receive-Job $job } else { Stop-Job $job }
         Remove-Job $job -Force
     } catch {}
