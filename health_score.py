@@ -16,6 +16,29 @@ def task_ok(task):
     return r in TASK_OK or (r == LOCK_SKIP and task.get("group") == "clean")
 
 
+TASK_FUTURE_SLACK = 600   # ثوانٍ؛ كما في db.TASK_FUTURE_SLACK
+
+
+def task_last_ts(task):
+    """وقت آخر تشغيل بثوانٍ، أو None إن تعذّرت قراءته."""
+    try:
+        return datetime.fromisoformat(str(task["last"]).replace("Z", "+00:00")).timestamp()
+    except (ValueError, TypeError, KeyError, OverflowError, OSError):
+        return None
+
+
+def task_from_future(task, now):
+    """True إن كان آخر تشغيل بعد الآن: نتيجة سُجّلت بساعة نظام قافزة (14/11/2026) فلا تشهد على حال المهمة،
+    ويبقيها المجدول حتى تشغيلها التالي."""
+    ts = task_last_ts(task)
+    return ts is not None and ts > now + TASK_FUTURE_SLACK
+
+
+def task_failed(task, now):
+    """فشل يُحسب: نتيجة غير ناجحة من تشغيل حقيقي لا من وقت مستقبلي."""
+    return not task_ok(task) and not task_from_future(task, now)
+
+
 def number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
@@ -48,16 +71,20 @@ def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, no
     task_data = bool(enabled) and all(not t.get("missing") and isinstance(t.get("result"), int) for t in enabled)
 
     def age_hours(task):
-        try:
-            return (now - datetime.fromisoformat(str(task["last"]).replace("Z", "+00:00")).timestamp()) / 3600
-        except (ValueError, TypeError, KeyError, OverflowError):
-            return math.inf
+        ts = task_last_ts(task)
+        return math.inf if ts is None else (now - ts) / 3600
 
-    bad = [t for t in enabled if not task_ok(t)]
+    def names(items):
+        return "، ".join(str(t.get("label", t.get("name", "مهمة"))) for t in items[:3])
+
+    bad = [t for t in enabled if task_failed(t, now)]
+    future = [t for t in enabled if not task_ok(t) and task_from_future(t, now)]
     recent_bad = sum(age_hours(t) <= 7 * 24 for t in bad)
+    why = ("فشلت: " + names(bad)) if bad else "كلها سليمة"
+    if future:
+        why += "؛ لا تُحسب نتيجة بوقت تشغيل مستقبلي (قفزة ساعة): " + names(future)
     add("tasks", "المهام المجدولة", max(0, 15 - 5 * recent_bad - 2 * (len(bad) - recent_bad)) if task_data else None,
-        15, ("فشلت: " + "، ".join(str(t.get("label", t.get("name", "مهمة"))) for t in bad[:3])) if task_data and bad
-        else "كلها سليمة" if task_data else "بيانات المهام غير مكتملة", now if task_data else None)
+        15, why if task_data else "بيانات المهام غير مكتملة", now if task_data else None)
     backups = [t for t in enabled if t.get("group") == "backup"]
     backups_known = bool(backups) and all(not t.get("missing") and isinstance(t.get("result"), int) for t in backups)
     old_backups = [t for t in backups if age_hours(t) > 36 or age_hours(t) < -1 / 60 or t.get("result") not in (0, 267009)]
