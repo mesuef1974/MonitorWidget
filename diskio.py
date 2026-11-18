@@ -210,7 +210,12 @@ def rollup_day(conn, since_ts):
 
 
 def prune(conn, now=None):
-    now = int(now or time.time())
+    """Retention by age. Without an explicit `now` (tests pass one) the wall clock goes through
+    clockguard: a forward clock jump must not erase weeks of data in one pass (14/11/2026)."""
+    if now is None:
+        import clockguard
+        now = clockguard.safe_now(conn, "prune_clock_diskio")
+    now = int(now)
     for table, key in (("io_samples", "ret_samples_d"), ("io_min", "ret_min_d"), ("io_procs", "ret_procs_d"), ("io_procs_h", "ret_procs_h_d"),
                        ("io_hour", "ret_hour_d"), ("io_health", "ret_health_d")):
         conn.execute("DELETE FROM %s WHERE ts < ?" % table, (now - int(cfg(conn, key) * 86400),))
