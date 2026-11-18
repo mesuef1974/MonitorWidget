@@ -262,7 +262,7 @@ const PAGES = {
     async load() { return settle(api("/api/mem?range=" + state.range), api("/api/commit"), api("/api/commit-map")); },
     render([d, c, cm]) {
       if (!d) return nodata("بيانات الذاكرة");
-      const m = d.m, p = d.perf || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1, pal = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
+      const m = d.m, p = d.perf || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1, pal = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)"];
       let out = panel("القياسات", `<div class="kpis">${kpi("الفعلية", nf(m.ramPct, 0), "%", `متاح ${Q(m.availGB, "GB", 1)}`, meter(m.ramPct, d.thr.ramWarn, d.thr.ramBad))}${kpi("الالتزام", nf(m.commitPct, 0), "%", `${Q(m.commitGB, "", 1)} / ${Q(m.limitGB, "GB", 1)}`, meter(m.commitPct, d.thr.commitWarn, d.thr.commitBad))}${kpi("كاش النظام", nf(p.cacheGB, 1), "GB")}${kpi("ذاكرة النواة", nf(p.kernelGB, 1), "GB", `مقسّمة ${Q(p.kernelPagedGB, "", 2)} · ثابتة ${Q(p.kernelNonpagedGB, "", 2)}`)}${kpi("العمليات", nf(p.procs), "", `${Q(p.threads)} خيط · ${Q(p.handles)} مقبض`)}</div>`);
       out += panel("الفعلية والالتزام", `<div id="memChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1], ["var(--accent)", "متاحة"]])}`, { cls: "c8", meta: rangeChips() });
       out += panel("حسب الفئة", `<div class="stackbar">${d.cats.map((c, i) => `<i title="${esc(c.label)}" style="flex:${c.mb};background:${pal[i % pal.length]}"></i>`).join("")}</div><div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i class="dot" style="background:${pal[i % pal.length]}"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${c.n} عملية · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
@@ -531,7 +531,7 @@ function ruleDetail(s) {
 }
 const SRC = { cpu: "المعالج", mem: "الذاكرة", disk: "القرص", gpu: "الرسوميات", boot: "الإقلاع", task: "المهام", localai: "الذكاء المحلي", guard: "الحارس", trim: "تنظيف الذاكرة", commit: "الالتزام", net: "الشبكة" };   // مصادر سجل التنبيهات (db.add_event) بالعربية
 const stack = (items, pal) => `<div class="stackbar">${items.map((c, i) => `<i title="${esc(c.label)}" style="flex:${Math.max(c.v, .001)};background:${pal[i % pal.length]}"></i>`).join("")}</div>`;
-const PAL = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "#ff8fab", "#5eead4", "#f59e0b", "#94a3b8"];
+const PAL = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)"];
 const pager = (id, total, size, off) => `<div class="pager"><button class="btn" data-pg="${id}" data-off="${Math.max(0, off - size)}" ${off <= 0 ? "disabled" : ""}>السابق</button><span class="note">${Q(total ? off + 1 : 0)}–${Q(Math.min(total, off + size))} من ${Q(total)}</span><button class="btn" data-pg="${id}" data-off="${off + size}" ${off + size >= total ? "disabled" : ""}>التالي</button></div>`;
 /* ───────── space cleanup (preview → confirm → clean) ───────── */
 const SPV = {}, SPALL = { s: null };
@@ -996,9 +996,8 @@ Object.assign(PAGES, {
     title: "المظهر الموحد", sub: "الوضع ولون الهوية للتطبيق والويدجت", icon: "palette",
     async load() { return settle(api("/api/appearance")); },
     render([ap]) {
-      const sw2 = { teal: "#3ee6b0", blue: "#7ca6ff", violet: "#b79cff", graphite: "#9aa7b8" };
       return panel("الوضع", `<div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div>`, { cls: "c6" })
-        + panel("لون الهوية", `<div class="swatches" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button class="swatch" data-palette="${k}" aria-pressed="${ap?.palette === k}"><i style="background:${sw2[k]}"></i>${l}</button>`).join("")}</div>`, { cls: "c6" })
+        + panel("لون الهوية", `<div class="swatches" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button class="swatch" data-palette="${k}" aria-pressed="${ap?.palette === k}"><i style="background:var(--pal-${k})"></i>${l}</button>`).join("")}</div>`, { cls: "c6" })
         + panel("للمعلومات", `<p class="note">المراجعة ${Q(ap?.revision)} · يُطبَّق الاختيار على الواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`);
     }
   }
@@ -1069,7 +1068,7 @@ let navBuilt = false;
 function buildNav(cur) {
   if (navBuilt) { document.querySelectorAll("#nav a[href]").forEach(a => { if (a.getAttribute("href") === "#/" + cur) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); }); return; }
   navBuilt = true;
-  $("#nav").innerHTML = `<div class="brand"><div class="brand-mark"><svg class="logo-mark" viewBox="38 38 180 180" width="40" height="40" aria-hidden="true"><circle cx="128" cy="128" r="76" fill="none" stroke="var(--accent)" stroke-width="14" stroke-linecap="round" stroke-dasharray="430 48" transform="rotate(-58 128 128)"/><polyline points="68,132 98,132 113,96 135,166 150,118 158,132 188,132" fill="none" stroke="var(--warn)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><circle cx="147.7" cy="54.6" r="9" fill="var(--warn)"/></svg></div><div><b>مرصد الجهاز</b></div></div>`
+  $("#nav").innerHTML = `<div class="brand"><div class="brand-mark"><svg class="logo-mark" viewBox="0 0 256 256" width="32" height="32" aria-hidden="true" fill="var(--mark-ink)"><path d="M102.024 16A16 16 0 0 1 114.636 41.846A88 88 0 0 0 184 184C224 184 248 184 248 208L248 240L8 240L8 144C8 76 48 16 102.024 16Z"/><circle cx="184" cy="96" r="64"/></svg></div><div><b>مرصد الجهاز</b></div></div>`
     + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
 }
 let timer = 0, page = null, last = null, busy = false, lastSig = "";
