@@ -13,7 +13,7 @@ def main():
     parser.add_argument("--backup-dir", default=os.path.join(HERE, "backups"))
     parser.add_argument("--sandbox-parent", default=os.path.join(HERE, "tests", ".sandboxes"))
     args = parser.parse_args()
-    files = sorted(glob.glob(os.path.join(args.backup_dir, "monitor-*.db")))
+    files = sorted(glob.glob(os.path.join(args.backup_dir, "monitor-*.db")), key=os.path.getmtime)
     if not args.backup and not files:
         print("FAIL required backup missing")
         return 1

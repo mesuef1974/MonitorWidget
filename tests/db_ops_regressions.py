@@ -120,6 +120,34 @@ class DbOps(unittest.TestCase):
         self.assertEqual(self.c.execute("SELECT value FROM meta WHERE key='backup_extra_source_day'").fetchone()[0], "20261025")
         self.assertEqual(self.c.execute("SELECT value FROM meta WHERE key='last_backup'").fetchone()[0], str(now))
 
+    def test_future_named_backup_does_not_freeze_selection(self):
+        # Clock jump 14/11/2026: a "monitor-20261231.db" taken that night must not
+        # stay "latest" by name and starve the external copy and rotation.
+        bk = self.folder / "backups"
+        bk.mkdir()
+        base = time.time() - 10 * 86400
+        jumped = bk / "monitor-20261231.db"
+        jumped.write_bytes(b"jumped")
+        os.utime(jumped, (base, base))
+        for i, day in enumerate(("20261115", "20261116", "20261117")):
+            f = bk / ("monitor-%s.db" % day)
+            f.write_bytes(day.encode())
+            os.utime(f, (base + (i + 1) * 86400,) * 2)
+        self.assertEqual(pathlib.Path(infra.by_age(str(bk))[-1]).name, "monitor-20261117.db")
+        with mock.patch.object(infra, "BK_DIR", str(bk)):
+            self.assertEqual(infra.backups()[0]["name"], "monitor-20261117.db")
+            self.c.execute("INSERT INTO meta VALUES('backup_extra_source_day','20261231')")
+            self.c.commit()
+            with mock.patch.object(infra, "_extra_backup", return_value="copied") as copy:
+                infra.external_backup_retry()
+            self.assertTrue(copy.call_args[0][0].endswith("monitor-20261117.db"))
+            with mock.patch.object(infra, "KEEP_BACKUPS", 2), mock.patch.object(infra, "integrity", return_value=(True, "ok")):
+                infra.backup(self.c)
+        names = sorted(p.name for p in bk.glob("monitor-*.db"))
+        self.assertNotIn("monitor-20261231.db", names)
+        self.assertIn(time.strftime("monitor-%Y%m%d.db"), names)
+        self.assertEqual(len(names), 2)
+
     def test_external_copy_verified_and_failed_copy_keeps_previous(self):
         target = self.folder / "external"
         target.mkdir()
