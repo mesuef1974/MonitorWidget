@@ -28,15 +28,21 @@
   --accent:#3ee6b0;--accent-ink:#03231a;--accent-text:var(--accent);--accent2:#7ca6ff;--violet:#b79cff;   /* accent-text: لون accent حين يكون نصًّا على panel2 (≥4.5:1) */
   --ok:#5fdc8a;--warn:#ffb54a;--bad:#ff6b79;--ok-bg:rgba(95,220,138,.12);--warn-bg:rgba(255,181,74,.12);--bad-bg:rgba(255,107,121,.13);
   --grid:rgba(255,255,255,.055);--shadow:0 1px 0 rgba(255,255,255,.04) inset,0 12px 32px -16px rgba(0,0,0,.7);
+  --mark-ink:#ffffff;   /* حبر شعار الهوية v2 (2026-11-18): أبيض على الداكن كما في USAGE الحزمة (17:1) */
+  --c5:#ff8fab;--c6:#5eead4;--c7:#f59e0b;--c8:#94a3b8;   /* ألوان سلاسل المخططات الأربعة الأخيرة (≥6:1 على الأسطح الداكنة) */
+  --pal-teal:#3ee6b0;--pal-blue:#6aa6ff;--pal-violet:#b79cff;--pal-graphite:#c4ccd8;   /* accent كل لوحة في هذا المظهر: عيّنات صفحة المظهر تقرأ منها فلا تنفصل عن اللوحة الفعلية */
 }
 :root[data-theme="light"]{
-  --bg:#f2efe8;--bg-glow:rgba(10,157,116,.09);--panel:#fffdf8;--panel2:#f8f5ee;--raise:#efeadf;
+  --bg:#f2efe8;--bg-glow:rgba(8,151,112,.09);--panel:#fffdf8;--panel2:#f8f5ee;--raise:#efeadf;
   --line:rgba(20,30,40,.09);--line2:rgba(20,30,40,.16);
   --ink:#121c29;--ink2:#455468;--ink3:#5a6875;   /* ≥4.5:1 على كل الأسطح الفاتحة بما فيها raise */
-  --accent:#08a177;--accent-ink:#fff;--accent-text:#066b4f;--accent-solid:#067a5a;--accent2:#2f62d6;--violet:#6f4fd0;   /* accent-text: teal الفاتح 3.0:1 على panel2 فيُغمَّق للنصّ إلى ≥5.0 حتى فوق accent-bg المركّب (الصفحة الحالية)؛ accent-solid: الأبيض على #08a177 يعطي 3.3 فيُغمَّق سطح الزر إلى 5.3 */
+  --accent:#089770;--accent-ink:#fff;--accent-text:#006247;--accent-solid:#007c5b;   /* هوية v2 للوحة الافتراضية: accent لون العلامة (رسم 3.09:1)، accent-text نص العلامة brand_text (≥5.9:1 حتى فوق accent-bg)، accent-solid brand-600 (الأبيض عليه 5.21:1) */--accent2:#2f62d6;--violet:#6f4fd0;   /* accent-text: teal الفاتح 3.0:1 على panel2 فيُغمَّق للنصّ إلى ≥5.0 حتى فوق accent-bg المركّب (الصفحة الحالية)؛ accent-solid: الأبيض على #08a177 يعطي 3.3 فيُغمَّق سطح الزر إلى 5.3 */
   --accent-hover:color-mix(in srgb,var(--accent-solid) 88%,#000);   /* في الفاتح يغمق التمرير بدل أن يفتح كي لا ينزل تباين النصّ الأبيض */
   --ok:#1b7f45;--warn:#9c6200;--bad:#b8283d;--ok-bg:rgba(27,127,69,.1);--warn-bg:rgba(156,98,0,.1);--bad-bg:rgba(184,40,61,.1);   /* الدلالات ≥4.4:1 في الفاتح، وok أخضر متميّز عن accent */
   --grid:rgba(20,30,40,.08);--shadow:0 1px 0 rgba(255,255,255,.8) inset,0 10px 26px -18px rgba(40,40,20,.35);
+  --mark-ink:#089770;   /* لون العلامة v2؛ ≥3.09:1 على كل الأسطح الفاتحة (رسم معلوماتي، WCAG 1.4.11) */
+  --c5:#be185d;--c6:#0f766e;--c7:#b45309;--c8:#5b6b7f;   /* ≥4.5:1 لسلاسل المخططات على الأسطح الفاتحة كلها */
+  --pal-teal:#089770;--pal-blue:#2f62d6;--pal-violet:#6f4fd0;--pal-graphite:#3f4a5a;
 }
 :root[data-palette="blue"][data-theme="dark"]{--accent:#6aa6ff;--accent-ink:#04122b;--accent2:#3ee6b0;--bg-glow:rgba(106,166,255,.08)}
 :root[data-palette="blue"][data-theme="light"]{--accent:#2f62d6;--accent-ink:#fff;--accent-text:#2654bd;--accent-solid:#2f62d6;--accent2:#08a177;--bg-glow:rgba(47,98,214,.09)}
