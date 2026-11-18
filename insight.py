@@ -641,6 +641,13 @@ def _ar_folders(n):
     return "%d %s" % (n, "مجلدات" if 3 <= n % 100 <= 10 else "مجلدًا")
 
 
+OLDBAK_MIN_GB = 0.1  # نسخ تنظيف قديمة أصغر من نحو 100 MB لا تُعرض توصية: حذفها لا يغيّر شيئًا
+
+
+class _Skip(Exception):
+    """يتخطّى بطاقة توصية من داخل كتلتها دون تسجيله خطأً."""
+
+
 def _gb_text(gb):
     """حجم مقروء: أقل من جيجابايت يُعرض بالميجابايت بدل «0.0 GB»."""
     return "%.1f GB" % gb if gb >= 1 else "%.0f MB" % (gb * 1024)
@@ -694,9 +701,11 @@ def advice_payload(m, extra, maint, trim):
     if wsl and wsl >= 3:
         add("wsl", "warn", "WSL يحجز %.1f GB من الذاكرة" % wsl, "يحجز WSL الذاكرة ولا يُرجعها بسرعة. سقف الذاكرة في .wslconfig يحل ذلك بعد أن يفرغ Claude Code من عمله على Docker.", None, "wsl")
     cl = (extra or {}).get("claudeGB")
-    if cl and cl >= 3:
-        add("claude", "warn", "عمليات Claude تستهلك %.1f GB" % cl, "كثرة نوافذ وجلسات Claude تتراكم ذاكرتها. أغلق الجلسات الخاملة.", None, "procs")
-    if (m or {}).get("claude", 0) >= 20:
+    ncl = (m or {}).get("claude", 0)
+    if cl and cl >= 3:  # بطاقة واحدة: العدد يُضمّ إلى بطاقة الحجم بدل بطاقة ثانية بالنصيحة نفسها
+        add("claude", "warn", "عمليات Claude تستهلك %.1f GB" % cl + (" (%d عملية)" % ncl if ncl >= 20 else ""),
+            "كثرة نوافذ وجلسات Claude تتراكم ذاكرتها، وكل نافذة/جلسة تضيف عمليات فرعية. أغلق الجلسات الخاملة.", None, "procs")
+    elif ncl >= 20:
         add("claude_n", "info", "%d عملية Claude" % m["claude"], "عدد كبير؛ كل نافذة/جلسة تضيف عمليات فرعية.", None, "procs")
     free = (m or {}).get("diskFreeGB")
     dc = cfg["disk"]
@@ -739,7 +748,7 @@ def advice_payload(m, extra, maint, trim):
         if logs:
             tail = open(logs[-1], encoding="utf-8-sig", errors="replace").read()[-600:]
             if "ABORT" in tail:
-                add("backup", "info", "لا نسخة احتياطية خارجية لـ D:", "آخر محاولة توقفت لعدم وجود قرص خارجي. وصّل قرصاً ثم شغّل backup_d_external.ps1.", None, None)
+                add("backup", "info", "لا نسخة احتياطية خارجية للقرص D","آخر محاولة توقفت لعدم وجود قرص خارجي. وصّل قرصاً ثم شغّل backup_d_external.ps1.", None, None)
     except Exception:
         errlog.swallowed()
     try:
@@ -748,7 +757,11 @@ def advice_payload(m, extra, maint, trim):
             olds = [p for p in glob.glob(os.path.join(APPDIR, "cleanup_apps", "*_backup_*")) if os.path.isdir(p)]
             if olds:
                 sz = _oldbak_gb(olds[:8])
+                if sz is not None and len(olds) <= 8 and sz < OLDBAK_MIN_GB:
+                    raise _Skip  # حجم مُقاس كامل لا يستحق بطاقة (حالة 18/11: 4 MB)
                 add("oldbak", "info", "نسخ تنظيف احتياطية قديمة (%s)" % _ar_folders(len(olds)), "مرّ موعد مراجعتها (25 أكتوبر)%s. احذفها إن لم تعد تحتاجها." % (" وحجمها نحو " + _gb_text(sz) if sz is not None else ""), None, None)
+    except _Skip:
+        pass
     except Exception:
         errlog.swallowed()
     order = {"bad": 0, "warn": 1, "info": 2, "ok": 3}
