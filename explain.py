@@ -232,9 +232,20 @@ def _parse(e, mine):
             "date": e["date"], "time": e["time"]}
 
 
-def errors(metrics, root, budget=4):
-    """Explain the distinct errors in monitor.log. Each distinct error is explained once and cached on disk."""
+ERR_FRESH_HOURS = 72  # خطأ لم يتكرر منذ أكثر من هذا يُعدّ منتهيًا فيُخفى من اللوحة (يبقى في monitor.log)
+
+
+def _age_hours(g, now):
+    try:
+        return (now - datetime.strptime(g["date"] + " " + g["time"], "%Y-%m-%d %H:%M")).total_seconds() / 3600
+    except Exception:
+        return None
+
+
+def errors(metrics, root, budget=4, now=None):
+    """Explain the distinct errors in monitor.log seen within ERR_FRESH_HOURS. Each is explained once and cached on disk."""
     mine = {f for f in os.listdir(root) if f.endswith(".py")}
+    now = now or datetime.now()
     groups = {}
     for e in _entries(root):
         r = _parse(e, mine)
@@ -244,6 +255,13 @@ def errors(metrics, root, budget=4):
             g["date"], g["time"] = r["date"], r["time"]
     if not groups:
         return {"ok": True, "text": "لا أخطاء مسجّلة في monitor.log. هذا هو المطلوب."}
+    for g in groups.values():
+        g["age"] = _age_hours(g, now)
+    stale = sum(1 for g in groups.values() if g["age"] is not None and g["age"] >= ERR_FRESH_HOURS)
+    groups = {k: g for k, g in groups.items() if g["age"] is None or g["age"] < ERR_FRESH_HOURS}
+    hidden = "أُخفي %d نوعًا أقدم لم يتكرر منذ أكثر من %d أيام (باقية في monitor.log)." % (stale, ERR_FRESH_HOURS // 24) if stale else ""
+    if not groups:
+        return {"ok": True, "text": "لا أخطاء خلال آخر %d أيام. هذا هو المطلوب.%s" % (ERR_FRESH_HOURS // 24, "\n\n" + hidden if hidden else "")}
     cpath = os.path.join(root, "explain_cache.json")
     try:
         with open(cpath, encoding="utf-8") as fh:
@@ -279,11 +297,8 @@ def errors(metrics, root, budget=4):
     lines = []
     for g in items:
         c = cache.get("v2|" + g["sig"])
-        try:
-            age = (datetime.now() - datetime.strptime(g["date"] + " " + g["time"], "%Y-%m-%d %H:%M")).total_seconds() / 3600
-            st = "ظهر خلال الساعة الأخيرة" if age < 1 else ("قبل %d ساعة" % int(age) if age < 24 else "لم يتكرر منذ %d يوماً" % int(age // 24))
-        except Exception:
-            st = ""
+        age = g["age"]
+        st = "" if age is None else "ظهر خلال الساعة الأخيرة" if age < 1 else "قبل %d ساعة" % int(age)
         lines.append("%s — %d مرة، آخرها %s %s (%s)\n%s" % (g["typ"], g["n"], g["date"], g["time"], st, c["text"] if c else "لم يُشرح بعد. اضغط الزر مرة أخرى."))
-    text = "\n\n".join(lines) + ("\n\n" + note if note else "") + "\n\nتفسير آلي من نموذج صغير، قد يخطئ."
+    text = "\n\n".join(lines) + ("\n\n" + note if note else "") + ("\n\n" + hidden if hidden else "") + "\n\nتفسير آلي من نموذج صغير، قد يخطئ."
     return {"ok": True, "text": text}

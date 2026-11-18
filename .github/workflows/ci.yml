@@ -52,6 +52,7 @@ jobs:
           python -X utf8 -B tests/sched_clock_check.py
           python -X utf8 -B tests/db_rollback_check.py
           python -X utf8 -B tests/db_task_clock_check.py
+          python -X utf8 -B tests/explain_errors_fresh_check.py
           python -X utf8 -B tests/bootwatch_check.py
           python -X utf8 -B tests/powerhealth_check.py
           python -X utf8 -B tests/cpuprio_check.py

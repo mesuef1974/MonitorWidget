@@ -30,6 +30,7 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("حارس قفزة الساعة في المجدول (معزول)", "sched_clock_check.py"),
     ("إلغاء المعاملة عند فشل الكتابة في القاعدة (معزول)", "db_rollback_check.py"),
     ("حارس قفزة الساعة في أحداث المهام (معزول)", "db_task_clock_check.py"),
+    ("لوحة الأخطاء تخفي ما لم يتكرر منذ 3 أيام (معزول)", "explain_errors_fresh_check.py"),
     ("رصد الإقلاع غير النظيف (معزول)", "bootwatch_check.py"),
     ("صحة الطاقة: إجراء البطارية الحرجة وأسباب الإيقافات المفاجئة (معزول)", "powerhealth_check.py"),
     ("حارس المعالج: خفض أولوية العملية المستنزِفة (معزول)", "cpuprio_check.py"),
