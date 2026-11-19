@@ -64,7 +64,12 @@ function Invoke-RepoGit([string[]]$GitArgs) {
     # المستودع يملكه المستخدم والعملية مسؤول: safe.directory لهذا المجلد وحده
     # Continue محليًا: في Windows PowerShell 5.1 يرمي Stop على أي سطر في stderr من أمر أصلي
     $ErrorActionPreference = 'Continue'
-    $out = @(& $gitExe -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>&1)
+    # الأسماء غير اللاتينية: core.quotePath=false يمنع git من اقتباسها بثمانيات ("docs\330\245...")، وناتجه UTF-8
+    # يُفكّ بـ UTF-8 لا بصفحة الرموز الافتراضية للطرفية (فشل النشر الثاني 19/11 عند docs/<اسم عربي>).
+    $enc = [Console]::OutputEncoding
+    [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
+    try { $out = @(& $gitExe -c core.quotePath=false -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>&1) }
+    finally { [Console]::OutputEncoding = $enc }
     if ($LASTEXITCODE -ne 0) { throw ('git ' + ($GitArgs -join ' ') + ': ' + ($out -join ' ')) }
     $out | Where-Object { $_ -is [string] -and $_ -ne '' }   # بلا مخرجات = لا عناصر (لا $null واحد يُعدّ عنصرًا)
 }
@@ -72,7 +77,7 @@ function Invoke-RepoGit([string[]]$GitArgs) {
 function Test-RepoGit([string[]]$GitArgs) {
     # أوامر git التي جوابها رمز الخروج وحده (check-ignore، merge-base --is-ancestor)
     $ErrorActionPreference = 'Continue'
-    & $gitExe -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>$null | Out-Null
+    & $gitExe -c core.quotePath=false -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>$null | Out-Null
     $LASTEXITCODE -eq 0
 }
 
@@ -255,8 +260,20 @@ print(n)
 
 function Move-Data {
     $marker = Join-Path $state 'migrated.json'
-    if (Test-Path -LiteralPath $marker) { return $false }
     $moved = New-Object System.Collections.Generic.List[string]
+    # العلامة تُكتب بعد كل عنصر (complete=false) لا في النهاية وحدها: إن فشل نقلٌ في المنتصف عرف الإرجاع أن بعض البيانات
+    # صار في app فلا يعيد المهام القديمة (تنشئ قاعدة فارغة في المستودع)، والتشغيل التالي يستأنف، و-Rollback يعيد ما نُقل.
+    if (Test-Path -LiteralPath $marker) {
+        $prev = Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json
+        if ($prev.complete -ne $false) { return $false }   # علامة قديمة بلا الحقل = نقل مكتمل
+        foreach ($n in @($prev.items)) { $moved.Add([string]$n) }
+        Say ('استئناف نقل بيانات لم يكتمل (' + $moved.Count + ' عنصرًا نُقل سابقًا).')
+    }
+    $writeMarker = {
+        param([bool]$Done)
+        [IO.File]::WriteAllText($marker, ([ordered]@{ at = (Get-Date).ToString('o'); complete = $Done; items = $moved.ToArray() } | ConvertTo-Json),
+            (New-Object Text.UTF8Encoding($false)))
+    }
     foreach ($item in Get-ChildItem -LiteralPath $src -Force) {
         $n = $item.Name
         if ($n -in $keepInSource -or $n -like '*.bak*' -or $n -like '*.edit_pending_*') { continue }
@@ -266,16 +283,17 @@ function Move-Data {
         if (Test-Path -LiteralPath $to) {
             if ($item.PSIsContainer) {
                 & robocopy $item.FullName $to /E /MOVE /COPY:DAT /R:1 /W:1 /NFL /NDL /NJH /NJS /NP | Out-Null
-                if ($LASTEXITCODE -ge 8) { throw "فشل دمج المجلد $n (robocopy $LASTEXITCODE)." }
+                if ($LASTEXITCODE -ge 4) { throw "فشل دمج المجلد $n (robocopy $($LASTEXITCODE): 4 تعارض بين ملف ومجلد، 8 فأكثر خطأ نسخ)." }
             }
             else { Move-Item -LiteralPath $item.FullName -Destination $to -Force }
         }
         else { Move-Item -LiteralPath $item.FullName -Destination $to }   # القرص نفسه: إعادة تسمية فورية حتى للحجر الكبير
-        $moved.Add($n)
+        if ($n -notin $moved) { $moved.Add($n) }
+        & $writeMarker $false
     }
     Reset-Tree $app
     Update-QuarantinePaths (Join-Path $app 'monitor.db') (Join-Path $src 'quarantine') (Join-Path $app 'quarantine')
-    [IO.File]::WriteAllText($marker, ((@{ at = (Get-Date).ToString('o'); items = $moved.ToArray() }) | ConvertTo-Json), (New-Object Text.UTF8Encoding($false)))
+    & $writeMarker $true
     Say ('نُقلت البيانات إلى app: ' + ($moved -join '، '))
     $true
 }
@@ -374,8 +392,10 @@ function Invoke-Rollback {
             if ((Test-Path -LiteralPath $from) -and -not (Test-Path -LiteralPath (Join-Path $src $n))) { Move-Item -LiteralPath $from -Destination (Join-Path $src $n) }
         }
         Update-QuarantinePaths (Join-Path $src 'monitor.db') (Join-Path $app 'quarantine') (Join-Path $src 'quarantine')
-        Copy-Item -LiteralPath (Join-Path $app '.token') -Destination (Join-Path $src '.token') -Force
-        & icacls (Join-Path $src '.token') /reset /C /Q | Out-Null
+        if (Test-Path -LiteralPath (Join-Path $app '.token')) {   # نقل لم يكتمل قد يسبق إنشاء الرمز المحمي
+            Copy-Item -LiteralPath (Join-Path $app '.token') -Destination (Join-Path $src '.token') -Force
+            & icacls (Join-Path $src '.token') /reset /C /Q | Out-Null
+        }
         Remove-Item -LiteralPath $marker -Force
     }
     Remove-Item -LiteralPath (Join-Path $src '.protected-launch') -Force -ErrorAction SilentlyContinue
