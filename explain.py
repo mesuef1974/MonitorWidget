@@ -69,11 +69,16 @@ def health(parts, metrics, extra=None):
     """parts = health.score()['parts']; metrics = native_metrics(). Returns {ok, text, model, ms} or {ok False, err}."""
     t0 = time.time()
     try:
-        if (metrics or {}).get("commitPct", 0) >= COMMIT_GATE:
-            return {"ok": False, "err": "التزام الذاكرة مرتفع جداً (%s%%). لن أشغّل نموذجاً الآن." % metrics.get("commitPct")}
-        weak = [p for p in parts if p["pts"] < p["max"]]
+        commit = (metrics or {}).get("commitPct")
+        if isinstance(commit, (int, float)) and commit >= COMMIT_GATE:
+            return {"ok": False, "err": "التزام الذاكرة مرتفع جداً (%s%%). لن أشغّل نموذجاً الآن." % commit}
+        # البند غير المقاس أو القديم درجته None: يُعرض «غير مقاس» ولا يُقارن بالحد ولا يُعامل صفرًا
+        unmeasured = [p for p in parts if not isinstance(p.get("pts"), (int, float))]
+        weak = [p for p in parts if isinstance(p.get("pts"), (int, float)) and p["pts"] < p["max"]]
+        note = "\n\n".join("%s: غير مقاس. %s\nالخطوة: %s" % (p["label"], _clean(p.get("why") or ""), STEP.get(p["key"], "افتح صفحة «صحة الجهاز».")) for p in unmeasured)
         if not weak:
-            return {"ok": True, "text": "كل البنود كاملة الدرجة. لا شيء يحتاج شرحاً.", "model": "-", "ms": 0}
+            text = "كل البنود المقاسة كاملة الدرجة. لا شيء يحتاج شرحاً." if unmeasured else "كل البنود كاملة الدرجة. لا شيء يحتاج شرحاً."
+            return {"ok": True, "text": text + ("\n\n" + note if note else ""), "model": "-", "ms": 0}
         lines = ["%s | %s | الحقائق: %s" % (p["key"], p["label"], _clean(p["why"])) for p in weak]
         model = _model()
         out = _req("/chat/completions", {
@@ -107,6 +112,8 @@ def health(parts, metrics, extra=None):
         res = []
         for p in weak:
             res.append("%s: %s\nالخطوة: %s" % (p["label"], said.get(p["key"]) or ("%s من %s. %s" % (p["pts"], p["max"], _clean(p["why"]))), STEP.get(p["key"], "افتح صفحة «صحة الجهاز».")))
+        if note:
+            res.append(note)
         return {"ok": True, "text": "\n\n".join(res), "model": model, "ms": int((time.time() - t0) * 1000),
                 "fallback": sum(1 for p in weak if not said.get(p["key"])), "total": len(weak)}
     except urllib.error.URLError:

@@ -6,6 +6,8 @@
     stats(c, now=None)        -> ملخص النافذة والصفحات
 
 الاتصال c هو db.conn() في الخادم أو اتصال sqlite3 مستقل في الاختبارات؛ الجدول يُنشأ عند الحاجة (DDL متكرر آمن).
+على اتصال الخادم المشترك يُستدعى عبر record_shared/stats_shared تحت db._lock، وكل كتابة معاملة خاصة تُودَع أو يُتراجع عنها
+قبل تحرير القفل: لا يُسقط تراجعها دفعة كاتب آخر (import_all)، ولا يترك ردّ 400 معاملة مفتوحة (مراجعة 19/11/2026).
 """
 import datetime
 import json
@@ -69,6 +71,20 @@ def record(c, body, now=None):
     if not isinstance(page, str) or not KEY_RE.match(page):
         return 400, {"error": "bad page key"}
     now = int(time.time() if now is None else now)
+    try:
+        code, reply = _record(c, page, now)
+    except BaseException:
+        c.rollback()   # لا معاملة نصف منفّذة على الاتصال المشترك
+        raise
+    if code == 200:
+        c.commit()
+    else:
+        c.rollback()   # الرفض يتراجع عن التنظيف والسحب اللذين سبقاه ولا يترك معاملة مفتوحة لكاتب آخر
+    return code, reply
+
+
+def _record(c, page, now):
+    """متن record داخل معاملة واحدة؛ المستدعي يودعها أو يتراجع عنها."""
     day = _day(now)
     ensure(c)
     _clean_once(c, day)
@@ -83,17 +99,34 @@ def record(c, body, now=None):
               "ON CONFLICT(day, page) DO UPDATE SET n=n+1, last_ts=excluded.last_ts", (day, page, now))
     c.execute("INSERT OR IGNORE INTO meta(key, value) VALUES(?,?)", (SINCE_KEY, day))
     c.execute("DELETE FROM page_opens WHERE day < ?", (_day(now - KEEP_DAYS * 86400),))
-    c.commit()
     return 200, {"ok": True, "page": page, "day": day}
+
+
+def record_shared(body):
+    """record على اتصال الخادم المشترك تحت db._lock."""
+    import db
+    with db._lock:
+        return record(db.conn(), body)
+
+
+def stats_shared():
+    """stats على اتصال الخادم المشترك تحت db._lock (قد تكتب تنظيف المرة الواحدة)."""
+    import db
+    with db._lock:
+        return stats(db.conn())
 
 
 def stats(c, now=None):
     """ملخص الاستخدام: نافذة آخر WINDOW_DAYS يومًا (from..today)، أول يوم قياس since وعدد الأيام المنقضية منه، وcomplete حين تكتمل المدة.
     الصفحات التي لم تُفتح لا تظهر هنا: الواجهة تعرف قائمة PAGES وتعرضها بصفر."""
     now = int(time.time() if now is None else now)
-    ensure(c)
-    if _clean_once(c, _day(now)):
-        c.commit()
+    try:
+        ensure(c)
+        if _clean_once(c, _day(now)):
+            c.commit()
+    except BaseException:
+        c.rollback()
+        raise
     today, start = _day(now), _day(now - (WINDOW_DAYS - 1) * 86400)
     rows = c.execute("SELECT page, SUM(n), COUNT(*), MAX(last_ts) FROM page_opens WHERE day >= ? GROUP BY page ORDER BY SUM(n) DESC, page",
                      (start,)).fetchall()

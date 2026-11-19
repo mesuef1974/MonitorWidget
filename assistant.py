@@ -14,6 +14,7 @@ import threading
 import time
 import urllib.error
 
+import alertcfg
 import askstore
 import db
 import errlog
@@ -26,12 +27,8 @@ MAX_HISTORY = 6
 MAX_HISTORY_TEXT = 500
 MAX_TOKENS = 400
 KEEP_JOBS = 20
-RAM_HIGH = 80        # عتبات تحذير المرصد نفسها
-COMMIT_HIGH = 85
-CPU_HIGH = 80
-DISK_HIGH = 90
+CPU_HIGH = 80       # لا مقابل لهما في alertcfg؛ عتبات الذاكرة والقرص والحرارة تُقرأ منه في _diagnose
 VRAM_HIGH = 90
-GPU_HOT = 85
 MIN_SAMPLES = 10     # أقل من هذا في الفترة السابقة لا تصلح مقارنته
 COMPARE_STEPS = (("متوسط التزام الذاكرة", "commitAvg", 5, "%"), ("متوسط استخدام الذاكرة", "ramAvg", 5, "%"),
                  ("المساحة الحرة", "diskFreeGB", 2, " GB"), ("عدد الأحداث", "events", 5, ""))
@@ -146,19 +143,39 @@ def _diagnose(mini):
     """الحكم هنا بالكود لا بالنموذج: نموذج صغير يعدّ أي رقم سببًا للبطء، فيأخذ النتيجة جاهزة."""
     m, cpu = mini.get("m") or {}, _fetch("/api/cpu", {})
     live, ai = _fetch("/api/gpu", {}).get("live") or {}, _fetch("/api/local-ai", {})
-    cpu_pct, vram_pct = _pct(cpu.get("total"), cpu.get("ncpu")), _pct(live.get("vram"), live.get("vramTotal"))
-    checks = [("الذاكرة", m.get("ramPct") or 0, RAM_HIGH, "%"), ("التزام الذاكرة", m.get("commitPct") or 0, COMMIT_HIGH, "%"),
-              ("حمل المعالج", cpu_pct, CPU_HIGH, "%"), ("امتلاء القرص", m.get("diskPct") or 0, DISK_HIGH, "%"),
-              ("ذاكرة كرت الشاشة", vram_pct, VRAM_HIGH, "%"), ("حرارة كرت الشاشة", live.get("temp") or 0, GPU_HOT, " درجة")]
-    causes = ["ارتفاع %s: %s%s" % (n, v, u) for n, v, limit, u in checks if v >= limit]
+    cfg = alertcfg.get()   # عتبات التحذير نفسها التي يضبطها المالك في صفحة التنبيهات
+
+    def num(v):
+        return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+    def pct(part, whole):
+        part, whole = num(part), num(whole)
+        return _pct(part, whole) if part is not None and whole else None
+
+    # (الاسم، القيمة، العتبة، الوحدة، السبب حين تنخفض القيمة تحت العتبة لا حين ترتفع)
+    checks = [("الذاكرة", num(m.get("ramPct")), cfg["mem"]["ramWarn"], "%", False),
+              ("التزام الذاكرة", num(m.get("commitPct")), cfg["mem"]["commitWarn"], "%", False),
+              ("حمل المعالج", pct(cpu.get("total"), cpu.get("ncpu")), CPU_HIGH, "%", False),
+              ("المساحة الحرة في القرص", num(m.get("diskFreeGB")), cfg["disk"]["freeWarnGB"], " GB", True),
+              ("ذاكرة كرت الشاشة", pct(live.get("vram"), live.get("vramTotal")), VRAM_HIGH, "%", False),
+              ("حرارة كرت الشاشة", num(live.get("temp")), cfg["gpu"]["tempWarn"], " درجة", False)]
+    # القيمة المفقودة «غير مقاس»: كانت تُعرض 0% فتبدو طبيعية
+    measured = [c for c in checks if c[1] is not None]
+    bad = [c for c in measured if (c[1] < c[2] if c[4] else c[1] >= c[2])]
+    causes = ["%s %s: %s%s" % ("انخفاض" if low else "ارتفاع", n, v, u) for n, v, limit, u, low in bad]
     if ai.get("verdict") == "crowded":
         causes.append("تحميل نموذجين معًا في بطاقة الرسوميات")
-    return {"causes": causes or ["لا سبب ظاهر في القياسات الآن"], "normal": ["%s ضمن الطبيعي: %s%s" % (n, v, u) for n, v, limit, u in checks if v < limit]}
+    out = {"causes": causes or ["لا سبب ظاهر في القياسات الآن"],
+           "normal": ["%s ضمن الطبيعي: %s%s" % (n, v, u) for n, v, limit, u, low in measured if (n, v, limit, u, low) not in bad]}
+    missing = [n for n, v, limit, u, low in checks if v is None]
+    if missing:
+        out["unmeasured"] = ["%s: غير مقاس" % n for n in missing]
+    return out
 
 
 # اسم الأداة: (الوصف، المسار، معاملاته، ما يُرسل من الرد)
 READ_TOOLS = {
-    "diagnose_slowness": ("فحص أسباب البطء بعتبات ثابتة: يعيد الأسباب وما هو طبيعي", "/api/mini", {}, _diagnose),
+    "diagnose_slowness": ("فحص أسباب البطء بعتبات التحذير: يعيد الأسباب وما هو طبيعي", "/api/mini", {}, _diagnose),
     "health_status": ("درجة صحة الجهاز ومكوّناتها وتوقع امتلاء القرص والتسربات", "/api/health", {}, _health),
     "memory_status": ("الذاكرة: النسبة المستخدمة والمتاح والالتزام وأكبر البرامج", "/api/mem", {}, _memory),
     "cpu_status": ("المعالج: الحمل وأكبر العمليات", "/api/cpu", {}, _cpu),
