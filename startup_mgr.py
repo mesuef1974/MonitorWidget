@@ -1,6 +1,6 @@
 """Startup manager: lists what starts with Windows and switches each item on or off (the same switch Task Manager uses)."""
 import json, os, subprocess, threading, time, winreg
-import db, health
+import bootaudit, db, health
 
 CNW = 0x08000000
 RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -11,52 +11,7 @@ FOLDER = os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start M
 PWSH = getattr(health, "PWSH", "powershell.exe")
 # البند 8 من المجلس 19/11: الخادم مرتفع، فتفعيل مهمة Highest يشغّل ملفها مسؤولًا. userWritable: ملف تنفيذي أو نصي في أوامرها
 # (أو مجلده) يكتبه غير المسؤولين أو يملكه، أو ملف تعذّر تحديده؛ عندها يُرفض التفعيل.
-TASK_PS = r"""
-$ErrorActionPreference = 'SilentlyContinue'
-$trusted = @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
-function Test-UserWritable([string]$p, [int]$fileMask) {
-  $acl = Get-Acl -LiteralPath $p
-  if (-not $acl) { return $true }
-  $own = $acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
-  $rules = @($acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]))
-  $ownerRights = @($rules | Where-Object { $_.IdentityReference.Value -eq 'S-1-3-4' }).Count -gt 0
-  if ($own -notin $trusted -and -not $ownerRights) { return $true }
-  foreach ($a in $rules) {
-    if ($a.AccessControlType -ne 'Allow' -or ($a.PropagationFlags -band 2)) { continue }
-    $sid = $a.IdentityReference.Value
-    if ($sid -in $trusted -or $sid -eq 'S-1-3-4' -or $sid -eq 'S-1-3-0') { continue }
-    if ([int]$a.FileSystemRights -band $fileMask) { return $true }
-  }
-  return $false
-}
-function Get-Writable($t) {
-  $files = @()
-  foreach ($a in @($t.Actions)) {
-    $exe = [Environment]::ExpandEnvironmentVariables([string]$a.Execute).Trim('"')
-    if ($exe -and -not [IO.Path]::IsPathRooted($exe)) { $c = Get-Command $exe -CommandType Application | Select-Object -First 1; $exe = if ($c) { $c.Source } else { '' } }
-    if (-not $exe -or -not (Test-Path -LiteralPath $exe -PathType Leaf)) { return $true }
-    $files += $exe
-    foreach ($m in [regex]::Matches([Environment]::ExpandEnvironmentVariables([string]$a.Arguments), '"([^"]+)"|(\S+)')) {
-      $v = if ($m.Groups[1].Success) { $m.Groups[1].Value } else { $m.Groups[2].Value }
-      if ([IO.Path]::IsPathRooted($v) -and (Test-Path -LiteralPath $v -PathType Leaf)) { $files += $v }
-    }
-  }
-  foreach ($f in $files) {
-    # الملف: كتابة أو إلحاق أو حذف أو تغيير الصلاحيات أو المالك؛ مجلده: إنشاء ملف مع حذف ما فيه (استبدال الملف)
-    if (Test-UserWritable $f 0x100D0006) { return $true }
-    $dir = Split-Path -Parent $f
-    $acl = Get-Acl -LiteralPath $dir
-    foreach ($a in $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier])) {
-      if ($a.AccessControlType -ne 'Allow' -or ($a.PropagationFlags -band 2)) { continue }
-      $sid = $a.IdentityReference.Value
-      if ($sid -in $trusted -or $sid -eq 'S-1-3-4' -or $sid -eq 'S-1-3-0') { continue }
-      $r = [int]$a.FileSystemRights
-      if (($r -band 0x10000000) -or (($r -band 0x2) -and ($r -band 0x40))) { return $true }
-    }
-    if ((Test-UserWritable $dir 0xC0000)) { return $true }
-  }
-  return $false
-}
+TASK_PS = bootaudit.WRITABLE_PS + r"""
 Get-ScheduledTask | Where-Object { $_.TaskPath -notlike '\Microsoft*' -and ($_.Triggers | Where-Object { $_.CimClass.CimClassName -eq 'MSFT_TaskLogonTrigger' }) } | ForEach-Object {
   $rl = [string]$_.Principal.RunLevel
   [pscustomobject]@{ name = $_.TaskName; path = $_.TaskPath; state = [string]$_.State; runLevel = $rl;
