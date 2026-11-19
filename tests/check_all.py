@@ -98,6 +98,23 @@ for base, dirs, files in os.walk(ROOT):
             bad_slash += [f"{os.path.relpath(p, ROOT)}:{n}" for n, line in enumerate(lines, 1) if re.search(r"(?<!\\)\[\\/\]", line)]
 check("ps1: no single-backslash [\\/] class (use [\\\\/])", not bad_slash, ", ".join(bad_slash[:10]))
 
+# 8ب) دالة باسم برنامج أصلي تحجبه: PowerShell لا يفرّق بين الحروف ويقدّم الدالة، فـ "& git" داخل "function Git"
+#     يستدعي الدالة نفسها بلا نهاية (فشل deploy_protected.ps1 في 19/11 بـ call depth overflow).
+NATIVE = {"git", "icacls", "robocopy", "schtasks", "takeown", "reg", "sc", "netsh", "python", "pythonw", "pwsh",
+          "powershell", "cmd", "wscript", "cscript", "dism", "nvidia-smi", "curl", "where", "pnputil", "wevtutil"}
+shadow = []
+for base, dirs, files in os.walk(ROOT):
+    dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+    for fn in files:
+        if fn.lower().endswith((".ps1", ".psm1")):
+            p = os.path.join(base, fn)
+            with open(p, encoding="utf-8-sig", errors="replace") as fh:
+                for n, line in enumerate(fh, 1):
+                    m = re.match(r"\s*function\s+([\w-]+)", line, re.I)
+                    if m and m.group(1).lower() in NATIVE:
+                        shadow.append(f"{os.path.relpath(p, ROOT)}:{n} {m.group(1)}")
+check("ps1: no function named after a native command (shadows it)", not shadow, ", ".join(shadow[:10]))
+
 # 9) المهام المرتفعة تُسجَّل من النسخة المحمية في ProgramData لا من مجلد المستخدم القابل للكتابة
 def _text(name):
     with open(os.path.join(ROOT, name), encoding="utf-8-sig") as fh:
