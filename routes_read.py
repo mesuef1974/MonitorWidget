@@ -58,6 +58,29 @@ def _ival(q, k, d, lo, hi):
     return max(lo, min(hi, int(q.get(k, d))))
 
 
+APPEARANCE_WAIT_S = 25
+APPEARANCE_STEP_S = 0.25
+
+
+def appearance_key(state):
+    """بصمة حالة المظهر التي يقارن بها العميل: المراجعة والوضع واللوحة وعلامة الاسترداد."""
+    return f"{state.get('revision')}|{state.get('mode')}|{state.get('palette')}|{int(bool(state.get('recoveryRequired')))}"
+
+
+def _appearance(q, now=time.monotonic, sleep=time.sleep):
+    """GET /api/appearance؛ مع ?key=<بصمة> انتظار طويل: يعود فور تغيّر الحالة عن البصمة أو بعد APPEARANCE_WAIT_S.
+    كان الويدجت يسأل كل 650 ms (نحو 1.5 اتصال جديد في الثانية)؛ صار يسأل مرة لكل تغيير أو كل 25 ث، والتغيير يصل خلال 250 ms."""
+    state = routes_settings.APPEARANCE.get()
+    key = q.get("key")
+    if not key:
+        return state
+    end = now() + APPEARANCE_WAIT_S
+    while appearance_key(state) == key and now() < end:
+        sleep(APPEARANCE_STEP_S)
+        state = routes_settings.APPEARANCE.get()
+    return state
+
+
 def _db_rows(q):
     return dbview.rows(q.get("table", ""), q.get("limit", "25"), q.get("offset", "0"))
 
@@ -131,7 +154,7 @@ _TABLE = {
     "/api/events": (_events, _E200),
     "/api/runs": (lambda q: db.runs(_ival(q, "limit", 10, 1, 100), _ival(q, "offset", 0, 0, 10**7)), _E200),
     "/api/theme": (lambda q: {"theme": routes_settings.get_theme()}, _E200),
-    "/api/appearance": (lambda q: routes_settings.APPEARANCE.get(), _E200),
+    "/api/appearance": (_appearance, _E200),
     "/api/health": (_health, _E200),
     "/api/page-use": (lambda q: pageuse.stats_shared(), _E200),   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
     "/api/db-info": (lambda q: db.info(), _E200),

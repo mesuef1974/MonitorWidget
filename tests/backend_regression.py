@@ -884,6 +884,50 @@ class PolicyRoutes(unittest.TestCase):
             self.assertTrue(list(Path(d).glob("backups/*policy.json")))   # نسخة احتياطية واحدة قبل أول كتابة
 
 
+class AppearanceLongPoll(unittest.TestCase):
+    """GET /api/appearance?key=: يعود فور تغيّر الحالة عن البصمة، أو بالحالة نفسها بعد المهلة؛ وبلا key فورًا كما كان."""
+
+    def setUp(self):
+        import routes_read
+        import routes_settings
+        self.rr, self.rs = routes_read, routes_settings
+
+    def _run(self, states, q):
+        seq, clock, slept = list(states), [0.0], []
+
+        class Store:
+            def get(self_inner):
+                return seq.pop(0) if len(seq) > 1 else seq[0]
+
+        def sleep(s):
+            slept.append(s)
+            clock[0] += s
+        with patch.object(self.rs, "APPEARANCE", Store()):
+            return self.rr._appearance(q, now=lambda: clock[0], sleep=sleep), slept
+
+    def test_no_key_is_immediate(self):
+        a = {"revision": 1, "mode": "dark", "palette": "teal"}
+        self.assertEqual(self._run([a], {}), (a, []))
+
+    def test_returns_on_change(self):
+        a, b = {"revision": 1, "mode": "dark", "palette": "teal"}, {"revision": 2, "mode": "light", "palette": "teal"}
+        got, slept = self._run([a, a, b], {"key": self.rr.appearance_key(a)})
+        self.assertEqual(got, b)
+        self.assertEqual(len(slept), 2)
+
+    def test_stale_key_returns_at_once_and_unchanged_times_out(self):
+        a = {"revision": 3, "mode": "auto", "palette": "teal"}
+        self.assertEqual(self._run([a], {"key": "0|auto|teal|0"}), (a, []))
+        got, slept = self._run([a], {"key": self.rr.appearance_key(a)})
+        self.assertEqual(got, a)
+        self.assertAlmostEqual(sum(slept), self.rr.APPEARANCE_WAIT_S, delta=self.rr.APPEARANCE_STEP_S)
+
+    def test_key_format_matches_widget(self):
+        self.assertEqual(self.rr.appearance_key({"revision": 4, "mode": "dark", "palette": "rose", "recoveryRequired": True}), "4|dark|rose|1")
+        src = (ROOT / "widget.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("'{0}|{1}|{2}|{3}' -f $a.revision, $a.mode, $a.palette, [int][bool]$a.recoveryRequired", src)
+
+
 class SettingsRoutes(unittest.TestCase):
     """البند 6/د: routes_settings.py بلا خادم: المظهر والوضع (409 عند التعارض أو تعذّر الاسترداد، 400 للقيم غير الصالحة)،
     التنبيهات وخطة الطاقة عبر insight، وإعدادات reaper في ملف إعدادات مؤقت مع التحقق من المفاتيح والمدى والأسماء."""
