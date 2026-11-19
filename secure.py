@@ -38,6 +38,9 @@ WINOLD_RESULT = os.path.join(OUT, "winold_result.json")
 CLEAN_TASKS = {"wintemp": "MonitorWidget-Clean-WinTemp", "swdist": "MonitorWidget-Clean-SwDist", "dism": "MonitorWidget-Clean-Dism",
                "dwm": "MonitorWidget-Gpu-Dwm"}
 CLEAN_SCRIPT = os.path.join(BIN, "elevated_clean.ps1")
+# الكانس (Invoke-OrphanReaper.ps1 من MachineCare) يُنهي شلات المستخدم الخاملة فلا يحتاج صلاحية مسؤول. الخادم المرتفع لا يشغّل
+# نسخة مجلد المستخدم بصلاحيته؛ يطلق مهمتين ثابتتين بصلاحية محدودة (Limited) يسجّلهما المثبّت المحمي، بوضع مثبَّت في وسيطهما.
+REAPER_TASKS = {"dry": "MonitorWidget-Reaper-Dry", "apply": "MonitorWidget-Reaper-Apply"}
 
 
 def clean_result(kind):

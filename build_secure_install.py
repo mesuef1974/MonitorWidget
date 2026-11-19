@@ -110,6 +110,16 @@ $garg = "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -File `"$b
 $ga = New-ScheduledTaskAction -Execute $pwsh -Argument $garg -WorkingDirectory $bin
 Register-ScheduledTask -TaskName 'MonitorWidget-Gpu-Dwm' -Action $ga -Principal $pr -Settings $gs -Description 'On-demand dwm restart to release shared GPU memory (protected folder, fixed script)' -Force | Out-Null
 
+# 4e. orphan reaper: two fixed on-demand tasks at the user's own LIMITED privilege (dry / apply baked into the argument).
+#     The script lives in the user-writable MachineCare folder, so it must never run elevated; the elevated server only triggers
+#     these tasks after checking the pinned hash, and reads the result from the MachineCare log. conhost --headless: no window.
+$rpr = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+$rs = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -MultipleInstances IgnoreNew -Hidden
+foreach ($k in @(@('-DryRun', 'MonitorWidget-Reaper-Dry'), @('-Apply', 'MonitorWidget-Reaper-Apply'))) {{
+  $ra = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" -Argument "--headless `"$pwsh`" -NoProfile -ExecutionPolicy RemoteSigned -File `"$reaper`" $($k[0])" -WorkingDirectory (Split-Path $reaper)
+  Register-ScheduledTask -TaskName $k[1] -Action $ra -Principal $rpr -Settings $rs -Description "On-demand orphan reaper ($($k[0])) at limited user privilege; triggered by the monitor server" -Force | Out-Null
+}}
+
 # 5. optional: remove the legacy tasks that ran from the writable folder
 if ($RemoveLegacy) {{
   foreach ($n in 'MemoryPurge-OnDemand','MonitorWidget-BootTrace') {{
