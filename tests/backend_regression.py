@@ -271,7 +271,7 @@ class ProtectedPin(unittest.TestCase):
 class ShellStatus(unittest.TestCase):
     """حالة الغلاف في /api/health (shellwin.py): الجاهزية وسببها ومحرك آخر فتح، بلا تشغيل الخادم (ملف حالة مؤقت ومجلد جذر مؤقت)."""
 
-    def _ns(self, root, localappdata):
+    def _ns(self, root, localappdata, protected=False, base=None):
         tree = ast.parse((ROOT / "shellwin.py").read_text(encoding="utf-8-sig"))   # البند 6/هـ: دوال الغلاف في shellwin.py
         wanted = {"_shell_readiness", "_shell_ready", "_record_shell", "shell_status", "record_shell_report"}
         consts = {"SHELL_ENGINES", "SHELL_REASONS"}
@@ -279,7 +279,8 @@ class ShellStatus(unittest.TestCase):
                  or (isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id in consts for t in n.targets))]
         log = types.SimpleNamespace(exception=lambda *a, **k: None)
         ns = dict(os=os, time=time, atomic_json=atomic_json, infra=types.SimpleNamespace(log=log), ROOT=str(root),
-                  SHELL_STATE_PATH=os.path.join(localappdata, "MonitorWidget", "shell_state.json"))
+                  SHELL_PROTECTED=protected, SHELL_BASE=base or os.path.join(localappdata, "MonitorWidget"))
+        ns["SHELL_STATE_PATH"] = os.path.join(ns["SHELL_BASE"], "shell_state.json")
         exec(compile(ast.Module(body=nodes, type_ignores=[]), "extracted-server", "exec"), ns)
         return ns
 
@@ -306,6 +307,25 @@ class ShellStatus(unittest.TestCase):
                 st = ns["shell_status"]()
                 self.assertFalse(st["fallback"]); self.assertEqual(st["engine"], "webview2")
 
+    def test_elevated_ignores_user_writable_libraries(self):
+        """البند 1 من المجلس 19/11: المرتفع لا يعتمد مكتبات WebView2 في LOCALAPPDATA ولا في إضافة Teams، بل المجلد المحمي وحده."""
+        with tempfile.TemporaryDirectory(prefix="mw_shell_", dir=ROOT / "tests") as d:
+            root, lad, machine = Path(d) / "root", Path(d) / "lad", Path(d) / "machine" / "shell"
+            root.mkdir()
+            (root / "app_shell.ps1").write_text("# shell", encoding="utf-8")
+            for wv in (lad / "MonitorWidget" / "webview2", lad / "Microsoft" / "TeamsMeetingAdd-in" / "1.0" / "x64"):
+                wv.mkdir(parents=True)
+                (wv / "Microsoft.Web.WebView2.Wpf.dll").write_bytes(b"")
+            with patch.dict(os.environ, {"LOCALAPPDATA": str(lad)}):
+                user = self._ns(root, str(lad))
+                self.assertEqual(user["_shell_readiness"](), (True, ""))   # التطوير بصلاحية عادية: كما كان
+                elevated = self._ns(root, str(lad), protected=True, base=str(machine))
+                self.assertEqual(elevated["_shell_readiness"](), (False, "no_webview2"))
+                self.assertTrue(elevated["SHELL_STATE_PATH"].startswith(str(machine)))
+                (machine / "webview2").mkdir(parents=True)
+                (machine / "webview2" / "Microsoft.Web.WebView2.Wpf.dll").write_bytes(b"")
+                self.assertEqual(elevated["_shell_readiness"](), (True, ""))
+
     def test_report_endpoint_and_init_failure_detail(self):
         """POST /api/shell: قائمة بيضاء للمحرك والسبب؛ وسقوط الغلاف نفسه (init_failed) يُحذّر رغم توفر المكتبات ويحمل سطر shell_error.log."""
         with tempfile.TemporaryDirectory(prefix="mw_shell_", dir=ROOT / "tests") as d:
@@ -324,7 +344,7 @@ class ShellStatus(unittest.TestCase):
                 code, out = report({"engine": "edge", "reason": "init_failed"})
                 self.assertEqual(code, 200)
                 self.assertEqual((out["shell"]["ready"], out["shell"]["fallback"], out["shell"]["lastReason"], out["shell"]["detail"]), (True, True, "init_failed", ""))
-                (lad / "MonitorWidget" / "shell_error.log").write_text("2026-10-27T17:00:00 init_failed: HRESULT 0x80070002\n", encoding="utf-8")
+                (Path(ns["SHELL_BASE"]) / "shell_error.log").write_text("2026-10-27T17:00:00 init_failed: HRESULT 0x80070002\n", encoding="utf-8")
                 self.assertEqual(ns["shell_status"]()["detail"], "2026-10-27T17:00:00 init_failed: HRESULT 0x80070002")
                 code, out = report({"engine": "webview2"})   # السبب الافتراضي "" مقبول
                 self.assertEqual(code, 200)

@@ -17,12 +17,19 @@ from ctypes import wintypes
 
 import atomic_json
 import infra
+import secure
 from paths import PORT, ROOT
 
 ROUTES = ("/api/shell",)
 TITLEBAR_RESERVE = 40  # شريط عنوان النافذة يُضاف فوق المقاس فيلزم طرحه حتى لا تغطي شريط المهام
 WIDGET_RESERVE = 530  # عرض الويدجت (409 وحدة منطقية بعد تعريضه 10% في 28/10/2026) مع هامش، بالبكسل الفعلي
-SHELL_STATE_PATH = os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "MonitorWidget", "shell_state.json")
+# البند 1 من المجلس 19/11: العملية المرتفعة لا تحمّل مكتبة WebView2 ولا ملف تعريف متصفح من مجلد يكتبه المستخدم العادي.
+# المرتفع يستعمل ProgramData\MonitorWidget\shell (يزرعه deploy_protected.ps1 للمسؤولين والنظام فقط)، ويتحقق app_shell.ps1
+# من صلاحياته قبل التحميل (shellpaths.ps1)؛ العملية العادية (التطوير) تبقى على LOCALAPPDATA كما كانت.
+SHELL_PROTECTED = secure.is_admin()
+SHELL_BASE = (os.path.join(secure._system_secure_dir(), "shell") if SHELL_PROTECTED
+              else os.path.join(os.environ.get("LOCALAPPDATA", ROOT), "MonitorWidget"))
+SHELL_STATE_PATH = os.path.join(SHELL_BASE, "shell_state.json")
 SHELL_ENGINES = ("webview2", "edge", "browser")                     # من يكتب الحالة: open_window هنا، app_shell.ps1، وزر الويدجت
 SHELL_REASONS = ("", "no_shell", "no_webview2", "init_failed")       # مفاتيح ثابتة تفسّرها صفحة الصحة
 APP_TITLE = "مرصد الجهاز"                                             # عنوان النافذة الثابت (الغلاف وEdge --app والويدجت تعتمد عليه)
@@ -151,10 +158,11 @@ def _shell_readiness():
     """(ready, reason): هل غلاف app_shell.ps1 ومكتبات WebView2 متوفران؟ وإلا نرجع إلى Edge --app. السبب مفتاح ثابت للواجهة."""
     if not os.path.exists(os.path.join(ROOT, "app_shell.ps1")):
         return False, "no_shell"
-    base = os.environ.get("LOCALAPPDATA", "")
-    if os.path.exists(os.path.join(base, "MonitorWidget", "webview2", "Microsoft.Web.WebView2.Wpf.dll")):
+    if os.path.exists(os.path.join(SHELL_BASE, "webview2", "Microsoft.Web.WebView2.Wpf.dll")):
         return True, ""
-    teams = os.path.join(base, "Microsoft", "TeamsMeetingAdd-in")
+    if SHELL_PROTECTED:   # المرتفع لا يعتمد نسخة إضافة Teams في مجلد المستخدم؛ نسخته المحمية يزرعها المثبّت
+        return False, "no_webview2"
+    teams = os.path.join(os.environ.get("LOCALAPPDATA", ""), "Microsoft", "TeamsMeetingAdd-in")
     try:
         if any(os.path.exists(os.path.join(teams, v, "x64", "Microsoft.Web.WebView2.Wpf.dll")) for v in os.listdir(teams)):
             return True, ""
@@ -219,16 +227,22 @@ def open_window(token):
         size, pos = "1280,1000", "--window-position=0,0"
         _place_args = (0, 0, 1280, 1000)
     ready, reason = _shell_readiness()
-    if ready:
-        _record_shell("webview2")
+    if reason != "no_shell":
+        # الغلاف موجود: يقرّر بنفسه المكتبات وملف التعريف المحميين ويسقط إلى Edge أو المتصفح ويسجّل السبب (app_shell.ps1)
+        if ready:
+            _record_shell("webview2")
         # غلاف بلا إطار بحواف مستديرة مثل الويدجت؛ يضع نفسه بالمقاس والموضع المطلوبين فلا حاجة لـ _place_window
         sx, sy, sw, sh = _place_args
         subprocess.Popen(["powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", os.path.join(ROOT, "app_shell.ps1"),
                           "-Url", url, "-X", str(sx), "-Y", str(sy), "-W", str(sw), "-H", str(sh + TITLEBAR_RESERVE)], creationflags=0x08000000)
         return
+    # بلا غلاف: المرتفع يفتح Edge بملف تعريف في المجلد المحمي فقط إن كان المثبّت قد زرعه (لا وصلة)، وإلا المتصفح الافتراضي
+    edge_ok = (not SHELL_PROTECTED) or (os.path.isdir(SHELL_BASE) and not os.path.islink(SHELL_BASE)
+                                        and os.path.normcase(os.path.realpath(SHELL_BASE)) == os.path.normcase(os.path.abspath(SHELL_BASE)))
     for edge in (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe", r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"):
-        if os.path.exists(edge):
-            prof = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "MonitorWidget", "appwin")  # ملف تعريف منفصل: نافذة جديدة دائماً بالمقاس الصحيح
+        if edge_ok and os.path.exists(edge):
+            # ملف تعريف منفصل: نافذة جديدة دائماً بالمقاس الصحيح
+            prof = os.path.join(SHELL_BASE, "profiles", "appwin") if SHELL_PROTECTED else os.path.join(SHELL_BASE, "appwin")
             os.makedirs(prof, exist_ok=True)
             _record_shell("edge", reason)
             subprocess.Popen([edge, "--app=" + url, "--user-data-dir=" + prof, "--window-size=" + size, pos])

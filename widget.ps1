@@ -88,6 +88,9 @@ $script:isLight = switch ($script:S.theme) { 'light' { $true } 'dark' { $false }
 # Shared identity covers surfaces, indicators and controls; warning/danger meanings stay independent.
 function Get-SysLight { try { return ((Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize' -ErrorAction Stop).AppsUseLightTheme -eq 1) } catch { return $false } }
 . (Join-Path $PSScriptRoot 'identity.ps1')
+$shellPathsFile = Join-Path $PSScriptRoot 'shellpaths.ps1'   # مسارات نافذة التطبيق المحمية (البند 1 من المجلس 19/11)
+if (Test-Path -LiteralPath $shellPathsFile) { . $shellPathsFile }
+function Get-WidgetShellPaths { if (Get-Command Get-MwShellPaths -ErrorAction SilentlyContinue) { Get-MwShellPaths } else { $null } }
 function Get-Palette([bool]$light) {
     $p = if ($light) { @{ ink='#182E34'; muted='#536970'; accent='#086F64'; violet='#A33F71'; ok='#08765E'; warn='#865000'; bad='#B42318'; card='#F3FAF7'; line='#B8D9CE'; base='E4F1ED'; edge='#D6E2DE'; track='#E8EFED'; hover='#DFF1EB'; swoff='#9BAFA8'; seg2='#7042AA'; seg3='#849A94'; seg4='#E8EFED'; pilltxt='#FFFFFF' } }
          else { @{ ink='#E5EEED'; muted='#A8BFBC'; accent='#65DAC3'; violet='#EF9AC3'; ok='#58D6AF'; warn='#EFC471'; bad='#FF9B92'; card='#1B312C'; line='#3A6258'; base='101F1D'; edge='#344947'; track='#213130'; hover='#203D35'; swoff='#566D65'; seg2='#D3B0FF'; seg3='#6A827B'; seg4='#213130'; pilltxt='#10231F' } }
@@ -1213,10 +1216,10 @@ function Open-Dash([string]$tk) {
     $UI.open.Content = $script:txtClose
     try {
         $shell = Join-Path $PSScriptRoot 'app_shell.ps1'
-        $vend = Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2\Microsoft.Web.WebView2.Wpf.dll'
-        $haveVend = (Test-Path $vend) -or (Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in') -Recurse -Filter 'Microsoft.Web.WebView2.Wpf.dll' -ErrorAction SilentlyContinue | Select-Object -First 1)
-        $why = if (Test-Path $shell) { 'no_webview2' } else { 'no_shell' }   # سبب السقوط المباشر؛ الغلاف نفسه يسجّل سقوطه عند فشل التهيئة
-        if ((Test-Path $shell) -and $haveVend) {
+        # الغلاف يقرّر بنفسه المكتبات وملف التعريف المحميين ويسقط إلى Edge أو المتصفح إن لزم (البند 1 من المجلس 19/11)؛
+        # الويدجت المرتفع لا يفحص مكتبات في مجلد المستخدم، ولا يفتح Edge بنفسه إلا حين يغيب الغلاف، وبملف تعريف محمي
+        $why = 'no_shell'
+        if (Test-Path -LiteralPath $shell) {
             # نافذة بلا إطار بحواف مستديرة مثل الويدجت (WebView2)؛ المقاس والموضع بالبكسل الفعلي
             $wa = [System.Windows.SystemParameters]::WorkArea
             $sc = [Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11
@@ -1224,13 +1227,13 @@ function Open-Dash([string]$tk) {
             $px = [int]($wa.Left * $sc); $py = [int]($wa.Top * $sc)
             Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$shell`"", '-Url', "`"$url`"", '-X', $px, '-Y', $py, '-W', $pw, '-H', $ph
             Log ('open: shell at ' + $px + ',' + $py + ' size ' + $pw + 'x' + $ph)
-        } elseif ($edge) {
+        } elseif ($edge -and ($sp = Get-WidgetShellPaths) -and $sp.Usable) {
             # نفس منطق الخادم: منطقة العمل الفعلية ناقص مساحة الويدجت، والبدء من الركن الأعلى الأيسر (بالبكسل الفعلي)
             $wa = [System.Windows.SystemParameters]::WorkArea
             $sc = [Windows.PresentationSource]::FromVisual($win).CompositionTarget.TransformToDevice.M11
             $pw = [int]([Math]::Max(900, $wa.Width * $sc - 530)); $ph = [int]($wa.Height * $sc - 40)  # 40: شريط العنوان
             $px = [int]($wa.Left * $sc); $py = [int]($wa.Top * $sc)
-            $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'; New-Item -ItemType Directory -Force -Path $prof | Out-Null
+            $prof = $sp.EdgeProfile; New-Item -ItemType Directory -Force -Path $prof | Out-Null
             Start-Bg '/api/shell' @{ engine = 'edge'; reason = $why } {} { param($m) Log ('open: shell state ' + $m) }   # صفحة الصحة تعرض سبب السقوط
             Start-Process $edge -ArgumentList "--app=$url", "--user-data-dir=$prof", "--window-size=$pw,$ph", "--window-position=$px,$py"
             # Edge قد يتجاهل المقاس ويفتح ملء الشاشة: نثبت الإطار مباشرة بعد ظهور النافذة

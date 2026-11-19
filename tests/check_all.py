@@ -126,6 +126,18 @@ for fn in ("_register_admin_probe.ps1", "register_boot_trace.ps1"):
           and "{0}\\boot_trace.ps1" not in t and "$root\\healthprobe" not in t)
 ra = _text("restart_admin.ps1")
 check("restart_admin.ps1: kills by exact folder path only", "-match 'MonitorWidget'" not in ra and "[regex]::Escape($root)" in ra)
+# البند 1 من المجلس 19/11: لا مكتبة WebView2 ولا ملف تعريف متصفح من مجلد يكتبه المستخدم في المسار المرتفع
+wg, sh, dp = _text("widget.ps1"), _text("app_shell.ps1"), _text("deploy_protected.ps1")
+for fn, t in (("widget.ps1", wg), ("restart_admin.ps1", ra)):
+    check(f"{fn}: no user-writable WebView2/Edge profile", "TeamsMeetingAdd-in" not in t and "MonitorWidget\\appwin" not in t
+          and "MonitorWidget\\webview2" not in t and "shellpaths.ps1" in t)
+check("app_shell.ps1: paths from shellpaths, overrides cleared, no Teams copy when elevated",
+      "Get-MwShellPaths" in sh and "Clear-MwWebView2Overrides" in sh and "AllowTeamsCopy" in sh
+      and "Join-Path $env:LOCALAPPDATA 'MonitorWidget" not in sh)
+check("deploy_protected.ps1: protected shell dir + OWNER RIGHTS + admin ownership",
+      "Install-ShellDir" in dp and "Test-MicrosoftSigned" in dp and "S-1-3-4" in dp and "Protect-SecureTree" in dp)
+check("build_secure_install.py: OWNER RIGHTS and admin ownership", "S-1-3-4" in _text("build_secure_install.py")
+      and "/setowner" in _text("build_secure_install.py"))
 ua = _text("uninstall_admin_backend.ps1")
 check("uninstall_admin_backend.ps1: reverts all backend tasks", "set_backend_privilege.ps1" in ua and "-Level Limited" in ua)
 

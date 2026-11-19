@@ -748,3 +748,40 @@ Describe 'إنذار البطارية في الويدجت (battAlert)' {
         $UI.battAlert.Visibility | Should -Be 'Collapsed'; $script:battToasted | Should -BeFalse
     }
 }
+
+Describe 'shellpaths.ps1: مسارات نافذة التطبيق المحمية (البند 1 من المجلس 19/11)' {
+    BeforeAll { . (Join-Path $script:widgetRepoRoot 'shellpaths.ps1') }
+    It 'يقبل مجلدًا مالكه المسؤولون ولا يكتب فيه غير المسؤولين والنظام' {
+        $rules = @([pscustomobject]@{ Sid = 'S-1-5-32-544'; Allow = $true; Rights = 2032127 }, [pscustomobject]@{ Sid = 'S-1-5-18'; Allow = $true; Rights = 2032127 })
+        Test-MwAdminOnlyAcl 'S-1-5-32-544' $rules | Should -BeTrue
+        Test-MwAdminOnlyAcl 'S-1-5-18' $rules | Should -BeTrue
+    }
+    It 'يرفض مالكًا عاديًا أو كتابة لغير المسؤولين، ويقبل قراءة المستخدمين ورفضًا صريحًا' {
+        $admin = [pscustomobject]@{ Sid = 'S-1-5-32-544'; Allow = $true; Rights = 2032127 }
+        Test-MwAdminOnlyAcl 'S-1-5-21-1-2-3-1001' @($admin) | Should -BeFalse
+        Test-MwAdminOnlyAcl 'S-1-5-32-544' @($admin, [pscustomobject]@{ Sid = 'S-1-5-32-545'; Allow = $true; Rights = 1179817 }) | Should -BeTrue    # Users: ReadAndExecute
+        Test-MwAdminOnlyAcl 'S-1-5-32-544' @($admin, [pscustomobject]@{ Sid = 'S-1-5-32-545'; Allow = $true; Rights = 1245631 }) | Should -BeFalse   # Users: Modify
+        Test-MwAdminOnlyAcl 'S-1-5-32-544' @($admin, [pscustomobject]@{ Sid = 'S-1-3-0'; Allow = $true; Rights = 0x10000000 }) | Should -BeFalse   # CREATOR OWNER: GENERIC_ALL
+        Test-MwAdminOnlyAcl 'S-1-5-32-544' @($admin, [pscustomobject]@{ Sid = 'S-1-1-0'; Allow = $false; Rights = 2032127 }) | Should -BeTrue     # رفض صريح لا يمنح شيئًا
+    }
+    It 'المرتفع يأخذ المجلد المحمي وحده ولا ينسخ من Teams؛ وبلا مجلد سليم لا يستعمل شيئًا' {
+        $machine = Join-Path $TestDrive 'machine\shell'; $user = Join-Path $TestDrive 'user\MonitorWidget'
+        $p = Get-MwShellPaths -Elevated $true -MachineDir $machine -UserDir $user
+        $p.Protected | Should -BeTrue; $p.AllowTeamsCopy | Should -BeFalse; $p.Usable | Should -BeFalse   # غير موجود
+        $p.Vendor | Should -Be (Join-Path $machine 'webview2'); $p.EdgeProfile | Should -Be (Join-Path $machine 'profiles\appwin')
+        New-Item -ItemType Directory -Force -Path $machine | Out-Null
+        (Get-MwShellPaths -Elevated $true -MachineDir $machine -UserDir $user).Usable | Should -BeFalse   # مالكه المستخدم الحالي في TestDrive
+    }
+    It 'العملية العادية تبقى على LOCALAPPDATA كما كانت' {
+        $user = Join-Path $TestDrive 'user\MonitorWidget'
+        $p = Get-MwShellPaths -Elevated $false -MachineDir (Join-Path $TestDrive 'machine\shell') -UserDir $user
+        $p.Protected | Should -BeFalse; $p.Usable | Should -BeTrue; $p.AllowTeamsCopy | Should -BeTrue
+        $p.Vendor | Should -Be (Join-Path $user 'webview2'); $p.ShellProfile | Should -Be (Join-Path $user 'shellwin'); $p.State | Should -Be (Join-Path $user 'shell_state.json')
+    }
+    It 'يمسح متغيّرات WebView2 التي تغيّر الملف التنفيذي أو وسائطه' {
+        $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER = 'C:\evil'; $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS = '--x'
+        Clear-MwWebView2Overrides
+        $env:WEBVIEW2_BROWSER_EXECUTABLE_FOLDER | Should -BeNullOrEmpty
+        $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS | Should -BeNullOrEmpty
+    }
+}

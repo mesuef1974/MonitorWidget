@@ -421,6 +421,84 @@ function Invoke-Rollback {
     Say 'تراجع: المهام بتعريفاتها الأصلية والبيانات في مجلد المستودع.'
 }
 
+function Protect-SecureTree {
+    # ثغرة كُشفت 19/11 أثناء البند 1: ما أنشأه مسؤول بحساب المالك يملكه حساب المالك نفسه (المالك الافتراضي «منشئ الكائن»)،
+    # والمالك يملك ضمنًا تغيير الصلاحيات (WRITE_DAC) حتى من عملية غير مرتفعة؛ فأي برنامج عادي كان يستطيع أن يمنح نفسه الكتابة على
+    # bin\elevated_clean.ps1 وCleanupEngine.ps1 وجذر المجلد نفسه ثم يُنفَّذ ما كتبه مرتفعًا. العلاج: عنصر OWNER RIGHTS (S-1-3-4)
+    # موروث بقراءة وتنفيذ فقط يلغي الحق الضمني للمالك، على الجذر وعلى كل مجلد فرعي صلاحياته لا ترث؛ ثم الملكية للمسؤولين في الشجرة كلها.
+    $dirs = @($secure) + @(Get-ChildItem -LiteralPath $secure -Directory -Force | Where-Object {
+            -not ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -and (Get-Acl -LiteralPath $_.FullName).AreAccessRulesProtected
+        } | ForEach-Object { $_.FullName })
+    foreach ($d in $dirs) {
+        & icacls $d /grant '*S-1-3-4:(OI)(CI)(RX)' /C /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "تعذّر وضع OWNER RIGHTS على $d" }
+    }
+    & icacls $secure /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+    Say ('حُصّنت ملكية المجلد المحمي: OWNER RIGHTS على ' + $dirs.Count + ' مجلدًا، والملكية للمسؤولين في الشجرة كلها.')
+}
+
+function Test-MicrosoftSigned([string]$Path) {
+    # توقيع صالح من Microsoft Corporation، وجذر سلسلته في مخزن الجهاز لا مخزن المستخدم (المستخدم يستطيع زرع جذر في مخزنه هو)
+    $sig = Get-AuthenticodeSignature -LiteralPath $Path
+    if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) { return $false }
+    if ($sig.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') { return $false }
+    $chain = New-Object Security.Cryptography.X509Certificates.X509Chain
+    $chain.ChainPolicy.RevocationMode = 'NoCheck'
+    if (-not $chain.Build($sig.SignerCertificate)) { return $false }
+    $root = $chain.ChainElements[$chain.ChainElements.Count - 1].Certificate
+    if ($root.Subject -notmatch 'Microsoft') { return $false }
+    return (Test-Path -LiteralPath ('Cert:\LocalMachine\Root\' + $root.Thumbprint)) -or (Test-Path -LiteralPath ('Cert:\LocalMachine\AuthRoot\' + $root.Thumbprint))
+}
+
+function Install-ShellDir {
+    # البند 1 من المجلس 19/11: نافذة التطبيق تعمل مرتفعة، فمكتباتها وملفا تعريف متصفحها وحالتها في مجلد للمسؤولين والنظام وحدهم
+    # (لا قراءة للمستخدمين: ملف التعريف يحمل كعكة الجلسة). المكتبات تُنسخ من نسخة الجهاز (إضافة Teams أو النسخة المحلية القديمة)
+    # ثم يُفحص توقيع النسخ المنسوخة نفسها قبل اعتمادها. غيابها لا يُفشل النشر: الغلاف يسقط إلى Edge بملف تعريف محمي.
+    $shellDir = Join-Path $secure 'shell'
+    if ((Test-Path -LiteralPath $shellDir) -and ((Get-Item -LiteralPath $shellDir -Force).Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+        throw "$shellDir وصلة لا مجلد؛ أزلها يدويًا ثم أعد النشر."
+    }
+    New-Item -ItemType Directory -Force -Path $shellDir | Out-Null
+    if (Get-ChildItem -LiteralPath $shellDir -Force -ErrorAction SilentlyContinue) {
+        & icacls $shellDir /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
+        & icacls (Join-Path $shellDir '*') /reset /T /C /Q | Out-Null   # المحتوى يرث من الجذر المحمي أدناه
+    }
+    $acl = New-Object Security.AccessControl.DirectorySecurity
+    $acl.SetOwner($admins)
+    $acl.SetAccessRuleProtection($true, $false)
+    foreach ($s in @($admins, $system)) {
+        $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($s, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')))
+    }
+    Set-Acl -LiteralPath $shellDir -AclObject $acl
+    New-Item -ItemType Directory -Force -Path (Join-Path $shellDir 'profiles') | Out-Null
+
+    $need = @('Microsoft.Web.WebView2.Core.dll', 'Microsoft.Web.WebView2.Wpf.dll', 'WebView2Loader.dll')
+    $sources = @()
+    $teams = Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in'
+    foreach ($d in (Get-ChildItem -LiteralPath $teams -Directory -ErrorAction SilentlyContinue | Sort-Object Name -Descending)) {
+        $x64 = Join-Path $d.FullName 'x64'
+        $sources += , @{ (Join-Path $x64 $need[0]) = $need[0]; (Join-Path $x64 $need[1]) = $need[1]; (Join-Path $x64 'runtimes\win-x64\native\WebView2Loader.dll') = $need[2] }
+    }
+    $old = Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2'
+    $sources += , @{ (Join-Path $old $need[0]) = $need[0]; (Join-Path $old $need[1]) = $need[1]; (Join-Path $old $need[2]) = $need[2] }
+    $vendor = Join-Path $shellDir 'webview2'
+    $stage = Join-Path $shellDir 'webview2.new'
+    foreach ($set in $sources) {
+        if (@($set.Keys | Where-Object { -not (Test-Path -LiteralPath $_ -PathType Leaf) }).Count) { continue }
+        Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force -Path $stage | Out-Null
+        foreach ($k in $set.Keys) { Copy-Item -LiteralPath $k -Destination (Join-Path $stage $set[$k]) -Force }
+        if (@($need | Where-Object { -not (Test-MicrosoftSigned (Join-Path $stage $_)) }).Count) { Say ('مكتبات WebView2 في ' + (Split-Path (@($set.Keys)[0]) -Parent) + ' ليست موقّعة من Microsoft؛ تُتجاوز.'); continue }
+        Remove-Item -LiteralPath $vendor -Recurse -Force -ErrorAction SilentlyContinue
+        Move-Item -LiteralPath $stage -Destination $vendor
+        Say ('زُرعت مكتبات WebView2 الموقّعة في المجلد المحمي ' + $vendor + '.')
+        return
+    }
+    Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath (Join-Path $vendor $need[1])) { Say 'مكتبات WebView2 المحمية باقية كما هي (لا مصدر أحدث موقّع).' }
+    else { Say 'تنبيه: لا مكتبات WebView2 موقّعة على الجهاز؛ نافذة التطبيق ستفتح في Edge بملف تعريف محمي.' }
+}
+
 $code = 1
 $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
 $runBackup = Join-Path $state ('tasks-' + $stamp)
@@ -438,10 +516,12 @@ try {
         if (-not (Test-Path -LiteralPath (Join-Path $state 'tasks-original'))) { Copy-Item -LiteralPath $runBackup -Destination (Join-Path $state 'tasks-original') -Recurse }
         Stop-Backend; $stopped = $true
         Install-Code $commit
+        Install-ShellDir
         $migrated = Move-Data
         Set-Tokens $migrated
         Set-PolicyTasks
         Set-BackendTasks; $registered = $true
+        Protect-SecureTree
         Start-AndVerify
         $code = 0
     }
