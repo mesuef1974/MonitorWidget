@@ -163,6 +163,31 @@ class BackendRequests(unittest.TestCase):
             fake.headers = {"X-Token": "synthetic-widget-token"}
             self.assertTrue(H._authed(fake))
 
+    def test_read_token_cannot_read_owner_questions(self):
+        # البند 10 من المجلس 19/11: المساعد وأسئلته وجداول ask_* تلزمها الرمز الكامل؛ بقية GET القرائية تقبل رمز القراءة
+        import routes_read
+        served = []
+        H = self.ns["Handler"]
+        rr = self.ns["routes_read"] = types.SimpleNamespace(ROUTES=routes_read.ROUTES, needs_full=routes_read.needs_full, get=None)
+        fake = types.SimpleNamespace(_guard=lambda: True, headers={"X-Token": "synthetic-read-token"}, _cookie=lambda name: "")
+        fake._authed = lambda read_only=False: H._authed(fake, read_only)
+        fake._send = lambda *a, **k: self.sends.append(a)
+        cases = (("/api/assistant", 401), ("/api/ask?id=1", 401), ("/api/db/rows?table=ask_turns", 401),
+                 ("/api/db/rows?table=ASK_FACTS", 401), ("/api/db/rows?table=events", 200), ("/api/mini", 200))
+        with patch.object(websession, "_READ_TOKEN", "synthetic-read-token"), \
+                patch.object(rr, "get", lambda p, q: (served.append(p), (200, {}))[1]):
+            for path, code in cases:
+                fake.path = path
+                H.do_GET(fake)
+                self.assertEqual(self.sends[-1][0], code, path)
+            fake.headers = {"X-Token": "synthetic-widget-token"}
+            fake.path = "/api/assistant"
+            H.do_GET(fake)
+            self.assertEqual(self.sends[-1][0], 200)   # الرمز الكامل يفتحها
+        self.assertEqual(served, ["/api/db/rows", "/api/mini", "/api/assistant"])
+        self.assertTrue(rr.needs_full("/api/db/rows", {"table": " ask_new "}))
+        self.assertFalse(rr.needs_full("/api/db/rows", {"table": "samples"}))
+
     def test_ticket_exchange_issues_session_then_serves_page(self):
         """do_GET: التذكرة تُبدَّل بجلسة في كعكة HttpOnly مع 302 مرة واحدة، والتذكرة المستهلكة تُهمَل وتُقدَّم الصفحة (البند 6/ط)."""
         websession._TICKETS.clear()
@@ -1028,7 +1053,8 @@ class SettingsRoutes(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mw_backend_", dir=ROOT / "tests") as d:
             cfg = Path(d) / "machinecare.config.json"
             cfg.write_text(json.dumps({"reaper": {"killBareClaudeShells": False, "protect": ["old\\.exe"]}}), encoding="utf-8")
-            with patch.object(self.rs, "MCCFG", str(cfg)), patch.object(self.rs.cfgjson, "ROOT", d):
+            rc = self.rs.reapercfg
+            with patch.object(rc, "MCCFG", str(cfg)), patch.object(rc.cfgjson, "ROOT", d), patch.object(rc.secure, "is_admin", return_value=False):
                 self.assertEqual(self.post("/api/reaper-set", {"key": "other", "value": 100}), (400, {"error": "not allowed"}))
                 self.assertEqual(self.post("/api/reaper-set", {"key": "bareClaudeShellMinutes", "value": True}), (400, {"error": "not allowed"}))
                 self.assertEqual(self.post("/api/reaper-set", {"key": "bareClaudeShellMinutes", "value": 30}), (400, {"error": "not allowed"}))
@@ -1042,6 +1068,28 @@ class SettingsRoutes(unittest.TestCase):
             data = json.loads(cfg.read_text(encoding="utf-8"))["reaper"]
             self.assertEqual((data["bareClaudeShellMinutes"], data["protect"], data["killBareClaudeShells"]), (120, ["node\\.exe"], True))
             self.assertEqual(self.invalidated, ["/api/reaper"])
+
+    def test_elevated_server_never_writes_user_config(self):
+        """البند 7 من المجلس 19/11: المرتفع يكتب التعديلات في الملف المحمي (يُبذر من الأصل) ولا يمسّ machinecare.config.json."""
+        with tempfile.TemporaryDirectory(prefix="mw_backend_", dir=ROOT / "tests") as d:
+            cfg = Path(d) / "machinecare.config.json"
+            original = json.dumps({"reaper": {"mode": "auto", "killBareClaudeShells": False, "protect": ["old\\.exe"], "bareClaudeShellMinutes": 240}})
+            cfg.write_text(original, encoding="utf-8")
+            ovr = Path(d) / "secure" / "config" / "reaper.json"
+            rc = self.rs.reapercfg
+            with patch.object(rc, "MCCFG", str(cfg)), patch.object(rc, "OVERRIDE", str(ovr)), patch.object(rc.cfgjson, "ROOT", d), \
+                    patch.object(rc.secure, "is_admin", return_value=True):
+                self.assertEqual(self.post("/api/reaper-protect", {"op": "add", "name": "node.exe"}), (200, {"protect": ["old\\.exe", "node\\.exe"]}))
+                self.assertEqual(self.post("/api/reaper-set", {"key": "bareClaudeShellMinutes", "value": 120}), (200, {"bareMin": 120}))
+                self.assertEqual(self.post("/api/reaper", {"key": "killBareClaudeShells", "value": True}), (200, {"ok": True}))
+                eff = rc.merged(json.loads(cfg.read_text(encoding="utf-8"))["reaper"])
+            self.assertEqual(cfg.read_text(encoding="utf-8"), original)
+            self.assertEqual(json.loads(ovr.read_text(encoding="utf-8")),
+                             {"protect": ["old\\.exe", "node\\.exe"], "bareClaudeShellMinutes": 120, "killBareClaudeShells": True})
+            self.assertEqual((eff["mode"], eff["bareClaudeShellMinutes"], eff["killBareClaudeShells"]), ("auto", 120, True))
+            ovr.write_text(json.dumps({"bareClaudeShellMinutes": 5, "protect": "x", "mode": "apply"}), encoding="utf-8")
+            with patch.object(rc, "OVERRIDE", str(ovr)):
+                self.assertEqual(rc.merged({"mode": "auto", "bareClaudeShellMinutes": 240}), {"mode": "auto", "bareClaudeShellMinutes": 240})
 
 
 class ReadRoutes(unittest.TestCase):

@@ -11,6 +11,7 @@ widget.settings.json
 appearance.json
 alerts.json
 tasks.json
+commit_projects.json
 purge_result.json
 purge_mode.txt
 shots_done.json

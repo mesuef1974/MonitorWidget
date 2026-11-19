@@ -6,8 +6,8 @@
  "pct": 68.0,
  "projects": [
   {
-   "id": "salma",
-   "name": "سلمى: الإملاء والنطق",
+   "id": "dictate",
+   "name": "أداة الإملاء",
    "note": "",
    "keep": false,
    "commitMB": 7900,
@@ -41,7 +41,7 @@
   {
    "id": "lmstudio",
    "name": "نماذج LM Studio (مشتركة)",
-   "note": "مشتركة بين Bionic والمسابقة وسلمى والمرصد؛ مهمة المسابقة تعيد تحميل النموذج كل 5 دقائق",
+   "note": "مشتركة بين عدة مشاريع؛ قد تعيد مهامها تحميل النموذج بعد إخراجه",
    "keep": true,
    "commitMB": 6220,
    "wsMB": 890,
@@ -138,8 +138,8 @@
    }
   },
   {
-   "id": "shschool",
-   "name": "مشروع مدرسة الشحانية",
+   "id": "proja",
+   "name": "المشروع أ",
    "note": "",
    "keep": false,
    "commitMB": 600,
@@ -228,14 +228,14 @@
   "steps": [
    {
     "kind": "idle",
-    "id": "salma",
-    "name": "سلمى: الإملاء والنطق",
+    "id": "dictate",
+    "name": "أداة الإملاء",
     "freeGB": 7.71,
     "afterPct": 54.2
    },
    {
     "kind": "docker",
-    "id": "shschool",
+    "id": "proja",
     "name": "demo-preview-a",
     "pr": 1384,
     "freeGB": 0.41,
@@ -250,7 +250,7 @@
  "stale": [
   {
    "compose": "demo-preview-a",
-   "project": "shschool",
+   "project": "proja",
    "memMB": 420,
    "pr": {
     "number": 1384,
@@ -270,10 +270,10 @@
    {
     "name": "demo-preview-a-web-1",
     "compose": "demo-preview-a",
-    "dir": "C:\\Users\\demo\\delivery_manager_work_wt\\runner-1",
+    "dir": "C:\\Users\\demo\\proja_work_wt\\runner-1",
     "status": "Up 20 minutes (healthy)",
     "memMB": 260,
-    "project": "shschool",
+    "project": "proja",
     "pr": {
      "number": 1384,
      "state": "merged",
@@ -283,10 +283,10 @@
    {
     "name": "demo-preview-a-worker-1",
     "compose": "demo-preview-a",
-    "dir": "C:\\Users\\demo\\delivery_manager_work_wt\\runner-1",
+    "dir": "C:\\Users\\demo\\proja_work_wt\\runner-1",
     "status": "Up 20 minutes (healthy)",
     "memMB": 160,
-    "project": "shschool",
+    "project": "proja",
     "pr": {
      "number": 1384,
      "state": "merged",
@@ -296,10 +296,10 @@
    {
     "name": "demo-preview-b-web-1",
     "compose": "demo-preview-b",
-    "dir": "C:\\Users\\demo\\delivery_manager_work_wt\\runner-2",
+    "dir": "C:\\Users\\demo\\proja_work_wt\\runner-2",
     "status": "Up 5 minutes (healthy)",
     "memMB": 320,
-    "project": "shschool",
+    "project": "proja",
     "pr": {
      "number": 1388,
      "state": "open",
@@ -307,12 +307,12 @@
     }
    },
    {
-    "name": "shschool-dev-db",
-    "compose": "shschool_mvp",
-    "dir": "D:\\shschool_mvp",
+    "name": "proja-dev-db",
+    "compose": "proja_mvp",
+    "dir": "D:\\proja_mvp",
     "status": "Up 2 hours (healthy)",
     "memMB": 240,
-    "project": "shschool",
+    "project": "proja",
     "pr": null
    }
   ]
