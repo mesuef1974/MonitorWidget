@@ -73,6 +73,8 @@ for path in sorted(called):
 # 7) منع تكرار خطأين أُصلحا: العنصر المحمي لا يكون قابلاً للتعديل، ولا قاعدة تقول "معطّلة" وهي مفعّلة
 sm = open(os.path.join(ROOT, "startup_mgr.py"), encoding="utf-8").read()
 check("startup: protected items never writable", '"writable": writable and name not in PROTECTED' in sm or "writable and name not in PROTECTED" in sm)
+check("startup: server logon task protected (council 8)", '"MonitorWidget-Server-Logon"' in sm.split("FOLDER =")[0])
+check("startup: enabling a Highest task with a user-writable file is refused, rechecked live (council 8)", "if en and _elevated_unsafe(it):" in sm and "fresh = next((t for t in _tasks()" in sm)
 pol_candidates = [os.path.join(os.path.expandvars(r"%USERPROFILE%"), "Documents", "Scripts", "Cleanup", "v2", "cleanup-policy.json"),
                   os.path.join(os.path.dirname(ROOT), "Cleanup", "v2", "cleanup-policy.json")]
 for pc in pol_candidates:
