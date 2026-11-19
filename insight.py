@@ -11,6 +11,7 @@ import subprocess
 import db
 import secure
 import health
+import health_score
 import errlog
 import alertcfg
 import gpuwatch
@@ -610,11 +611,15 @@ def power_payload(rng="24h"):
 
 
 # ------------------------------------------------------------------ alerts page
+# مصادر التنبيهات في db.add_event؛ تسمياتها العربية في SRC بالواجهة (web/index.html)
+ALERT_SOURCES = ("cpu", "health", "guard", "fix", "commit", "disk", "boot", "localai", "net")
+
+
 def alerts_payload():
     with db._lock:
         c = db.conn()
-        rows = c.execute("SELECT ts,source,severity,title,detail FROM events WHERE source IN ('cpu','health','guard','fix') AND severity IN ('warn','error','crit','bad') "
-                         "ORDER BY ts DESC LIMIT 40").fetchall()
+        rows = c.execute("SELECT ts,source,severity,title,detail FROM events WHERE source IN (%s) AND severity IN ('warn','error','crit','bad') "
+                         "ORDER BY ts DESC LIMIT 40" % ",".join("?" * len(ALERT_SOURCES)), ALERT_SOURCES).fetchall()
         if not rows:
             rows = c.execute("SELECT ts,source,severity,title,detail FROM events WHERE severity!='info' ORDER BY ts DESC LIMIT 40").fetchall()
     return {"cfg": alertcfg.get(), "defaults": alertcfg.DEFAULTS, "limits": alertcfg.LIMITS,
@@ -728,8 +733,12 @@ def advice_payload(m, extra, maint, trim):
         add("maint", "warn" if days >= 3 else "info", "وضع الصيانة مفعّل منذ %.0f يوماً" % days, "قواعد Docker/Claude متوقفة. أطفئه عندما ينتهي Claude Code.",
             {"label": "إيقاف وضع الصيانة", "api": "/api/maintenance", "body": {"on": False}, "confirm": "إيقاف وضع الصيانة؟ ستعود قواعد تنظيف Docker وClaude للعمل في مواعيدها."}, "ctrl")
     try:
-        hw = (health.get_hw("probe")[1]) or {}
-        up = health.get_hw("updates")[1]
+        # القياس القديم لا يُبنى عليه: إعادة تشغيل أو تحديث من مسبار قبل أيام قد يكون انتهى؛ الحدود نفسها التي تحكم درجة الصحة
+        now = time.time()
+        hw_ts, hw = health.get_hw("probe")
+        up_ts, up = health.get_hw("updates")
+        hw = (hw or {}) if health_score.number(hw_ts) and -60 <= now - hw_ts <= health_score.PROBE_MAX_AGE else {}
+        up = up if health_score.number(up_ts) and -60 <= now - up_ts <= health_score.UPDATES_MAX_AGE else None
     except Exception:
         hw, up = {}, None
     if hw.get("pendingReboot"):
