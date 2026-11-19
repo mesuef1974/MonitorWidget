@@ -810,6 +810,9 @@ function Update-Compact($d) {
 $script:pyw = (Get-Command pythonw -ErrorAction SilentlyContinue).Source
 if (-not $script:pyw) { $script:pyw = "$env:LOCALAPPDATA\Programs\Python\Python312\pythonw.exe" }
 $script:tok = (Get-Content "$Root\.token" -ErrorAction SilentlyContinue | Select-Object -First 1)
+# الاستطلاع (GET) برمز القراءة حيث وُجد (النشر المحمي، البند 6 من المجلس 19/11)؛ الرمز الكامل لأفعال POST وحدها
+$script:readTok = (Get-Content "$Root\.token.read" -ErrorAction SilentlyContinue | Select-Object -First 1)
+if (-not $script:readTok) { $script:readTok = $script:tok }
 $script:sync = [hashtable]::Synchronized(@{ data = $null; err = $null; stamp = 0; lastAt = [datetime]::MinValue; appearance=$null })
 $script:bgPost = {
     param($tok, $path, $body)
@@ -856,8 +859,8 @@ function Start-Bg([string]$path, $body, [scriptblock]$ok, [scriptblock]$err) {
     $bgTimer.Start()
 }
 $poll = {
-    param($sync, $Root, $pyw)
-    $tok = (Get-Content "$Root\.token" | Select-Object -First 1); $h = @{ 'X-Token' = $tok }; $lastStart = [datetime]::MinValue
+    param($sync, $Root, $pyw, $tok)
+    $h = @{ 'X-Token' = $tok }; $lastStart = [datetime]::MinValue
     while ($true) {
         try { $sync.data = Invoke-RestMethod 'http://127.0.0.1:47832/api/mini' -Headers $h -TimeoutSec 4 -NoProxy; $sync.err = $null; $sync.lastAt = Get-Date; $sync.stamp = $sync.stamp + 1 }
         catch {
@@ -868,11 +871,10 @@ $poll = {
         Start-Sleep -Seconds 2
     }
 }
-if (-not $script:smoke) { $script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:pyw); [void]$script:ps.BeginInvoke() }
+if (-not $script:smoke) { $script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:pyw).AddArgument($script:readTok); [void]$script:ps.BeginInvoke() }
 $appearancePoll = {
-    param($sync, $Root)
+    param($sync, $Root, $token)
     # انتظار طويل: ?key= بصمة آخر حالة، فيعود الخادم فور تغيّر المظهر أو بعد 25 ث؛ اتصال واحد لكل تغيير بدل اتصال كل 650 ms.
-    $token = Get-Content -LiteralPath (Join-Path $Root '.token') | Select-Object -First 1
     $key = ''
     while ($true) {
         try {
@@ -887,7 +889,7 @@ $appearancePoll = {
         } catch { $key = ''; Start-Sleep -Milliseconds 650 }
     }
 }
-if (-not $script:smoke) { $script:appearancePs = [powershell]::Create(); [void]$script:appearancePs.AddScript($appearancePoll).AddArgument($script:sync).AddArgument($Root); [void]$script:appearancePs.BeginInvoke() }
+if (-not $script:smoke) { $script:appearancePs = [powershell]::Create(); [void]$script:appearancePs.AddScript($appearancePoll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:readTok); [void]$script:appearancePs.BeginInvoke() }
 
 # ------------------------------------------------------------------ rendering
 function Ago($iso) {

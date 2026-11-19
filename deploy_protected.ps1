@@ -356,8 +356,9 @@ function Set-BackendTasks {
         $v = $map[$n]
         Register-ScheduledTask -TaskName $n -Xml (Set-TaskExecXml (Export-ScheduledTask -TaskName $n) $v[0] $v[1] $v[2]) -Force | Out-Null
     }
-    # النشر المحمي يجمع داخل الوكيل المرتفع (agent.register_protected_collector)؛ مهمة المجمّع المستقلة تُعطَّل
-    if (Get-ScheduledTask -TaskName 'MonitorWidget-Collector' -ErrorAction SilentlyContinue) { Disable-ScheduledTask -TaskName 'MonitorWidget-Collector' | Out-Null }
+    # النشر المحمي يجمع داخل الوكيل المرتفع (agent.register_protected_collector)؛ مهمة المجمّع المستقلة (Highest على pythonw
+    # في مجلد المستخدم) يُلغى تسجيلها لا تعطيلها فقط (البند 4 من المجلس 19/11). تعريفها محفوظ في tasks-original للتراجع.
+    if (Get-ScheduledTask -TaskName 'MonitorWidget-Collector' -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName 'MonitorWidget-Collector' -Confirm:$false }
     # نسخة المستودع من launch_mini.vbs تحيل إلى المهمة بدل تشغيل ويدجت من مجلد يكتبه المستخدم
     [IO.File]::WriteAllText((Join-Path $src '.protected-launch'), '')
     Say 'المهام تشغّل المفسّر والكود المحميين؛ المجمّع داخل الوكيل.'
@@ -401,7 +402,13 @@ function Invoke-Rollback {
     if (-not (Test-Path -LiteralPath $orig)) { throw 'لا نسخة أصلية من تعريفات المهام؛ لا تراجع.' }
     Stop-Backend
     Restore-TaskXml $orig
-    Enable-ScheduledTask -TaskName 'MonitorWidget-Collector' -ErrorAction SilentlyContinue | Out-Null
+    # المجمّع يعود بصلاحية محدودة: مفسّره في مجلد المستخدم، فـ Highest عليه تنفيذ مسؤول لما يزرعه المستخدم (البند 4)
+    $col = Get-ScheduledTask -TaskName 'MonitorWidget-Collector' -ErrorAction SilentlyContinue
+    if ($col) {
+        $col.Principal.RunLevel = 'Limited'
+        Set-ScheduledTask -InputObject $col | Out-Null
+        Enable-ScheduledTask -TaskName 'MonitorWidget-Collector' | Out-Null
+    }
     $marker = Join-Path $state 'migrated.json'
     if (Test-Path -LiteralPath $marker) {
         foreach ($n in @((Get-Content -LiteralPath $marker -Raw | ConvertFrom-Json).items)) {
