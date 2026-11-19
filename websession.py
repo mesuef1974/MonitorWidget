@@ -7,6 +7,7 @@
 
     token()                 الرمز المحلي (يُنشأ الملف عند أول طلب إن لم يوجد)
     token_ok(value)         مقارنة بزمن ثابت مع الرمز؛ آمنة مع القيم غير ASCII والفارغة
+    read_token_ok(value)    رمز القراءة (‎.token.read‎) أو الكامل؛ للطلبات القرائية GET وحدها
     create() / valid(v) / revoke(v)   الجلسات؛ create تعيد None عند بلوغ MAX_SESSIONS
     cookie(session) / logout_cookie()  ترويسة Set-Cookie للجلسة ولإلغائها
     read_cookie(header, name=COOKIE)   قيمة كعكة من ترويسة Cookie الخام
@@ -30,10 +31,12 @@ TICKET_TTL = 60
 MAX_TICKETS = 256
 COOKIE = "mw_s"
 TOKEN_FILE = os.path.join(ROOT, ".token")
+READ_TOKEN_FILE = os.path.join(ROOT, ".token.read")
 
 _SESSIONS, _SLOCK = {}, threading.Lock()
 _TICKETS, _TLOCK = {}, threading.Lock()
 _TOKEN = None
+_READ_TOKEN = None
 
 
 def token():
@@ -51,6 +54,29 @@ def token():
 def token_ok(value):
     """مقارنة بزمن ثابت؛ الطرفان مرمَّزان حتى لا ترفع ترويسة غير ASCII استثناءً. الفارغ مرفوض دائمًا."""
     return bool(value) and hmac.compare_digest(value.encode("utf-8"), token().encode("utf-8"))
+
+
+def read_token():
+    """رمز القراءة من ‎.token.read‎ أو "" إن لم يوجد. لا يُنشأ هنا أبدًا: ينشئه المثبّت المحمي وحده.
+
+    في النشر المحمي (deploy_protected.ps1) لا يقرأ ‎.token‎ إلا المسؤولون، فيبقى هذا الرمز للبرامج العادية
+    (جلسات الفحص والسكربتات) ويقبله الخادم في طلبات GET القرائية وحدها، لا في أي فعل يغيّر الحالة."""
+    global _READ_TOKEN
+    if _READ_TOKEN is None:
+        try:
+            with open(READ_TOKEN_FILE, encoding="utf-8") as f:
+                _READ_TOKEN = f.read().strip()
+        except OSError:
+            _READ_TOKEN = ""
+    return _READ_TOKEN
+
+
+def read_token_ok(value):
+    """رمز القراءة أو الرمز الكامل؛ رمز قراءة فارغ أو مطابق للكامل لا يُقبل بوصفه رمز قراءة."""
+    if token_ok(value):
+        return True
+    r = read_token()
+    return bool(value) and bool(r) and r != token() and hmac.compare_digest(value.encode("utf-8"), r.encode("utf-8"))
 
 
 def _key(value):

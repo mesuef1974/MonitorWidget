@@ -119,9 +119,11 @@ class Handler(BaseHTTPRequestHandler):
     def _cookie(self, name):
         return websession.read_cookie(self.headers.get("Cookie", ""), name)
 
-    def _authed(self):
-        # الرمز بمقارنة زمن ثابت أو جلسة متصفح صالحة (websession)
-        if websession.token_ok(self.headers.get("X-Token", "")) or websession.valid(self._cookie(websession.COOKIE)):
+    def _authed(self, read_only=False):
+        # الرمز بمقارنة زمن ثابت أو جلسة متصفح صالحة (websession). read_only: مسارات GET القرائية تقبل رمز القراءة أيضًا
+        tok = self.headers.get("X-Token", "")
+        ok = websession.read_token_ok(tok) if read_only else websession.token_ok(tok)
+        if ok or websession.valid(self._cookie(websession.COOKIE)):
             return True
         self._send(401, {"error": "unauthorized"})
         return False
@@ -155,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
             ok = _healthz_ok()
             self._send(200 if ok else 503, {"ok": ok, "uptime_s": int(time.time() - infra.START), "pid": os.getpid()})
         elif path in routes_read.ROUTES:   # البند 6/ح: المسارات القرائية المصادَق عليها، جدول واحد ومعالجة أخطاء موحّدة
-            if not self._authed():
+            if not self._authed(read_only=True):
                 return
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
             self._send(*routes_read.get(path, q))

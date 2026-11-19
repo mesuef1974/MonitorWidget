@@ -45,6 +45,7 @@ jobs:
           python -X utf8 -B tests/explain_model_check.py
           python -X utf8 -B tests/routes_app_check.py
           python -X utf8 -B tests/websession_check.py
+          python -X utf8 -B tests/protected_deploy_check.py
           python -X utf8 -B tests/webstatic_check.py
           python -X utf8 -B tests/webboot_check.py
           python -X utf8 -B tests/commitmap_check.py

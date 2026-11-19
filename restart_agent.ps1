@@ -1,9 +1,12 @@
 ﻿# إعادة تشغيل الوكيل والخادم (لتطبيق تعديلات الخلفية)، مع التحقق من أن عملية مستمعة جديدة حلّت محل القديمة.
 # الخلفية قد تعمل مسؤولًا (set_backend_privilege.ps1 -Level Highest، قرار المالك 13/11/2026): الجلسة العادية لا تنهي عملياتها بـ Stop-Process،
 # فنوقفها بمهامها أولًا؛ وإن نجت العملية القديمة يرفع السكربت نفسه بطلب UAC واحد بلا نافذة.
+# بعد النشر المحمي يعيد تشغيل النسخة المنشورة في ProgramData كما هي؛ تحديث الكود بعد الدمج يكون بـ deploy_protected.ps1.
 param([switch]$Elevated)
 $ErrorActionPreference = 'Stop'
 $r = $PSScriptRoot
+$live = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'MonitorWidget\app'
+if (Test-Path -LiteralPath (Join-Path $live '.deployment\manifest.json')) { $r = $live }
 $port = 47832
 $tasks = @('MonitorWidget-Agent', 'MonitorWidget-Server-Logon')   # الثانية تشغّل server.py مباشرة عند الدخول
 $ap = [regex]::Escape($r) + '[\\/](agent|server)\.py'   # [\\/] = شرطة عكسية أو أمامية؛ الصنف بشرطة عكسية مفردة كان يطابق الأمامية فقط
