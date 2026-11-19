@@ -9,9 +9,13 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$vend = Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2'
-$stateFile = Join-Path $env:LOCALAPPDATA 'MonitorWidget\shell_state.json'
-$errorLog = Join-Path $env:LOCALAPPDATA 'MonitorWidget\shell_error.log'
+. (Join-Path $root 'shellpaths.ps1')
+Clear-MwWebView2Overrides
+# المرتفع: ProgramData\MonitorWidget\shell المحمي وحده (البند 1 من المجلس 19/11)؛ إن لم يكن سليمًا فلا مكتبات ولا ملف تعريف ولا كتابة حالة
+$shellPaths = Get-MwShellPaths
+$vend = if ($shellPaths.Usable) { $shellPaths.Vendor } else { '' }
+$stateFile = if ($shellPaths.Usable) { $shellPaths.State } else { '' }
+$errorLog = if ($shellPaths.Usable) { $shellPaths.ErrorLog } else { '' }
 $script:fallbackReason = $null
 
 function ConvertTo-ShellStateJson([string]$engine, [string]$reason, [long]$ts) {
@@ -20,6 +24,7 @@ function ConvertTo-ShellStateJson([string]$engine, [string]$reason, [long]$ts) {
 }
 function Write-ShellState([string]$engine, [string]$reason, [string]$path = $stateFile) {
     # كتابة ذرية (ملف مؤقت ثم إعادة تسمية) بلا BOM؛ الخادم يقرأ الملف في /api/health. الفشل لا يعطّل النافذة.
+    if (-not $path) { return $false }   # مرتفع بلا مجلد محمي سليم: لا كتابة في مجلد يكتبه غيرنا
     try {
         $dir = Split-Path $path -Parent; New-Item -ItemType Directory -Force -Path $dir | Out-Null
         $tmp = Join-Path $dir ('.shell_state.' + [IO.Path]::GetRandomFileName() + '.tmp')
@@ -37,15 +42,21 @@ function Get-EdgeFallbackArgs([string]$url, [int]$x, [int]$y, [int]$w, [int]$h, 
     return @("--app=$url", "--user-data-dir=$prof", ('--window-size={0},{1}' -f $w, (Get-EdgeWindowHeight $h)), ('--window-position={0},{1}' -f $x, $y))
 }
 function Find-EdgeExe {
-    foreach ($p in @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")) { if ($p -and (Test-Path $p)) { return $p } }
+    # مجلدات البرامج من واجهة النظام لا من متغيّرات البيئة: العملية المرتفعة ترث متغيّرات المستخدم وهو يستطيع تغييرها
+    foreach ($base in @([Environment]::GetFolderPath('ProgramFilesX86'), [Environment]::GetFolderPath('ProgramFiles'))) {
+        if (-not $base) { continue }
+        $p = Join-Path $base 'Microsoft\Edge\Application\msedge.exe'
+        if (Test-Path -LiteralPath $p) { return $p }
+    }
     return $null
 }
 function Start-EdgeFallback([string]$reason) {
     # السقوط إلى Edge --app بالتذكرة نفسها (لم تُستهلك لأن WebView2 لم يبحر)، مع تسجيل المحرك لصفحة الصحة وتثبيت الإطار
     $edgeExe = Find-EdgeExe
-    if (-not $edgeExe) { [void](Write-ShellState 'browser' $reason); Start-Process $Url; return }
+    # بلا Edge، أو مرتفع بلا مجلد محمي لملف التعريف: المتصفح الافتراضي بالرابط وحده
+    if (-not $edgeExe -or -not $shellPaths.Usable) { [void](Write-ShellState 'browser' $reason); Start-Process $Url; return }
     [void](Write-ShellState 'edge' $reason)
-    $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'; New-Item -ItemType Directory -Force -Path $prof | Out-Null
+    $prof = $shellPaths.EdgeProfile; New-Item -ItemType Directory -Force -Path $prof | Out-Null
     Start-Process $edgeExe -ArgumentList (Get-EdgeFallbackArgs $Url $X $Y $W $H $prof)
     # Edge قد يتجاهل المقاس ويفتح ملء الشاشة: نثبت الإطار بعد ظهور النافذة (منطق الويدجت والخادم نفسه)
     try {
@@ -80,7 +91,10 @@ public static class ShellWin {
 }
 
 function Initialize-Vendor {
+    if (-not $vend) { return $false }
     if (Test-Path (Join-Path $vend 'Microsoft.Web.WebView2.Wpf.dll')) { return $true }
+    # المرتفع لا ينسخ من إضافة Teams (مجلد يكتبه المستخدم): نسخته المحمية يزرعها deploy_protected.ps1 بعد فحص التوقيع
+    if (-not $shellPaths.AllowTeamsCopy) { return $false }
     # نسخة محلية من مكتبات WebView2 الموجودة أصلًا على الجهاز (لا تنزيل ولا إضافتها إلى المستودع)
     $src = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in') -Directory -ErrorAction SilentlyContinue |
         Sort-Object Name -Descending | ForEach-Object { Join-Path $_.FullName 'x64' } |
@@ -253,7 +267,7 @@ $bCls.Add_Click({ $win.Close() })
 $wv = New-Object Microsoft.Web.WebView2.Wpf.WebView2
 $wv.DefaultBackgroundColor = [Drawing.ColorTranslator]::FromHtml($base)
 $env2 = $null
-$prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\shellwin'; New-Item -ItemType Directory -Force -Path $prof | Out-Null
+$prof = $shellPaths.ShellProfile; New-Item -ItemType Directory -Force -Path $prof | Out-Null   # Initialize-Vendor نجح، فالمسارات صالحة
 $wv.CreationProperties = New-Object Microsoft.Web.WebView2.Wpf.CoreWebView2CreationProperties
 $wv.CreationProperties.UserDataFolder = $prof
 [Windows.Controls.Grid]::SetRow($wv, 1); [void]$grid.Children.Add($wv)

@@ -46,15 +46,17 @@ if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
 
 $ticket = (Invoke-RestMethod "http://127.0.0.1:$port/api/ticket" -Method Post -Headers $h -ContentType 'application/json' -Body '{}').ticket
 $shell = Join-Path $root 'app_shell.ps1'
-$haveVend = (Test-Path (Join-Path $env:LOCALAPPDATA 'MonitorWidget\webview2\Microsoft.Web.WebView2.Wpf.dll')) -or
-    (Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Microsoft\TeamsMeetingAdd-in') -Recurse -Filter 'Microsoft.Web.WebView2.Wpf.dll' -ErrorAction SilentlyContinue | Select-Object -First 1)
-if ((Test-Path $shell) -and $haveVend) {
+# الغلاف يقرّر المكتبات وملف التعريف المحميين ويسقط بنفسه (البند 1 من المجلس 19/11)؛ لا فحص لمكتبات في مجلد المستخدم هنا
+if (Test-Path -LiteralPath $shell) {
     # نافذة بلا إطار بحواف مستديرة مثل الويدجت
     Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-STA', '-ExecutionPolicy', 'Bypass', '-File', "`"$shell`"", '-Url', "`"http://127.0.0.1:$port/?k=$ticket`"", '-Replace'   # الجلسة القديمة ماتت مع الخادم: تُستبدل النافذة القائمة
 } else {
-    $edge = Join-Path ${env:ProgramFiles(x86)} 'Microsoft\Edge\Application\msedge.exe'
-    $prof = Join-Path $env:LOCALAPPDATA 'MonitorWidget\appwin'
-    New-Item -ItemType Directory -Force -Path $prof | Out-Null
-    Start-Process $edge -ArgumentList "--app=http://127.0.0.1:$port/?k=$ticket", "--user-data-dir=$prof"
+    . (Join-Path $root 'shellpaths.ps1')
+    $sp = Get-MwShellPaths
+    $edge = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Microsoft\Edge\Application\msedge.exe'
+    if ($sp.Usable -and (Test-Path -LiteralPath $edge)) {
+        New-Item -ItemType Directory -Force -Path $sp.EdgeProfile | Out-Null
+        Start-Process $edge -ArgumentList "--app=http://127.0.0.1:$port/?k=$ticket", "--user-data-dir=$($sp.EdgeProfile)"
+    } else { Start-Process "http://127.0.0.1:$port/?k=$ticket" }
 }
 'تم: الخادم يعمل والتطبيق مفتوح.'

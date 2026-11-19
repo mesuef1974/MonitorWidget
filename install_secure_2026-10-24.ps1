@@ -37,7 +37,8 @@ if ($reaperHash) {
 # 2. folders + ACL (SIDs, language independent): SYSTEM, Administrators full; Users read+execute
 New-Item -ItemType Directory -Force -Path $bin, $out | Out-Null
 foreach ($d in @($secure, $bin, $out)) {
-  & icacls.exe $d /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' | Out-Null
+  # S-1-3-4 (OWNER RIGHTS): يلغي حق المالك الضمني في تغيير الصلاحيات؛ ما ينشئه المسؤول بحساب المالك يملكه الحساب نفسه (ثغرة 19/11)
+  & icacls.exe $d /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-32-545:(OI)(CI)RX' '*S-1-3-4:(OI)(CI)RX' | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "icacls failed on $d" }
 }
 
@@ -58,6 +59,7 @@ $exeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath "$bin\purge.exe").Hash
 if ($reaperHash) {
   @{ sha256 = $reaperHash; script = $reaper } | ConvertTo-Json | Set-Content -LiteralPath "$out\reaper_pin.json" -Encoding UTF8
 }
+& icacls.exe $secure /setowner '*S-1-5-32-544' /T /C /Q | Out-Null   # الملكية للمسؤولين: لا مالك عاديّ يغيّر صلاحيات ما في bin وout
 
 # 4. tasks: fixed argument per mode, no file next to the exe is trusted
 $user = "$env:USERDOMAIN\$env:USERNAME"
