@@ -34,6 +34,8 @@ COLD_MAX_PROCS = 20
 
 TRIM = {"running": False, "freedMB": None, "ts": None, "err": None, "before": None, "after": None, "procs": 0, "ms": 0}
 _cycle = {"done": time.time()}
+# مرور واحد في العملية: يُؤخذ القفل قبل بدء الخيط (كان علم running يُرفع داخل الخيط فتمرّ نقرتان متتاليتان معًا)
+_run_lock = threading.Lock()
 
 
 class _PE(ctypes.Structure):
@@ -282,8 +284,11 @@ def _purge_task(mode="light"):
         _purge_lock_drop()
 
 
-def trim_memory(mode="light"):
-    """One pass only (the old extra passes re-faulted pages and froze the machine)."""
+def trim_memory(mode="light", held=False):
+    """One pass only (the old extra passes re-faulted pages and froze the machine).
+    held=True: المستدعي أخذ _run_lock بنفسه (مسار الزر). وإلا يُؤخذ هنا بلا انتظار؛ إن كان مرور جاريًا يعود False دون مسّ حالته."""
+    if not held and not _run_lock.acquire(blocking=False):
+        return False
     mode = mode if mode in ("light", "medium", "deep") else "light"
     TRIM.update(running=True, err=None, mode=mode)
     t0 = time.time()
@@ -309,6 +314,7 @@ def trim_memory(mode="light"):
     finally:
         TRIM["running"] = False
         _cycle["done"] = time.time()
+        _run_lock.release()
         try:
             sched.set_next("trim", time.time() + AUTO_PERIOD)
         except Exception:
@@ -318,6 +324,7 @@ def trim_memory(mode="light"):
             db.add_trim(time.time(), TRIM.get("before"), TRIM.get("after"), TRIM.get("freedMB"), TRIM.get("ms"), TRIM.get("mode"))
     except Exception:
         errlog.swallowed()
+    return True
 
 
 # ---------------------------------------------------------------- المسارات
@@ -330,10 +337,16 @@ def post(route, body, invalidate=lambda: None):
         set_trim_auto(on)
         return 200, {"ok": True, "auto": on}
     if route == "/api/trim-memory":
-        if TRIM["running"]:
+        if TRIM["running"] or not _run_lock.acquire(blocking=False):
             return 409, {"error": "trim already running"}
+        TRIM["running"] = True   # يُرفع قبل بدء الخيط فتراه الحالة فورًا
         mode = body.get("mode") if isinstance(body, dict) else None
-        threading.Thread(target=trim_memory, args=(mode or "light",), daemon=True).start()
+        try:
+            threading.Thread(target=trim_memory, args=(mode or "light", True), daemon=True).start()
+        except BaseException:
+            TRIM["running"] = False
+            _run_lock.release()
+            raise
         invalidate()
         return 200, {"ok": True}
     return None

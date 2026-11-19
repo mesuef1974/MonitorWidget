@@ -509,25 +509,35 @@ class DestructiveRoutes(unittest.TestCase):
             def commit(self):
                 pass
 
-        def fake_close(pid, name, force=False):
-            closed.append((pid, name, force))
+        def fake_close(pid, name, created, force=False):
+            closed.append((pid, name, created, force))
             return {"ok": True, "pid": pid, "name": name, "method": "terminate", "exited": True, "windows": 0, "commitMB": 5716}
+        me = ("S-1-5-21-1-2-3-1001", 1)
+        idents = {100: ("133000000000000001", me[0], 1), 300: ("133000000000000003", "S-1-5-18", 0)}
+        rows[300] = "nvcontainer.exe"   # خدمة SYSTEM ليست في قائمة الأسماء
+        llama = {"pid": 100, "name": "llama-server.exe", "created": "133000000000000001"}
         with patch.object(self.rd.procclose, "names_by_pid", lambda: rows), patch.object(self.rd.procclose, "close", fake_close), \
+                patch.object(self.rd.procclose, "identity", idents.get), patch.object(self.rd.procclose, "me", lambda: me), \
                 patch.object(self.rd.db, "conn", lambda: FakeConn()):
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": "100", "name": "llama-server.exe"}), (400, {"error": "bad params"}))
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": "yes"}), (400, {"error": "bad params"}))
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 200, "name": "explorer.exe"})[0], 409)              # محمية: لا يُطلب تأكيد
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "claude.exe"}), (409, {"error": "name_mismatch", "pid": 100, "name": "claude.exe"}))
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 999, "name": "x.exe"})[1]["error"], "not_found")
-            code, rep = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": False})
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": "100", "name": "llama-server.exe", "created": "1"}), (400, {"error": "bad params"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "force": "yes"}), (400, {"error": "bad params"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe"}), (400, {"error": "bad params"}))   # بلا وقت الإنشاء
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "created": 133000000000000001}), (400, {"error": "bad params"}))   # رقم لا نصّ
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 200, "name": "explorer.exe", "created": "1"})[0], 409)              # محمية: لا يُطلب تأكيد
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "name": "claude.exe"}), (409, {"error": "name_mismatch", "pid": 100, "name": "claude.exe"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 999, "name": "x.exe", "created": "1"})[1]["error"], "not_found")
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "created": "133000000000000999"}),
+                             (409, {"error": "created_mismatch", "pid": 100, "name": "llama-server.exe"}))   # المعرّف أُعيد استعماله بالاسم نفسه
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 300, "name": "nvcontainer.exe", "created": "133000000000000003"})[1]["error"], "not_owner")
+            code, rep = self.rd.post("/api/proc-close", {**llama, "force": False})
             self.assertEqual((code, rep["error"], closed), (428, "confirm_required", []))
-            code2, rep2 = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep["confirm"]})
+            code2, rep2 = self.rd.post("/api/proc-close", {**llama, "force": True, "confirm": rep["confirm"]})
             self.assertEqual((code2, closed), (428, []))                                                                   # force جزء من المفتاح: الرمز يُرفض ويُستهلك ويصدر آخر
-            code3, rep3 = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep2["confirm"]})
-            self.assertEqual((code3, rep3["exited"], closed), (200, True, [(100, "llama-server.exe", True)]))
+            code3, rep3 = self.rd.post("/api/proc-close", {**llama, "force": True, "confirm": rep2["confirm"]})
+            self.assertEqual((code3, rep3["exited"], closed), (200, True, [(100, "llama-server.exe", "133000000000000001", True)]))
             self.assertEqual(logged[-1][1:4], ("procclose", "page", 1))
-            self.assertIn("pid=100 name=llama-server.exe force=True method=terminate exited=True commitMB=5716", logged[-1][4])
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep2["confirm"]})[0], 428)   # أحادي الاستعمال
+            self.assertIn("pid=100 name=llama-server.exe created=133000000000000001 force=True method=terminate exited=True commitMB=5716", logged[-1][4])
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "force": True, "confirm": rep2["confirm"]})[0], 428)   # أحادي الاستعمال
 
     def test_reaper_run_dry_passes_and_real_requires_confirm(self):
         seen = []
@@ -645,12 +655,25 @@ class MemTrim(unittest.TestCase):
 
             def start(self):
                 pass
+        def finish():   # ما يفعله الخيط عند انتهائه: إنزال العلم وتحرير القفل
+            self.mt.TRIM["running"] = False
+            self.mt._run_lock.release()
         with patch.object(self.mt.threading, "Thread", FakeThread):
             self.assertEqual(self.mt.post("/api/trim-memory", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
+            self.assertTrue(self.mt.TRIM["running"])   # العلم يُرفع قبل بدء الخيط
+            # نقرة ثانية قبل أن يبدأ الخيط الأول: مرفوضة (كانت تبدأ مرورًا ثانيًا متزامنًا)
+            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (409, {"error": "trim already running"}))
+            self.mt.TRIM["running"] = False   # حتى لو نزل العلم فالقفل ما زال مأخوذًا
+            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (409, {"error": "trim already running"}))
+            finish()
             self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (200, {"ok": True}))
+            self.assertFalse(self.mt.trim_memory("light"))   # مستدعٍ آخر (الوكيل) لا يبدأ مرورًا والقفل مأخوذ
+            finish()
             self.mt.TRIM["running"] = True
             self.assertEqual(self.mt.post("/api/trim-memory", {}), (409, {"error": "trim already running"}))
-        self.assertEqual(started, [("trim_memory", ("light",)), ("trim_memory", ("deep",))])
+            self.assertFalse(self.mt._run_lock.locked())
+            self.mt.TRIM["running"] = False
+        self.assertEqual(started, [("trim_memory", ("light", True)), ("trim_memory", ("deep", True))])
         self.assertEqual(invalidated, [1])   # الجولة الناجحة تعيد جمع حالة المهام كما كان
 
     def test_guard_next_is_idle_when_auto_is_off_or_trim_runs(self):
@@ -677,8 +700,9 @@ class MemTrim(unittest.TestCase):
 
     def test_trim_memory_records_error_and_releases_running_flag(self):
         with patch.object(self.mt, "_purge_task", lambda mode: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
-            self.mt.trim_memory("light")
+            self.assertTrue(self.mt.trim_memory("light"))
         self.assertEqual((self.mt.TRIM["running"], self.mt.TRIM["err"]), (False, "purge task not installed"))
+        self.assertFalse(self.mt._run_lock.locked())   # القفل يُحرَّر حتى مع الخطأ
 
 
 class PageUseSharedConnection(unittest.TestCase):
@@ -1178,6 +1202,15 @@ class GpuPurge(unittest.TestCase):
         self.assertEqual(tasks, [])
         self.assertEqual((v["running"], v["err"]), (False, "معطّل من الإعدادات"))
 
+    def test_shared_counter_failure_is_none_not_zero(self):
+        """فشل العدّاد كان يطبع "0 0" فيُحسب كل ما قبله «محرَّرًا»؛ الآن يطبع none فيعود القياس None."""
+        self.assertIn("if(-not $s){'none';exit 0}", self.gp._SHARED_PS)
+        for out, want in (("none\n", (None, None)), ("", (None, None)), ("0 0\n", (0, 0)), ("812 140\n", (812, 140))):
+            with patch.object(self.gp.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=out, returncode=0)):
+                self.assertEqual(self.patches[0].temp_original(), want, out)   # _shared الأصلية (setUp يستبدلها)
+        self.assertIsNone(self.gp._freed(1500, None))   # قياس بعدي فاشل لا يصنع محرَّرًا
+
+
     def test_purge_without_nvidia_smi_or_with_failure_keeps_state_consistent(self):
         recorded = []
         self.gp.STATE["running"] = True
@@ -1633,6 +1666,62 @@ class OtherDrives(unittest.TestCase):
         fn = self._fn(0b1100, {"C": 3, "D": 3}, {"C": dict(total=100 * g, free=50 * g, used=50 * g), "D": dict(total=0, free=0, used=0)})
         self.assertEqual(fn(), [])   # C نظام، وD بلا سعة فيُهمَل
         self.assertEqual(fn("D"), [{"letter": "C", "freeGB": 50.0, "totalGB": 100.0, "pct": 50.0}])
+
+
+class GpuWatchProbe(unittest.TestCase):
+    """تعطّل nvidia-smi لا يحجب الطلب: أول مهلة في فحص الحقول تقطع الفحص كله ولا تُسجَّل الحقول فاشلة."""
+
+    def setUp(self):
+        import gpuwatch
+        self.gw = gpuwatch
+        self.saved = (dict(gpuwatch._ok_fields), dict(gpuwatch._down))
+        gpuwatch._ok_fields.clear()
+        gpuwatch._down.update(until=0.0, why=None)
+
+    def tearDown(self):
+        self.gw._ok_fields.clear()
+        self.gw._ok_fields.update(self.saved[0])
+        self.gw._down.clear()
+        self.gw._down.update(self.saved[1])
+
+    def test_first_timeout_stops_probing_and_pauses_the_tool(self):
+        calls = []
+
+        def hung(fields, timeout=10):
+            calls.append(list(fields))
+            raise subprocess.TimeoutExpired("nvidia-smi", timeout)
+        fields = self.gw.LIVE_FIELDS
+        old = time.time() - self.gw.RETRY_S - 5
+        self.gw._ok_fields[fields[0]] = (True, old)            # الحقل الأول عُرف سليمًا من قبل
+        for f in fields[1:]:
+            self.gw._ok_fields[f] = (False, old)               # والبقية فشلت قديمًا فحان إعادة فحصها
+        with patch.object(self.gw, "_run", hung), patch.object(self.gw.os.path, "exists", lambda p: True):
+            self.assertEqual(self.gw._query(fields), {})
+            self.assertEqual(len(calls), 1)                    # كانت 12 فحصًا × 15 ث
+            self.assertGreater(self.gw._down["until"], time.time())
+            self.assertEqual(self.gw._down["why"], "nvidia-smi timeout")
+            self.assertEqual(self.gw._query(fields), {})       # الطلب التالي لا يشغّل الأداة أصلًا
+            self.assertEqual(len(calls), 1)
+        self.assertEqual(self.gw._ok_fields[fields[1]], (False, old))   # لم يُسجَّل الحقل فاشلًا بسبب المهلة
+
+    def test_hung_final_query_also_pauses(self):
+        fields = self.gw.STATIC_FIELDS
+        for f in fields:
+            self.gw._ok_fields[f] = (True, time.time())
+
+        def hung(fs, timeout=10):
+            raise subprocess.TimeoutExpired("nvidia-smi", timeout)
+        with patch.object(self.gw, "_run", hung), patch.object(self.gw.os.path, "exists", lambda p: True):
+            self.assertEqual(self.gw._query(fields), {})
+        self.assertGreater(self.gw._down["until"], time.time())
+
+    def test_unknown_field_is_still_skipped_alone(self):
+        fields = ["a", "b", "c"]
+
+        def run(fs, timeout=10):
+            return None if fs == ["b"] else ["1"] * len(fs)
+        with patch.object(self.gw, "_run", run), patch.object(self.gw.os.path, "exists", lambda p: True):
+            self.assertEqual(self.gw._query(fields), {"a": "1", "c": "1"})
 
 
 if __name__ == "__main__":
