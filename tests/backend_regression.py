@@ -403,9 +403,9 @@ class PageUse(unittest.TestCase):
         app = (ROOT / "routes_app.py").read_text(encoding="utf-8-sig")   # POST صار في وحدة مسارات التطبيق (البند 8)
         reads = (ROOT / "routes_read.py").read_text(encoding="utf-8-sig")   # GET صار في جدول المسارات القرائية (البند 6/ح)
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-        for needle in ('"/api/page-use"', "pageuse.stats(db.conn())"):
+        for needle in ('"/api/page-use"', "pageuse.stats_shared()"):
             self.assertIn(needle, reads)
-        for needle in ('"/api/page-open"', "pageuse.record(db.conn(), body)"):
+        for needle in ('"/api/page-open"', "pageuse.record_shared(body)"):
             self.assertIn(needle, app)
         for needle in ('fetch("/api/page-open"', "track(key)", 'api("/api/page-use")', "pageUseBody(pu)"):
             self.assertIn(needle, page)
@@ -509,25 +509,35 @@ class DestructiveRoutes(unittest.TestCase):
             def commit(self):
                 pass
 
-        def fake_close(pid, name, force=False):
-            closed.append((pid, name, force))
+        def fake_close(pid, name, created, force=False):
+            closed.append((pid, name, created, force))
             return {"ok": True, "pid": pid, "name": name, "method": "terminate", "exited": True, "windows": 0, "commitMB": 5716}
+        me = ("S-1-5-21-1-2-3-1001", 1)
+        idents = {100: ("133000000000000001", me[0], 1), 300: ("133000000000000003", "S-1-5-18", 0)}
+        rows[300] = "nvcontainer.exe"   # خدمة SYSTEM ليست في قائمة الأسماء
+        llama = {"pid": 100, "name": "llama-server.exe", "created": "133000000000000001"}
         with patch.object(self.rd.procclose, "names_by_pid", lambda: rows), patch.object(self.rd.procclose, "close", fake_close), \
+                patch.object(self.rd.procclose, "identity", idents.get), patch.object(self.rd.procclose, "me", lambda: me), \
                 patch.object(self.rd.db, "conn", lambda: FakeConn()):
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": "100", "name": "llama-server.exe"}), (400, {"error": "bad params"}))
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": "yes"}), (400, {"error": "bad params"}))
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 200, "name": "explorer.exe"})[0], 409)              # محمية: لا يُطلب تأكيد
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "claude.exe"}), (409, {"error": "name_mismatch", "pid": 100, "name": "claude.exe"}))
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 999, "name": "x.exe"})[1]["error"], "not_found")
-            code, rep = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": False})
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": "100", "name": "llama-server.exe", "created": "1"}), (400, {"error": "bad params"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "force": "yes"}), (400, {"error": "bad params"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe"}), (400, {"error": "bad params"}))   # بلا وقت الإنشاء
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "created": 133000000000000001}), (400, {"error": "bad params"}))   # رقم لا نصّ
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 200, "name": "explorer.exe", "created": "1"})[0], 409)              # محمية: لا يُطلب تأكيد
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "name": "claude.exe"}), (409, {"error": "name_mismatch", "pid": 100, "name": "claude.exe"}))
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 999, "name": "x.exe", "created": "1"})[1]["error"], "not_found")
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "created": "133000000000000999"}),
+                             (409, {"error": "created_mismatch", "pid": 100, "name": "llama-server.exe"}))   # المعرّف أُعيد استعماله بالاسم نفسه
+            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 300, "name": "nvcontainer.exe", "created": "133000000000000003"})[1]["error"], "not_owner")
+            code, rep = self.rd.post("/api/proc-close", {**llama, "force": False})
             self.assertEqual((code, rep["error"], closed), (428, "confirm_required", []))
-            code2, rep2 = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep["confirm"]})
+            code2, rep2 = self.rd.post("/api/proc-close", {**llama, "force": True, "confirm": rep["confirm"]})
             self.assertEqual((code2, closed), (428, []))                                                                   # force جزء من المفتاح: الرمز يُرفض ويُستهلك ويصدر آخر
-            code3, rep3 = self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep2["confirm"]})
-            self.assertEqual((code3, rep3["exited"], closed), (200, True, [(100, "llama-server.exe", True)]))
+            code3, rep3 = self.rd.post("/api/proc-close", {**llama, "force": True, "confirm": rep2["confirm"]})
+            self.assertEqual((code3, rep3["exited"], closed), (200, True, [(100, "llama-server.exe", "133000000000000001", True)]))
             self.assertEqual(logged[-1][1:4], ("procclose", "page", 1))
-            self.assertIn("pid=100 name=llama-server.exe force=True method=terminate exited=True commitMB=5716", logged[-1][4])
-            self.assertEqual(self.rd.post("/api/proc-close", {"pid": 100, "name": "llama-server.exe", "force": True, "confirm": rep2["confirm"]})[0], 428)   # أحادي الاستعمال
+            self.assertIn("pid=100 name=llama-server.exe created=133000000000000001 force=True method=terminate exited=True commitMB=5716", logged[-1][4])
+            self.assertEqual(self.rd.post("/api/proc-close", {**llama, "force": True, "confirm": rep2["confirm"]})[0], 428)   # أحادي الاستعمال
 
     def test_reaper_run_dry_passes_and_real_requires_confirm(self):
         seen = []
@@ -645,12 +655,25 @@ class MemTrim(unittest.TestCase):
 
             def start(self):
                 pass
+        def finish():   # ما يفعله الخيط عند انتهائه: إنزال العلم وتحرير القفل
+            self.mt.TRIM["running"] = False
+            self.mt._run_lock.release()
         with patch.object(self.mt.threading, "Thread", FakeThread):
             self.assertEqual(self.mt.post("/api/trim-memory", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
+            self.assertTrue(self.mt.TRIM["running"])   # العلم يُرفع قبل بدء الخيط
+            # نقرة ثانية قبل أن يبدأ الخيط الأول: مرفوضة (كانت تبدأ مرورًا ثانيًا متزامنًا)
+            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (409, {"error": "trim already running"}))
+            self.mt.TRIM["running"] = False   # حتى لو نزل العلم فالقفل ما زال مأخوذًا
+            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (409, {"error": "trim already running"}))
+            finish()
             self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (200, {"ok": True}))
+            self.assertFalse(self.mt.trim_memory("light"))   # مستدعٍ آخر (الوكيل) لا يبدأ مرورًا والقفل مأخوذ
+            finish()
             self.mt.TRIM["running"] = True
             self.assertEqual(self.mt.post("/api/trim-memory", {}), (409, {"error": "trim already running"}))
-        self.assertEqual(started, [("trim_memory", ("light",)), ("trim_memory", ("deep",))])
+            self.assertFalse(self.mt._run_lock.locked())
+            self.mt.TRIM["running"] = False
+        self.assertEqual(started, [("trim_memory", ("light", True)), ("trim_memory", ("deep", True))])
         self.assertEqual(invalidated, [1])   # الجولة الناجحة تعيد جمع حالة المهام كما كان
 
     def test_guard_next_is_idle_when_auto_is_off_or_trim_runs(self):
@@ -677,8 +700,122 @@ class MemTrim(unittest.TestCase):
 
     def test_trim_memory_records_error_and_releases_running_flag(self):
         with patch.object(self.mt, "_purge_task", lambda mode: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
-            self.mt.trim_memory("light")
+            self.assertTrue(self.mt.trim_memory("light"))
         self.assertEqual((self.mt.TRIM["running"], self.mt.TRIM["err"]), (False, "purge task not installed"))
+        self.assertFalse(self.mt._run_lock.locked())   # القفل يُحرَّر حتى مع الخطأ
+
+
+class PageUseSharedConnection(unittest.TestCase):
+    """مراجعة 19/11/2026: pageuse على اتصال الخادم المشترك تحت db._lock وفي معاملة خاصة تُودَع أو يُتراجع عنها."""
+
+    T0 = 1_800_000_000
+
+    def test_rejection_leaves_no_open_transaction_and_undoes_its_writes(self):
+        import sqlite3
+        import pageuse
+        c = sqlite3.connect(":memory:")
+        for i in range(pageuse.MAX_PAGES):
+            pageuse.record(c, {"page": "p%d" % i}, now=self.T0 + 10 * i)
+        last = c.execute("SELECT value FROM meta WHERE key=?", (pageuse.LAST_KEY,)).fetchone()[0]
+        self.assertEqual(pageuse.record(c, {"page": "one-too-many"}, now=self.T0 + 10 * pageuse.MAX_PAGES + 1), (400, {"error": "too many pages"}))
+        self.assertFalse(c.in_transaction)   # كان يبقى مفتوحًا فيودعه أو يُسقطه كاتب آخر على الاتصال المشترك
+        self.assertEqual(c.execute("SELECT SUM(n) FROM page_opens").fetchone()[0], pageuse.MAX_PAGES)   # سحب العابر الذي سبق الرفض تُراجَع عنه
+        self.assertEqual(c.execute("SELECT value FROM meta WHERE key=?", (pageuse.LAST_KEY,)).fetchone()[0], last)
+
+    def test_failure_mid_record_rolls_back(self):
+        import sqlite3
+        import pageuse
+        c = sqlite3.connect(":memory:")
+        pageuse.record(c, {"page": "health"}, now=self.T0)
+        with patch.object(pageuse, "_day", side_effect=[pageuse._day(self.T0 + 60), RuntimeError("boom")]):
+            with self.assertRaises(RuntimeError):
+                pageuse.record(c, {"page": "overview"}, now=self.T0 + 60)
+        self.assertFalse(c.in_transaction)
+        self.assertEqual(c.execute("SELECT page, n FROM page_opens").fetchall(), [("health", 1)])
+
+    def test_shared_helpers_hold_the_db_lock(self):
+        import sqlite3
+        import pageuse
+        mem, held = sqlite3.connect(":memory:"), []
+
+        class Lock:
+            depth = 0
+            def __enter__(self):
+                Lock.depth += 1
+            def __exit__(self, *a):
+                Lock.depth -= 1
+
+        fake = types.SimpleNamespace(_lock=Lock(), conn=lambda: held.append(Lock.depth) or mem)
+        with patch.dict(sys.modules, {"db": fake}):
+            self.assertEqual(pageuse.record_shared({"page": "mem"})[0], 200)
+            self.assertEqual([p["page"] for p in pageuse.stats_shared()["pages"]], ["mem"])
+        self.assertEqual(held, [1, 1])
+        src = {n: (ROOT / n).read_text(encoding="utf-8-sig") for n in ("routes_app.py", "routes_read.py")}
+        self.assertIn("pageuse.record_shared(body)", src["routes_app.py"])
+        self.assertIn("pageuse.stats_shared()", src["routes_read.py"])
+        self.assertNotIn("pageuse.record(db.conn()", src["routes_app.py"])
+        self.assertNotIn("pageuse.stats(db.conn()", src["routes_read.py"])
+
+
+class SnapshotCollectThrottle(unittest.TestCase):
+    """مراجعة 19/11/2026: mini() يطلق جمعًا أول واحدًا جاريًا فقط، والـ refresher يحترم TTL الجامع الثقيل."""
+
+    def setUp(self):
+        import snapshot
+        self.s = snapshot
+        saved = dict(snapshot._cache)
+        self.addCleanup(lambda: (snapshot._cache.clear(), snapshot._cache.update(saved)))
+
+    def test_mini_starts_one_first_collect_at_a_time(self):
+        gate, calls = threading.Event(), []
+        def slow_collect(force=False):
+            calls.append(force)
+            gate.wait(5)
+        self.s._cache.update(data=None, t=0)
+        with patch.object(self.s, "collect", slow_collect), patch.object(self.s, "mini_payload", lambda: {"ready": False}):
+            for _ in range(5):                   # الويدجت يطلب كل 2 ث والجامع ما زال يعمل
+                self.assertEqual(self.s.mini(), {"ready": False})
+            time.sleep(0.05)
+            self.assertEqual(calls, [False])
+            gate.set()
+            for _ in range(100):                 # بعد انتهاء الجمع (هنا بلا بيانات، كأن collect.ps1 فشل) يُسمح بمحاولة تالية
+                if self.s._first_kick.acquire(blocking=False):
+                    self.s._first_kick.release()
+                    break
+                time.sleep(0.01)
+            self.s.mini()
+            time.sleep(0.05)
+        self.assertEqual(len(calls), 2)
+
+    def test_first_collect_failure_is_swallowed_and_released(self):
+        swallowed = []
+        self.s._cache.update(data=None, t=0)
+        with patch.object(self.s, "collect", lambda force=False: (_ for _ in ()).throw(RuntimeError("pwsh"))),                 patch.object(self.s.errlog, "swallowed", lambda: swallowed.append(1)):
+            self.s._first_kick.acquire()
+            self.s._first_collect()
+        self.assertEqual(swallowed, [1])
+        self.assertTrue(self.s._first_kick.acquire(blocking=False))
+        self.s._first_kick.release()
+
+    def test_refresher_respects_the_collect_ttl(self):
+        calls = []
+        class Stop(Exception):
+            pass
+        ticks = iter([None])
+        def sleep(_):
+            if next(ticks, Stop) is Stop:
+                raise Stop
+        with patch.object(self.s, "collect", lambda *a, **k: calls.append((a, k))), patch.object(self.s.time, "sleep", sleep),                 patch.object(self.s, "_last_request", time.time()):
+            with self.assertRaises(Stop):
+                self.s.refresher()
+        self.assertEqual(calls, [((), {})])     # لا force=True: كان يطلق pwsh كل 20 ث
+
+    def test_fresh_cache_does_not_spawn_the_collector(self):
+        self.s._cache.update(data={"tasks": []}, t=time.time())
+        def boom(*a, **k):
+            raise AssertionError("pwsh spawned despite a fresh cache")
+        with patch.object(self.s.subprocess, "run", boom), patch.object(self.s, "attach_manual", lambda d: d):
+            self.assertEqual(self.s.collect(), {"tasks": []})
 
 
 class PolicyRoutes(unittest.TestCase):
@@ -699,6 +836,11 @@ class PolicyRoutes(unittest.TestCase):
                 patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
             self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (200, {"ok": True}))
             self.assertEqual(self.post("/api/jobs/run", {"name": "nope"}), (404, {"error": "unknown job"}))
+        self.assertEqual(nxt, ["trim"])
+        running = {"next_run": 1, "last_start": int(time.time()) - 5, "last_end": int(time.time()) - 900, "timeout_s": 600}
+        with patch.object(self.rp.sched, "next_run", lambda name: running),                 patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
+            # مراجعة 19/11/2026: «شغّل الآن» لمهمة جارية كان يضيع بصمت (تكتب next_run عند انتهائها فوقه)
+            self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (409, {"error": "job running", "running": True}))
         self.assertEqual(nxt, ["trim"])
         with patch.object(self.rp, "maintenance_set", lambda on: {"on": on, "rules": [], "since": 1}):
             self.assertEqual(self.post("/api/maintenance", {"on": "x"}), (400, {"error": "on must be boolean"}))
@@ -1059,6 +1201,15 @@ class GpuPurge(unittest.TestCase):
         v = self.gp.view()
         self.assertEqual(tasks, [])
         self.assertEqual((v["running"], v["err"]), (False, "معطّل من الإعدادات"))
+
+    def test_shared_counter_failure_is_none_not_zero(self):
+        """فشل العدّاد كان يطبع "0 0" فيُحسب كل ما قبله «محرَّرًا»؛ الآن يطبع none فيعود القياس None."""
+        self.assertIn("if(-not $s){'none';exit 0}", self.gp._SHARED_PS)
+        for out, want in (("none\n", (None, None)), ("", (None, None)), ("0 0\n", (0, 0)), ("812 140\n", (812, 140))):
+            with patch.object(self.gp.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=out, returncode=0)):
+                self.assertEqual(self.patches[0].temp_original(), want, out)   # _shared الأصلية (setUp يستبدلها)
+        self.assertIsNone(self.gp._freed(1500, None))   # قياس بعدي فاشل لا يصنع محرَّرًا
+
 
     def test_purge_without_nvidia_smi_or_with_failure_keeps_state_consistent(self):
         recorded = []
@@ -1515,6 +1666,62 @@ class OtherDrives(unittest.TestCase):
         fn = self._fn(0b1100, {"C": 3, "D": 3}, {"C": dict(total=100 * g, free=50 * g, used=50 * g), "D": dict(total=0, free=0, used=0)})
         self.assertEqual(fn(), [])   # C نظام، وD بلا سعة فيُهمَل
         self.assertEqual(fn("D"), [{"letter": "C", "freeGB": 50.0, "totalGB": 100.0, "pct": 50.0}])
+
+
+class GpuWatchProbe(unittest.TestCase):
+    """تعطّل nvidia-smi لا يحجب الطلب: أول مهلة في فحص الحقول تقطع الفحص كله ولا تُسجَّل الحقول فاشلة."""
+
+    def setUp(self):
+        import gpuwatch
+        self.gw = gpuwatch
+        self.saved = (dict(gpuwatch._ok_fields), dict(gpuwatch._down))
+        gpuwatch._ok_fields.clear()
+        gpuwatch._down.update(until=0.0, why=None)
+
+    def tearDown(self):
+        self.gw._ok_fields.clear()
+        self.gw._ok_fields.update(self.saved[0])
+        self.gw._down.clear()
+        self.gw._down.update(self.saved[1])
+
+    def test_first_timeout_stops_probing_and_pauses_the_tool(self):
+        calls = []
+
+        def hung(fields, timeout=10):
+            calls.append(list(fields))
+            raise subprocess.TimeoutExpired("nvidia-smi", timeout)
+        fields = self.gw.LIVE_FIELDS
+        old = time.time() - self.gw.RETRY_S - 5
+        self.gw._ok_fields[fields[0]] = (True, old)            # الحقل الأول عُرف سليمًا من قبل
+        for f in fields[1:]:
+            self.gw._ok_fields[f] = (False, old)               # والبقية فشلت قديمًا فحان إعادة فحصها
+        with patch.object(self.gw, "_run", hung), patch.object(self.gw.os.path, "exists", lambda p: True):
+            self.assertEqual(self.gw._query(fields), {})
+            self.assertEqual(len(calls), 1)                    # كانت 12 فحصًا × 15 ث
+            self.assertGreater(self.gw._down["until"], time.time())
+            self.assertEqual(self.gw._down["why"], "nvidia-smi timeout")
+            self.assertEqual(self.gw._query(fields), {})       # الطلب التالي لا يشغّل الأداة أصلًا
+            self.assertEqual(len(calls), 1)
+        self.assertEqual(self.gw._ok_fields[fields[1]], (False, old))   # لم يُسجَّل الحقل فاشلًا بسبب المهلة
+
+    def test_hung_final_query_also_pauses(self):
+        fields = self.gw.STATIC_FIELDS
+        for f in fields:
+            self.gw._ok_fields[f] = (True, time.time())
+
+        def hung(fs, timeout=10):
+            raise subprocess.TimeoutExpired("nvidia-smi", timeout)
+        with patch.object(self.gw, "_run", hung), patch.object(self.gw.os.path, "exists", lambda p: True):
+            self.assertEqual(self.gw._query(fields), {})
+        self.assertGreater(self.gw._down["until"], time.time())
+
+    def test_unknown_field_is_still_skipped_alone(self):
+        fields = ["a", "b", "c"]
+
+        def run(fs, timeout=10):
+            return None if fs == ["b"] else ["1"] * len(fs)
+        with patch.object(self.gw, "_run", run), patch.object(self.gw.os.path, "exists", lambda p: True):
+            self.assertEqual(self.gw._query(fields), {"a": "1", "c": "1"})
 
 
 if __name__ == "__main__":

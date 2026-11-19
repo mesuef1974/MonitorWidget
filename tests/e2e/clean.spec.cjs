@@ -12,6 +12,7 @@ async function previewThenClean(page, cleanReplies) {
   const cell = page.locator('#main td[data-fa="sp-temp"]');
   await cell.locator('button[data-sp="preview"]').click({ timeout: 30000 });
   await cell.locator('button[data-sp="clean"]').click({ timeout: 5000 });
+  await page.getByRole('dialog').getByRole('button', { name: 'نظّف' }).click();   // الحذف بعد المعاينة لا يبدأ إلا بتأكيد المالك
   return cell;
 }
 
@@ -45,4 +46,19 @@ test('التنظيف الجماعي يعرض النوع الجاري وتقدّ�
   await page.getByRole('button', { name: 'نظّف الكل' }).click();
   await expect(page.locator('#main [data-spall-prog]')).toContainText('ذاكرة Edge · فُحص 40 مجلد · عولج 300 ملف · تحرّر 12 MB');
   await expect(page.getByText('حُرّر 270 MB · أُزيل 1,200 مجلد فارغ')).toBeVisible({ timeout: 5000 });
+});
+
+test('الحذف بعد المعاينة يعرض حوار تأكيد، و«إلغاء» لا يرسل طلب التنظيف', async ({ page }) => {
+  const posts = [];
+  page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/api/space')) posts.push(JSON.parse(r.postData() || '{}').action); });
+  await page.route('**/api/space-preview*', replier([{ state: 'done', dirs: 2600, files: 1840, mb: 512.3, elapsed: 2, res: { ok: true, dry: true, mb: 512.3, files: 1840, skipped: 0 } }]));
+  await page.goto('/#/spaceclean');
+  const cell = page.locator('#main td[data-fa="sp-temp"]');
+  await cell.locator('button[data-sp="preview"]').click({ timeout: 30000 });
+  await cell.locator('button[data-sp="clean"]').click({ timeout: 5000 });
+  const dlg = page.getByRole('dialog');
+  await expect(dlg).toContainText('تنظيف «الملفات المؤقتة» الآن — المتوقع تحرير 512 MB');
+  await dlg.getByRole('button', { name: 'إلغاء' }).click();
+  await expect(dlg).toHaveCount(0);
+  expect(posts).toEqual(['preview']);
 });

@@ -42,6 +42,7 @@ from paths import CNW, POLICY, PWSH, ROOT, RUNS, TIERS, TIER_TASK
 
 _lock = threading.Lock()
 _cache = {"t": 0, "data": None}
+_first_kick = threading.Lock()   # يحرس خيط الجمع الأول الذي يطلقه mini(): واحد جارٍ فقط
 _extra = {"tiers": {}, "paused": []}
 _last_request = time.time()
 _hist = collections.deque(maxlen=360)  # one sample / 5 s = 30 min
@@ -224,11 +225,13 @@ def invalidate():
 
 
 def refresher():
+    """يُبقي الذاكرة المؤقتة دافئة ما دام أحد يطلب. يحترم _collect_ttl: كل طلب يلمس _last_request (والويدجت يطلب كل 2 ث)،
+    فالجمع القسري هنا كان يطلق pwsh كاملًا كل 20 ث ويُبطل الـ TTL (مراجعة 19/11/2026)."""
     while True:
         time.sleep(20)
         if time.time() - _last_request < 120:
             try:
-                collect(force=True)
+                collect()
             except Exception:
                 errlog.swallowed()
 
@@ -331,6 +334,20 @@ def mini_payload():
 
 def mini():
     """حمولة GET /api/mini: إن لم يُجمع بعد يُطلق الجمع الأول في خيط ويُعاد الردّ فورًا بـ ready=false."""
-    if _cache["data"] is None:
-        threading.Thread(target=lambda: collect(True), daemon=True).start()
+    if _cache["data"] is None and _first_kick.acquire(blocking=False):
+        # جمع أول واحد جارٍ فقط: الويدجت يطلب كل 2 ث، وجامع بطيء أو معطّل كان يراكم خيطًا وpwsh لكل طلب
+        try:
+            threading.Thread(target=_first_collect, daemon=True, name="first-collect").start()
+        except Exception:
+            _first_kick.release()
+            raise
     return mini_payload()
+
+
+def _first_collect():
+    try:
+        collect()   # لا قسر: إن سبقه جمع آخر فالذاكرة المؤقتة تكفي
+    except Exception:
+        errlog.swallowed()
+    finally:
+        _first_kick.release()

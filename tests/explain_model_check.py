@@ -6,6 +6,7 @@ import io
 import os
 import sys
 import unittest
+import unittest.mock
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -50,6 +51,31 @@ class Model(unittest.TestCase):
     def test_no_model(self):
         with patch.object(explain, "_req", lambda path: listing("text-embedding-x")), self.assertRaises(RuntimeError):
             explain._model()
+
+
+def part(key, pts, mx=10):
+    return {"key": key, "label": "بند " + key, "pts": pts, "max": mx, "why": "حقائق " + key}
+
+
+class Health(unittest.TestCase):
+    """انحدار: البند غير المقاس درجته None وكانت مقارنته بالحد ترمي TypeError فيفشل «اشرح الصحة» 503."""
+
+    def test_unmeasured_only_needs_no_model(self):
+        with patch.object(explain, "_model", lambda: self.fail("no model for unmeasured parts")):
+            r = explain.health([part("mem", None), part("disk", 10)], {"commitPct": None})
+        self.assertTrue(r["ok"], r)
+        self.assertIn("بند mem: غير مقاس", r["text"])
+        self.assertNotIn("None", r["text"])
+
+    def test_weak_and_unmeasured_together(self):
+        reply = {"choices": [{"message": {"content": "disk: المساحة قليلة"}}]}
+        with patch.object(explain, "_model", lambda: "m"), patch.object(explain, "_req", lambda path, body=None: reply), \
+                patch("builtins.open", unittest.mock.mock_open()):
+            r = explain.health([part("mem", None), part("disk", 4)], {"commitPct": 50})
+        self.assertTrue(r["ok"], r)
+        self.assertIn("بند disk: المساحة قليلة", r["text"])
+        self.assertIn("بند mem: غير مقاس", r["text"])
+        self.assertEqual(r["total"], 1)
 
 
 if __name__ == "__main__":

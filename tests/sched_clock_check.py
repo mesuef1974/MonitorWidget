@@ -39,6 +39,8 @@ class ClockGuard(unittest.TestCase):
         CON.execute("DROP TABLE IF EXISTS jobs")
         CON.execute("CREATE TABLE jobs(name TEXT PRIMARY KEY, interval_s INTEGER NOT NULL, mode TEXT, next_run INTEGER, last_start INTEGER, last_end INTEGER,"
                     " last_ms INTEGER, last_status TEXT, last_error TEXT, runs INTEGER DEFAULT 0, fails INTEGER DEFAULT 0, enabled INTEGER DEFAULT 1, timeout_s INTEGER)")
+        CON.execute("DROP TABLE IF EXISTS meta")
+        CON.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
         WARN.clear()
 
     def test_job_scheduled_after_clock_jump_is_pulled_back(self):
@@ -73,9 +75,74 @@ class ClockGuard(unittest.TestCase):
         self.assertEqual(sched.heal_clock(NOW), ["shots"])
         self.assertEqual(nxt("shots"), NOW)
 
+    def test_future_meta_stamps_are_pulled_back(self):
+        """مراجعة 19/11/2026: ختم last_prune أو last_backup كُتب أثناء القفزة كان يوقف عمله اليومي حتى 2027."""
+        for k, v in (("last_prune", JUMP), ("last_vacuum", JUMP), ("last_backup", JUMP), ("last_integrity", NOW - 86400),
+                     ("backup_extra_last_attempt", NOW + 600), ("agent_hb", JUMP), ("pageuse.since", "2026-11-14")):
+            CON.execute("INSERT INTO meta VALUES(?,?)", (k, str(v)))
+        self.assertEqual(sched.heal_clock(NOW), [])
+        meta = dict(CON.execute("SELECT key, value FROM meta").fetchall())
+        self.assertEqual((meta["last_prune"], meta["last_vacuum"], meta["last_backup"]), (str(NOW),) * 3)
+        self.assertEqual(meta["last_integrity"], str(NOW - 86400))            # الماضي لا يُمسّ
+        self.assertEqual(meta["backup_extra_last_attempt"], str(NOW + 600))   # ضمن الهامش
+        self.assertEqual((meta["agent_hb"], meta["pageuse.since"]), (str(JUMP), "2026-11-14"))   # مفاتيح خارج القائمة لا تُمسّ
+        self.assertEqual(len(WARN), 1)
+        self.assertEqual(sched.heal_clock(NOW), [])
+        self.assertEqual(len(WARN), 1)                                         # لا شيء يُصحَّح مرتين
+
     def test_slack_formula(self):
         self.assertEqual(sched.future_slack(15), 630)
         self.assertEqual(sched.future_slack(3600), 7800)
+
+
+
+class SlowSuccess(unittest.TestCase):
+    """مراجعة 19/11/2026: عمل اكتمل بعد مهلته كان يُسجَّل error لأن check_cancelled() بعد fn() يرفع TimeoutError."""
+
+    def setUp(self):
+        ClockGuard.setUp(self)
+
+    def test_job_finishing_past_its_deadline_is_slow_not_error(self):
+        import time as _t
+        job("slowpoke", 3600, NOW)
+        CON.execute("UPDATE jobs SET timeout_s=0 WHERE name='slowpoke'")   # أي مدة تتجاوز المهلة
+        s = sched.Scheduler()
+        s.fns["slowpoke"] = lambda: _t.sleep(0.05) or "done"
+        sched._context.deadline = _t.monotonic() + 0.01                   # المهلة تنقضي أثناء fn()
+        try:
+            s._execute("slowpoke")
+        finally:
+            del sched._context.deadline
+        r = CON.execute("SELECT last_status, fails, runs, last_error FROM jobs WHERE name='slowpoke'").fetchone()
+        self.assertEqual((r[0], r[1], r[2], r[3]), ("slow", 0, 1, "done"))
+
+    def test_deadline_already_passed_before_start_is_still_an_error(self):
+        import time as _t
+        job("late", 3600, NOW)
+        ran = []
+        s = sched.Scheduler()
+        s.fns["late"] = lambda: ran.append(1)
+        sched._context.deadline = _t.monotonic() - 1
+        try:
+            s._execute("late")
+        finally:
+            del sched._context.deadline
+        self.assertEqual(ran, [])
+        self.assertEqual(CON.execute("SELECT last_status, fails FROM jobs WHERE name='late'").fetchone()[:], ("error", 1))
+
+
+class RunningNow(unittest.TestCase):
+    """مراجعة 19/11/2026: «شغّل الآن» لمهمة جارية كان يضيع بصمت؛ running_now يميّزها لمسار /api/jobs/run."""
+
+    def test_running_within_timeout(self):
+        self.assertTrue(sched.running_now({"last_start": NOW - 10, "last_end": NOW - 100, "timeout_s": 600}, NOW))
+        self.assertTrue(sched.running_now({"last_start": NOW - 10, "last_end": None, "timeout_s": 600}, NOW))
+
+    def test_finished_never_started_or_stuck_is_not_running(self):
+        self.assertFalse(sched.running_now({"last_start": NOW - 10, "last_end": NOW - 5, "timeout_s": 600}, NOW))
+        self.assertFalse(sched.running_now({"last_start": NOW - 10, "last_end": NOW - 10, "timeout_s": 600}, NOW))   # الثانية نفسها: انتهت
+        self.assertFalse(sched.running_now({"last_start": None, "last_end": None, "timeout_s": 600}, NOW))
+        self.assertFalse(sched.running_now({"last_start": NOW - 700, "last_end": NOW - 9000, "timeout_s": 600}, NOW))   # عالقة أو علامة وكيل انهار
 
 
 if __name__ == "__main__":

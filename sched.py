@@ -14,6 +14,9 @@ import db, infra
 
 log = infra.log
 HEAL_EVERY = 60     # seconds between wall-clock guard passes in the loop
+# أختام «آخر تشغيل» بالثواني في جدول meta تُقارن بـ time.time(): ختم كُتب أثناء قفزة الساعة للأمام يوقف عمله حتى يلحقه الزمن
+# (prune يوميًا وVACUUM أسبوعيًا في db.py، والنسخ والسلامة والنسخ الخارجي في infra.py). heal_clock يعيدها إلى الآن (مراجعة 19/11/2026).
+META_STAMPS = ("last_prune", "last_vacuum", "last_backup", "last_integrity", "backup_extra_last_attempt", "backup_extra_last_success")
 
 
 def future_slack(interval_s):
@@ -32,10 +35,14 @@ def heal_clock(now=None):
             c.execute("UPDATE jobs SET next_run=? WHERE next_run > ? + 2*interval_s + 600", (now, now))
         stamped = c.execute("UPDATE jobs SET last_start=? WHERE last_start > ? + 600", (now, now)).rowcount
         stamped += c.execute("UPDATE jobs SET last_end=? WHERE last_end > ? + 600", (now, now)).rowcount
-        if names or stamped:
+        marks = c.execute("UPDATE meta SET value=? WHERE key IN (%s) AND CAST(value AS INTEGER) > ? + 600" % ",".join("?" * len(META_STAMPS)),
+                          (str(now),) + META_STAMPS + (now,)).rowcount
+        if names or stamped or marks:
             c.commit()
     if names:
         log.warning("clock guard: %d job(s) were scheduled in the far future, reset to now: %s", len(names), ", ".join(names))
+    if marks:
+        log.warning("clock guard: %d meta stamp(s) were in the far future, reset to now", marks)
     return names
 _context = threading.local()
 
@@ -110,7 +117,7 @@ class Scheduler:
         try:
             check_cancelled()
             detail = fn()
-            check_cancelled()
+            # لا check_cancelled() هنا: عمل اكتمل بعد مهلته نجاحٌ بطيء (slow أدناه) لا خطأ (مراجعة 19/11/2026)
         except Exception:
             status, err = "error", traceback.format_exc(limit=3)[-400:]
             log.error("job %s failed: %s", name, err)
@@ -163,8 +170,16 @@ def set_next(name, ts):
 
 def next_run(name):
     with db._lock:
-        r = db.conn().execute("SELECT next_run, interval_s, last_start, last_end, last_status FROM jobs WHERE name=?", (name,)).fetchone()
+        r = db.conn().execute("SELECT next_run, interval_s, last_start, last_end, last_status, timeout_s FROM jobs WHERE name=?", (name,)).fetchone()
     return dict(r) if r else None
+
+
+def running_now(r, now=None):
+    """صفّ next_run() لمهمة بدأت ولم تنتهِ وما زالت ضمن مهلتها. «شغّل الآن» أثناءها يضيع: _execute يكتب next_run
+    عند الانتهاء فوق الموعد المطلوب. ما تجاوز مهلته (عالقة، أو علامة باقية من وكيل انهار) لا يُعدّ جاريًا هنا."""
+    now = int(time.time() if now is None else now)
+    start, end = r.get("last_start"), r.get("last_end")
+    return bool(start and (not end or end < start) and now - start <= (r.get("timeout_s") or 600))
 
 
 def listing():
