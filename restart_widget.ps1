@@ -3,6 +3,8 @@
 # فكانت النسخة السابقة تطبع «widget restarted» دون أن تفعل شيئًا. الآن يرفع السكربت نفسه (طلب UAC واحد، بلا نافذة).
 $ErrorActionPreference = 'Stop'
 $r = $PSScriptRoot
+$live = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'MonitorWidget\app'
+if (Test-Path -LiteralPath (Join-Path $live '.deployment\manifest.json')) { $r = $live }   # النشر المحمي: الويدجت يعمل من هناك
 $wp = [regex]::Escape((Join-Path $r 'widget.ps1'))
 function Get-WidgetProcess {
     Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $PID -and $_.Name -in 'powershell.exe', 'pwsh.exe' -and $_.CommandLine -match $wp }

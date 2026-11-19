@@ -7,6 +7,11 @@
 param([ValidateSet('Highest', 'Limited')][string]$Level = 'Highest')
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+# بعد النشر المحمي (deploy_protected.ps1) البيانات في مجلد لا يكتبه إلا المسؤولون: خلفية بصلاحية عادية لا تكتب قاعدتها.
+if (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'MonitorWidget\app\.deployment\manifest.json')) {
+    Write-Error 'النشر المحمي مفعّل: الخلفية مسؤول دائمًا من ProgramData. للعودة إلى الوضع القديم: deploy_protected.ps1 -Rollback' -ErrorAction Continue
+    exit 1
+}
 $port = 47832
 $names = @('MonitorWidget-Server-Logon', 'MonitorWidget-Agent', 'MonitorWidget-Collector')
 $resultFile = Join-Path $root 'backups\backend_privilege.result.txt'

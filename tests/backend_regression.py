@@ -143,6 +143,26 @@ class BackendRequests(unittest.TestCase):
         fake.headers = {"X-Token": "رمز غير ASCII"}; fake._cookie = lambda name: ""
         self.assertFalse(self.ns["Handler"]._authed(fake))   # لا استثناء على ترويسة غير ASCII
 
+    def test_read_token_is_accepted_only_for_read_routes(self):
+        # النشر المحمي: ‎.token.read‎ للبرامج العادية يفتح GET القرائية وحدها، ولا يفتح أي POST
+        H = self.ns["Handler"]
+        fake = types.SimpleNamespace(headers={"X-Token": "synthetic-read-token"},
+            _cookie=lambda name: "", _send=lambda *a: self.sends.append(a))
+        with patch.object(websession, "_READ_TOKEN", "synthetic-read-token"):
+            self.assertFalse(H._authed(fake))
+            self.assertEqual(self.sends[-1][0], 401)
+            self.assertTrue(H._authed(fake, read_only=True))
+            fake.headers = {"X-Token": "synthetic-widget-token"}
+            self.assertTrue(H._authed(fake, read_only=True))   # الرمز الكامل يفتح القراءة أيضًا
+            fake.headers = {"X-Token": "رمز غير ASCII"}
+            self.assertFalse(H._authed(fake, read_only=True))
+        with patch.object(websession, "_READ_TOKEN", ""):   # لا ملف رمز قراءة: لا شيء يُقبل بوصفه رمز قراءة
+            fake.headers = {"X-Token": ""}
+            self.assertFalse(H._authed(fake, read_only=True))
+        with patch.object(websession, "_READ_TOKEN", "synthetic-widget-token"):   # رمز قراءة يساوي الكامل لا يكسر الرمز الكامل
+            fake.headers = {"X-Token": "synthetic-widget-token"}
+            self.assertTrue(H._authed(fake))
+
     def test_ticket_exchange_issues_session_then_serves_page(self):
         """do_GET: التذكرة تُبدَّل بجلسة في كعكة HttpOnly مع 302 مرة واحدة، والتذكرة المستهلكة تُهمَل وتُقدَّم الصفحة (البند 6/ط)."""
         websession._TICKETS.clear()

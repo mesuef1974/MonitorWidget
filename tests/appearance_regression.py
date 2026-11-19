@@ -124,7 +124,7 @@ class AppearancePreferences(unittest.TestCase):
         def req(method, body=None, authenticated=True):
             wire = json.dumps(body or {}).encode()
             request = types.SimpleNamespace(path="/api/appearance", _guard=lambda:True,
-                _authed=lambda:authenticated, _send=lambda *a:sends.append(a),
+                _authed=lambda **k:authenticated, _send=lambda *a:sends.append(a),
                 headers={"Content-Type":"application/json","Content-Length":str(len(wire))}, rfile=io.BytesIO(wire))
             ns["Handler"].__dict__["do_"+method](request)
         with patch.object(routes_settings, "APPEARANCE", self.store):
@@ -156,7 +156,7 @@ class AppearancePreferences(unittest.TestCase):
         visibility = iter((False, False, True, True))
         wire = b'{"show":true}'
         request = types.SimpleNamespace(path="/api/widget", _guard=lambda:True,
-            _authed=lambda:True, _send=lambda *a:sends.append(a),
+            _authed=lambda **k:True, _send=lambda *a:sends.append(a),
             headers={"Content-Type":"application/json","Content-Length":str(len(wire))},
             rfile=io.BytesIO(wire))
         with patch.multiple(widgetctl, widget_running=lambda:True,

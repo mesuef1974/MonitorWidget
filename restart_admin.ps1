@@ -2,6 +2,11 @@
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $port = 47832
+# بعد النشر المحمي لا يُشغَّل الوكيل بمفسّر المستخدم أبدًا (يعمل مسؤولًا فيرث ما يكتبه أي برنامج عادي): المهمة وحدها
+if (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'MonitorWidget\app\.deployment\manifest.json')) {
+    & (Join-Path $PSScriptRoot 'restart_agent.ps1')
+    exit $LASTEXITCODE
+}
 
 $listen = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 $before = if ($listen) { $listen.OwningProcess } else { 0 }
