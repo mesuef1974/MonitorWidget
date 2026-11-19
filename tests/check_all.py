@@ -86,7 +86,7 @@ for pc in pol_candidates:
 
 # 8) سكربتات PowerShell: الصنف [\/] في regex الخاص بـ .NET يطابق الشرطة الأمامية وحدها، فمطابقة مسار ويندوز تفشل بصمت
 #    (لم يكن install_admin_backend.ps1 يقتل الخلفية القديمة). الصحيح [\\/]. يُرفض في أي .ps1 حتى في التعليقات.
-SKIP_DIRS = {".git", ".claude", "node_modules", ".sandboxes", "runtime", "__pycache__"}
+SKIP_DIRS = {".git", ".claude", "node_modules", ".sandboxes", "runtime", "__pycache__", "backups", "quarantine"}  # backups وquarantine مستثنيان من git: نسخ قديمة لا تُفحص
 bad_slash = []
 for base, dirs, files in os.walk(ROOT):
     dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
