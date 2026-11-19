@@ -134,18 +134,35 @@ class Diagnose(Base):
     DATA = {"/api/cpu": {"total": 2, "ncpu": 20}, "/api/gpu": {"live": {"vram": 3700, "vramTotal": 8188, "temp": 55}},
             "/api/local-ai": {"verdict": "ok"}}
 
-    def run_with(self, m, **over):
+    def run_with(self, m, cfg=None, **over):
         self.use(data={**self.DATA, **over})
-        return assistant._diagnose({"m": m})
+        with patch.object(assistant.alertcfg, "get", lambda: cfg or assistant.alertcfg._merge(None)):
+            return assistant._diagnose({"m": m})
 
     def test_normal_readings_are_not_causes(self):
-        r = self.run_with({"ramPct": 64, "commitPct": 58, "diskPct": 69})
+        r = self.run_with({"ramPct": 64, "commitPct": 58, "diskFreeGB": 115})
         self.assertEqual(r["causes"], ["لا سبب ظاهر في القياسات الآن"])
         self.assertEqual(len(r["normal"]), 6)
+        self.assertNotIn("unmeasured", r)
 
     def test_threshold_is_a_cause(self):
-        r = self.run_with({"ramPct": 80, "commitPct": 58, "diskPct": 69})
+        r = self.run_with({"ramPct": 80, "commitPct": 58, "diskFreeGB": 115})
         self.assertEqual(r["causes"], ["ارتفاع الذاكرة: 80%"])
+
+    def test_thresholds_follow_alertcfg(self):
+        cfg = assistant.alertcfg._merge({"mem": {"ramWarn": 60}, "disk": {"freeWarnGB": 200}, "gpu": {"tempWarn": 70}})
+        r = self.run_with({"ramPct": 64, "commitPct": 58, "diskFreeGB": 115}, cfg)
+        self.assertIn("ارتفاع الذاكرة: 64%", r["causes"])
+        self.assertIn("انخفاض المساحة الحرة في القرص: 115 GB", r["causes"])
+        self.assertNotIn("ارتفاع حرارة كرت الشاشة: 55 درجة", r["causes"])
+
+    def test_missing_reading_is_unmeasured_not_zero(self):
+        r = self.run_with({"ramPct": 64}, **{"/api/gpu": {}, "/api/cpu": {}})
+        self.assertEqual(r["causes"], ["لا سبب ظاهر في القياسات الآن"])
+        self.assertEqual(r["normal"], ["الذاكرة ضمن الطبيعي: 64%"])
+        self.assertIn("التزام الذاكرة: غير مقاس", r["unmeasured"])
+        self.assertIn("حرارة كرت الشاشة: غير مقاس", r["unmeasured"])
+        self.assertFalse(any("0%" in x for x in r["normal"]))
 
     def test_crowded_models_is_a_cause(self):
         r = self.run_with({"ramPct": 10}, **{"/api/local-ai": {"verdict": "crowded"}})

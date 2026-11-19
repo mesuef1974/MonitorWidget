@@ -533,7 +533,7 @@ function ruleDetail(s) {
   if (kv.free && kv.threshold) out.push(`الحر ${ltrSpan(kv.free + " GB")} فوق العتبة ${ltrSpan(kv.threshold + " GB")}`);
   return out.join(" · ") || ltrSpan(s);
 }
-const SRC = { cpu: "المعالج", mem: "الذاكرة", disk: "القرص", gpu: "الرسوميات", boot: "الإقلاع", task: "المهام", localai: "الذكاء المحلي", guard: "الحارس", trim: "تنظيف الذاكرة", commit: "الالتزام", net: "الشبكة" };   // مصادر سجل التنبيهات (db.add_event) بالعربية
+const SRC = { cpu: "المعالج", mem: "الذاكرة", disk: "القرص", gpu: "الرسوميات", boot: "الإقلاع", task: "المهام", localai: "الذكاء المحلي", guard: "الحارس", trim: "تنظيف الذاكرة", commit: "الالتزام", net: "الشبكة", health: "الصحة", fix: "الإصلاح" };   // مصادر سجل التنبيهات (db.add_event) بالعربية
 const stack = (items, pal) => `<div class="stackbar">${items.map((c, i) => `<i title="${esc(c.label)}" style="flex:${Math.max(c.v, .001)};background:${pal[i % pal.length]}"></i>`).join("")}</div>`;
 const PAL = ["var(--accent2)", "var(--accent)", "var(--violet)", "var(--warn)", "var(--c5)", "var(--c6)", "var(--c7)", "var(--c8)"];
 const pager = (id, total, size, off) => `<div class="pager"><button class="btn" data-pg="${id}" data-off="${Math.max(0, off - size)}" ${off <= 0 ? "disabled" : ""}>السابق</button><span class="note">${Q(total ? off + 1 : 0)}–${Q(Math.min(total, off + size))} من ${Q(total)}</span><button class="btn" data-pg="${id}" data-off="${off + size}" ${off + size >= total ? "disabled" : ""}>التالي</button></div>`;
