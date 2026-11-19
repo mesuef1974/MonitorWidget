@@ -34,9 +34,14 @@ class Contracts(unittest.TestCase):
     def test_isolated_signed_interpreter(self):
         body = _function("Install-Python")
         self.assertIn("Python Software Foundation", body)
-        self.assertIn("@('Lib', 'DLLs', '..\\app')", body)   # ._pth يعطّل site وPYTHON* ويحصر sys.path
         self.assertIn("'Lib\\site-packages'", body)
-        self.assertIn("المفسّر المحمي يبحث خارج المجلد المحمي", body)   # يُتحقق من sys.path فعليًا قبل التبديل
+        self.assertIn("Set-PythonPath $tmp", body)   # يُتحقق من sys.path فعليًا قبل التبديل
+        pth = _function("Set-PythonPath")
+        # ._pth يعطّل site وPYTHON* ويحصر sys.path؛ app أولًا لأن مجلد السكربت لا يُضاف فتحجب Lib وحدة sched.py
+        self.assertIn("@('..\\app', 'Lib', 'DLLs')", pth)
+        self.assertIn("المفسّر المحمي يبحث خارج المجلد المحمي", pth)
+        self.assertIn("أول sys.path في المفسّر المحمي ليس app", pth)
+        self.assertIn("Set-PythonPath $py", SCRIPT)   # كل تشغيل، ولو تُخطّي نسخ المفسّر
 
     def test_full_token_is_locked_before_it_holds_a_value(self):
         body = _function("Write-Secret")
