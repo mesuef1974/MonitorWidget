@@ -783,6 +783,28 @@ def advice_payload(m, extra, maint, trim):
 _run_lock = threading.Lock()
 
 
+def _reaper_lines(logp, pos):
+    """أسطر الكانس المضافة إلى السجل بعد الموضع pos."""
+    try:
+        with open(logp, "rb") as f:
+            f.seek(pos)
+            return [x for x in f.read().decode("utf-8", "replace").splitlines() if "Reaper" in x or "reaper" in x]
+    except OSError:
+        return []
+
+
+def _reaper_wait(logp, pos, timeout_s, step=1.0):
+    """ينتظر سطر «done: mode=» من المهمة المجدولة (لا رمز خروج لها هنا) حتى timeout_s، ويعيد الأسطر."""
+    end = time.time() + timeout_s
+    lines = []
+    while time.time() < end:
+        lines = _reaper_lines(logp, pos)
+        if any("done: mode=" in x for x in lines):
+            break
+        time.sleep(step)
+    return lines
+
+
 def reaper_run(dry, mcdir):
     """Runs MachineCare's own Invoke-OrphanReaper.ps1 once (-DryRun previews, -Apply acts) and returns its Reaper log lines."""
     if not _run_lock.acquire(blocking=False):
@@ -790,12 +812,9 @@ def reaper_run(dry, mcdir):
     try:
         import ctypes
         elevated = bool(ctypes.windll.shell32.IsUserAnAdmin())
-        # A hash check followed by execution of a user-writable script is still
-        # racy. Elevated execution requires a reviewed protected bundle; do not
-        # copy a script alone if its config/module dependencies were not audited.
-        script = os.path.join(secure.BIN if elevated else mcdir, "Invoke-OrphanReaper.ps1")
-        if elevated and not os.path.isfile(script):
-            return {"ok": False, "error": "تشغيل الكانس بصلاحية مسؤول يتطلب حزمة محمية ومراجعة؛ لن تُشغّل نسخة مجلد المستخدم بهذه الصلاحية"}
+        # نسخة مجلد المستخدم قابلة للكتابة، فلا تُشغَّل أبدًا بصلاحية مسؤول. الخادم المرتفع يطلق مهمة ثابتة بصلاحية
+        # محدودة (secure.REAPER_TASKS، يسجّلها المثبّت المحمي) فيعمل الكانس بصلاحية المستخدم نفسها التي يحتاجها.
+        script = os.path.join(mcdir, "Invoke-OrphanReaper.ps1")
         if not os.path.exists(script):
             return {"ok": False, "error": "script missing"}
         pin, pin_detail = secure.reaper_pin_state(script)
@@ -803,15 +822,18 @@ def reaper_run(dry, mcdir):
             return {"ok": False, "error": "script changed since it was pinned"}
         logp = os.path.join(mcdir, "logs", "machinecare.log")
         pos = os.path.getsize(logp) if os.path.exists(logp) else 0
-        r = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File", script, "-DryRun" if dry else "-Apply"],
-                           capture_output=True, timeout=90, creationflags=CNW)
-        lines = []
-        try:
-            with open(logp, "rb") as f:
-                f.seek(pos)
-                lines = [x for x in f.read().decode("utf-8", "replace").splitlines() if "Reaper" in x or "reaper" in x]
-        except OSError:
-            pass
+        if elevated:
+            task = secure.REAPER_TASKS["dry" if dry else "apply"]
+            r = subprocess.run(["schtasks", "/run", "/tn", task], capture_output=True, timeout=20, creationflags=CNW, check=False)
+            if r.returncode != 0:
+                return {"ok": False, "error": f"مهمة الكانس المحدودة الصلاحية ({task}) غير مسجّلة؛ أعد تشغيل المثبّت المحمي"}
+            lines = _reaper_wait(logp, pos, 90)
+            if not any("done: mode=" in x for x in lines):
+                return {"ok": False, "error": "لم ينتهِ الكانس خلال 90 ثانية", "lines": [x[-220:] for x in lines[-8:]]}
+        else:
+            r = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "RemoteSigned", "-File", script, "-DryRun" if dry else "-Apply"],
+                               capture_output=True, timeout=90, creationflags=CNW)
+            lines = _reaper_lines(logp, pos)
         cand = killed = 0
         for x in lines:
             m_ = re.search(r"candidates=(\d+)\s+killed=(\d+)", x)
