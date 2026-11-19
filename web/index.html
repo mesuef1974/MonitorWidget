@@ -482,7 +482,8 @@ function reliabBody(r) {
   const table = rows ? `<table class="tbl"><thead><tr><th>النوع</th><th class="n">7 أيام</th><th class="n">${Q(r.days)} يومًا</th><th class="n">آخر حدوث</th></tr></thead><tbody>${rows}</tbody></table>` : "";
   const recent = (r.recent || []).slice(0, 5).map(e => `<div class="li"><span class="t">${esc(r.labels?.[e.k] || e.k)}</span><span class="r">${when(e.ts)}</span><span class="d">${esc(e.d || "")}</span></div>`).join("");
   const apps = (r.topApps || []).length ? `<div class="note">أكثر التطبيقات انهيارًا: ${(r.topApps || []).map(a => `${esc(a.name)} (${Q(a.n)})`).join("، ")}</div>` : "";
-  return `<div class="pill-row">${head}</div>${table}${recent ? `<div class="list">${recent}</div>` : ""}${apps}`;
+  const cut = r.partial ? `<div class="note warn">${r.coveredFrom ? `السجل المقروء يبدأ ${when(r.coveredFrom)} لا قبل ${Q(r.days)} يومًا؛ ` : ""}${(r.failed || []).length ? `تعذّرت قراءة ${Q(r.failed.length)} من سجلات الأحداث؛ ` : ""}الأعداد قد تكون أقل من الحقيقة.</div>` : "";
+  return `<div class="pill-row">${head}</div>${cut}${table}${recent ? `<div class="list">${recent}</div>` : ""}${apps}`;
 }
 const when = ts => ts ? `<bdi dir="ltr" class="q">${new Date(ts * 1000).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
 const whenIso = iso => iso ? `<bdi dir="ltr" class="q">${new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
