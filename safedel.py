@@ -233,7 +233,8 @@ if os.name == "nt":
                     if bi.attrs & REPARSE or not bi.attrs & 0x10:
                         raise UnsafePath("parent folder is a reparse point")
                     raw = ctypes.create_unicode_buffer(name)
-                    us = _UnicodeString(len(name) * 2, len(name) * 2, ctypes.cast(raw, ctypes.c_void_p))
+                    nbytes = len(name.encode("utf-16-le"))   # بايتات UTF-16 لا عدد المحارف: حرف خارج BMP زوج بديل (4 بايتات)
+                    us = _UnicodeString(nbytes, nbytes, ctypes.cast(raw, ctypes.c_void_p))
                     oa = _ObjectAttributes(ctypes.sizeof(_ObjectAttributes), hp, ctypes.pointer(us), 0x40, None, None)
                     h, iosb = wintypes.HANDLE(), _IoStatus()
                     st = _nt.NtCreateFile(ctypes.byref(h), 0x1 | _SYNC, ctypes.byref(oa), ctypes.byref(iosb), None, 0x80, _SHARE_ALL,

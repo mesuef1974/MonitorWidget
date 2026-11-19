@@ -21,6 +21,7 @@ using Microsoft.Win32.SafeHandles;
 public static class MwSafeDel {
     const uint DELETE = 0x10000, READ_ATTR = 0x80, SYNC = 0x100000, SHARE_ALL = 7, OPEN_EXISTING = 3;
     const uint BACKUP = 0x02000000, OPEN_REPARSE = 0x00200000, ATTR_DIR = 0x10, ATTR_REPARSE = 0x400;
+    const uint WRITE_ATTR = 0x100, ATTR_READONLY = 0x1;
 
     [StructLayout(LayoutKind.Sequential)]
     struct ByHandle { public uint Attrs; public uint c1, c2, a1, a2, w1, w2, Vol, SizeHi, SizeLo, Links, IdxHi, IdxLo; }
@@ -36,8 +37,21 @@ public static class MwSafeDel {
     [DllImport("kernel32.dll", SetLastError = true)]
     static extern bool SetFileInformationByHandle(SafeFileHandle h, int cls, ref byte info, uint size);
 
+    [StructLayout(LayoutKind.Sequential)]
+    struct BasicInfo { public long Creation, LastAccess, LastWrite, Change; public uint Attrs; uint pad; }
+    [DllImport("kernel32.dll", SetLastError = true)]
+    static extern bool SetFileInformationByHandle(SafeFileHandle h, int cls, ref BasicInfo info, uint size);
+
+    // مسار ممتد: pwsh لا يعلن longPathAware، فـ CreateFileW يفشل (3) لما تجاوز 260 حرفًا بلا \\?\ (و\\?\UNC\ للشبكي).
+    static string Ext(string p) {
+        p = Path.GetFullPath(p);
+        if (p.StartsWith(@"\\?\") || p.StartsWith(@"\\.\")) return p;
+        if (p.StartsWith(@"\\")) return @"\\?\UNC\" + p.Substring(2);
+        return @"\\?\" + p;
+    }
+
     static SafeFileHandle Open(string path, uint access) {
-        var h = CreateFileW(path, access, SHARE_ALL, IntPtr.Zero, OPEN_EXISTING, BACKUP | OPEN_REPARSE, IntPtr.Zero);
+        var h = CreateFileW(Ext(path), access, SHARE_ALL, IntPtr.Zero, OPEN_EXISTING, BACKUP | OPEN_REPARSE, IntPtr.Zero);
         if (h.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
         return h;
     }
@@ -79,12 +93,22 @@ public static class MwSafeDel {
             if ((a & FileAttributes.ReparsePoint) != 0 || (a & FileAttributes.Directory) == 0) throw new IOException("path component is a reparse point");
             if (string.Equals(Norm(cur), root, StringComparison.OrdinalIgnoreCase)) break;
         }
-        using (var h = Open(path, DELETE | READ_ATTR | SYNC)) {
+        using (var h = Open(path, DELETE | READ_ATTR | WRITE_ATTR | SYNC)) {
             if (!Inside(Final(h), realRoot)) throw new IOException("opened object lies outside its root");
-            uint flags = 0x1 | 0x2;   // DELETE | POSIX_SEMANTICS
+            // DELETE | POSIX_SEMANTICS | IGNORE_READONLY_ATTRIBUTE: ملفات القراءة فقط في مجلدات النظام كانت تُحذف بـ Remove-Item -Force
+            uint flags = 0x1 | 0x2 | 0x10;
             if (!SetFileInformationByHandle(h, 21, ref flags, 4)) {
                 int code = Marshal.GetLastWin32Error();
                 if (code != 87 && code != 50) throw new Win32Exception(code);
+                // الصنف القديم لا يقبل IGNORE_READONLY: تُزال سمة القراءة فقط بالمقبض نفسه أولًا
+                ByHandle bi;
+                if (!GetFileInformationByHandle(h, out bi)) throw new Win32Exception(Marshal.GetLastWin32Error());
+                if ((bi.Attrs & ATTR_READONLY) != 0) {
+                    var basic = new BasicInfo();
+                    basic.Attrs = bi.Attrs & ~ATTR_READONLY;
+                    if (basic.Attrs == 0) basic.Attrs = 0x80;   // FILE_ATTRIBUTE_NORMAL
+                    if (!SetFileInformationByHandle(h, 0, ref basic, (uint)Marshal.SizeOf(typeof(BasicInfo)))) throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
                 byte del = 1;
                 if (!SetFileInformationByHandle(h, 4, ref del, 1)) throw new Win32Exception(Marshal.GetLastWin32Error());
             }

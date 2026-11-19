@@ -263,6 +263,10 @@ class PosixDeleteAndMakedirs(Sandbox):
         guard.makedirs(self.root / "a" / "b")
         self.assertTrue((self.root / "a" / "b").is_dir())
         guard.makedirs(self.root / "a" / "b")   # موجود: مقبول
+        astral = "ملف_\U0001F600_\U00020000"   # محارف خارج BMP: طول UNICODE_STRING بالبايتات لا بعدد المحارف
+        guard.makedirs(self.root / astral / "c")
+        self.assertIn(astral, os.listdir(self.root))
+        self.assertTrue((self.root / astral / "c").is_dir())
         junction(self.root / "j", self.outside)
         with self.assertRaises(OSError):
             guard.makedirs(self.root / "j" / "planted")
@@ -315,6 +319,26 @@ class ElevatedCleanByHandle(Sandbox):
         out = self.run_ps("$r = [MwSafeDel]::Clean('%s', [DateTime]::UtcNow.AddDays(-3), $null)\n'{0}' -f $r[0]" % self.root)
         self.assertEqual(out, "0")
         self.assertTrue((self.root / "new.txt").exists())
+
+    def test_long_path_and_readonly_files_are_deleted(self):
+        """مسار يتجاوز 260 حرفًا يُفتح بـ \\\\?\\ (pwsh لا يعلن longPathAware)، وملف القراءة فقط يُحذف كما كان Remove-Item -Force يفعل."""
+        deep = "\\\\?\\" + str(self.root)
+        for i in range(12):
+            deep += "\\" + ("d%02d_" % i) + "x" * 20
+        os.makedirs(deep)
+        longf = deep + "\\long.txt"
+        with open(longf, "wb") as fh:
+            fh.write(b"L")
+        self.assertGreater(len(longf) - 4, 260)
+        ro = self.root / "ro.txt"
+        ro.write_bytes(b"r")
+        os.chmod(ro, 0o444)
+        self.addCleanup(lambda: ro.exists() and os.chmod(ro, 0o666))
+        out = self.run_ps("$r = [MwSafeDel]::Clean('%s', [DateTime]::UtcNow.AddDays(1), $null)\n'{0} {1}' -f $r[0], $r[2]" % self.root)
+        self.assertEqual(out, "2 0")
+        self.assertFalse(os.path.lexists(longf))
+        self.assertFalse(ro.exists())
+        self.assertEqual(os.listdir(self.root), [])   # المجلدات الفارغة الطويلة حُذفت أيضًا
 
     def test_script_uses_the_handle_class_not_remove_item(self):
         src = (ROOT / "elevated_clean.ps1").read_text(encoding="utf-8-sig")
