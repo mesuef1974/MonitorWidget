@@ -5,7 +5,7 @@
 هذه الوحدة قراءة فقط وبلا صلاحيات مسؤول، ولا تستورد شيئًا من التطبيق حتى تُختبر معزولة.
 
     status()                  -> الحالة الكلية من GetPerformanceInfo (الرقم نفسه الذي يعطيه GlobalMemoryStatusEx في snapshot)
-    scan(with_cmd=False)      -> (صفوف لكل عملية يمكن فتحها بـ PROCESS_QUERY_LIMITED_INFORMATION، عدد المتعذّر فتحها)؛
+    scan(with_cmd=False)      -> (صفوف لكل عملية (مع وقت إنشائها created) يمكن فتحها بـ PROCESS_QUERY_LIMITED_INFORMATION، عدد المتعذّر فتحها)؛
                                  كل صف فيه ppid، ومع with_cmd سطر الأمر cmd (لتصنيف العمليات حسب المشروع في commitmap)
     rank(rows, n)             -> أعلى n عملية التزامًا (نقية؛ تُختبر بصفوف وهمية)
     payload(n, rows, st, now) -> حمولة GET /api/commit؛ rows وst للحقن في الاختبارات
@@ -104,6 +104,9 @@ def scan(with_cmd=False):
                 m.cb = ctypes.sizeof(m)
                 if ps.GetProcessMemoryInfo(h, ctypes.byref(m), m.cb):
                     row = {"pid": int(pe.pid), "ppid": int(pe.ppid), "name": pe.exe, "commitMB": m.PrivateUsage / MB, "wsMB": m.WorkingSetSize / MB}
+                    created = _created(k, h)
+                    if created:
+                        row["created"] = created   # يُرسل مع طلب الإغلاق فيرفض الخادم معرّفًا أُعيد استعماله
                     if with_cmd:
                         row["cmd"] = _cmdline(h)
                     rows.append(row)
@@ -115,6 +118,15 @@ def scan(with_cmd=False):
         ok = k.Process32NextW(snap, ctypes.byref(pe))
     k.CloseHandle(snap)
     return rows, skipped
+
+
+def _created(k, h):
+    """وقت إنشاء العملية نصًّا عشريًّا (FILETIME بوحدات 100 نانوثانية)، أو None. نصّ لأن الرقم يتجاوز دقة أعداد JavaScript."""
+    k.GetProcessTimes.argtypes = [ctypes.c_void_p] + [ctypes.POINTER(ctypes.c_ulonglong)] * 4
+    c, e, kt, ut = (ctypes.c_ulonglong() for _ in range(4))
+    if not k.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(e), ctypes.byref(kt), ctypes.byref(ut)) or not c.value:
+        return None
+    return str(c.value)
 
 
 def _scan_cached():
@@ -129,8 +141,14 @@ def rank(rows, n=10):
     """أعلى n عملية التزامًا، تنازليًا ثم بالاسم والمعرّف للثبات؛ الأحجام بالميغابايت مقرّبة لأعداد صحيحة."""
     n = max(1, min(50, int(n)))
     top = sorted(rows, key=lambda r: (-float(r.get("commitMB") or 0), str(r.get("name") or "").lower(), int(r.get("pid") or 0)))[:n]
-    return [{"pid": int(r.get("pid") or 0), "name": str(r.get("name") or ""), "commitMB": int(round(float(r.get("commitMB") or 0))),
-             "wsMB": int(round(float(r.get("wsMB") or 0)))} for r in top]
+    out = []
+    for r in top:
+        o = {"pid": int(r.get("pid") or 0), "name": str(r.get("name") or ""), "commitMB": int(round(float(r.get("commitMB") or 0))),
+             "wsMB": int(round(float(r.get("wsMB") or 0)))}
+        if r.get("created"):
+            o["created"] = str(r["created"])   # وقت الإنشاء يرافق الصف إلى زر «إغلاق»
+        out.append(o)
+    return out
 
 
 def payload(n=10, rows=None, st=None, now=None):

@@ -58,7 +58,8 @@ def j_trim():
     # on a machine that normally runs at 70-75%, and each trim re-read GBs from disk)
     if not (av is not None and av < 3.0 and rp is not None and rp >= 90):
         return "skipped: RAM %s%% (%.2f GB free): no pressure" % (rp, av if av is not None else -1)
-    memtrim.trim_memory()
+    if memtrim.trim_memory() is False:
+        return "skipped: trim already running"
     t = memtrim.TRIM
     if t.get("err"):
         raise RuntimeError(t["err"])

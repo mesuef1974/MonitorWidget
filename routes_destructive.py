@@ -259,23 +259,24 @@ def _run_cleanup(route, body, invalidate):
 
 def _proc_close(route, body, invalidate):
     """إغلاق عملية واحدة بطلب صريح (زر «إغلاق» في جدول الالتزام): فحص السياسة قبل طلب التأكيد (حتى لا يُطلب تأكيد لما سيُرفض)،
-    ثم 428 بالرمز المربوط بالمعرّف والاسم وforce، ثم الإغلاق والتسجيل في actions."""
-    pid, name, force = body.get("pid"), body.get("name"), body.get("force", False)
-    if isinstance(pid, bool) or not isinstance(pid, int) or not isinstance(name, str) or not isinstance(force, bool):
+    ثم 428 بالرمز المربوط بالمعرّف والاسم ووقت الإنشاء وforce، ثم الإغلاق والتسجيل في actions. وقت الإنشاء (created) هو ما رآه
+    المالك في الجدول: إن تبدّل فالمعرّف أُعيد استعماله لعملية أخرى فيُرفض."""
+    pid, name, force, created = body.get("pid"), body.get("name"), body.get("force", False), body.get("created")
+    if isinstance(pid, bool) or not isinstance(pid, int) or not isinstance(name, str) or not isinstance(force, bool) or not isinstance(created, str):
         return 400, {"error": "bad params"}
-    ok, reason = procclose.check(pid, name)
+    ok, reason = procclose.check(pid, name, created)
     if not ok:
         return (400 if reason == "bad params" else 409), {"error": reason, "pid": pid, "name": name}
     r = confirm_required(route, body)
     if r:
         return r
-    res = procclose.close(pid, name, force=force)
+    res = procclose.close(pid, name, created, force=force)
     try:
         with db._lock:
             c = db.conn()
             c.execute("INSERT INTO actions(ts,kind,src,ok,detail) VALUES(?,?,?,?,?)",
                       (int(time.time()), "procclose", "page", 1 if res.get("ok") and res.get("exited") else 0,
-                       ("pid=%s name=%s force=%s method=%s exited=%s commitMB=%s err=%s" % (pid, name, force, res.get("method"), res.get("exited"), res.get("commitMB"), res.get("error")))[:200]))
+                       ("pid=%s name=%s created=%s force=%s method=%s exited=%s commitMB=%s err=%s" % (pid, name, created, force, res.get("method"), res.get("exited"), res.get("commitMB"), res.get("error")))[:200]))
             c.commit()
     except Exception:
         errlog.swallowed()

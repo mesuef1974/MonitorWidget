@@ -33,7 +33,9 @@ MEASURE_S = 1.0
 STATE_KEY = "cpu_lowered"
 # لا تُخفض: نواة النظام وجلسته وسطح المكتب والصوت والحماية، والمرصد نفسه (pythonw.exe خادمه ووكيله، pwsh.exe ويدجته)
 PROTECTED = frozenset({"system", "registry", "idle", "csrss.exe", "wininit.exe", "winlogon.exe", "services.exe", "lsass.exe", "smss.exe",
-                       "dwm.exe", "explorer.exe", "audiodg.exe", "msmpeng.exe", "svchost.exe", "pythonw.exe", "pwsh.exe"})
+                       "dwm.exe", "explorer.exe", "audiodg.exe", "msmpeng.exe", "svchost.exe", "pythonw.exe", "pwsh.exe",
+                       # مضيف COM (مصغّرات المستكشف وخدمات COM) وآلة WSL الافتراضية: خفضها يبطئ النظام كله لا برنامجًا واحدًا
+                       "dllhost.exe", "vmmem", "vmmemwsl"})
 
 
 def busy_pids(name, snap0, snap1, dt, min_cores=MIN_CORES):
