@@ -868,10 +868,20 @@ $poll = {
 if (-not $script:smoke) { $script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:pyw); [void]$script:ps.BeginInvoke() }
 $appearancePoll = {
     param($sync, $Root)
+    # انتظار طويل: ?key= بصمة آخر حالة، فيعود الخادم فور تغيّر المظهر أو بعد 25 ث؛ اتصال واحد لكل تغيير بدل اتصال كل 650 ms.
     $token = Get-Content -LiteralPath (Join-Path $Root '.token') | Select-Object -First 1
+    $key = ''
     while ($true) {
-        try { $sync.appearance = Invoke-RestMethod 'http://127.0.0.1:47832/api/appearance' -Headers @{ 'X-Token'=$token } -TimeoutSec 1 -NoProxy } catch {}
-        Start-Sleep -Milliseconds 650
+        try {
+            $uri = 'http://127.0.0.1:47832/api/appearance' + $(if ($key) { '?key=' + [uri]::EscapeDataString($key) } else { '' })
+            $sw = [Diagnostics.Stopwatch]::StartNew()
+            $a = Invoke-RestMethod $uri -Headers @{ 'X-Token'=$token } -TimeoutSec 35 -NoProxy
+            $sync.appearance = $a
+            $prev = $key
+            $key = '{0}|{1}|{2}|{3}' -f $a.revision, $a.mode, $a.palette, [int][bool]$a.recoveryRequired
+            # خادم أقدم لا يعرف key يجيب فورًا بالحالة نفسها: لا حلقة مشدودة، بل الإيقاع القديم
+            if ($prev -and $key -eq $prev -and $sw.ElapsedMilliseconds -lt 1000) { Start-Sleep -Milliseconds 650 }
+        } catch { $key = ''; Start-Sleep -Milliseconds 650 }
     }
 }
 if (-not $script:smoke) { $script:appearancePs = [powershell]::Create(); [void]$script:appearancePs.AddScript($appearancePoll).AddArgument($script:sync).AddArgument($Root); [void]$script:appearancePs.BeginInvoke() }
