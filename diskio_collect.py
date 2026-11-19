@@ -164,8 +164,8 @@ class Engine:
         gap = (mono - self.last_mono) if self.last_mono is not None else 0.0
         self.last_mono = mono
         freeze = gap > float(self.cfg.get("freeze_gap_s", 4))
-        if self.acc_t0 is None:
-            self.acc_t0 = wall
+        if self.acc_t0 is None or wall < self.acc_t0:
+            self.acc_t0 = wall          # wall clock went back: restart the window instead of waiting for the old time
         total = zero(); seen = False; fz = zero()
         for dev, cur in readings.items():
             p = self.prev.get(dev)
@@ -302,32 +302,52 @@ class Collector(threading.Thread):
                     log.warning("diskio: no drive handles; collector disabled")
                 return
             cfg = self._cfg()
-            eng = Engine(cfg, snap_fn=proc_io_snapshot, window=int(cfg["sample_s"]))
-            last_cfg = last_proc = last_roll = time.time(); prev_snap = proc_io_snapshot()
+            self.eng = Engine(cfg, snap_fn=proc_io_snapshot, window=int(cfg["sample_s"]))
+            self.last_cfg = self.last_proc = time.monotonic(); self.prev_snap = proc_io_snapshot()
             if log:
                 log.info("diskio collector started on %s", ",".join(sorted(src.handles)))
-            while not self.stop_ev.is_set():
-                t0 = time.monotonic()
-                wall = time.time()
-                eng.tick(wall, mono_now(), src.read())
-                now = time.time()
-                if eng.rows or eng.stalls:
-                    self._write(eng)
-                if now - last_proc >= 60:                       # per-process minute
-                    snap = proc_io_snapshot()
-                    rows = [(r["name"], r["r_mb"], r["w_mb"], r["r_ops"], r["w_ops"], r["procs"]) for r in top_procs(prev_snap, snap, 30)]
-                    prev_snap = snap; last_proc = now
-                    with self.db._lock:
-                        c = self.db.conn()
-                        if rows:
-                            self.io.add_procs(c, now - 30, rows)
-                        self.io.rollup_min(c, now - 180)
-                if now - last_cfg >= 300:
-                    eng.cfg = self._cfg(); last_cfg = now
-                self.stop_ev.wait(max(0.05, 1.0 - (time.monotonic() - t0)))
         except Exception:
             if log:
-                log.exception("diskio collector crashed")
+                log.exception("diskio collector failed to start")
+            return
+        self.loop(src, log)
+
+    def loop(self, src, log=None):
+        """One reading per second until stopped. A failing second (SQLite busy, a counter read) is logged
+        and retried with backoff; it never ends the thread (19/11/2026: one exception killed it for good)."""
+        fails = 0
+        while not self.stop_ev.is_set():
+            t0 = time.monotonic()
+            try:
+                self.step(src)
+                fails = 0
+            except Exception:
+                fails += 1
+                if log and (fails == 1 or fails % 60 == 0):
+                    log.exception("diskio collector step failed (%d in a row)", fails)
+                self.stop_ev.wait(min(60.0, 2.0 ** min(fails, 6)))
+                continue
+            self.stop_ev.wait(max(0.05, 1.0 - (time.monotonic() - t0)))
+
+    def step(self, src):
+        """Intervals use the monotonic clock; the wall clock only stamps rows (it can jump either way)."""
+        eng = self.eng
+        eng.tick(time.time(), mono_now(), src.read())
+        if eng.rows or eng.stalls:
+            self._write(eng)
+        mono = time.monotonic()
+        if mono - self.last_proc >= 60:                       # per-process minute
+            snap = proc_io_snapshot()
+            rows = [(r["name"], r["r_mb"], r["w_mb"], r["r_ops"], r["w_ops"], r["procs"]) for r in top_procs(self.prev_snap, snap, 30)]
+            self.prev_snap = snap; self.last_proc = mono
+            now = time.time()
+            with self.db._lock:
+                c = self.db.conn()
+                if rows:
+                    self.io.add_procs(c, now - 30, rows)
+                self.io.rollup_min(c, now - 180)
+        if mono - self.last_cfg >= 300:
+            eng.cfg = self._cfg(); self.last_cfg = mono
 
     def _write(self, eng):
         rows, stalls = eng.rows, eng.stalls
@@ -446,6 +466,29 @@ def _selftest():
     assert delta((0,) * 9 + (5,), (0,) * 9 + (5,)) is None
     d = delta((0, 0, 0, 0, 0, MASK32, 0, 0, 0, 0), (0, 0, 0, 0, 0, 3, 0, 0, 0, int(T100NS)))
     assert d["ro"] == 4, d      # 32-bit counter wrap
+    e4 = Engine(cfg, window=10)                       # wall clock back 47 days (14/11/2026): rows keep flowing
+    e4.tick(5_000_000.0, 1.0, rd(0, 0))
+    for i in range(1, 25):
+        e4.tick(1_000_000.0 + i, 1.0 + i, rd(i, 0.01 * i))
+    assert e4.rows and e4.acc_t0 < 5_000_000.0, (e4.rows, e4.acc_t0)
+    class _Src:
+        n = 0
+        def read(self):
+            _Src.n += 1
+            if _Src.n == 2:
+                raise OSError("database is locked")
+            return {}
+    col = Collector.__new__(Collector)
+    col.stop_ev = threading.Event(); col.eng = Engine(cfg, window=10)
+    col.last_proc = col.last_cfg = time.monotonic(); col.prev_snap = {}
+    calls = []
+    def _wait(t):
+        calls.append(t)
+        if len(calls) >= 4:
+            col.stop_ev.set()
+    col.stop_ev.wait = _wait
+    col.loop(_Src())
+    assert _Src.n >= 4 and calls[1] == 2.0, (_Src.n, calls)   # the locked second backs off, the thread lives on
     print("selftest OK")
 
 

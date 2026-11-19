@@ -148,6 +148,40 @@ class DbOps(unittest.TestCase):
         self.assertIn(time.strftime("monitor-%Y%m%d.db"), names)
         self.assertEqual(len(names), 2)
 
+    def test_clock_jump_does_not_erase_history(self):
+        import clockguard
+        day = 86400
+        t0, up0 = 1_800_000_000, 1000.0
+        self.assertEqual(clockguard.safe_now(self.c, "k", now=t0, up=up0), t0)
+        # Same boot, one real hour later, but the wall clock jumped 47 days ahead.
+        got = clockguard.safe_now(self.c, "k", now=t0 + 47 * day, up=up0 + 3600)
+        self.assertLessEqual(got, t0 + 3600 + clockguard.SAME_BOOT_SLACK_S + 36)
+        # Clock corrected: the anchor was not dragged to the jumped time.
+        self.assertEqual(clockguard.safe_now(self.c, "k", now=t0 + 7200, up=up0 + 7200), t0 + 7200)
+        # Backward jump deletes less, and the anchor keeps real progress.
+        self.assertEqual(clockguard.safe_now(self.c, "k", now=t0, up=up0 + 10800), t0)
+        self.assertEqual(clockguard.safe_now(self.c, "k", now=t0 + 14400, up=up0 + 14400), t0 + 14400)
+        # Reboot (uptime reset): catch up at most REBOOT_CATCHUP_S per pass.
+        got = clockguard.safe_now(self.c, "k", now=t0 + 10 * day, up=50.0)
+        self.assertGreaterEqual(got, t0 + 14400 + clockguard.REBOOT_CATCHUP_S)
+        self.assertLess(got, t0 + 14400 + clockguard.REBOOT_CATCHUP_S + 3600)
+        # An anchor written during a jump (far ahead of the clock) is dropped, not trusted forever.
+        self.c.execute("UPDATE meta SET value=? WHERE key='k'", (f"{t0 + 60 * day}|100.0",))
+        self.assertEqual(clockguard.safe_now(self.c, "k", now=t0 + day, up=200.0), t0 + day)
+        self.assertEqual(clockguard.safe_now(self.c, "k", now=t0 + day + 60, up=260.0), t0 + day + 60)
+
+    def test_db_prune_ignores_forward_clock_jump(self):
+        import clockguard
+        real = int(time.time())
+        self.c.execute("CREATE TABLE IF NOT EXISTS cpu_top(ts INTEGER NOT NULL, name TEXT NOT NULL, cores REAL, n INTEGER)")
+        self.c.execute("INSERT INTO cpu_top(ts,name) VALUES(?, 'x')", (real - 86400,))   # retention 3 days
+        self.c.commit()
+        db.prune()                      # anchors the guard at the real time
+        self.assertEqual(self.c.execute("SELECT COUNT(*) FROM cpu_top").fetchone()[0], 1)
+        with mock.patch.object(clockguard.time, "time", return_value=real + 47 * 86400):
+            db.prune()
+        self.assertEqual(self.c.execute("SELECT COUNT(*) FROM cpu_top").fetchone()[0], 1)
+
     def test_external_copy_verified_and_failed_copy_keeps_previous(self):
         target = self.folder / "external"
         target.mkdir()
