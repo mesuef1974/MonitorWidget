@@ -126,7 +126,7 @@ function Set-TaskExecXml([string]$Xml, [string]$Command, [string]$Arguments, [st
     $execs = @($doc.SelectNodes('/t:Task/t:Actions/t:Exec', $m))
     if ($execs.Count -ne 1) { throw 'تعريف المهمة بلا أمر واحد واضح؛ لم يُعدَّل.' }
     foreach ($pair in @(@('Command', $Command), @('Arguments', $Arguments), @('WorkingDirectory', $WorkDir))) {
-        if ($null -eq $pair[1]) { continue }
+        if ([string]::IsNullOrEmpty($pair[1])) { continue }   # $null الممرَّر إلى [string] يصل ''؛ الفارغ = لا تبديل
         $node = $execs[0].SelectSingleNode('t:' + $pair[0], $m)
         if (-not $node) { $node = $execs[0].AppendChild($doc.CreateElement($pair[0], $ns)) }
         $node.InnerText = $pair[1]
@@ -164,6 +164,27 @@ function Restore-TaskXml([string]$Dir) {
     }
 }
 
+function Set-PythonPath([string]$Dir) {
+    # ._pth يجعل sys.path هذه الأسطر وحدها ويعطّل site وPYTHON* (عزل تام عن مجلدات المستخدم). app أولًا: مع ._pth لا يُضاف
+    # مجلد السكربت إلى sys.path، فلو سبقته Lib لحُمّلت sched القياسية بدل sched.py في المشروع (فشل النشر الثالث 19/11:
+    # /api/mini يعيد 500 بـ module 'sched' has no attribute 'next_run'). يُكتب في كل تشغيل لأن نسخ المفسّر يُتخطّى إن طابق.
+    $dll = Get-ChildItem -LiteralPath $Dir -Filter 'python3*.dll' | Where-Object Name -ne 'python3.dll' | Select-Object -First 1
+    if (-not $dll) { throw "لا مكتبة python3XX.dll في $Dir." }
+    $pth = Join-Path $Dir ($dll.BaseName + '._pth')
+    $want = [string[]]@('..\app', 'Lib', 'DLLs')
+    $have = if (Test-Path -LiteralPath $pth) { [string[]]@([IO.File]::ReadAllLines($pth)) } else { @() }
+    if (($have -join '|') -ne ($want -join '|')) {
+        [IO.File]::WriteAllLines($pth, $want, (New-Object Text.UTF8Encoding($false)))
+        Say ('ترتيب sys.path في المفسّر المحمي: ' + ($want -join '، '))
+    }
+    $paths = @(& (Join-Path $Dir 'python.exe') -c 'import sys,json,sqlite3,ctypes;print(json.dumps(sys.path))' | ConvertFrom-Json)
+    $bad = @($paths | Where-Object { $_ -and -not ([IO.Path]::GetFullPath($_)).StartsWith($secure, [StringComparison]::OrdinalIgnoreCase) })
+    if ($bad.Count) { throw ('المفسّر المحمي يبحث خارج المجلد المحمي: ' + ($bad -join '; ')) }
+    if (-not $paths.Count -or ([IO.Path]::GetFullPath($paths[0])).TrimEnd('\') -ne ([IO.Path]::GetFullPath((Join-Path $Dir '..\app'))).TrimEnd('\')) {
+        throw ('أول sys.path في المفسّر المحمي ليس app: ' + ($paths -join '; '))
+    }
+}
+
 function Install-Python {
     $srcHome = $PythonHome
     if (-not $srcHome) {
@@ -191,11 +212,7 @@ function Install-Python {
     if ($LASTEXITCODE -ge 8) { throw "فشل نسخ المفسّر (robocopy $LASTEXITCODE)." }
     $dll = Get-ChildItem -LiteralPath $tmp -Filter 'python3*.dll' | Where-Object Name -ne 'python3.dll' | Select-Object -First 1
     if (-not $dll) { throw 'لا مكتبة python3XX.dll في النسخة.' }
-    # ._pth يجعل sys.path هذه الأسطر وحدها ويعطّل site وPYTHON* (عزل تام عن مجلدات المستخدم)
-    [IO.File]::WriteAllLines((Join-Path $tmp ($dll.BaseName + '._pth')), [string[]]@('Lib', 'DLLs', '..\app'), (New-Object Text.UTF8Encoding($false)))
-    $paths = & (Join-Path $tmp 'python.exe') -c 'import sys,json,sqlite3,ctypes;print(json.dumps(sys.path))' | ConvertFrom-Json
-    $bad = @($paths | Where-Object { $_ -and -not ([IO.Path]::GetFullPath($_)).StartsWith($secure, [StringComparison]::OrdinalIgnoreCase) })
-    if ($bad.Count) { throw ('المفسّر المحمي يبحث خارج المجلد المحمي: ' + ($bad -join '; ')) }
+    Set-PythonPath $tmp
     if (Test-Path -LiteralPath $py) { Remove-Item -LiteralPath $py -Recurse -Force }
     Move-Item -LiteralPath $tmp -Destination $py
     Reset-Tree $py
@@ -416,6 +433,7 @@ try {
         $commit = [string](Invoke-RepoGit @('rev-parse', 'HEAD'))
         if (-not (Test-RepoGit @('merge-base', '--is-ancestor', $commit, 'origin/main'))) { throw 'HEAD ليس ضمن origin/main: لا يُنشر إلا ما دُمج.' }
         Install-Python
+        Set-PythonPath $py
         Save-TaskXml $runBackup
         if (-not (Test-Path -LiteralPath (Join-Path $state 'tasks-original'))) { Copy-Item -LiteralPath $runBackup -Destination (Join-Path $state 'tasks-original') -Recurse }
         Stop-Backend; $stopped = $true

@@ -115,6 +115,12 @@ for base, dirs, files in os.walk(ROOT):
                         shadow.append(f"{os.path.relpath(p, ROOT)}:{n} {m.group(1)}")
 check("ps1: no function named after a native command (shadows it)", not shadow, ", ".join(shadow[:10]))
 
+# 8ج) المفسّر المحمي (._pth) لا يضيف مجلد السكربت إلى sys.path: app يجب أن يسبق Lib وإلا حجبت المكتبة القياسية
+#     وحدات المشروع ذات الأسماء المشتركة (sched.py).
+with open(os.path.join(ROOT, "deploy_protected.ps1"), encoding="utf-8-sig") as fh:
+    dp = fh.read()
+check("deploy_protected.ps1: ._pth puts app before the stdlib", "@('..\\app', 'Lib', 'DLLs')" in dp)
+
 # 9) المهام المرتفعة تُسجَّل من النسخة المحمية في ProgramData لا من مجلد المستخدم القابل للكتابة
 def _text(name):
     with open(os.path.join(ROOT, name), encoding="utf-8-sig") as fh:
