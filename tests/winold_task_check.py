@@ -40,6 +40,14 @@ class WinOldTask(unittest.TestCase):
         self.assertIn("'mwsafedel.cs' = '", inst)
         self.assertIn("Join-Path $bin 'mwsafedel.cs'", inst)
 
+    def test_installer_sources_from_the_live_checkout_not_a_temporary_worktree(self):
+        """المثبّت يُولَّد بـ ROOT مضمَّنًا؛ توليده في worktree مؤقّت جعل $src مسارًا يُحذف بعد الدمج (#167)."""
+        import re
+        inst = (ROOT / "install_secure_2026-10-24.ps1").read_text(encoding="utf-8-sig")
+        src = re.search(r"^\$src\s*=\s*'([^']*)'", inst, re.M).group(1)
+        for bad in ("\\Temp\\", "scratchpad", "worktree", ".claude"):
+            self.assertNotIn(bad.lower(), src.lower())
+
     def test_missing_protected_install_refuses_without_running_anything(self):
         ns = extracted()
         calls = []
