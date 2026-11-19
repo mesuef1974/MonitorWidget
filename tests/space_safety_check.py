@@ -281,17 +281,13 @@ PWSH = r"C:\Program Files\PowerShell\7\pwsh.exe"
 @unittest.skipUnless(WIN and os.path.isfile(PWSH), "pwsh 7 required")
 class ElevatedCleanByHandle(Sandbox):
     """elevated_clean.ps1 (wintemp/swdist): MwSafeDel بالمقبض؛ junction يُزرع بعد السرد لا يوجّه الحذف المرتفع خارج الجذر.
-    يُشغَّل الكود C# المستخرج من السكربت نفسه في pwsh بلا نافذة وبلا صلاحية مسؤول، على مجلدات الاختبار فقط."""
+    يُشغَّل mwsafedel.cs نفسه (الذي يحمّله السكربتان المرتفعان) في pwsh بلا نافذة وبلا صلاحية مسؤول، على مجلدات الاختبار فقط."""
 
     def run_ps(self, body):
-        import re
         import subprocess
-        src = (ROOT / "elevated_clean.ps1").read_text(encoding="utf-8-sig")
-        cs = re.search(r"\$SafeDelCs = @'\r?\n(.*?)\r?\n'@", src, re.S).group(1)
-        (self.base / "safedel.cs").write_text(cs, encoding="utf-8")
         script = self.base / "harness.ps1"
-        script.write_text("$ErrorActionPreference = 'Stop'\nAdd-Type -TypeDefinition (Get-Content -Raw -LiteralPath '%s') -Language CSharp\n%s\n"
-                          % (self.base / "safedel.cs", body), encoding="utf-8-sig")
+        script.write_text("$ErrorActionPreference = 'Stop'\nAdd-Type -Path '%s'\n%s\n"
+                          % (ROOT / "mwsafedel.cs", body), encoding="utf-8-sig")
         r = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-File", str(script)], capture_output=True, text=True, timeout=120,
                            creationflags=0x08000000)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -343,7 +339,46 @@ class ElevatedCleanByHandle(Sandbox):
     def test_script_uses_the_handle_class_not_remove_item(self):
         src = (ROOT / "elevated_clean.ps1").read_text(encoding="utf-8-sig")
         self.assertIn("[MwSafeDel]::Clean(", src)
+        self.assertIn("Add-Type -Path (Join-Path $PSScriptRoot 'mwsafedel.cs')", src)
         self.assertNotRegex(src, r"Remove-Item\s+-LiteralPath")
+
+    def test_purge_removes_everything_but_never_crosses_a_link(self):
+        """Windows.old: كل شيء يُحذف مع الجذر، والوصلة تُحذف كوصلة فيبقى هدفها خارج الجذر سليمًا بمالكه وACL."""
+        (self.root / "a" / "b").mkdir(parents=True)
+        (self.root / "a" / "b" / "deep.txt").write_bytes(b"d")
+        ro = self.root / "a" / "ro.txt"
+        ro.write_bytes(b"r")
+        os.chmod(ro, 0o444)
+        self.addCleanup(lambda: ro.exists() and os.chmod(ro, 0o666))
+        junction(self.root / "Documents and Settings", self.outside)
+        junction(self.root / "a" / "Application Data", self.outside)
+        out = self.run_ps("$r = [MwSafeDel]::Purge('%s', $null)\n'{0} {1} {2}' -f $r[0], $r[1], $r[2]" % self.root)
+        self.assertEqual(out, "4 2 0")   # ملفّان ووصلتان
+        self.assertFalse(self.root.exists())
+        self.assertEqual(self.victim.read_bytes(), b"keep")
+
+    def test_purge_refuses_a_root_that_is_a_link_and_a_link_planted_after_listing(self):
+        junction(self.base / "rootlink", self.root)
+        out = self.run_ps("try { [MwSafeDel]::Purge('%s', $null) | Out-Null; 'BAD' } catch { 'refused' }" % (self.base / "rootlink"))
+        self.assertEqual(out, "refused")
+        sub = self.root / "sub"
+        sub.mkdir()
+        (sub / "victim.txt").write_bytes(b"x")
+        out = self.run_ps(
+            "$plant = [Action]{ Remove-Item -LiteralPath '%s' -Recurse -Force; New-Item -ItemType Junction -Path '%s' -Target '%s' | Out-Null }\n"
+            "$r = [MwSafeDel]::Purge('%s', $plant)\n'{0} {1}' -f $r[0], $r[2]" % (sub, sub, self.outside, self.root))
+        self.assertEqual(out, "0 1")   # sub\victim.txt صار عبر الوصلة فرُفض
+        self.assertEqual(self.victim.read_bytes(), b"keep")
+        self.assertTrue(self.outside.is_dir())
+        self.assertFalse(self.root.exists())   # الوصلة المزروعة حُذفت كوصلة (مرحلة المجلدات) فخلا الجذر وحُذف
+
+    def test_enable_backup_restore_fails_loudly_without_the_privileges(self):
+        """بلا مسؤول: الامتيازان غير موجودين في الرمز، فيُرفع خطأ صريح (1300) ولا يتابع الحذف صامتًا."""
+        import ctypes
+        if ctypes.windll.shell32.IsUserAnAdmin():
+            self.skipTest("elevated runner")
+        out = self.run_ps("try { [MwSafeDel]::EnableBackupRestore(); 'enabled' } catch { 'refused' }")
+        self.assertEqual(out, "refused")
 
 
 class DismBackoff(unittest.TestCase):

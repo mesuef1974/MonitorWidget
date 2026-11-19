@@ -28,6 +28,18 @@ class WinOldTask(unittest.TestCase):
         for word in ('"takeown"', '"icacls"', '"rmdir"'):
             self.assertNotIn(word, src)
 
+    def test_elevated_script_never_follows_links(self):
+        """takeown /R وicacls /T يتبعان الوصلات إلى C:\\Users وC:\\ProgramData الحيّين؛ الحذف بالمقبض بـ SeBackup/SeRestore بدلهما."""
+        ps = (ROOT / "winold_delete.ps1").read_text(encoding="utf-8-sig")
+        code = "\n".join(line for line in ps.splitlines() if not line.lstrip().startswith("#"))
+        for word in ("takeown", "icacls", "rmdir", "Remove-Item"):
+            self.assertNotIn(word, code)
+        self.assertIn("[MwSafeDel]::EnableBackupRestore()", code)
+        self.assertIn("[MwSafeDel]::Purge($Target, $null)", code)
+        inst = (ROOT / "install_secure_2026-10-24.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("'mwsafedel.cs' = '", inst)
+        self.assertIn("Join-Path $bin 'mwsafedel.cs'", inst)
+
     def test_missing_protected_install_refuses_without_running_anything(self):
         ns = extracted()
         calls = []

@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $Target = 'C:\Windows.old'
 $MinDays = 14
 $t0 = Get-Date
-$o = [ordered]@{ ts = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); early = [bool]$Early; state = 'error'; ok = $false; left = $false; mb = 0; freeBeforeGB = 0; freeAfterGB = 0; error = $null }
+$o = [ordered]@{ ts = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); early = [bool]$Early; state = 'error'; ok = $false; left = $false; mb = 0; files = 0; skipped = 0; freeBeforeGB = 0; freeAfterGB = 0; error = $null }
 function Save { $o | ConvertTo-Json -Compress | Set-Content -LiteralPath $Result -Encoding UTF8 }
 try {
     $id = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
@@ -18,12 +18,16 @@ try {
     if ($age -lt $MinDays -and -not $Early) { $o.state = 'refused'; $o.error = ('لم تمضِ {0} يومًا بعد' -f $MinDays); Save; exit 0 }
     $o.state = 'running'; Save
     $o.freeBeforeGB = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
-    & takeown.exe /F $Target /R /D Y 2>&1 | Out-Null
-    & icacls.exe $Target /grant '*S-1-5-32-544:(OI)(CI)F' /T /C /Q /L 2>&1 | Out-Null
-    & cmd.exe /c rmdir /s /q $Target 2>&1 | Out-Null
+    # كان هنا takeown /R ثم icacls /T: كلاهما يتبع الوصلات (تحقّق 19/11/2026)، ووصلات Windows.old («Documents and Settings»،
+    # «Application Data»، «All Users») أهدافها مطلقة تقع في C:\Users وC:\ProgramData الحيّين، فكان المالك وACL يتغيّران خارج الهدف.
+    # الآن: SeBackup/SeRestore وحذف بالمقبض (mwsafedel.cs)؛ الرابط يُحذف كرابط ولا يُنزل فيه، ولا تغيير لمالك ولا ACL.
+    Add-Type -Path (Join-Path $PSScriptRoot 'mwsafedel.cs')
+    [MwSafeDel]::EnableBackupRestore()
+    $r = [MwSafeDel]::Purge($Target, $null)
+    $o.files = $r[0]; $o.skipped = $r[2]
     $o.left = Test-Path -LiteralPath $Target -PathType Container
     $o.freeAfterGB = [math]::Round((Get-PSDrive C).Free / 1GB, 2)
-    $o.mb = [math]::Round([math]::Max(0, ($o.freeAfterGB - $o.freeBeforeGB) * 1024), 1)
+    $o.mb = [math]::Round($r[1] / 1MB, 1)
     $o.ok = -not $o.left
     $o.state = if ($o.left) { 'partial' } else { 'done' }
     if ($o.left) { $o.error = 'بقي جزء' }
