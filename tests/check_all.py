@@ -84,6 +84,34 @@ for pc in pol_candidates:
                 check(f"rule {r['id']}: description says DISABLED but enabled is true", False)
         break
 
+# 8) سكربتات PowerShell: الصنف [\/] في regex الخاص بـ .NET يطابق الشرطة الأمامية وحدها، فمطابقة مسار ويندوز تفشل بصمت
+#    (لم يكن install_admin_backend.ps1 يقتل الخلفية القديمة). الصحيح [\\/]. يُرفض في أي .ps1 حتى في التعليقات.
+SKIP_DIRS = {".git", ".claude", "node_modules", ".sandboxes", "runtime", "__pycache__"}
+bad_slash = []
+for base, dirs, files in os.walk(ROOT):
+    dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+    for fn in files:
+        if fn.lower().endswith((".ps1", ".psm1")):
+            p = os.path.join(base, fn)
+            with open(p, encoding="utf-8-sig", errors="replace") as fh:
+                lines = fh.read().splitlines()
+            bad_slash += [f"{os.path.relpath(p, ROOT)}:{n}" for n, line in enumerate(lines, 1) if re.search(r"(?<!\\)\[\\/\]", line)]
+check("ps1: no single-backslash [\\/] class (use [\\\\/])", not bad_slash, ", ".join(bad_slash[:10]))
+
+# 9) المهام المرتفعة تُسجَّل من النسخة المحمية في ProgramData لا من مجلد المستخدم القابل للكتابة
+def _text(name):
+    with open(os.path.join(ROOT, name), encoding="utf-8-sig") as fh:
+        return fh.read()
+for fn in ("_register_admin_probe.ps1", "register_boot_trace.ps1"):
+    t = _text(fn)
+    check(f"{fn}: registers from protected ProgramData copy",
+          "CommonApplicationData" in t and "ExecutionPolicy Bypass" not in t and "C:\\Users" not in t
+          and "{0}\\boot_trace.ps1" not in t and "$root\\healthprobe" not in t)
+ra = _text("restart_admin.ps1")
+check("restart_admin.ps1: kills by exact folder path only", "-match 'MonitorWidget'" not in ra and "[regex]::Escape($root)" in ra)
+ua = _text("uninstall_admin_backend.ps1")
+check("uninstall_admin_backend.ps1: reverts all backend tasks", "set_backend_privilege.ps1" in ua and "-Level Limited" in ua)
+
 print()
 print("النتيجة:", "كل الفحوصات نجحت" if not fails else f"{len(fails)} فحص فشل")
 sys.exit(1 if fails else 0)

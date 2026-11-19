@@ -35,7 +35,9 @@ STATE = {"running": False, "ts": None, "beforeMB": None, "afterMB": None, "freed
          "sharedFreedMB": None, "dwmMB": None, "dwm": False, "steps": [], "text": None, "err": None}
 _lock = threading.Lock()
 # مجموع الذاكرة المشتركة لكل العمليات على كل الكروت، ونصيب dwm منها (بالميغابايت)؛ العدّادات تعمل بصلاحية عادية
+# فشل العدّاد (لا عيّنات) يطبع "none" لا "0 0": الصفر قراءة صحيحة، والفشل يجعل القياس None فلا يُحسب «محرَّرًا» زائفًا
 _SHARED_PS = ("$ErrorActionPreference='SilentlyContinue';$s=(Get-Counter '\\GPU Process Memory(*)\\Shared Usage').CounterSamples;"
+              "if(-not $s){'none';exit 0};"
               "$ids=@(Get-Process dwm|ForEach-Object{$_.Id});$t=0;$d=0;foreach($x in $s){$t+=$x.CookedValue;"
               "if($x.InstanceName -match '^pid_(\\d+)_' -and $ids -contains [int]$matches[1]){$d+=$x.CookedValue}};"
               "'{0} {1}' -f [int]($t/1MB),[int]($d/1MB)")
@@ -56,7 +58,7 @@ def _shared():
     try:
         r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", _SHARED_PS], capture_output=True, text=True,
                            timeout=30, creationflags=0x08000000)
-        a, b = r.stdout.split()[:2]
+        a, b = r.stdout.split()[:2]   # "none" أو مخرج فارغ: ValueError فتعود (None, None) لا (0, 0)
         return int(a), int(b)
     except (OSError, subprocess.TimeoutExpired, ValueError):
         errlog.swallowed()

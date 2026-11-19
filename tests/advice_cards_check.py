@@ -6,9 +6,11 @@ Run: python -X utf8 -B tests/advice_cards_check.py
 """
 import atexit
 import os
+import re
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -62,6 +64,42 @@ class AdviceCards(unittest.TestCase):
         with open(os.path.join(APPS, "backup_d_1.log"), "w", encoding="utf-8") as fh:
             fh.write("ABORT no external disk")
         self.assertEqual(_ids()["backup"]["title"], "لا نسخة احتياطية خارجية للقرص D")
+
+    def test_stale_reboot_and_updates_are_hidden(self):
+        # البطاقتان تُبنيان على المسبار وخيط التحديثات؛ القياس الأقدم من حدّ درجة الصحة لا يُعرض
+        now = time.time()
+        old = now - insight.health_score.UPDATES_MAX_AGE - 3600
+        hw = {"probe": {"pendingReboot": True}, "updates": {"n": 3}}
+        try:
+            insight.health.get_hw = lambda k: (now - 60, hw[k])
+            it = _ids()
+            self.assertIn("reboot", it)
+            self.assertIn("updates", it)
+            insight.health.get_hw = lambda k: (old, hw[k])
+            it = _ids()
+            self.assertNotIn("reboot", it)
+            self.assertNotIn("updates", it)
+        finally:
+            insight.health.get_hw = lambda k: (None, None)
+
+
+class AlertsLog(unittest.TestCase):
+    """انحدار: سجل التنبيهات كان يرشّح cpu/health/guard/fix فقط فلا تظهر تنبيهات الالتزام والقرص والإقلاع والذكاء المحلي والشبكة."""
+
+    def test_all_alert_sources_appear(self):
+        now = int(time.time())
+        srcs = ("cpu", "commit", "disk", "boot", "localai", "net")
+        for i, src in enumerate(srcs):
+            db.add_event(now - i, src, "warn" if src != "boot" else "error", "تنبيه " + src)
+        db.add_event(now - 100, "boot", "info", "إقلاع الجهاز")   # المعلومة ليست تنبيهًا
+        log = insight.alerts_payload()["log"]
+        self.assertEqual({x["source"] for x in log}, set(srcs))
+
+    def test_frontend_labels_every_alert_source(self):
+        src = open(os.path.join(ROOT, "web", "index.html"), encoding="utf-8").read()
+        labels = re.search(r"const SRC = \{([^}]*)\}", src).group(1)
+        for name in insight.ALERT_SOURCES:
+            self.assertIn(name + ": ", labels)
 
 
 if __name__ == "__main__":

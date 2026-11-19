@@ -50,9 +50,15 @@ def _run(fields, timeout=10):
     return parts if len(parts) == len(fields) else None
 
 
+class _ToolDown(Exception):
+    """nvidia-smi نفسه معطّل (مهلة أو تعذّر تشغيله)، لا حقل بعينه: يُقطع الفحص كله فورًا."""
+
+
 def _supported(fields):
     """Fields this driver understands. Each unknown field fails the whole query, so unknown ones are probed alone.
-    A probe that failed (timeout under load, transient driver error) is retried later instead of disabling the field for the process lifetime."""
+    A probe that failed (transient driver error) is retried later instead of disabling the field for the process lifetime.
+    مهلة أو تعذّر تشغيل في أي فحص يعني أن الأداة نفسها معطّلة لا الحقل: يُقطع الفحص عند أول مهلة (كانت كل الحقول تُجرَّب
+    واحدًا واحدًا بمهلة 15 ث فيحجب الطلب حتى 3 دقائق)، ولا يُسجَّل الحقل فاشلًا حتى يُعاد فحصه حين تعود الأداة."""
     now = time.time()
     out = []
     for f in fields:
@@ -62,7 +68,10 @@ def _supported(fields):
                 ok = _run([f], 15) is not None
             except subprocess.TimeoutExpired:
                 _down["why"] = "nvidia-smi timeout"
-                ok = False
+                raise _ToolDown() from None
+            except OSError:
+                _down["why"] = "nvidia-smi failed to start"
+                raise _ToolDown() from None
             except Exception:
                 ok = False
             v = _ok_fields[f] = (ok, now)
@@ -78,13 +87,20 @@ def _query(fields):
         return {}
     if time.time() < _down["until"]:
         return {}
-    fs = _supported(fields)
+    try:
+        fs = _supported(fields)
+    except _ToolDown:
+        fs = []
     if not fs:
         _down["until"] = time.time() + 45      # tool unavailable: stop spawning it for every request
         return {}
     _down["why"] = None
     try:
         parts = _run(fs)
+    except subprocess.TimeoutExpired:
+        _down["why"] = "nvidia-smi timeout"
+        _down["until"] = time.time() + 45      # hung tool: the next requests must not wait another full timeout each
+        return {}
     except Exception:
         errlog.swallowed()
         return {}

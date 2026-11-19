@@ -131,10 +131,13 @@ def post(route, body, invalidate=lambda: None):
     """(رمز الحالة، الردّ) لمسار من ROUTES، أو None إن لم يكن المسار من هذه الوحدة."""
     if route == "/api/jobs/run":
         name = str(body.get("name", ""))
-        if sched.next_run(name):
-            sched.set_next(name, time.time())
-            return 200, {"ok": True}
-        return 404, {"error": "unknown job"}
+        row = sched.next_run(name)
+        if not row:
+            return 404, {"error": "unknown job"}
+        if sched.running_now(row):   # الطلب أثناء التشغيل كان يضيع بصمت؛ الردّ يقول ذلك صراحة
+            return 409, {"error": "job running", "running": True}
+        sched.set_next(name, time.time())
+        return 200, {"ok": True}
     if route == "/api/maintenance":
         on = body.get("on")
         if not isinstance(on, bool):

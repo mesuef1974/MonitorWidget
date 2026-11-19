@@ -85,7 +85,7 @@ def _ask(body):
 
 def _page_open(body):
     """الواجهة تبلّغ كل انتقال إلى صفحة (البند 5): صفّ يومي في SQLite، غير هدّام."""
-    return pageuse.record(db.conn(), body)
+    return pageuse.record_shared(body)   # تحت db._lock وفي معاملة خاصة (مراجعة 19/11/2026)
 
 
 def _shutdown(body):
