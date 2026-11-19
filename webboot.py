@@ -11,6 +11,7 @@ import threading
 import time
 import traceback
 
+import bootaudit
 import db
 import health
 import infra
@@ -79,7 +80,7 @@ def claim_single_server():
 
 def background_workers():
     """الخيوط الخلفية التي يطلقها الإقلاع بالترتيب (كلها daemon)."""
-    return (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, maint, winguard.watch, localai.watch)
+    return (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, maint, winguard.watch, localai.watch, bootaudit.watch)
 
 
 def run(server_cls, handler_cls, argv):
