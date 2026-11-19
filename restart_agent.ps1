@@ -6,7 +6,7 @@ $ErrorActionPreference = 'Stop'
 $r = $PSScriptRoot
 $port = 47832
 $tasks = @('MonitorWidget-Agent', 'MonitorWidget-Server-Logon')   # الثانية تشغّل server.py مباشرة عند الدخول
-$ap = [regex]::Escape($r) + '[\\/](agent|server)\.py'   # [\\/] = شرطة عكسية أو أمامية؛ [\/] كانت تطابق الأمامية فقط
+$ap = [regex]::Escape($r) + '[\\/](agent|server)\.py'   # [\\/] = شرطة عكسية أو أمامية؛ الصنف بشرطة عكسية مفردة كان يطابق الأمامية فقط
 function Get-ServerPid {
     # رقم عملية الخادم من /api/healthz (بلا مصادقة). Get-NetTCPConnection يعيد 0 لمالك مرتفع حين تسأله جلسة عادية.
     try { [int](Invoke-RestMethod "http://127.0.0.1:$port/api/healthz" -TimeoutSec 3).pid }

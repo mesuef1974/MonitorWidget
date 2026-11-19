@@ -6,10 +6,15 @@ $port = 47832
 $listen = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 $before = if ($listen) { $listen.OwningProcess } else { 0 }
 $all = Get-CimInstance Win32_Process
+# المسار الكامل لهذا المجلد فقط (كما في restart_agent.ps1): لا تُقتل عملية أخرى لمجرد أن سطر أمرها فيه MonitorWidget وserver.py
+$ap = [regex]::Escape($root) + '[\\/](agent|server)\.py'
+$isPy = { param($p) $p.Name -in 'python.exe', 'pythonw.exe' }
+$parent = if ($listen) { ($all | Where-Object ProcessId -eq $listen.OwningProcess).ParentProcessId } else { 0 }
 $victims = @($all | Where-Object {
-    ($_.CommandLine -match 'MonitorWidget' -and $_.CommandLine -match '(agent|server)\.py') -or
-    ($listen -and $_.ProcessId -eq $listen.OwningProcess) -or
-    ($listen -and $_.ProcessId -eq ($all | Where-Object ProcessId -eq $listen.OwningProcess).ParentProcessId -and $_.Name -match 'python')
+    (& $isPy $_) -and (
+        ($_.CommandLine -match $ap) -or
+        ($listen -and $_.ProcessId -eq $listen.OwningProcess) -or
+        ($parent -and $_.ProcessId -eq $parent))
 })
 $py = ($victims | Where-Object { $_.Name -eq 'pythonw.exe' } | Select-Object -First 1).ExecutablePath
 if (-not $py) { $py = (Get-Command pythonw.exe).Source }

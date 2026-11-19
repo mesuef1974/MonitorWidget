@@ -1,9 +1,11 @@
 # Boot trace v2: samples CPU, disk, memory and top processes every ~5 s for about 4 minutes after startup.
 # Runs as SYSTEM at boot (before logon). Output: logs\boot_trace.csv (previous run kept as boot_trace_prev.csv).
 # v2: names which services live inside each svchost, and shows the command line of pwsh/python/node/WMI hosts.
+# -OutDir: مجلد المخرجات. المهمة المسجّلة (register_boot_trace.ps1) تشغّل النسخة المحمية في ProgramData وتمرّر مجلد out المحمي.
+param([string]$OutDir)
 $ErrorActionPreference = 'SilentlyContinue'
 $dir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$logs = Join-Path $dir 'logs'
+$logs = if ($OutDir) { $OutDir } else { Join-Path $dir 'logs' }
 if (-not (Test-Path $logs)) { New-Item -ItemType Directory $logs | Out-Null }
 $out = Join-Path $logs 'boot_trace.csv'
 if (Test-Path $out) { Move-Item $out (Join-Path $logs 'boot_trace_prev.csv') -Force }
