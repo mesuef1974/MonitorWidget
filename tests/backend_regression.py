@@ -403,9 +403,9 @@ class PageUse(unittest.TestCase):
         app = (ROOT / "routes_app.py").read_text(encoding="utf-8-sig")   # POST صار في وحدة مسارات التطبيق (البند 8)
         reads = (ROOT / "routes_read.py").read_text(encoding="utf-8-sig")   # GET صار في جدول المسارات القرائية (البند 6/ح)
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
-        for needle in ('"/api/page-use"', "pageuse.stats(db.conn())"):
+        for needle in ('"/api/page-use"', "pageuse.stats_shared()"):
             self.assertIn(needle, reads)
-        for needle in ('"/api/page-open"', "pageuse.record(db.conn(), body)"):
+        for needle in ('"/api/page-open"', "pageuse.record_shared(body)"):
             self.assertIn(needle, app)
         for needle in ('fetch("/api/page-open"', "track(key)", 'api("/api/page-use")', "pageUseBody(pu)"):
             self.assertIn(needle, page)
@@ -681,6 +681,119 @@ class MemTrim(unittest.TestCase):
         self.assertEqual((self.mt.TRIM["running"], self.mt.TRIM["err"]), (False, "purge task not installed"))
 
 
+class PageUseSharedConnection(unittest.TestCase):
+    """مراجعة 19/11/2026: pageuse على اتصال الخادم المشترك تحت db._lock وفي معاملة خاصة تُودَع أو يُتراجع عنها."""
+
+    T0 = 1_800_000_000
+
+    def test_rejection_leaves_no_open_transaction_and_undoes_its_writes(self):
+        import sqlite3
+        import pageuse
+        c = sqlite3.connect(":memory:")
+        for i in range(pageuse.MAX_PAGES):
+            pageuse.record(c, {"page": "p%d" % i}, now=self.T0 + 10 * i)
+        last = c.execute("SELECT value FROM meta WHERE key=?", (pageuse.LAST_KEY,)).fetchone()[0]
+        self.assertEqual(pageuse.record(c, {"page": "one-too-many"}, now=self.T0 + 10 * pageuse.MAX_PAGES + 1), (400, {"error": "too many pages"}))
+        self.assertFalse(c.in_transaction)   # كان يبقى مفتوحًا فيودعه أو يُسقطه كاتب آخر على الاتصال المشترك
+        self.assertEqual(c.execute("SELECT SUM(n) FROM page_opens").fetchone()[0], pageuse.MAX_PAGES)   # سحب العابر الذي سبق الرفض تُراجَع عنه
+        self.assertEqual(c.execute("SELECT value FROM meta WHERE key=?", (pageuse.LAST_KEY,)).fetchone()[0], last)
+
+    def test_failure_mid_record_rolls_back(self):
+        import sqlite3
+        import pageuse
+        c = sqlite3.connect(":memory:")
+        pageuse.record(c, {"page": "health"}, now=self.T0)
+        with patch.object(pageuse, "_day", side_effect=[pageuse._day(self.T0 + 60), RuntimeError("boom")]):
+            with self.assertRaises(RuntimeError):
+                pageuse.record(c, {"page": "overview"}, now=self.T0 + 60)
+        self.assertFalse(c.in_transaction)
+        self.assertEqual(c.execute("SELECT page, n FROM page_opens").fetchall(), [("health", 1)])
+
+    def test_shared_helpers_hold_the_db_lock(self):
+        import sqlite3
+        import pageuse
+        mem, held = sqlite3.connect(":memory:"), []
+
+        class Lock:
+            depth = 0
+            def __enter__(self):
+                Lock.depth += 1
+            def __exit__(self, *a):
+                Lock.depth -= 1
+
+        fake = types.SimpleNamespace(_lock=Lock(), conn=lambda: held.append(Lock.depth) or mem)
+        with patch.dict(sys.modules, {"db": fake}):
+            self.assertEqual(pageuse.record_shared({"page": "mem"})[0], 200)
+            self.assertEqual([p["page"] for p in pageuse.stats_shared()["pages"]], ["mem"])
+        self.assertEqual(held, [1, 1])
+        src = {n: (ROOT / n).read_text(encoding="utf-8-sig") for n in ("routes_app.py", "routes_read.py")}
+        self.assertIn("pageuse.record_shared(body)", src["routes_app.py"])
+        self.assertIn("pageuse.stats_shared()", src["routes_read.py"])
+        self.assertNotIn("pageuse.record(db.conn()", src["routes_app.py"])
+        self.assertNotIn("pageuse.stats(db.conn()", src["routes_read.py"])
+
+
+class SnapshotCollectThrottle(unittest.TestCase):
+    """مراجعة 19/11/2026: mini() يطلق جمعًا أول واحدًا جاريًا فقط، والـ refresher يحترم TTL الجامع الثقيل."""
+
+    def setUp(self):
+        import snapshot
+        self.s = snapshot
+        saved = dict(snapshot._cache)
+        self.addCleanup(lambda: (snapshot._cache.clear(), snapshot._cache.update(saved)))
+
+    def test_mini_starts_one_first_collect_at_a_time(self):
+        gate, calls = threading.Event(), []
+        def slow_collect(force=False):
+            calls.append(force)
+            gate.wait(5)
+        self.s._cache.update(data=None, t=0)
+        with patch.object(self.s, "collect", slow_collect), patch.object(self.s, "mini_payload", lambda: {"ready": False}):
+            for _ in range(5):                   # الويدجت يطلب كل 2 ث والجامع ما زال يعمل
+                self.assertEqual(self.s.mini(), {"ready": False})
+            time.sleep(0.05)
+            self.assertEqual(calls, [False])
+            gate.set()
+            for _ in range(100):                 # بعد انتهاء الجمع (هنا بلا بيانات، كأن collect.ps1 فشل) يُسمح بمحاولة تالية
+                if self.s._first_kick.acquire(blocking=False):
+                    self.s._first_kick.release()
+                    break
+                time.sleep(0.01)
+            self.s.mini()
+            time.sleep(0.05)
+        self.assertEqual(len(calls), 2)
+
+    def test_first_collect_failure_is_swallowed_and_released(self):
+        swallowed = []
+        self.s._cache.update(data=None, t=0)
+        with patch.object(self.s, "collect", lambda force=False: (_ for _ in ()).throw(RuntimeError("pwsh"))),                 patch.object(self.s.errlog, "swallowed", lambda: swallowed.append(1)):
+            self.s._first_kick.acquire()
+            self.s._first_collect()
+        self.assertEqual(swallowed, [1])
+        self.assertTrue(self.s._first_kick.acquire(blocking=False))
+        self.s._first_kick.release()
+
+    def test_refresher_respects_the_collect_ttl(self):
+        calls = []
+        class Stop(Exception):
+            pass
+        ticks = iter([None])
+        def sleep(_):
+            if next(ticks, Stop) is Stop:
+                raise Stop
+        with patch.object(self.s, "collect", lambda *a, **k: calls.append((a, k))), patch.object(self.s.time, "sleep", sleep),                 patch.object(self.s, "_last_request", time.time()):
+            with self.assertRaises(Stop):
+                self.s.refresher()
+        self.assertEqual(calls, [((), {})])     # لا force=True: كان يطلق pwsh كل 20 ث
+
+    def test_fresh_cache_does_not_spawn_the_collector(self):
+        self.s._cache.update(data={"tasks": []}, t=time.time())
+        def boom(*a, **k):
+            raise AssertionError("pwsh spawned despite a fresh cache")
+        with patch.object(self.s.subprocess, "run", boom), patch.object(self.s, "attach_manual", lambda d: d):
+            self.assertEqual(self.s.collect(), {"tasks": []})
+
+
 class PolicyRoutes(unittest.TestCase):
     """البند 6/ج: routes_policy.py بلا خادم: مهام الوكيل ووضع الصيانة وبدء التشغيل والمهام المجدولة بقائمة tasks.json البيضاء،
     وتبديل القواعد والمستويات في ملف سياسة مؤقت مع نسخة احتياطية، وإعادة جمع الحالة بعد كل تعديل ناجح فقط."""
@@ -699,6 +812,11 @@ class PolicyRoutes(unittest.TestCase):
                 patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
             self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (200, {"ok": True}))
             self.assertEqual(self.post("/api/jobs/run", {"name": "nope"}), (404, {"error": "unknown job"}))
+        self.assertEqual(nxt, ["trim"])
+        running = {"next_run": 1, "last_start": int(time.time()) - 5, "last_end": int(time.time()) - 900, "timeout_s": 600}
+        with patch.object(self.rp.sched, "next_run", lambda name: running),                 patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
+            # مراجعة 19/11/2026: «شغّل الآن» لمهمة جارية كان يضيع بصمت (تكتب next_run عند انتهائها فوقه)
+            self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (409, {"error": "job running", "running": True}))
         self.assertEqual(nxt, ["trim"])
         with patch.object(self.rp, "maintenance_set", lambda on: {"on": on, "rules": [], "since": 1}):
             self.assertEqual(self.post("/api/maintenance", {"on": "x"}), (400, {"error": "on must be boolean"}))
