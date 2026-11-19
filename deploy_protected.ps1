@@ -444,6 +444,9 @@ function Test-MicrosoftSigned([string]$Path) {
     if ($sig.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') { return $false }
     $chain = New-Object Security.Cryptography.X509Certificates.X509Chain
     $chain.ChainPolicy.RevocationMode = 'NoCheck'
+    # توقيع مختوم زمنيًّا: Valid من WinVerifyTrust يعني أن الشهادة كانت سارية وقت الختم، فانتهاؤها بعده لا يُسقطه
+    # (مكتبات Teams موقّعة بشهادة انتهت 20/8/2025). بلا ختم زمني تبقى الشهادة المنتهية مرفوضة.
+    if ($sig.TimeStamperCertificate) { $chain.ChainPolicy.VerificationFlags = [Security.Cryptography.X509Certificates.X509VerificationFlags]::IgnoreNotTimeValid }
     if (-not $chain.Build($sig.SignerCertificate)) { return $false }
     $root = $chain.ChainElements[$chain.ChainElements.Count - 1].Certificate
     if ($root.Subject -notmatch 'Microsoft') { return $false }
