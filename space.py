@@ -297,13 +297,18 @@ def quarantine_restore(qid):
     return _quarantine_store().restore(qid)
 
 
+def _is_restored(path, keep):
+    from quarantine_store import QuarantineStore
+    return QuarantineStore.is_restored(path, keep)
+
+
 def _restored_paths():
-    """مسارات ما استرجعه المالك من الحجر (موحّدة الحالة)؛ فارغة عند أي خطأ فلا يتوقف التنظيف."""
+    """{مسار موحّد: هوية} لما استرجعه المالك من الحجر خلال 30 يومًا؛ فارغة عند أي خطأ فلا يتوقف التنظيف."""
     try:
         return _quarantine_store().restored_paths()
     except Exception:
         errlog.swallowed()
-        return set()
+        return {}
 
 
 def purge_quarantine():
@@ -1114,9 +1119,10 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
             except OSError:
                 errlog.swallowed()
                 return {"ok": False, "error": "مجلد المؤقتات يمرّ بنقطة إعادة توجيه؛ لم يُحذف شيء"}
-        keep = _restored_paths()   # ما استرجعه المالك من الحجر لا يُحجر ولا يُحذف ثانيةً (يحتفظ بوقت تعديله القديم)
+        # ما استرجعه المالك من الحجر خلال 30 يومًا لا يُحجر ولا يُحذف ثانيةً ما دام هو الملف نفسه (الهوية)؛ ملف جديد بالاسم نفسه يُنظَّف
+        keep = _restored_paths()
         for p, sz in _old_files(TEMP, days=1, prog=prog, dirs=dirs):  # الملفات المؤقتة: أقدم من يوم واحد
-            if os.path.normcase(os.path.abspath(p)) in keep:
+            if keep and _is_restored(p, keep):
                 continue
             if dry:
                 if _deletable(p):

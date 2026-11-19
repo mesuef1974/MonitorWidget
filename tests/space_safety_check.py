@@ -205,19 +205,121 @@ class PlantedAfterListing(Sandbox):
         self.assertEqual(r["files"], 0)
 
     def test_restored_file_is_skipped_by_the_temp_clean(self):
-        """البند 5: الملف المسترجَع من الحجر يحتفظ بوقته القديم؛ لا يُحذف ولا يُحجر ثانيةً."""
+        """البند 5: الملف المسترجَع من الحجر يحتفظ بوقته القديم؛ لا يُحذف ولا يُحجر ثانيةً ما دام هو الملف نفسه (الهوية)،
+        أما ملف جديد بالاسم نفسه فيُنظَّف كالمعتاد."""
+        import quarantine_store
         f = self.root / "restored.bin"
         f.write_bytes(b"r")
         old = os.path.getmtime(f) - 3 * 86400
         os.utime(f, (old, old))
         os.utime(self.sub / "victim.txt", (old, old))
-        keep = {os.path.normcase(os.path.abspath(f))}
-        with mock.patch.object(self.sp, "TEMP", str(self.root)), mock.patch.object(self.sp, "_setting", lambda k, d=None: []), \
-                mock.patch.object(self.sp, "_restored_paths", lambda: keep), mock.patch.object(self.sp, "_rm_empty_dirs", lambda *a, **k: 0):
-            r = self.sp._clean_impl("temp", dry=False)
+        keep = {os.path.normcase(os.path.abspath(f)): quarantine_store._identity(str(f))}
+
+        def run():
+            with mock.patch.object(self.sp, "TEMP", str(self.root)), mock.patch.object(self.sp, "_setting", lambda k, d=None: []), \
+                    mock.patch.object(self.sp, "_restored_paths", lambda: keep), mock.patch.object(self.sp, "_rm_empty_dirs", lambda *a, **k: 0):
+                return self.sp._clean_impl("temp", dry=False)
+        r = run()
         self.assertTrue(f.exists())
         self.assertFalse((self.sub / "victim.txt").exists())
         self.assertEqual(r["files"], 1)
+        f.unlink()                     # ملف جديد بالاسم نفسه: هوية أخرى
+        f.write_bytes(b"new")
+        os.utime(f, (old, old))
+        run()
+        self.assertFalse(f.exists())
+
+
+@unittest.skipUnless(WIN, "Windows only")
+class PosixDeleteAndMakedirs(Sandbox):
+    def test_open_file_with_delete_sharing_vanishes_at_once_and_its_parent_goes(self):
+        """FileDispositionInfoEx بـ POSIX: الاسم يختفي فورًا ولو بقي الملف مفتوحًا، فيُحذف أبوه الفارغ مباشرة."""
+        d = self.root / "d"
+        d.mkdir()
+        f = d / "open.txt"
+        f.write_bytes(b"x")
+        h = safedel._k32.CreateFileW(str(f), 0x80000000, 7, None, 3, 0, None)   # GENERIC_READ، مشاركة القراءة والكتابة والحذف
+        self.assertNotEqual(h, safedel._INVALID)
+        try:
+            guard = safedel.Root(self.root)
+            guard.remove(f)
+            self.assertFalse(os.path.lexists(f))
+            guard.remove(d)
+            self.assertFalse(d.exists())
+        finally:
+            safedel._k32.CloseHandle(h)
+
+    def test_readonly_file_is_still_refused(self):
+        f = self.root / "ro.txt"
+        f.write_bytes(b"x")
+        os.chmod(f, 0o444)
+        self.addCleanup(os.chmod, f, 0o666)
+        with self.assertRaises(OSError):
+            safedel.Root(self.root).remove(f)
+        self.assertTrue(f.exists())
+
+    def test_makedirs_by_handle_never_creates_through_a_junction(self):
+        guard = safedel.Root(self.root)
+        guard.makedirs(self.root / "a" / "b")
+        self.assertTrue((self.root / "a" / "b").is_dir())
+        guard.makedirs(self.root / "a" / "b")   # موجود: مقبول
+        junction(self.root / "j", self.outside)
+        with self.assertRaises(OSError):
+            guard.makedirs(self.root / "j" / "planted")
+        self.assertFalse((self.outside / "planted").exists())
+        with self.assertRaises(OSError):
+            guard.makedirs(self.outside / "x")
+
+
+PWSH = r"C:\Program Files\PowerShell\7\pwsh.exe"
+
+
+@unittest.skipUnless(WIN and os.path.isfile(PWSH), "pwsh 7 required")
+class ElevatedCleanByHandle(Sandbox):
+    """elevated_clean.ps1 (wintemp/swdist): MwSafeDel بالمقبض؛ junction يُزرع بعد السرد لا يوجّه الحذف المرتفع خارج الجذر.
+    يُشغَّل الكود C# المستخرج من السكربت نفسه في pwsh بلا نافذة وبلا صلاحية مسؤول، على مجلدات الاختبار فقط."""
+
+    def run_ps(self, body):
+        import re
+        import subprocess
+        src = (ROOT / "elevated_clean.ps1").read_text(encoding="utf-8-sig")
+        cs = re.search(r"\$SafeDelCs = @'\r?\n(.*?)\r?\n'@", src, re.S).group(1)
+        (self.base / "safedel.cs").write_text(cs, encoding="utf-8")
+        script = self.base / "harness.ps1"
+        script.write_text("$ErrorActionPreference = 'Stop'\nAdd-Type -TypeDefinition (Get-Content -Raw -LiteralPath '%s') -Language CSharp\n%s\n"
+                          % (self.base / "safedel.cs", body), encoding="utf-8-sig")
+        r = subprocess.run([PWSH, "-NoProfile", "-NonInteractive", "-File", str(script)], capture_output=True, text=True, timeout=120,
+                           creationflags=0x08000000)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.strip().splitlines()[-1]
+
+    def test_planted_junction_after_listing_is_not_followed(self):
+        sub = self.root / "sub"
+        sub.mkdir()
+        (sub / "victim.txt").write_bytes(b"x")
+        (self.root / "plain.txt").write_bytes(b"p")
+        out = self.run_ps(
+            "$plant = [Action]{ Remove-Item -LiteralPath '%s' -Recurse -Force; New-Item -ItemType Junction -Path '%s' -Target '%s' | Out-Null }\n"
+            "$r = [MwSafeDel]::Clean('%s', [DateTime]::UtcNow.AddDays(1), $plant)\n'{0} {1} {2}' -f $r[0], $r[1], $r[2]"
+            % (sub, sub, self.outside, self.root))
+        self.assertEqual(out, "1 1 1")   # plain.txt حُذف، والمزروع رُفض
+        self.assertEqual(self.victim.read_bytes(), b"keep")
+        self.assertFalse((self.root / "plain.txt").exists())
+
+    def test_root_through_junction_and_age_cut(self):
+        junction(self.base / "rootlink", self.root)
+        out = self.run_ps("try { [MwSafeDel]::Clean('%s', [DateTime]::UtcNow, $null) | Out-Null; 'BAD' } catch { 'refused' }"
+                          % (self.base / "rootlink"))
+        self.assertEqual(out, "refused")
+        (self.root / "new.txt").write_bytes(b"n")
+        out = self.run_ps("$r = [MwSafeDel]::Clean('%s', [DateTime]::UtcNow.AddDays(-3), $null)\n'{0}' -f $r[0]" % self.root)
+        self.assertEqual(out, "0")
+        self.assertTrue((self.root / "new.txt").exists())
+
+    def test_script_uses_the_handle_class_not_remove_item(self):
+        src = (ROOT / "elevated_clean.ps1").read_text(encoding="utf-8-sig")
+        self.assertIn("[MwSafeDel]::Clean(", src)
+        self.assertNotRegex(src, r"Remove-Item\s+-LiteralPath")
 
 
 class DismBackoff(unittest.TestCase):

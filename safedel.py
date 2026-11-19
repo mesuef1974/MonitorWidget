@@ -92,11 +92,23 @@ if os.name == "nt":
     _SHARE_ALL = 7
     _OPEN_EXISTING = 3
     _BACKUP, _OPEN_REPARSE = 0x02000000, 0x00200000
-    _FILE_DISPOSITION_INFO = 4
+    _FILE_DISPOSITION_INFO, _FILE_DISPOSITION_INFO_EX = 4, 21
+    _DISPOSITION_DELETE, _DISPOSITION_POSIX = 0x1, 0x2
     _NT_FILE_RENAME_INFORMATION = 10   # NtSetInformationFile: يقبل اسمًا نسبيًا إلى RootDirectory (SetFileInformationByHandle يرفضه بالخطأ 87)
 
     class _IoStatus(ctypes.Structure):
         _fields_ = [("Status", ctypes.c_void_p), ("Information", ctypes.c_void_p)]
+
+    class _UnicodeString(ctypes.Structure):
+        _fields_ = [("Length", ctypes.c_ushort), ("MaximumLength", ctypes.c_ushort), ("Buffer", ctypes.c_void_p)]
+
+    class _ObjectAttributes(ctypes.Structure):
+        _fields_ = [("Length", wintypes.ULONG), ("RootDirectory", wintypes.HANDLE), ("ObjectName", ctypes.POINTER(_UnicodeString)),
+                    ("Attributes", wintypes.ULONG), ("SecurityDescriptor", ctypes.c_void_p), ("SecurityQualityOfService", ctypes.c_void_p)]
+
+    _nt.NtCreateFile.argtypes = [ctypes.POINTER(wintypes.HANDLE), wintypes.ULONG, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                                 wintypes.ULONG, wintypes.ULONG, wintypes.ULONG, wintypes.ULONG, ctypes.c_void_p, wintypes.ULONG]
+    _nt.NtCreateFile.restype = ctypes.c_long
 
     class _ByHandle(ctypes.Structure):
         _fields_ = [("attrs", wintypes.DWORD), ("c", wintypes.FILETIME), ("a", wintypes.FILETIME), ("w", wintypes.FILETIME),
@@ -189,11 +201,58 @@ if os.name == "nt":
             """يحذف ملفًا أو مجلدًا فارغًا أو نقطة إعادة توجيه (كرابط) داخل الجذر، بالمقبض."""
             h = self._leaf(path, _DELETE | _READ_ATTR | _SYNC)
             try:
-                flag = ctypes.c_ubyte(1)
-                if not _k32.SetFileInformationByHandle(h, _FILE_DISPOSITION_INFO, ctypes.byref(flag), 1):
-                    raise _err()
+                # POSIX: الاسم يختفي فورًا ولو بقي الملف مفتوحًا بمشاركة الحذف، فيُحذف أبوه الفارغ بعده مباشرة.
+                # لا IGNORE_READONLY: ملف للقراءة فقط يُرفض كما في os.remove. نظام ملفات لا يدعمه (87/50): الصنف القديم.
+                flags = wintypes.DWORD(_DISPOSITION_DELETE | _DISPOSITION_POSIX)
+                if not _k32.SetFileInformationByHandle(h, _FILE_DISPOSITION_INFO_EX, ctypes.byref(flags), 4):
+                    code = ctypes.get_last_error()
+                    if code not in (50, 87):
+                        raise _err(code)
+                    flag = ctypes.c_ubyte(1)
+                    if not _k32.SetFileInformationByHandle(h, _FILE_DISPOSITION_INFO, ctypes.byref(flag), 1):
+                        raise _err()
             finally:
                 _k32.CloseHandle(h)
+
+        def makedirs(self, path):
+            """ينشئ ما ينقص من مجلدات path داخل الجذر، كل مكوّن باسمه نسبيًا إلى مقبض أبيه المفحوص (NtCreateFile مع
+            RootDirectory وFILE_OPEN_REPARSE_POINT)، فلا يُنشأ شيء عبر نقطة إعادة توجيه زُرعت في الطريق. مكوّن موجود يُقبل
+            إن كان مجلدًا حقيقيًا داخل الجذر فقط."""
+            path = os.path.abspath(path)
+            if not inside(path, self.root, allow_equal=True):
+                raise UnsafePath("folder outside its root")
+            rel = os.path.relpath(path, self.root)
+            parts = [] if rel == "." else rel.split(os.sep)
+            cur = self.root
+            for name in parts:
+                if not name or name in (".", ".."):
+                    raise UnsafePath("bad folder name")
+                hp = self._leaf(cur, _READ_ATTR | _ADD_SUBDIR | _TRAVERSE | _SYNC, allow_root=True)
+                try:
+                    bi = _info(hp)
+                    if bi.attrs & REPARSE or not bi.attrs & 0x10:
+                        raise UnsafePath("parent folder is a reparse point")
+                    raw = ctypes.create_unicode_buffer(name)
+                    us = _UnicodeString(len(name) * 2, len(name) * 2, ctypes.cast(raw, ctypes.c_void_p))
+                    oa = _ObjectAttributes(ctypes.sizeof(_ObjectAttributes), hp, ctypes.pointer(us), 0x40, None, None)
+                    h, iosb = wintypes.HANDLE(), _IoStatus()
+                    st = _nt.NtCreateFile(ctypes.byref(h), 0x1 | _SYNC, ctypes.byref(oa), ctypes.byref(iosb), None, 0x80, _SHARE_ALL,
+                                          2, 0x1 | 0x20 | _OPEN_REPARSE, None, 0)   # FILE_CREATE، FILE_DIRECTORY_FILE|SYNCHRONOUS
+                    if st >= 0:
+                        _k32.CloseHandle(h)
+                    elif st & 0xFFFFFFFF != 0xC0000035:   # STATUS_OBJECT_NAME_COLLISION: موجود، يُفحص أدناه
+                        raise _err(_nt.RtlNtStatusToDosError(st))
+                finally:
+                    _k32.CloseHandle(hp)
+                cur = os.path.join(cur, name)
+                hc = self._leaf(cur, _READ_ATTR | _SYNC)
+                try:
+                    bi = _info(hc)
+                    if bi.attrs & REPARSE or not bi.attrs & 0x10:
+                        raise UnsafePath("existing component is a reparse point or a file")
+                finally:
+                    _k32.CloseHandle(hc)
+            return path
 
         def identity(self, path):
             """(المجلد/الحجم، رقم الملف) للكائن المفتوح نفسه، لمقارنة الهوية قبل النقل."""
@@ -254,6 +313,15 @@ else:   # غير ويندوز (الاختبارات المحمولة فقط): ف
                 os.rmdir(path)
             else:
                 os.unlink(path)
+
+        def makedirs(self, path):
+            path = os.path.abspath(path)
+            if not inside(path, self.root, allow_equal=True):
+                raise UnsafePath("folder outside its root")
+            if _norm(path) != _norm(self.root):
+                check_chain(path, self.root)
+            os.makedirs(path, exist_ok=True)
+            return path
 
         def identity(self, path):
             info = os.lstat(check_chain(path, self.root))

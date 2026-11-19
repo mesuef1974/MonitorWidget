@@ -242,9 +242,77 @@ class Quarantine(unittest.TestCase):
         """البند 5: المسترجَع يحتفظ بوقته القديم؛ المخزن يبلّغ مساره فيتخطاه التنظيف الساعي."""
         original = self.source("big.bin", b"big")
         qid = self.store.move(str(original))
-        self.assertEqual(self.store.restored_paths(), set())
+        self.assertEqual(self.store.restored_paths(), {})
         self.assertTrue(self.store.restore(qid)["ok"])
-        self.assertEqual(self.store.restored_paths(), {os.path.normcase(os.path.abspath(original))})
+        kept = self.store.restored_paths()
+        self.assertEqual(list(kept), [os.path.normcase(os.path.abspath(original))])
+        self.assertTrue(qs.QuarantineStore.is_restored(str(original), kept))       # الملف نفسه (الهوية)
+        original.unlink()
+        original.write_bytes(b"new file, same name")
+        self.assertFalse(qs.QuarantineStore.is_restored(str(original), kept))      # ملف جديد بالاسم نفسه يُنظَّف
+        self.db.execute("UPDATE quarantine SET op_updated=?", (int(time.time()) - 31 * 86400,))
+        self.db.commit()
+        self.assertEqual(self.store.restored_paths(), {})                          # بعد 30 يومًا ينتهي الاستثناء
+
+    def test_partially_purged_folder_is_not_restored_but_purge_retries(self):
+        """تفريغ بدأ داخل مجلد ثم فشل: المحتوى قد يكون ناقصًا فلا يُسترجع، والتفريغ التالي يكمله."""
+        folder = self.orig / "folder"
+        folder.mkdir()
+        (folder / "a.txt").write_bytes(b"a")
+        (folder / "b.txt").write_bytes(b"b")
+        qid = self.store.move(str(folder))
+        self.expire(qid)
+        qpath = pathlib.Path(self.row(qid)["qpath"])
+
+        def half(path, guard):
+            (pathlib.Path(path) / "a.txt").unlink()
+            raise PermissionError(32, "in use")
+        with mock.patch.object(qs.safedel, "remove_tree", side_effect=half):
+            self.store.purge()
+        self.assertEqual(self.row(qid)["status"], "failed")
+        self.assertIn(qs.PURGE_STARTED, self.row(qid)["op_error"])
+        r = self.store.restore(qid)
+        self.assertEqual((r["ok"], r.get("partial")), (False, True))
+        self.assertFalse(folder.exists())
+        self.store.purge()
+        self.assertEqual(self.row(qid)["status"], "purged")
+        self.assertFalse(qpath.exists())
+
+    def test_failed_single_file_purge_stays_restorable(self):
+        """حذف ملف واحد ذري (موجود كاملًا أو محذوف)، فالفاشل يُسترجع ولو بدأ تفريغه."""
+        qid = self.store.move(str(self.source("one.txt", b"1")))
+        self.expire(qid)
+        with mock.patch.object(qs.safedel, "remove_tree", side_effect=PermissionError(32, "in use")):
+            self.store.purge()
+        self.assertIn(qs.PURGE_STARTED, self.row(qid)["op_error"])
+        self.assertTrue(self.store.restore(qid)["ok"])
+        self.assertEqual((self.orig / "one.txt").read_bytes(), b"1")
+
+    def test_restore_creates_missing_folders_by_handle_never_through_a_junction(self):
+        """مجلدات الأصل الناقصة تُنشأ بعد الفحص وبالمقبض؛ junction زُرع بعد الفحص النصي لا يُنشأ عبره شيء."""
+        if os.name != "nt":
+            self.skipTest("Windows only")
+        import _winapi
+        outside = self.base / "outside"
+        outside.mkdir()
+        (self.orig / "a" / "b").mkdir(parents=True)
+        src = self.orig / "a" / "b" / "f.txt"
+        src.write_bytes(b"f")
+        qid = self.store.move(str(src))
+        (self.orig / "a" / "b").rmdir()
+        (self.orig / "a").rmdir()
+        r = self.store.restore(qid)                       # المجلدات الناقصة تُنشأ
+        self.assertTrue(r["ok"])
+        self.assertEqual(src.read_bytes(), b"f")
+        qid = self.store.move(str(src))
+        (self.orig / "a" / "b").rmdir()
+        (self.orig / "a").rmdir()
+        _winapi.CreateJunction(str(outside), str(self.orig / "a"))
+        with mock.patch.object(qs, "_safe_path", lambda p: os.path.abspath(p)):   # يحاكي الزرع بعد الفحص النصي
+            r = self.store.restore(qid)
+        self.assertFalse(r["ok"])
+        self.assertEqual(os.listdir(outside), [])
+        self.assertEqual(self.row(qid)["status"], "held")
 
     def test_purge_never_follows_a_junction_planted_in_the_quarantine(self):
         """الحذف بالمقبض: junction زُرع داخل عنصر محجوز يُحذف كرابط ولا يُنزل فيه."""
@@ -259,9 +327,8 @@ class Quarantine(unittest.TestCase):
         (folder / "f.txt").write_bytes(b"f")
         qid = self.store.move(str(folder))
         qpath = pathlib.Path(self.row(qid)["qpath"])
-        with mock.patch.object(qs, "_safe_tree", lambda p: None):   # الزرع بعد الفحص النصي
-            _winapi.CreateJunction(str(outside), str(qpath / "planted"))
-            self.store.purge(force=True)
+        _winapi.CreateJunction(str(outside), str(qpath / "planted"))   # لا يعطّل التفريغ: يُحذف كرابط
+        self.store.purge(force=True)
         self.assertEqual((outside / "victim.txt").read_bytes(), b"keep")
         self.assertEqual(self.row(qid)["status"], "purged")
         self.assertFalse(qpath.exists())

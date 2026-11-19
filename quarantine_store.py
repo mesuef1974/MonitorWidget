@@ -98,6 +98,21 @@ def _safe_tree(path):
                 _safe_path(os.path.join(folder, name))
 
 
+PURGE_STARTED = "purge started"   # op_error prefix: deletion began inside this item, so a folder may be incomplete
+RESTORED_KEEP_DAYS = 30
+
+
+def _partial(row):
+    return PURGE_STARTED in (row.get("op_error") or "")
+
+
+def _makedirs(path, root):
+    if os.name == "nt":
+        safedel.Root(root).makedirs(path)
+    else:
+        os.makedirs(path, exist_ok=True)
+
+
 def _identity(path):
     info = os.stat(path, follow_symlinks=False)
     return json.dumps([info.st_dev, info.st_ino])
@@ -218,11 +233,11 @@ class QuarantineStore:
                 elif not qexists:
                     self._mark(row["id"], "purged")
                 elif self._matches(row, qpath):
-                    self._mark(row["id"], "held", error="interrupted purge; remaining content preserved")
+                    self._mark(row["id"], "held", error=PURGE_STARTED + ": interrupted; remaining content preserved")
                 else:
                     self._mark(row["id"], "failed", error="quarantined object changed")
             except OSError as exc:
-                self._mark(row["id"], "failed", error=str(exc)[:200])
+                self._mark(row["id"], "failed", error=((PURGE_STARTED + ": ") if row["status"] == "purging" else "") + str(exc)[:180])
 
     def move(self, path, action_id=None, size=lambda path: os.path.getsize(path)):
         with self._operation():
@@ -240,7 +255,7 @@ class QuarantineStore:
                 c.commit()
                 qid = cur.lastrowid
             try:
-                os.mkdir(os.path.dirname(destination))
+                _makedirs(os.path.dirname(destination), self.root)   # by handle: never created through a planted junction
                 _safe_path(destination)
                 if _identity(original) != identity:
                     raise OSError("source changed before quarantine move")
@@ -272,7 +287,10 @@ class QuarantineStore:
                     return {"ok": False, "error": "المسار الأصلي مشغول؛ لم يُستبدل"}
                 if not os.path.exists(source) or not self._matches(row, source):
                     return {"ok": False, "error": "عنصر الحجر مفقود أو تغير"}
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                if _partial(row) and os.path.isdir(source):
+                    # a purge already started deleting inside this folder: what is left may be incomplete
+                    return {"ok": False, "partial": True, "error": "بدأ تفريغ هذا المجلد سابقًا؛ المحتوى قد يكون ناقصًا فلم يُسترجع"}
+                _makedirs(os.path.dirname(target), self._origin_root(target))   # after the checks, by handle
                 _safe_path(target)
                 if not self._claim(row, "restoring"):
                     return {"ok": False, "error": "العنصر مشغول"}
@@ -286,10 +304,26 @@ class QuarantineStore:
         except OSError:
             return {"ok": False, "error": "تعذر الاسترجاع: مسار غير آمن أو العملية مشغولة"}
 
-    def restored_paths(self):
-        """Normalized original paths of items the owner restored: the cleanup skips them, since a restored file keeps its old
-        modification time and would otherwise be quarantined again within the hour."""
-        return {os.path.normcase(os.path.abspath(r["orig"])) for r in self._rows("SELECT orig FROM quarantine WHERE status='restored'") if r["orig"]}
+    def restored_paths(self, days=None):
+        """{normalized original path: identity or None} of items the owner restored in the last `days` days. The cleanup skips
+        such a file only while it is the same object (identity), since a restored file keeps its old modification time and would
+        otherwise be quarantined again within the hour; a new file with the same name is cleaned as usual."""
+        cut = int(time.time()) - (RESTORED_KEEP_DAYS if days is None else days) * 86400
+        rows = self._rows("SELECT orig,op_identity FROM quarantine WHERE status='restored' AND COALESCE(op_updated,ts)>=?", (cut,))
+        return {os.path.normcase(os.path.abspath(r["orig"])): r["op_identity"] for r in rows if r["orig"]}
+
+    @staticmethod
+    def is_restored(path, kept):
+        """path is a file the owner restored (the same object; a legacy row without identity counts within the time window)."""
+        key = os.path.normcase(os.path.abspath(path))
+        if key not in kept:
+            return False
+        if not kept[key]:
+            return True
+        try:
+            return _identity(path) == kept[key]
+        except OSError:
+            return False
 
     def held_bytes(self):
         return sum(r["bytes"] or 0 for r in self._rows("SELECT bytes FROM quarantine WHERE status='held'"))
@@ -303,22 +337,25 @@ class QuarantineStore:
             rows = self._rows("SELECT * FROM quarantine WHERE status IN ('held','failed')" + ("" if force else " AND expires<=?"), () if force else (int(time.time()),))
             guard = safedel.Root(self.root)
             for row in rows:
+                started = _partial(row)
                 try:
                     path = self._qpath(row["qpath"])
                     if row["status"] == "failed" and not os.path.lexists(path):
                         continue
-                    _safe_tree(path)
+                    # no textual _safe_tree here: remove_tree goes by handle and removes a planted link as a link, so a junction
+                    # planted inside a held item must not block its purge forever
                     if os.path.exists(path) and not self._matches(row, path):
                         raise OSError("quarantined object changed")
                     if not self._claim(row, "purging"):
                         continue
+                    started = True
                     if os.path.lexists(path):
                         safedel.remove_tree(path, guard)  # by handle, links removed as links; never ignore deletion failures
                     self._mark(row["id"], "purged", expected="purging")
                     count += 1
                     amount += row["bytes"] or 0
                 except OSError as exc:
-                    self._mark(row["id"], "failed", error=str(exc)[:200])
+                    self._mark(row["id"], "failed", error=((PURGE_STARTED + ": ") if started else "") + str(exc)[:180])
             dirs, rows = self._sweep()
         return "purged %d (%.1f MB), empty dirs %d, failed rows %d" % (count, amount / 2**20, dirs, rows)
 
