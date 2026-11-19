@@ -161,10 +161,13 @@ const PAGES = {
       if (!home && !mem) return nodata("البيانات من الخادم");
       const m = mem?.m || {}, sc = health?.score?.score, [vt, vl] = sc != null ? verdict(sc) : ["—", ""];
       const cpuPct = home?.cpu?.pct, g = home?.gpu, io = home?.io?.now;
+      // قراءة قديمة لا تُعرض حيّة: المؤشر بلا قيمة ولا لون، وآخر قيمة تُذكر مع عمرها؛ والرسوميات بلا مقاييس ألوان ومعلّمة بالقِدم
+      const cpuOld = cpuPct != null && isStale(home?.cpu?.age), gOld = !!g && isStale(g.age);
       const ms = mem?.series, idx = ms ? compact(ms.t, 160) : [];
       let out = panel("الحالة العامة", `<div class="hero"><div class="big num" style="color:var(--${vl === "bad" ? "bad" : vl === "warn" ? "warn" : "accent-text"})">${sc ?? "—"}</div><div><h3>صحة الجهاز ${vt}</h3><p>${health?.forecast ? `المساحة الحرة على C ${nf(health.forecast.freeGB, 1)} GB، والاتجاه ${esc(health.forecast.state)}${health.forecast.daysLeft ? ` — يكفي نحو ${nf(health.forecast.daysLeft)} يومًا` : ""}.` : "لا تتوفر بيانات التوقع بعد."}</p><div class="pill-row mt-2"><span class="tag ${vl}">${health?.score?.coveragePct ?? "—"}% تغطية القياس</span><span class="tag">${nf(m.claude)} عملية Claude</span><span class="tag">${nf(io?.stalls24 ?? home?.io?.stalls24)} توقفات قرص / 24س</span></div></div></div>`, { cls: "c12" });
-      out += panel("المقاييس الحية", `<div class="gauges">${gauge({ value: cpuPct, label: "المعالج", sub: `${Q(home?.cpu?.cores, "", 1)} من ${Q(home?.cpu?.ncpu)} نواة`, warn: 70, bad: 90 })}${gauge({ value: m.ramPct, label: "الذاكرة الفعلية", sub: `${Q(m.totalGB - m.availGB, "", 1)} من ${Q(m.totalGB, "GB", 1)}`, warn: 80, bad: 92 })}${gauge({ value: m.commitPct, label: "التزام الذاكرة", sub: `${Q(m.commitGB, "", 1)} من ${Q(m.limitGB, "GB", 1)}`, warn: 85, bad: 95 })}${gauge({ value: m.diskPct, label: "القرص C", sub: `حرّ ${Q(m.diskFreeGB, "GB", 1)}`, warn: 85, bad: 93 })}${(m.drives || []).map(d => gauge({ value: d.pct, label: `القرص ${esc(d.letter)}`, sub: `حرّ ${Q(d.freeGB, "GB", 1)}`, warn: 85, bad: 93 })).join("")}</div>`, { cls: "c8" });
-      out += panel("الرسوميات", g ? `<div class="kpis two">${kpi("الحرارة", nf(g.temp), "°C", "", meter(g.temp, 75, 85))}${kpi("الحمل", nf(g.util), "%", "", meter(g.util, 80, 95))}${kpi("ذاكرة الشاشة", nf(g.vramMB / 1024, 1), "GB", `من ${Q(g.vramTotal / 1024, "GB", 1)}`, meter(g.vramMB, g.vramTotal * .8, g.vramTotal * .95, g.vramTotal))}${kpi("القدرة", nf(g.power, 1), "W")}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4", meta: `<a href="#/gpu" class="tag">التفاصيل</a>` });
+      out += panel("المقاييس الحية", `<div class="gauges">${gauge({ value: cpuOld ? null : cpuPct, label: "المعالج", sub: cpuOld ? `${staleTag(home.cpu.age)} آخرها ${Q(cpuPct, "%")}` : `${Q(home?.cpu?.cores, "", 1)} من ${Q(home?.cpu?.ncpu)} نواة`, warn: 70, bad: 90 })}${gauge({ value: m.ramPct, label: "الذاكرة الفعلية", sub: `${Q(m.totalGB - m.availGB, "", 1)} من ${Q(m.totalGB, "GB", 1)}`, warn: 80, bad: 92 })}${gauge({ value: m.commitPct, label: "التزام الذاكرة", sub: `${Q(m.commitGB, "", 1)} من ${Q(m.limitGB, "GB", 1)}`, warn: 85, bad: 95 })}${gauge({ value: m.diskPct, label: "القرص C", sub: `حرّ ${Q(m.diskFreeGB, "GB", 1)}`, warn: 85, bad: 93 })}${(m.drives || []).map(d => gauge({ value: d.pct, label: `القرص ${esc(d.letter)}`, sub: `حرّ ${Q(d.freeGB, "GB", 1)}`, warn: 85, bad: 93 })).join("")}</div>`, { cls: "c8" });
+      const gm = (...a) => gOld ? "" : meter(...a);
+      out += panel("الرسوميات", g ? `<div class="kpis two">${kpi("الحرارة", nf(g.temp), "°C", "", gm(g.temp, 75, 85))}${kpi("الحمل", nf(g.util), "%", "", gm(g.util, 80, 95))}${kpi("ذاكرة الشاشة", nf(g.vramMB / 1024, 1), "GB", `من ${Q(g.vramTotal / 1024, "GB", 1)}`, gm(g.vramMB, g.vramTotal * .8, g.vramTotal * .95, g.vramTotal))}${kpi("القدرة", nf(g.power, 1), "W")}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4", meta: `${gOld ? staleTag(g.age) + " " : ""}<a href="#/gpu" class="tag">التفاصيل</a>` });
       out += panel("استخدام الذاكرة", `<div id="ovChart" class="grow"></div>${legend([["var(--accent2)", "فعلية"], ["var(--violet)", "التزام", 1]])}`, { cls: "c8", meta: "آخر 6 ساعات" });
       out += panel("القرص", io ? `<div class="kpis two">${kpi("قراءة", rate(io.r_bps).split(" ")[0], rate(io.r_bps).split(" ")[1])}${kpi("كتابة", rate(io.w_bps).split(" ")[0], rate(io.w_bps).split(" ")[1])}${kpi("زمن الكتابة", nf(io.lat_w_ms, 2), "ms")}${kpi("الانشغال", nf(io.busy_pct, 1), "%", "", meter(io.busy_pct, 60, 85))}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4" });
       out += panel("أكثر العمليات استهلاكًا", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">المعالج</th><th class="n">الذاكرة</th><th class="n">القرص</th></tr></thead><tbody>${(home?.top || []).slice(0, 8).map(p => `<tr><td translate="no">${esc(p.name)}</td><td class="n">${Q(p.cpu, "نواة", 2)}</td><td class="n">${Q(p.memMB >= 1024 ? p.memMB / 1024 : p.memMB, p.memMB >= 1024 ? "GB" : "MB", p.memMB >= 1024 ? 1 : 0)}</td><td class="n">${Q(p.ioMB, "MB")}</td></tr>`).join("") || `<tr><td colspan="4" class="empty">لا شيء</td></tr>`}</tbody></table>`, { cls: "c8", meta: `<a href="/#procs" class="tag">كل العمليات ↗</a>` });
@@ -223,7 +226,7 @@ const PAGES = {
       out += panel("الدرجة", `<div class="hero grow stack-v">${gauge({ value: s.score, label: "الدرجة", unit: "من 100", warn: 100, bad: 101 }).replace("var(--accent)", `var(--${vl === "ok" ? "accent" : vl})`)}<div><h3>${vt}</h3><p>تغطية القياس ${s.coveragePct}% — ${s.status === "complete" ? "كل المكوّنات مقيسة" : "بعض المكوّنات غير مقيسة"}.</p><div class="pill-row mt-2">${(s.parts || []).filter(p => p.pts < p.max).map(p => `<span class="tag warn">${esc(p.label)} −${nf(p.max - p.pts, 1)}</span>`).join("") || `<span class="tag ok">لا خصومات</span>`}</div></div></div>`, { cls: "c5" });
       out += panel("المكوّنات", `<div class="list">${(s.parts || []).map(p => `<div class="li"><span class="t">${esc(p.label)}</span><span class="r">${p.pts == null ? "—" : `<bdi dir="ltr" class="q">${p.pts}/${p.max}</bdi>`}</span><span class="d">${esc(p.why || "")}</span><div class="meter ${p.pts == null ? "" : p.pts < p.max * .6 ? "bad" : p.pts < p.max ? "warn" : ""}"><i style="--p:${((p.pts == null ? 0 : clamp(p.pts / p.max * 100, 0, 100)) / 100).toFixed(3)}"></i></div></div>`).join("")}</div>`, { cls: "c7" });
       out += panel("اتجاه الدرجة", `<div id="hhChart" class="grow"></div>`, { cls: "c7", meta: `آخر ${(h.history || []).length} يومًا` });
-      out += panel("توقع المساحة", `<div class="kpis two">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("معدل التغيّر", (fc.slopeGBday > 0 ? "−" : "+") + nf(Math.abs(fc.slopeGBday), 2), "GB/يوم")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
+      out += panel("توقع المساحة", `<div class="kpis two">${kpi("حرّ الآن", nf(fc.freeGB, 1), "GB")}${kpi("تغيّر المساحة الحرة", fc.slopeGBday == null ? "—" : (fc.slopeGBday < 0 ? "−" : fc.slopeGBday > 0 ? "+" : "") + nf(Math.abs(fc.slopeGBday), 2), fc.slopeGBday == null ? "" : "GB/يوم", fc.slopeGBday == null ? "تُجمع القياسات بعد" : fc.slopeGBday < 0 ? "المساحة الحرة تتناقص" : fc.slopeGBday > 0 ? "المساحة الحرة تزيد" : "")}</div><div class="pill-row"><span class="tag ${fc.daysLeft ? "warn" : "ok"}">${esc(fc.state || "—")}</span><span class="tag">${nf(fc.points)} قياسًا</span></div><p class="note">${fc.daysLeft ? `يتوقع الامتلاء خلال ${nf(fc.daysLeft)} يومًا.` : "لا اتجاه نحو الامتلاء."}</p>`, { cls: "c5" });
       out += panel("الرسوميات (24 ساعة)", g ? `<div class="kpis">${kpi("الآن", nf(g.temp), "°C")}${kpi("الذروة", nf(h.gpu.max24), "°C")}${kpi("الحمل", nf(g.util), "%")}${kpi("الحالة", esc(g.pstate), "")}</div>` : `<div class="empty">لا بيانات</div>`, { cls: "c6" });
       out += panel("تسرّب الذاكرة", (h.leaks || []).length ? `<div class="list">${h.leaks.map(l => `<div class="li"><span class="t" translate="no">${esc(l.name)}</span><span class="d">${esc(l.note || "")}</span></div>`).join("")}</div>` : `<div class="empty">لم تُكتشف عمليات تنمو باستمرار</div>`, { cls: "c6" });
       const ig = h.gpu?.igpu;
@@ -250,7 +253,11 @@ const PAGES = {
       if (!c) return nodata("بيانات المعالج");
       const pct = c.total / c.ncpu * 100, maxc = Math.max(...c.now.map(x => x.cores), .1);
       const tbl = (rows, key) => `<table class="tbl"><thead><tr><th>التطبيق</th><th>الاستهلاك</th><th class="n">نسخ</th></tr></thead><tbody>${rows.slice(0, 8).map(p => `<tr><td translate="no">${esc(p.name)}</td><td><div class="rowbar"><div class="meter"><i style="--p:${((clamp((p[key] ?? 0) / maxc * 100, 2, 100)) / 100).toFixed(3)}"></i></div><span class="num">${nf(p[key], 2)}</span></div></td><td class="n num">${p.n ?? ""}</td></tr>`).join("")}</tbody></table>`;
-      let out = panel("الحمل الحالي", `<div class="kpis">${kpi("المجموع", nf(c.total, 1), "نواة", `من ${Q(c.ncpu)} نواة`, meter(pct, 70, 90))}${kpi("النسبة", nf(pct, 1), "%")}${kpi("متوسط 10 دقائق", nf(c.avg10?.reduce((a, x) => a + x.avg, 0), 1), "نواة")}</div>`, { cls: "c4" });
+      // «متوسط 10 دقائق» للجهاز كله من سلسلة المجموع (__total__) في آخر 10 دقائق حتى آخر قراءة، لا من avg10 (أعلى 8 تطبيقات فقط)
+      const st = c.series?.t || [], sv = c.series?.v || [], t10 = (c.ts ?? st[st.length - 1]) - 600, w10 = sv.filter((v, i) => st[i] >= t10 && v != null);
+      const avg10 = w10.length ? w10.reduce((a, v) => a + v, 0) / w10.length : null;
+      const old = !!c.stale;   // الخادم يحكم بالقِدم بساعته (آخر قراءة أقدم من 180 ث)؛ العمر المعروض تقريبي من ساعة الصفحة
+      let out = panel("الحمل الحالي", `<div class="kpis">${kpi("المجموع", nf(c.total, 1), "نواة", `من ${Q(c.ncpu)} نواة`, old ? "" : meter(pct, 70, 90))}${kpi("النسبة", nf(pct, 1), "%")}${kpi("متوسط 10 دقائق", nf(avg10, 1), "نواة", "للجهاز كله")}</div>`, { cls: "c4", meta: old ? staleTag(c.ts != null ? Date.now() / 1000 - c.ts : null) : "" });
       out += panel("المعالج الكلي خلال ساعة", `<div id="cpuChart" class="grow"></div>`, { cls: "c8", meta: c.alert ? `<span class="tag warn">${esc(c.alert.text || "تنبيه")}</span>` : "" });
       out += panel("الآن", tbl(c.now, "cores"), { cls: "c4" });
       out += panel("متوسط آخر 10 دقائق", tbl(c.avg10 || [], "avg"), { cls: "c4" });
@@ -333,10 +340,15 @@ const confirmDlg = (text, okLabel = "تأكيد", danger = false) => new Promise
 const ERR_AR = { "not allowed": "غير مسموح", "job running": "المهمة تعمل الآن؛ انتظر انتهاءها ثم أعد المحاولة", "bad name": "اسم غير صالح", "bad action": "إجراء غير صالح", "bad tier": "مستوى غير صالح", confirm_required: "يلزم تأكيد العملية", "bad params": "معاملات غير صالحة", protected: "عملية محمية لا تُغلق من هنا", not_found: "العملية لم تعد موجودة", name_mismatch: "تبدّلت العملية على هذا المعرّف؛ حدّث الصفحة", created_mismatch: "أُعيد استعمال هذا المعرّف لعملية أحدث؛ حدّث الصفحة", not_owner: "عملية نظام أو خدمة لا يملكها المستخدم؛ لا تُغلق من هنا", access_denied: "عملية محمية تعذّر فتحها؛ أغلقها من مدير المهام إن لزم",
   candidates_changed: "تغيّرت الملفات المرشّحة للحذف منذ المعاينة؛ أعد المعاينة", "seen_mb required": "عاين أولاً قبل التنفيذ", "a manual cleanup is already running": "تنظيف يدوي يعمل الآن", "clean already running": "تنظيف آخر يعمل الآن",
   "trim already running": "تنظيف الذاكرة يعمل الآن", "gpu purge already running": "تفريغ ذاكرة الشاشة يعمل الآن", unauthorized: "انتهت الجلسة", "bad origin": "مصدر الطلب غير مسموح" };
-async function post(path, body) {
+// confirmed: المستدعي عرض على المالك حوار تأكيد لهذا الفعل بعينه قبل الطلب، فيُعاد الطلب برمز 428 مباشرة.
+// بدونه لا يُعاد الطلب آليًّا أبدًا: الخادم طلب تأكيدًا لفعل هدّام، فيرى المالك حوارًا أولًا، وإن رفضه لا يُرسل الرمز
+async function post(path, body, confirmed = false) {
   const send = data => fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data || {}) });
   let r = await send(body), j = await r.json().catch(() => ({}));
-  if (r.status === 428 && j.confirm) { r = await send({ ...body, confirm: j.confirm }); j = await r.json().catch(() => ({})); }   // one-time token: the user already confirmed in the dialog
+  if (r.status === 428 && j.confirm) {
+    if (!confirmed && !(await confirmDlg("هذا الفعل يحذف أو يُنهي شيئًا ولا يمكن التراجع عنه. هل تريد المتابعة؟", "تابع", true))) throw new Error("أُلغيت العملية");
+    r = await send({ ...body, confirm: j.confirm }); j = await r.json().catch(() => ({}));
+  }
   if (!r.ok) throw new Error(ERR_AR[j.error] || j.error || ("HTTP " + r.status));
   return j;
 }
@@ -488,6 +500,11 @@ function reliabBody(r) {
 const when = ts => ts ? `<bdi dir="ltr" class="q">${new Date(ts * 1000).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
 const whenIso = iso => iso ? `<bdi dir="ltr" class="q">${new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</bdi>` : "—";
 const dur = s => s >= 3600 ? Q(s / 3600, "س", 1) : s >= 60 ? Q(s / 60, "د") : Q(s, "ث");
+// قِدم القراءات «الحية»: المعالج والرسوميات يُكتبان كل دقيقة أو أقل، فقراءة أقدم من 3 دقائق لم تعد حيّة
+// (الحدّ نفسه في cpuwatch.api_payload → stale وفي فحص المعالج بالويدجت). age بالثواني، وnull يعني عمرًا مجهولًا فتُعدّ قديمة
+const STALE_S = 180;
+const isStale = age => age == null || !isFinite(age) || age > STALE_S;
+const staleTag = age => `<span class="tag warn">قراءة قديمة${age != null && isFinite(age) ? ` · قبل ${dur(Math.round(age))}` : ""}</span>`;
 /* تأجيل التوصيات 24 ساعة: حالة محلية لهذا المتصفح فقط (localStorage)، تسقط المنتهية عند القراءة */
 const ADV_KEY = "mw-v2-advSnooze";
 const advSnoozed = () => { try { const o = JSON.parse(localStorage.getItem(ADV_KEY) || "{}"), n = Date.now(); for (const k in o) if (!(o[k] > n)) delete o[k]; return o; } catch { return {}; } };
@@ -610,13 +627,13 @@ async function reaperRun(t) {
   const dry = t.dataset.reaprun === "dry";
   if (!dry && !(await confirmDlg("تشغيل الكانس الآن فعليًا؟ يُنهي الشلات الخاملة المطابقة لشروطه، والمحميّ مستثنى. ينفّذه سكربت MachineCare نفسه.", "شغّل الكانس", true))) return;
   t.disabled = true; toast(dry ? "جارٍ فحص الشلات…" : "جارٍ تشغيل الكانس…");
-  try { const r = await post("/api/reaper-run", { dry }); toast(r.ok ? (dry ? `الفحص: ${r.candidates} مرشّح، لم يُنهَ شيء` : `أُنهي ${r.killed} من ${r.candidates} مرشّح`) : "تعذّر: " + (r.error || "فشل التشغيل"), !r.ok); show(true); }
+  try { const r = await post("/api/reaper-run", { dry }, !dry); toast(r.ok ? (dry ? `الفحص: ${r.candidates} مرشّح، لم يُنهَ شيء` : `أُنهي ${r.killed} من ${r.candidates} مرشّح`) : "تعذّر: " + (r.error || "فشل التشغيل"), !r.ok); show(true); }
   catch (e) { toast("تعذّر: " + e.message, true); } finally { t.disabled = false; }
 }
 async function runTier(t) {
   const k = t.dataset.runtier, dry = t.dataset.dry === "1", L = { daily: "اليومي", weekly: "الأسبوعي", monthly: "الشهري", quarterly: "الربع سنوي" }[k];
   if (!dry && !(await confirmDlg(`تنفيذ فعلي للتنظيف ${L}؟ ستُحذف الملفات المطابقة للقواعد المفعّلة.`, "نفّذ", true))) return;
-  act(() => post("/api/run-cleanup", { tier: k, dry }), dry ? "بدأت التجربة" : "بدأ التنفيذ");
+  act(() => post("/api/run-cleanup", { tier: k, dry }, !dry), dry ? "بدأت التجربة" : "بدأ التنفيذ");
 }
 // innerHTML يُسقط التركيز عن الزر المضغوط أو الحقل؛ نحفظ هوية العنصر (id ثم سمات data ثم ترتيبه بين القابلة للتركيز) ونعيده بعد الرسم
 const FOCUSABLE = "button:not([disabled]), a[href], input, select, textarea, [tabindex]:not([tabindex='-1'])";
@@ -691,9 +708,11 @@ async function spAction(t) {
     else if (a === "cancel") { delete SPV[k]; redraw(spFocus(k)); }
     else if (a === "clean") {
       const early = t.dataset.early === "1";
-      if (early && !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن", true))) return;
       const seen = Math.round(SPV[k]?.res?.mb || 0);
-      if (!(await spJob(k, () => post("/api/space", { action: "clean", kind: k, seen_mb: seen, ...(early ? { early: true } : {}) }), `/api/space-clean?kind=${encodeURIComponent(k)}`, true))) return;
+      // الحذف بعد المعاينة يحتاج تأكيد المالك صراحةً: الخادم يطلب رمز 428، ولا يُرسل الرمز إلا بعد هذا الحوار
+      if (early ? !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن", true))
+        : !(await confirmDlg(`تنظيف «${(d?.labels || {})[k] || k}» الآن — المتوقع تحرير ${seen} MB بحسب المعاينة. هل تريد المتابعة؟`, "نظّف", true))) return;
+      if (!(await spJob(k, () => post("/api/space", { action: "clean", kind: k, seen_mb: seen, ...(early ? { early: true } : {}) }, true), `/api/space-clean?kind=${encodeURIComponent(k)}`, true))) return;
       const done = SPV[k]; later(5000, reload); later(15000, () => { if (SPV[k] === done) { delete SPV[k]; redraw(); } });
     }
     else if (a === "all") {
@@ -701,7 +720,7 @@ async function spAction(t) {
       if (!(await confirmDlg(`تنظيف كل الأنواع الآمنة (${(d.bulk || []).map(x => (d.labels || {})[x] || x).join("، ")}) — المتوقع تحرير ${Math.round(mb)} MB؟`, "نظّف الكل", true))) return;
       SPALL.s = "busy"; SPALL.prog = null; redraw();
       try {
-        const r = await pollJob(post("/api/space", { action: "cleanall", seen_mb: Math.round(mb) }), "/api/space-clean?kind=all", s => { SPALL.prog = s; redraw(); }, () => true);
+        const r = await pollJob(post("/api/space", { action: "cleanall", seen_mb: Math.round(mb) }, true), "/api/space-clean?kind=all", s => { SPALL.prog = s; redraw(); }, () => true);
         const ed = (r.parts || []).reduce((a, x) => a + (x.emptyDirs || 0), 0);
         if (r.ok) toast(`حُرّر ${Math.round(r.mb || 0)} MB${ed ? ` · أُزيل ${nf(ed)} مجلد فارغ` : ""}`); else toast("تعذّر التنظيف: " + (r.error || "تعذّر"), true);
       } catch (e) { toast("تعذّر التنظيف: " + e.message, true); }
@@ -715,7 +734,7 @@ async function spAction(t) {
     else if (a === "qpurge") {
       const mb = Math.round(((d.quarantine || []).filter(q => q.status === "held").reduce((s, q) => s + (q.bytes || 0), 0)) / 1048576);
       if (!(await confirmDlg(`سيُحذف كل المحجوز (${fmtMB(mb)}) نهائيًا الآن قبل انقضاء أيام الحجز، ولن تستطيع استرجاع أي عنصر منه ولا التراجع. هل تريد المتابعة؟`, "احذف المحجوز نهائيًا", true))) return;
-      const r = await post("/api/space", { action: "qpurge", seen_mb: mb });
+      const r = await post("/api/space", { action: "qpurge", seen_mb: mb }, true);
       toast(r.ok ? "بدأ تفريغ الحجر في الخلفية" : "تعذّر التفريغ: " + (r.error || ""), !r.ok);
       later(4000, reload); later(15000, reload); later(45000, reload);
     }
@@ -1017,7 +1036,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.askq) { askSend(t.dataset.askq); }
   else if (t.dataset.askrun) {
     const [i, j] = t.dataset.askrun.split(":").map(Number), a = askState.msgs[i]?.actions?.[j], run = a && ASK_RUN[a.action];
-    if (run && await confirmDlg(`تنفيذ «${a.label}»${a.target ? ` على ${a.target}` : ""}؟`, "نفّذ")) { try { await post(run[0], run[1](a)); a.done = true; toast("نُفّذ الأمر"); askHold(); } catch (e) { toast("تعذّر: " + e.message, true); } }
+    if (run && await confirmDlg(`تنفيذ «${a.label}»${a.target ? ` على ${a.target}` : ""}؟`, "نفّذ")) { try { await post(run[0], run[1](a), true); a.done = true; toast("نُفّذ الأمر"); askHold(); } catch (e) { toast("تعذّر: " + e.message, true); } }
   }
   else if (t.dataset.askrate) {
     const [i, v] = t.dataset.askrate.split(":").map(Number), m = askState.msgs[i], value = m?.rating === v ? 0 : v;
@@ -1033,7 +1052,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.reaprun) { reaperRun(t); }
   else if (t.dataset.procclose) { procClose(t); }
   else if (t.dataset.dockerstop) { dockerStop(t); }
-  else if (t.dataset.wgfix) { if (await confirmDlg(`تشغيل المهمة «${t.dataset.wgfix}» بلا نوافذ؟ يُحفظ إجراؤها الأصلي قبل التعديل.`, "أسكت")) act(() => post("/api/winguard-silence", { name: t.dataset.wgfix }), "أُسكتت المهمة"); }
+  else if (t.dataset.wgfix) { if (await confirmDlg(`تشغيل المهمة «${t.dataset.wgfix}» بلا نوافذ؟ يُحفظ إجراؤها الأصلي قبل التعديل.`, "أسكت")) act(() => post("/api/winguard-silence", { name: t.dataset.wgfix }, true), "أُسكتت المهمة"); }
   else if (t.dataset.baremin) { const v = Math.round(Number($("#bareMin").value)); if (!(v >= 60 && v <= 2880)) return toast("بين 60 و2880 دقيقة", true); act(() => post("/api/reaper-set", { key: "bareClaudeShellMinutes", value: v }), "حُفظت المدة"); }
   else if (t.dataset.protadd) { const v = $("#protIn").value.trim(); if (!/^[A-Za-z0-9_.\- ]{1,64}$/.test(v)) return toast("حروف إنجليزية وأرقام ونقطة وشرطة فقط", true); act(() => post("/api/reaper-protect", { name: v, op: "add" }), "أُضيف إلى المحميّ"); }
   else if (t.dataset.protdel) { if (await confirmDlg(`إزالة «${t.dataset.protdel}» من المحميّ؟ قد يصبح أي شل يحتوي سطر أمره هذه الكلمة عرضة للإنهاء.`, "أزل", true)) act(() => post("/api/reaper-protect", { name: t.dataset.protdel, op: "remove" }), "أُزيل من المحميّ"); }
@@ -1079,15 +1098,28 @@ let timer = 0, page = null, last = null, busy = false, lastSig = "";
 const boostGet = () => { try { const v = localStorage.getItem("mw-v2-boost"); return v === "medium" || v === "deep" ? v : "light"; } catch { return "light"; } };
 $("#boostMode").value = boostGet();
 $("#boostMode").onchange = e => { try { localStorage.setItem("mw-v2-boost", e.target.value); } catch { } };
+// نتيجة تنظيف الذاكرة من /api/mini → trim بمنطق الويدجت (widget.ps1): الخطأ يُفحص قبل الأرقام، لأن الفشل لا يحدّث
+// before/after/freedMB/ts فتبقى أرقام تنظيف سابق. والأرقام لا تُعرض إلا إن كان ختمها (ts) من هذا التشغيل؛ t0 لحظة الضغط بالملّي ثانية
+function trimOutcome(m, t0) {
+  if (!m) return null;
+  if (m.running) return { text: "ما زال تنظيف الذاكرة يعمل؛ تظهر نتيجته في الويدجت حين ينتهي", bad: false };
+  const fresh = !!m.ts && Date.parse(m.ts) >= t0 - 5000;   // ts محلي بدقة الثانية؛ هامش لتقريب الثواني
+  if (m.err) return fresh && m.freedMB > 0
+    ? { text: `نجح تنظيف الذاكرة جزئيًا: حُرّر ${(m.freedMB / 1024).toFixed(2)} GB ثم تعذّر الإكمال (${m.err})`, bad: true }
+    : { text: `تعذّر تنظيف الذاكرة: ${m.err}`, bad: true };
+  if (!fresh || m.before == null) return { text: "انتهى تنظيف الذاكرة دون نتيجة جديدة مسجّلة", bad: true };
+  return { text: `الذاكرة الفعلية ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB (الالتزام لا يتغيّر)`, bad: false };
+}
 $("#boost").onclick = async () => {
   const b = $("#boost"), mode = $("#boostMode").value, txt = $("#boostTxt"); if (b.disabled) return;
   if (mode === "deep" && !(await confirmDlg("الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟", "تابع"))) return;
+  const t0 = Date.now();
   try { await post("/api/trim-memory", { mode }); } catch (e) { return toast("تعذّر: " + e.message, true); }
   b.disabled = true; txt.textContent = "جارٍ التنظيف…"; toast({ light: "بدأ التنظيف البسيط", medium: "بدأ التنظيف المتوسط", deep: "بدأ التنظيف العميق" }[mode]);
   let m = null;
   for (let i = 0; i < 80; i++) { await new Promise(r => setTimeout(r, 700)); try { m = (await api("/api/mini")).trim; } catch { } if (m && !m.running) break; }
   b.disabled = false; txt.textContent = "تنظيف الذاكرة";
-  if (m && m.before != null) toast(`الذاكرة الفعلية ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB (الالتزام لا يتغيّر)`);
+  const r = trimOutcome(m, t0); if (r) toast(r.text, r.bad);
   show(true);
 };
 // خريطة الالتزام: لمن يذهب الالتزام (حسب المشروع)، وما الحجز الخامل، وكم يلزم للهدف، وحاويات Docker وطلباتها
@@ -1109,17 +1141,17 @@ function commitMap(cm, thr) {
 async function dockerStop(t) {
   const project = t.dataset.dockerstop, done = /^(merged|closed)$/.test(t.dataset.dockerpr || "");
   if (!(await confirmDlg(`إيقاف حاويات «${project}»؟ تتوقف ولا تُحذف، ويعيدها docker start.${done ? "" : " طلب الدمج الذي تخدمه ليس منتهيًا؛ قد يقطع هذا عمل جلسة أخرى."}`, "أوقف", !done))) return;
-  act(() => post("/api/docker-stop", { project }), `أُوقفت حاويات ${project}`);
+  act(() => post("/api/docker-stop", { project }, true), `أُوقفت حاويات ${project}`);
 }
 async function procClose(t) {
   const pid = Number(t.dataset.procclose), name = t.dataset.procname || "", created = t.dataset.proccreated || "", mb = Number(t.dataset.procmb) || 0;   // وقت الإنشاء كما رآه المالك: الخادم يرفض إن أُعيد استعمال المعرّف
   const size = mb >= 1024 ? nf(mb / 1024, 1) + " GB" : nf(mb) + " MB", shellish = /^(pwsh|powershell)[.]exe$/i.test(name);
   if (!(await confirmDlg(`إغلاق ${name} (PID ${pid})؟ يحرّر نحو ${size} من الالتزام، وقد يضيع عمل غير محفوظ فيه.${shellish ? " قد تكون هذه نافذة الويدجت أو غلاف التطبيق." : ""}`, "أغلق", true))) return;
   let r;
-  try { r = await post("/api/proc-close", { pid, name, created, force: false }); } catch (e) { return toast("تعذّر: " + e.message, true); }
+  try { r = await post("/api/proc-close", { pid, name, created, force: false }, true); } catch (e) { return toast("تعذّر: " + e.message, true); }
   if (!r.exited && r.windows > 0) {   // له نافذة ولم يستجب لطلب الإغلاق اللطيف (قد ينتظر حفظًا): الإنهاء القسري بتأكيد ثانٍ فقط
     if (!(await confirmDlg(`${name} لم يُغلق خلال 3 ثوانٍ؛ قد ينتظر حفظًا. إنهاؤه قسريًا الآن؟ يضيع ما لم يُحفظ.`, "أنهِ قسريًا", true))) { toast("طُلب الإغلاق؛ البرنامج ما زال يعمل"); return show(); }
-    try { r = await post("/api/proc-close", { pid, name, created, force: true }); } catch (e) { return toast("تعذّر: " + e.message, true); }
+    try { r = await post("/api/proc-close", { pid, name, created, force: true }, true); } catch (e) { return toast("تعذّر: " + e.message, true); }
   }
   toast(r.exited ? `أُغلق ${name} وحُرّر نحو ${size} من الالتزام` : `طُلب إغلاق ${name}؛ ما زال يعمل`, !r.exited);
   show();
