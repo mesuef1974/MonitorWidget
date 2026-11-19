@@ -12,6 +12,7 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
     ("المظهر المشترك والمراجعات (معزول)", "appearance_regression.py"),
     ("البيانات والتشغيل (معزول)", "db_ops_regressions.py"),
     ("الحجر والتعافي (معزول)", "quarantine_regression.py"),
+    ("أمان الحذف: لا يتبع رابطًا زُرع بعد السرد، وتراجع DISM وdiskpart وDocker (معزول)", "space_safety_check.py"),
     ("SQLite الخاص (معزول)", "sqlite_runtime_check.py"),
     ("تغطية مؤشرات الصحة (معزول)", "health_score_regression.py"),
     ("التزام الذاكرة: الحالة وأعلى العمليات (معزول)", "commit_check.py"),

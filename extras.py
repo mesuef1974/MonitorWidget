@@ -22,6 +22,8 @@ from ctypes import wintypes
 
 import db
 import errlog
+import safedel
+import secure
 import space
 
 H = space.H
@@ -147,6 +149,13 @@ def _light(kind, dry, src):
     for root in s["roots"]():
         if not os.path.isdir(root) or space._is_reparse(root):
             continue
+        guard = None
+        if not dry:
+            try:
+                guard = safedel.Root(root)   # every deletion below goes by handle inside this root (no planted junction followed)
+            except OSError:
+                errlog.swallowed()
+                continue
         for dp, dn, links, fn in reversed(list(space._walk(root))):
             for f in fn:
                 p = os.path.join(dp, f)
@@ -160,13 +169,13 @@ def _light(kind, dry, src):
                         else:
                             skipped += 1; locked += st.st_size
                     else:
-                        os.remove(p); freed += st.st_size; n += 1
+                        guard.remove(p); freed += st.st_size; n += 1
                 except OSError:
                     skipped += 1
             if not dry:
                 for d in dn + links:
                     try:
-                        os.rmdir(os.path.join(dp, d))
+                        guard.remove(os.path.join(dp, d))   # empty folder, or a link removed as a link
                     except OSError:
                         pass   # not empty (skipped files) or in use: expected
     if not dry:
@@ -192,13 +201,20 @@ def _docker_up():
         return False, ""
 
 
-def _docker_images_list():
+def _docker_images_sizes():
+    """{ID: GB} of the dangling images."""
     r = space._docker(["images", "-f", "dangling=true", "--format", "{{.ID}}|{{.Size}}"], 40)
-    ids, tot = [], 0.0
+    out = {}
     for ln in r.stdout.splitlines():
         if "|" in ln:
-            i, s = ln.split("|", 1); ids.append(i.strip()); tot += space._gb(s)
-    return sorted(set(ids)), tot
+            i, s = ln.split("|", 1)
+            out[i.strip()] = space._gb(s)
+    return out
+
+
+def _docker_images_list():
+    sizes = _docker_images_sizes()
+    return sorted(sizes), sum(sizes.values())
 
 
 def _docker_volumes_list():
@@ -223,15 +239,17 @@ def _dockerimages(dry, src):
     up, _ = _docker_up()
     if not up:
         return {"ok": False, "error": "Docker غير مشغّل"}
-    ids, gb = _docker_images_list()
+    sizes = _docker_images_sizes()
+    ids, gb = sorted(sizes), sum(sizes.values())
     if dry:
         return _res(True, gb * 1024, len(ids), note="داخل Docker؛ تعود للقرص بعد ضغط القرص الافتراضي")
-    done = 0
+    done, freed = 0, 0.0
     for i in ids:
         r = space._docker(["rmi", i], 120)   # plain rmi: refuses anything still referenced
         if r.returncode == 0:
-            done += 1
-    return _res(False, gb * 1024, done, len(ids) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط")
+            done += 1; freed += sizes[i]
+    # المحرَّر الفعلي: حجم ما حُذف فعلًا لا التقدير كله (ما رفضه rmi لا يُحسب)
+    return _res(False, freed * 1024, done, len(ids) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط", expectedMB=round(gb * 1024, 1))
 
 
 def _dockervolumes(dry, src):
@@ -242,12 +260,12 @@ def _dockervolumes(dry, src):
     gb = sum(s for _, s in vols)
     if dry:
         return _res(True, gb * 1024, len(vols), note="داخل Docker؛ المجهولة غير المرتبطة فقط")
-    done = 0
-    for name, _s in vols:
+    done, freed = 0, 0.0
+    for name, size in vols:
         r = space._docker(["volume", "rm", name], 60)   # refuses a volume that is in use
         if r.returncode == 0:
-            done += 1
-    return _res(False, gb * 1024, done, len(vols) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط")
+            done += 1; freed += size
+    return _res(False, freed * 1024, done, len(vols) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط", expectedMB=round(gb * 1024, 1))
 
 
 def _dockercompact_estimate():
@@ -287,6 +305,29 @@ def _dockercompact(dry, src):
     return {"ok": True, "dry": False, "started": True, "gb": 0, "mb": 0, "files": 0, "skipped": 0, "note": "بدأ ضغط القرص في الخلفية؛ سيُغلق Docker مؤقتاً"}
 
 
+def _script_dir():
+    """مجلد ملف أوامر diskpart: مجلد المخرجات المحمي (يكتب فيه المسؤول وSYSTEM فقط، وللمستخدمين القراءة) لا %TEMP%،
+    فلا يستطيع برنامج عادي استبدال الأوامر بين كتابتها وتنفيذها بصلاحية المسؤول. يُرفض إن كان نقطة إعادة توجيه أو غائبًا."""
+    d = secure.OUT
+    safedel.Root(d)   # موجود، ومجلد حقيقي، ولا يمرّ بنقطة إعادة توجيه
+    return d
+
+
+def _run_diskpart(commands):
+    """ينفّذ diskpart /s بملف أوامر باسم عشوائي (mkstemp: إنشاء حصري) في المجلد المحمي، ثم يحذفه دائمًا."""
+    import tempfile
+    fd, script = tempfile.mkstemp(prefix="mw_compact_", suffix=".txt", dir=_script_dir())
+    try:
+        with os.fdopen(fd, "w", encoding="ascii") as f:
+            f.write(commands)
+        return subprocess.run(["diskpart", "/s", script], capture_output=True, text=True, timeout=5400, creationflags=NW)
+    finally:
+        try:
+            os.remove(script)
+        except OSError:
+            errlog.swallowed()
+
+
 def _dockercompact_job(src):
     t0 = time.time(); JOBS["dockercompact"] = {"state": "running", "ts": int(t0), "step": "إيقاف Docker"}
     fb = _free(); b0 = os.path.getsize(DOCKER_VHDX)
@@ -297,15 +338,9 @@ def _dockercompact_job(src):
         subprocess.run(["wsl", "--shutdown"], capture_output=True, timeout=120, creationflags=NW)
         time.sleep(8)
         JOBS["dockercompact"]["step"] = "ضغط القرص"
-        script = os.path.join(os.environ.get("TEMP", LA), "mw_compact_%d.txt" % int(t0))
-        with open(script, "w", encoding="ascii") as f:
-            f.write('select vdisk file="%s"\nattach vdisk readonly\ncompact vdisk\ndetach vdisk\nexit\n' % DOCKER_VHDX)
-        r = subprocess.run(["diskpart", "/s", script], capture_output=True, text=True, timeout=5400, creationflags=NW)
-        try:
-            os.remove(script)
-        except OSError:
-            pass
-        ok = r.returncode == 0 and "100 percent" in (r.stdout or "").lower()
+        r = _run_diskpart('select vdisk file="%s"\nattach vdisk readonly\ncompact vdisk\ndetach vdisk\nexit\n' % DOCKER_VHDX)
+        # رمز خروج diskpart في وضع /s صفر فقط إن نجحت كل الأوامر (يتوقف عند أول خطأ برمز غير صفري)؛ مستقل عن لغة النظام
+        ok = r.returncode == 0
         b1 = os.path.getsize(DOCKER_VHDX); fa = _free()
         mb = round(max(0, b0 - b1) / 2**20, 1)
         _audit("dockercompact", src, round((est or 0) * 1024, 1), mb, 0, 0 if ok else 1, fb, fa, ok, None if ok else (r.stdout or "")[-120:].strip())
@@ -380,16 +415,26 @@ def _dism_job(src):
         threading.Thread(target=space.scan, args=(60,), daemon=True).start()
 
 
+DISM_RETRY_S = 86400   # بعد محاولة آلية: يوم واحد قبل التالية
+
+
 def dism_monthly():
     """Agent job: StartComponentCleanup at most every 30 days, only when the owner enabled it and the fixed elevated task is available."""
     if not space._setting("space.dism_monthly", False) or space.elevated_gate("dism"):
         return "off"
     with db._lock:
         r = space._c().execute("SELECT MAX(ts) FROM actions WHERE kind='dism' AND ok=1 AND actual_mb IS NOT NULL").fetchone()
-    if r and r[0] and time.time() - r[0] < 30 * 86400:
+    now = time.time()
+    if r and r[0] and now - r[0] < 30 * 86400:
         return "not due"
     if (JOBS.get("dism") or {}).get("state") == "running":
         return "running"
+    # آخر محاولة آلية أيًّا كانت نتيجتها (فشلت، أو انتهت مهلتها بلا صف تدقيق): لا إعادة قبل يوم، وإلا أُعيد DISM كل ساعة ما دام يفشل.
+    # وقت محاولة في المستقبل (رجوع الساعة) لا يحجب: تُعاد المحاولة ويُكتب وقت جديد.
+    last = space._setting("space.dism_last_try", 0) or 0
+    if 0 <= now - last < DISM_RETRY_S:
+        return "backoff"
+    space._setting_set("space.dism_last_try", int(now))
     space.clean("dism", dry=False, src="auto")
     return "started"
 
@@ -431,6 +476,7 @@ def _archive_job(src, cands):
     try:
         os.makedirs(ARCHIVE_DIR, exist_ok=True)
         groups = {}
+        guard = safedel.Root(CLAUDE_PROJECTS)   # حذف الأصول بالمقبض داخل مجلد المشاريع فقط
         for p, sz, mt in cands:
             groups.setdefault(time.strftime("%Y%m", time.localtime(mt)), []).append((p, sz))
         for ym, items in sorted(groups.items()):
@@ -455,7 +501,7 @@ def _archive_job(src, cands):
             for p, sz, arc in added:
                 if bad is None and info.get(arc) == sz:
                     try:
-                        os.remove(p); removed += 1; raw += sz
+                        guard.remove(p); removed += 1; raw += sz
                     except OSError:
                         kept += 1
                 else:

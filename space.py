@@ -7,6 +7,7 @@ import errlog
 from ctypes import wintypes
 
 import db
+import safedel
 import secure
 
 H = os.path.expanduser("~")
@@ -294,6 +295,15 @@ def quarantine_list():
 
 def quarantine_restore(qid):
     return _quarantine_store().restore(qid)
+
+
+def _restored_paths():
+    """مسارات ما استرجعه المالك من الحجر (موحّدة الحالة)؛ فارغة عند أي خطأ فلا يتوقف التنظيف."""
+    try:
+        return _quarantine_store().restored_paths()
+    except Exception:
+        errlog.swallowed()
+        return set()
 
 
 def purge_quarantine():
@@ -784,11 +794,16 @@ def _rm_empty_dirs(root, dirs, days, prog=None):
     cut = time.time() - days * 86400
     keep = {os.path.normcase(os.path.join(root, k)) for k in TEMP_KEEP}
     n = 0
+    try:
+        guard = safedel.Root(root)
+    except OSError:
+        errlog.swallowed()
+        return 0
     for d, mt in reversed(dirs):   # the top-down walk order reversed puts every folder after its subfolders
         if mt >= cut or os.path.normcase(d) in keep:
             continue
         try:
-            os.rmdir(d); n += 1
+            guard.remove(d); n += 1   # بالمقبض: مجلد فارغ فقط، ولا يُتبع رابط زُرع بعد السرد
         except OSError as ex:
             # expected: still holds a file or folder that stays (WinError 145 not empty, 32 in use, 5 denied)
             if getattr(ex, "winerror", None) not in (5, 32, 145):
@@ -813,18 +828,24 @@ def _cache_dirs():
 
 def _purge_dir(root, prog=None):
     """Delete files one by one; locked/in-use files are skipped (so a running Edge is fine). Returns (bytes freed, files removed, files skipped).
-    prog counts files handled and MB freed in this folder only; the caller sums across folders."""
+    prog counts files handled and MB freed in this folder only; the caller sums across folders.
+    Every deletion goes through safedel (by handle, no reparse point followed between the root and the target)."""
     freed = n = skipped = 0
+    try:
+        guard = safedel.Root(root)
+    except OSError:
+        errlog.swallowed()
+        return 0, 0, 0
     for dp, dn, links, fn in reversed(list(_walk(root, prog))):
         for f in fn:
             p = os.path.join(dp, f)
             try:
-                sz = os.path.getsize(p); os.remove(p); freed += sz; n += 1
+                sz = os.lstat(p).st_size; guard.remove(p); freed += sz; n += 1
             except OSError:
                 skipped += 1
         for d in dn + links:   # a link is removed as a link only; its target is never touched
             try:
-                os.rmdir(os.path.join(dp, d))
+                guard.remove(os.path.join(dp, d))
             except OSError as ex:
                 # expected: the folder still holds a locked/in-use file we skipped (WinError 145 not empty, 32 in use, 5 denied)
                 if getattr(ex, "winerror", None) not in (5, 32, 145):
@@ -1086,7 +1107,17 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     qkinds = _setting("space.quarantine_kinds", ["temp"]) if not dry else []
     if kind == "temp":
         dirs = None if dry else []
+        guard = None
+        if not dry:
+            try:
+                guard = safedel.Root(TEMP)
+            except OSError:
+                errlog.swallowed()
+                return {"ok": False, "error": "مجلد المؤقتات يمرّ بنقطة إعادة توجيه؛ لم يُحذف شيء"}
+        keep = _restored_paths()   # ما استرجعه المالك من الحجر لا يُحجر ولا يُحذف ثانيةً (يحتفظ بوقت تعديله القديم)
         for p, sz in _old_files(TEMP, days=1, prog=prog, dirs=dirs):  # الملفات المؤقتة: أقدم من يوم واحد
+            if os.path.normcase(os.path.abspath(p)) in keep:
+                continue
             if dry:
                 if _deletable(p):
                     n += 1; freed += sz
@@ -1102,7 +1133,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
                 continue
             n += 1; freed += sz
             try:
-                os.remove(p)
+                guard.remove(p)
             except OSError:
                 freed -= sz; n -= 1; skipped += 1
             _tick(prog, n + skipped, freed + held)
