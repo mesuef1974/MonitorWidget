@@ -157,9 +157,9 @@ class Handler(BaseHTTPRequestHandler):
             ok = _healthz_ok()
             self._send(200 if ok else 503, {"ok": ok, "uptime_s": int(time.time() - infra.START), "pid": os.getpid()})
         elif path in routes_read.ROUTES:   # البند 6/ح: المسارات القرائية المصادَق عليها، جدول واحد ومعالجة أخطاء موحّدة
-            if not self._authed(read_only=True):
-                return
             q = {k: v[0] for k, v in parse_qs(urlparse(self.path).query).items()}
+            if not self._authed(read_only=not routes_read.needs_full(path, q)):   # أسئلة المالك: الرمز الكامل وحده (البند 10)
+                return
             self._send(*routes_read.get(path, q))
         else:
             self._send(404, {"error": "not found"})

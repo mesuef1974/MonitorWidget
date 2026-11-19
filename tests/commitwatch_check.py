@@ -84,14 +84,14 @@ class Emit(unittest.TestCase):
     def test_event_text_and_project(self):
         h, last = {}, {}
         now = feed(h, [52, 700])
-        n = cw.emit(cw.find_spikes(h), now, last, lambda *a: EVENTS.append(a), lambda pid: "مشروع علوم المستقبل" if pid == 8011 else None)
+        n = cw.emit(cw.find_spikes(h), now, last, lambda *a: EVENTS.append(a), lambda pid: "المشروع ب" if pid == 8011 else None)
         self.assertEqual(n, 1)
         ts, src, sev, title, detail = EVENTS[0]
         self.assertEqual((src, sev), ("commit", "warn"))
         self.assertIn("python.exe", title)
         self.assertIn("648 MB", title)
         self.assertIn("من 52 إلى 700 MB", detail)
-        self.assertIn("مشروع علوم المستقبل", detail)
+        self.assertIn("المشروع ب", detail)
         self.assertIn("pid 8011", detail)
 
     def test_unknown_project_label(self):

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """الإعدادات (البند 6/د من الخارطة): المظهر المشترك للتطبيق والويدجت، الوضع (theme)، عتبات التنبيهات، خطة الطاقة،
-وإعدادات حاصد الأصداف (reaper) في machinecare.config.json. العقود كما كانت في server.py حرفيًا.
+وإعدادات حاصد الأصداف (reaper) عبر reapercfg (المرتفع يكتبها في ProgramData، البند 7 من المجلس 19/11). العقود كما كانت في server.py حرفيًا.
 
     ROUTES / post(route, body, invalidate)   المسارات POST؛ post يعيد (رمز الحالة، الردّ) أو None إن لم يكن المسار من هنا
     APPEARANCE                               مخزن المظهر (appearance.AppearanceStore) الذي تقرأه mini_payload وGET /api/appearance
@@ -11,9 +11,9 @@ invalidate تُستدعى بعد نجاح /api/reaper فقط (كان يسقط إ
 import re
 
 import appearance
-import cfgjson
 import insight
-from paths import MCCFG, ROOT
+import reapercfg
+from paths import ROOT
 
 ROUTES = ("/api/appearance", "/api/theme", "/api/alerts", "/api/power-plan", "/api/reaper-set", "/api/reaper-protect", "/api/reaper")
 APPEARANCE = appearance.AppearanceStore(ROOT)
@@ -69,8 +69,8 @@ def _reaper_set(body):
     key, val = body.get("key"), body.get("value")
     if key != "bareClaudeShellMinutes" or isinstance(val, bool) or not isinstance(val, int) or not 60 <= val <= 2880:
         return 400, {"error": "not allowed"}
-    with cfgjson.edit_json(MCCFG) as (bom, cfg):
-        cfg.setdefault("reaper", {})[key] = val
+    with reapercfg.edit() as rp:
+        rp[key] = val
     return 200, {"bareMin": val}
 
 
@@ -79,8 +79,8 @@ def _reaper_protect(body):
     if op not in ("add", "remove") or not isinstance(nm, str) or not _NAME_RE.match(nm.strip()):
         return 400, {"error": "bad name"}
     nm = nm.strip().replace(".", "\\.")  # entries are regex fragments joined with | by the reaper
-    with cfgjson.edit_json(MCCFG) as (bom, cfg):
-        lst = cfg.setdefault("reaper", {}).setdefault("protect", [])
+    with reapercfg.edit() as rp:
+        lst = rp.setdefault("protect", [])
         if op == "add" and nm.lower() not in [x.lower() for x in lst]:
             lst.append(nm)
         elif op == "remove":
@@ -92,8 +92,8 @@ def _reaper(body):
     key, val = body.get("key"), body.get("value")
     if key != "killBareClaudeShells" or not isinstance(val, bool):
         return 400, {"error": "not allowed"}
-    with cfgjson.edit_json(MCCFG) as (bom, cfg):
-        cfg["reaper"][key] = val
+    with reapercfg.edit() as rp:
+        rp[key] = val
     return None
 
 

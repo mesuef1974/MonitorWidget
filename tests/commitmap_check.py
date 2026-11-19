@@ -20,7 +20,17 @@ sys.modules["paths"] = types.SimpleNamespace(ROOT=TMP, CNW=0)
 sys.modules["commitinfo"] = types.SimpleNamespace(scan=lambda with_cmd=False: ([], 0), status=dict)
 import commitmap as cm
 
-R = cm.DEFAULT_RULES
+# قواعد مالك مصطنعة بأسماء عامة (البند 5: لا أسماء مشاريع حقيقية في المستودع العام)، كما يقرؤها load_rules من commit_projects.json
+OWNER_RULES = [
+    {"id": "dictate", "name": "أداة الإملاء", "cmd": ["\\dictatetool\\", "\\ttsserver\\"]},
+    {"id": "proja", "name": "المشروع أ", "cmd": ["proja_mvp", "proja_work"], "dirs": ["d:\\proja_mvp", "\\proja_work"],
+     "containers": ["proja", "appos", "preview-slot"]},
+    {"id": "projb", "name": "المشروع ب", "cmd": ["مشروع المسابقة"], "dirs": ["مشروع المسابقة"]},
+    {"id": "projc", "name": "المنصة ج", "cmd": ["manage.py runserver 127.0.0.1:8777", "manage.py neo_worker"]},
+    {"id": "usage", "name": "أداة الاستخدام", "cmd": ["\\usage_tool\\"]},
+    {"id": "rewards", "name": "برنامج المكافآت", "cmd": ["\\rewards\\", "run_vlm.py"], "dirs": ["\\rewards"]},
+]
+R = OWNER_RULES + cm.DEFAULT_RULES
 
 
 def row(pid, name, commit, ws, cmd="", ppid=0):
@@ -28,9 +38,9 @@ def row(pid, name, commit, ws, cmd="", ppid=0):
 
 
 ROWS = [
-    row(10, "pythonw.exe", 2800, 80, r'"C:\Users\o\Documents\Scripts\VoiceDictate\.venv\Scripts\pythonw.exe" dictate.pyw'),
-    row(11, "python.exe", 5100, 110, r"python.exe -X utf8 C:\Users\o\Documents\Scripts\SilmaTTS\server.py", ppid=10),
-    row(12, "python.exe", 400, 150, "python.exe -c pass", ppid=11),                     # حفيد غير مطابق: يرث سلمى
+    row(10, "pythonw.exe", 2800, 80, r'"C:\Users\o\Documents\Scripts\DictateTool\.venv\Scripts\pythonw.exe" dictate.pyw'),
+    row(11, "python.exe", 5100, 110, r"python.exe -X utf8 C:\Users\o\Documents\Scripts\TtsServer\server.py", ppid=10),
+    row(12, "python.exe", 400, 150, "python.exe -c pass", ppid=11),                     # حفيد غير مطابق: يرث أداة الإملاء
     row(20, "llama-server.exe", 5900, 830, r"C:\Users\o\.lmstudio\extensions\llama-server.exe --model x"),
     row(30, "vmmemWSL", 3700, 2400),
     row(40, "claude.exe", 700, 500),
@@ -42,8 +52,8 @@ ST = {"usedGB": 30.0, "limitGB": 50.0, "pct": 60.0}
 
 class Classify(unittest.TestCase):
     def test_rules_by_command_and_exe(self):
-        self.assertEqual(cm.classify(ROWS[0], R), "salma")
-        self.assertEqual(cm.classify(ROWS[1], R), "salma")
+        self.assertEqual(cm.classify(ROWS[0], R), "dictate")
+        self.assertEqual(cm.classify(ROWS[1], R), "dictate")
         self.assertEqual(cm.classify(ROWS[3], R), "lmstudio")
         self.assertEqual(cm.classify(ROWS[4], R), "wsl")
         self.assertEqual(cm.classify(ROWS[5], R), "claude")
@@ -51,16 +61,16 @@ class Classify(unittest.TestCase):
         self.assertIsNone(cm.classify(ROWS[6], R))
 
     def test_arabic_folder_matches(self):
-        r = row(1, "python.exe", 10, 10, r"python D:\مسابقة علوم المستقبل\backend\knowledge\model_startup.py")
-        self.assertEqual(cm.classify(r, R), "future")
+        r = row(1, "python.exe", 10, 10, r"python D:\مشروع المسابقة\backend\knowledge\model_startup.py")
+        self.assertEqual(cm.classify(r, R), "projb")
 
     def test_unclassified_groups_found_live_on_8_11(self):
         cases = {
-            "qatar": [row(1, "python.exe", 70, 70, r"python.exe manage.py runserver 127.0.0.1:8777"),
+            "projc": [row(1, "python.exe", 70, 70, r"python.exe manage.py runserver 127.0.0.1:8777"),
                       row(2, "python.exe", 70, 70, r"python.exe manage.py neo_worker"),
                       row(3, "pwsh.exe", 30, 10, "pwsh.exe -NoExit -Command python manage.py neo_worker")],
-            "railway": [row(4, "python.exe", 60, 40, r"C:\Users\o\.venvs\guide_extract\Scripts\python.exe run_vlm.py lesson_3_1 d220")],
-            "maestro": [row(5, "pythonw.exe", 70, 2, r"pythonw.exe C:\Users\o\maestro_usage\src\serve.py")],
+            "rewards": [row(4, "python.exe", 60, 40, r"C:\Users\o\.venvs\guide_extract\Scripts\python.exe run_vlm.py lesson_3_1 d220")],
+            "usage": [row(5, "pythonw.exe", 70, 2, r"pythonw.exe C:\Users\o\usage_tool\src\serve.py")],
             "device": [row(6, "NahimicSvc64.exe", 60, 8, r"C:\WINDOWS\System32\NahimicSvc64.exe /start all"),
                        row(7, "MessagingPlugin.exe", 60, 40, r"C:\ProgramData\Lenovo\Udc\Hosts\x64\MessagingPlugin.exe x"),
                        row(8, "ipf_helper.exe", 2, 8, r"C:\WINDOWS\System32\DriverStore\FileRepository\ipf_cpu.inf\ipf_helper.exe")],
@@ -73,12 +83,12 @@ class Classify(unittest.TestCase):
                 self.assertEqual(cm.classify(r, R), proj, r["name"] + " " + r["cmd"][:40])
         keep = {x["id"] for x in R if x.get("keep")}
         self.assertIn("device", keep)
-        self.assertNotIn("qatar", keep)
+        self.assertNotIn("projc", keep)
         self.assertIsNone(cm.classify(row(20, "python.exe", 1, 1, "python.exe -c pass"), R))
 
     def test_children_inherit_parent_project_and_unknown_is_other(self):
         owner = cm.assign(ROWS, R)
-        self.assertEqual(owner[12], "salma")
+        self.assertEqual(owner[12], "dictate")
         self.assertEqual(owner[50], "other")
 
     def test_parent_cycle_does_not_hang(self):
@@ -98,10 +108,10 @@ class GroupAndPlan(unittest.TestCase):
     def setUp(self):
         self.owner = cm.assign(ROWS, R)
         self.containers = [
-            {"name": "a-web-1", "compose": "a", "project": "shschool", "memMB": 300, "pr": {"number": 1, "state": "merged"}},
-            {"name": "a-worker-1", "compose": "a", "project": "shschool", "memMB": 200, "pr": {"number": 1, "state": "merged"}},
-            {"name": "b-web-1", "compose": "b", "project": "shschool", "memMB": 900, "pr": {"number": 2, "state": "open"}},
-            {"name": "dev-db", "compose": "dev", "project": "shschool", "memMB": 250, "pr": None},
+            {"name": "a-web-1", "compose": "a", "project": "proja", "memMB": 300, "pr": {"number": 1, "state": "merged"}},
+            {"name": "a-worker-1", "compose": "a", "project": "proja", "memMB": 200, "pr": {"number": 1, "state": "merged"}},
+            {"name": "b-web-1", "compose": "b", "project": "proja", "memMB": 900, "pr": {"number": 2, "state": "open"}},
+            {"name": "dev-db", "compose": "dev", "project": "proja", "memMB": 250, "pr": None},
         ]
         self.projects = cm.group(ROWS, self.owner, R, gpu={20}, containers=self.containers)
 
@@ -109,14 +119,14 @@ class GroupAndPlan(unittest.TestCase):
         return next(p for p in self.projects if p["id"] == pid)
 
     def test_totals_free_and_flags(self):
-        s = self.by("salma")
+        s = self.by("dictate")
         self.assertEqual((s["commitMB"], s["count"]), (8300, 3))
         self.assertEqual(s["freeMB"], 7900)   # الحفيد (400/150) ليس خاملًا
         self.assertEqual(s["procs"][0]["name"], "python.exe")
         lm = self.by("lmstudio")
         self.assertTrue(lm["gpu"] and lm["keep"])
         self.assertEqual(lm["freeMB"], 5900)  # كرت الشاشة يُحسب قابلًا للتحرير، والحاسبة تستثنيه بـ keep
-        self.assertEqual(self.by("shschool")["containers"], {"count": 4, "memMB": 1650})
+        self.assertEqual(self.by("proja")["containers"], {"count": 4, "memMB": 1650})
         self.assertEqual(self.projects[-1]["id"], "other")   # غير المصنّف آخرًا
 
     def test_stale_compose_only_finished_prs(self):
@@ -127,7 +137,7 @@ class GroupAndPlan(unittest.TestCase):
         pl = cm.plan(ST, self.projects, 40, self.containers)
         self.assertEqual(pl["needGB"], 10.0)
         ids = [(s["kind"], s["id"]) for s in pl["steps"]]
-        self.assertEqual(ids, [("idle", "salma"), ("docker", "shschool")])
+        self.assertEqual(ids, [("idle", "dictate"), ("docker", "proja")])
         self.assertNotIn("lmstudio", [s["id"] for s in pl["steps"]])
         self.assertFalse(pl["reachable"])
         self.assertAlmostEqual(pl["idleGB"], round((7900 + 500) / 1024, 2))
@@ -137,7 +147,7 @@ class GroupAndPlan(unittest.TestCase):
     def test_plan_stops_once_enough(self):
         pl = cm.plan({"usedGB": 22.0, "limitGB": 50.0}, self.projects, 40, self.containers)
         self.assertEqual(pl["needGB"], 2.0)
-        self.assertEqual([s["id"] for s in pl["steps"]], ["salma"])
+        self.assertEqual([s["id"] for s in pl["steps"]], ["dictate"])
         self.assertTrue(pl["reachable"])
 
     def test_plan_already_met(self):
@@ -163,21 +173,34 @@ class Docker(unittest.TestCase):
         self.assertEqual(cm.parse_stats("web-1\t261.2MiB / 768MiB\nx\t--\n"), {"web-1": 261.2})
 
     def test_container_project(self):
-        self.assertEqual(cm.container_project({"name": "w", "dir": r"C:\Users\o\delivery_manager_work_wt\runner-1"}, R), "shschool")
-        self.assertEqual(cm.container_project({"name": "schoolos-main-preview-front", "dir": ""}, R), "shschool")
+        self.assertEqual(cm.container_project({"name": "w", "dir": r"C:\Users\o\proja_work_wt\runner-1"}, R), "proja")
+        self.assertEqual(cm.container_project({"name": "appos-main-preview-front", "dir": ""}, R), "proja")
         self.assertEqual(cm.container_project({"name": "redis", "dir": r"C:\other"}, R), "other")
 
 
 class Rules(unittest.TestCase):
-    def test_file_overrides_when_valid(self):
+    def test_owner_file_precedes_generic_rules(self):
         path = os.path.join(TMP, "rules.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump([{"id": "x", "name": "س", "cmd": ["\\x\\"]}], f)
-        self.assertEqual(cm.load_rules(path)[0]["id"], "x")
+        rules = cm.load_rules(path)
+        self.assertEqual([r["id"] for r in rules], ["x"] + [r["id"] for r in cm.DEFAULT_RULES])
+
+    def test_repo_carries_no_owner_projects(self):
+        ids = {r["id"] for r in cm.DEFAULT_RULES}
+        self.assertEqual(ids, {"lmstudio", "monitor", "wsl", "claude", "browser", "device", "windows"})
+
+    def test_default_search_uses_first_valid_file(self):
+        a, b = os.path.join(TMP, "a.json"), os.path.join(TMP, "b.json")
+        with open(b, "w", encoding="utf-8") as f:
+            json.dump([{"id": "y", "name": "ص"}], f)
+        with patch.object(cm, "RULES_FILES", (a, b)):
+            self.assertEqual(cm.load_rules()[0]["id"], "y")
 
     def test_invalid_or_missing_file_falls_back(self):
         path = os.path.join(TMP, "bad.json")
-        for bad in ('{"id": 1}', "[]", '[{"id": "x", "name": "y", "cmd": "not-a-list"}]', '[{"id": "x", "name": "y", "keep": "yes"}]', "not json"):
+        for bad in ('{"id": 1}', "[]", '[{"id": "x", "name": "y", "cmd": "not-a-list"}]', '[{"id": "x", "name": "y", "keep": "yes"}]', "not json",
+                    '[{"id": "windows", "name": "يطغى على قاعدة عامة"}]', '[{"id": "other", "name": "محجوز"}]'):
             with open(path, "w", encoding="utf-8") as f:
                 f.write(bad)
             self.assertIs(cm.load_rules(path), cm.DEFAULT_RULES, bad)
@@ -186,11 +209,11 @@ class Rules(unittest.TestCase):
 
 class Payload(unittest.TestCase):
     def test_payload_with_injected_state(self):
-        docker = {"state": "ok", "containers": [{"name": "a-web-1", "compose": "a", "project": "shschool", "memMB": 300,
+        docker = {"state": "ok", "containers": [{"name": "a-web-1", "compose": "a", "project": "proja", "memMB": 300,
                                                  "pr": {"number": 7, "state": "closed"}}]}
         p = cm.payload(40, rows=ROWS, st=ST, rules=R, gpu={20}, docker=docker)
         self.assertEqual((p["usedGB"], p["limitGB"], p["pct"]), (30.0, 50.0, 60.0))
-        self.assertEqual(p["projects"][0]["id"], "salma")
+        self.assertEqual(p["projects"][0]["id"], "dictate")
         self.assertEqual(p["stale"][0]["compose"], "a")
         self.assertEqual(p["plan"]["target"], 40)
         json.dumps(p, allow_nan=False)
@@ -228,7 +251,7 @@ class DockerStopRoute(unittest.TestCase):
 
     def test_confirm_then_stop(self):
         calls = []
-        with patch.object(cm.shutil, "which", return_value="docker"), patch.object(cm, "_run", lambda args, **k: (calls.append(args), (0, ""))[1]):
+        with patch.object(cm, "_docker_cmd", return_value=("docker", [], None)), patch.object(cm, "_run", lambda args, **k: (calls.append(args), (0, ""))[1]):
             code, body = self.rd.post("/api/docker-stop", {"project": "a"})
             self.assertEqual(code, 428)
             self.assertEqual(calls, [])                       # لا إيقاف قبل التأكيد
@@ -237,6 +260,101 @@ class DockerStopRoute(unittest.TestCase):
         self.assertEqual(calls, [["docker", "stop", "a-web-1", "a-worker-1"]])
         self.assertEqual(body["containers"], ["a-web-1", "a-worker-1"])
         self.assertEqual(self.logged[0][1][1], "dockerstop")
+
+
+class ElevatedNeverRunsUserTools(unittest.TestCase):
+    """البند 9 من المجلس 19/11: الخادم المرتفع لا يشغّل git ولا gh ولا docker القرائي ولا أداة من PATH؛ يُطلق المهمة المحدودة."""
+
+    def setUp(self):
+        p = patch.object(cm.secure, "is_admin", return_value=True)
+        p.start()
+        self.addCleanup(p.stop)
+        self.calls = []
+
+    def fake_run(self, args, **k):
+        self.calls.append((args, k))
+        return 0, ""
+
+    def test_no_git_gh_or_direct_docker_when_elevated(self):
+        with patch.object(cm, "_run", self.fake_run), patch.object(cm.shutil, "which", side_effect=AssertionError("PATH lookup")):
+            self.assertIsNone(cm._pr_for_dir(TMP))
+            self.assertEqual(cm.collect_docker()["state"], "unavailable")
+            self.assertEqual(cm.probe_main(), 2)
+        self.assertEqual(self.calls, [])
+
+    def test_tool_resolution_ignores_path_when_elevated(self):
+        with patch.object(cm.shutil, "which", return_value=r"C:\Users\o\bin\docker.exe"):
+            self.assertIsNone(cm._tool((os.path.join(TMP, "missing.exe"),), "docker", True))
+            self.assertEqual(cm._tool((os.path.join(TMP, "missing.exe"),), "docker", False), r"C:\Users\o\bin\docker.exe")
+
+    def test_elevated_docker_stop_uses_protected_empty_config(self):
+        exe = os.path.join(TMP, "docker.exe")
+        open(exe, "w").close()
+        cfg = os.path.join(TMP, "dockercfg")
+        with patch.object(cm, "DOCKER", (exe,)), patch.object(cm, "DOCKER_CFG", cfg), patch.dict(os.environ, {"DOCKER_HOST": "tcp://x:1", "DOCKER_CONFIG": "C:\\u"}):
+            got, args, env = cm._docker_cmd()
+        self.assertEqual((got, args), (exe, ["--config", cfg]))
+        self.assertFalse([k for k in env if k.upper().startswith("DOCKER_")])
+        self.assertTrue(os.path.isdir(cfg))
+
+    def test_elevated_refresh_triggers_fixed_task_and_reads_validated_file(self):
+        probe = os.path.join(TMP, "probe.json")
+
+        def run(args, **k):
+            self.calls.append((args, k))
+            with open(probe, "w", encoding="utf-8") as f:
+                json.dump({"ts": __import__("time").time(), "state": "ok", "containers": [
+                    {"name": "a-web-1", "compose": "a", "dir": r"D:\proja_mvp", "status": "Up", "memMB": 300,
+                     "pr": {"number": 3, "state": "MERGED", "url": "javascript:alert(1)"}}]}, f)
+            return 0, ""
+        with patch.object(cm, "_run", run), patch.object(cm, "PROBE_FILE", probe):
+            snap = cm._docker(R)
+        self.assertEqual([c[0] for c in self.calls], [[cm.SCHTASKS, "/run", "/tn", cm.PROBE_TASK]])
+        c = snap["containers"][0]
+        self.assertEqual((c["project"], c["memMB"], c["pr"]), ("proja", 300, {"number": 3, "state": "merged", "url": None}))
+
+    def test_missing_task_reports_unavailable(self):
+        with patch.object(cm, "_run", lambda a, **k: (1, "")):
+            self.assertEqual(cm._docker(R)["state"], "unavailable")
+
+
+class ProbeMain(unittest.TestCase):
+    """المجس المحدود: يكتب الملف، ويحمل ذاكرة طلبات الدمج بين تشغيلاته فلا يستدعي gh قبل PR_TTL."""
+
+    def test_writes_file_and_reuses_pr_cache(self):
+        probe = os.path.join(TMP, "probe_main.json")
+        exe = os.path.join(TMP, "docker_probe.exe")
+        open(exe, "w").close()
+        ps = "w-1\tw\tC:\\w\tUp\n"
+        prs = []
+
+        def run(args, **k):
+            return (0, ps) if args[1] == "ps" else (0, "w-1\t10MiB / 1GiB\n")
+        with patch.object(cm.secure, "is_admin", return_value=False), patch.object(cm, "PROBE_FILE", probe), \
+                patch.object(cm, "DOCKER", (exe,)), patch.object(cm, "_run", run), \
+                patch.object(cm, "_pr_for_dir", lambda d: (prs.append(d), {"number": 9, "state": "open", "url": None})[1]):
+            for _ in range(2):
+                cm._state["prs"] = {}   # كل تشغيل عملية جديدة
+                self.assertEqual(cm.probe_main(), 0)
+        self.assertEqual(prs, ["C:\\w"])
+        with open(probe, encoding="utf-8") as f:
+            snap, _ = cm.parse_probe(f.read())
+        self.assertEqual((snap["containers"][0]["memMB"], snap["containers"][0]["pr"]["number"]), (10, 9))
+
+
+class ProbeParsing(unittest.TestCase):
+    def test_rejects_malformed_or_oversized(self):
+        for bad in ("not json", "[]", '{"ts": "x", "state": "ok"}', '{"ts": 1, "state": "ok", "containers": "x"}',
+                    '{"ts": 1, "state": "ok", "containers": [{"name": 5}]}', '{"ts": 1, "state": "weird"}'):
+            self.assertIsNone(cm.parse_probe(bad), bad)
+        many = json.dumps({"ts": 1, "state": "ok", "containers": [{"name": "n"}] * 501})
+        self.assertIsNone(cm.parse_probe(many))
+
+    def test_coerces_fields(self):
+        snap, ts = cm.parse_probe(json.dumps({"ts": 5, "state": "ok", "containers": [
+            {"name": "n" * 999, "memMB": True, "pr": {"number": True}}, {"name": "m", "memMB": -4, "pr": "x"}]}))
+        self.assertEqual(ts, 5.0)
+        self.assertEqual([(len(c["name"]), c["memMB"], c["pr"]) for c in snap["containers"]], [(200, 0, None), (1, 0, None)])
 
 
 if __name__ == "__main__":

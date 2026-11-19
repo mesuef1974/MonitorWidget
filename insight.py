@@ -10,6 +10,7 @@ import subprocess
 
 import db
 import secure
+import reapercfg
 import health
 import health_score
 import errlog
@@ -255,7 +256,7 @@ def _json_file(p):
 def reaper_info():
     cfg = _json_file(MCCFG) or {}
     st = _json_file(MCSTATE) or {}
-    rp = cfg.get("reaper") or {}
+    rp = reapercfg.merged(cfg.get("reaper") or {})   # تعديلات الواجهة المحفوظة في ProgramData فوق الأصل (البند 7)
     mode_cfg = str(rp.get("mode", "auto")).lower()
     mode = "Apply" if mode_cfg == "apply" else "DryRun" if mode_cfg == "dryrun" else None
     days = None

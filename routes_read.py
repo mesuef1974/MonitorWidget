@@ -179,6 +179,14 @@ _TABLE = {
     "/api/ask": (lambda q: assistant.status(q.get("id", "")), "assistant unavailable"),
 }
 ROUTES = tuple(_TABLE)
+# البند 10 من المجلس 19/11: أسئلة المالك للمساعد وحقائقه لا يكشفها رمز القراءة (يقرؤه كل برنامج بصلاحية المستخدم)؛
+# يلزمها الرمز الكامل أو جلسة المتصفح. جداول ask_* كلها بالبادئة، فلا يكشفها جدول يُضاف لاحقًا.
+FULL_ONLY = frozenset({"/api/assistant", "/api/ask"})
+
+
+def needs_full(path, q):
+    """هل يلزم المسار القرائي الرمز الكامل لا رمز القراءة؟"""
+    return path in FULL_ONLY or (path == "/api/db/rows" and str(q.get("table", "")).strip().lower().startswith("ask_"))
 
 
 def get(path, q):

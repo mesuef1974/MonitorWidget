@@ -13,7 +13,8 @@
 #   4. أول مرة: تُنقل البيانات (القاعدة والإعدادات والسجلات والحجر والنسخ) من مجلد المستودع إلى app، ويُدوَّر الرمز:
 #      ‎.token‎ جديد لا يقرؤه إلا المسؤولون والنظام، و‎.token.read‎ للبرامج العادية يقبله الخادم في GET القرائية وحدها.
 #   5. سياسة التنظيف: نسخة محمية في ProgramData\MonitorWidget\cleanup ومهام Cleanup_v2_* تقرؤها هي.
-#   6. المهام: الوكيل والخادم من المفسّر والكود المحميين، والمجمّع يعمل داخل الوكيل (تُعطَّل مهمته)، والويدجت من app.
+#   6. المهام: الوكيل والخادم من المفسّر والكود المحميين، والمجمّع يعمل داخل الوكيل (تُعطَّل مهمته)، والويدجت من app،
+#      ومهمة المجس المحدودة MonitorWidget-CommitProbe (docker وgit وgh بصلاحية المستخدم).
 #   7. يعيد التشغيل ويتحقق: الخادم الجديد من المسار المحمي ويجيب admin=true بالرمز الجديد، والويدجت ظهر من app.
 #
 #   -Rollback : يعيد تعريفات المهام الأصلية وينقل البيانات إلى مجلد المستودع (الرمز المدوَّر يبقى).
@@ -31,6 +32,7 @@ $port = 47832
 $userPolicy = Join-Path ([Environment]::GetFolderPath('UserProfile')) 'Documents\Scripts\Cleanup\v2\cleanup-policy.json'
 $protPolicy = Join-Path $cleanupDir 'cleanup-policy.json'
 $backendTasks = @('MonitorWidget-Agent', 'MonitorWidget-Server-Logon', 'MonitorWidget-Collector', 'MonitorWidget-Launch')
+$probeTask = 'MonitorWidget-CommitProbe'
 $policyTasks = @('Cleanup_v2_Daily', 'Cleanup_v2_Weekly', 'Cleanup_v2_Monthly', 'Cleanup_v2_Quarterly')
 # ما لا يُنقل من مجلد المستودع أبدًا: أدوات التطوير، وملفات المالك غير المتتبَّعة، ونسخ التحرير، والرموز القديمة (تُحذف).
 $keepInSource = @('.git', '.claude', '.ruff_cache', '__pycache__', 'tests', 'docs', 'data', 'web', '.github',
@@ -364,6 +366,19 @@ function Set-BackendTasks {
     Say 'المهام تشغّل المفسّر والكود المحميين؛ المجمّع داخل الوكيل.'
 }
 
+function Set-ProbeTask {
+    # البند 9 من المجلس 19/11: docker وgit وgh في مستودعات المستخدم لا تعمل مرتفعة (إعداداتها وإضافاتها يكتبها المستخدم).
+    # مهمة ثابتة بصلاحية محدودة يُطلقها الخادم عند فتح صفحة الذاكرة (commitmap.PROBE_TASK)، من المفسّر والكود المحميين،
+    # وتكتب نتيجتها في LOCALAPPDATA للمستخدم فيقرؤها الخادم بتحقق صارم. حساب المهمة حساب الوكيل نفسه.
+    $user = (Get-ScheduledTask -TaskName 'MonitorWidget-Agent').Principal.UserId
+    $a = New-ScheduledTaskAction -Execute (Join-Path $py 'pythonw.exe') -Argument ('"' + (Join-Path $app 'commitmap.py') + '" --probe') -WorkingDirectory $app
+    $p = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+    $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 2) -MultipleInstances IgnoreNew
+    Register-ScheduledTask -TaskName $probeTask -Action $a -Principal $p -Settings $s -Description 'Monitor: docker/git/gh read at limited user privilege, on demand from the server' -Force | Out-Null
+    if ((Get-ScheduledTask -TaskName $probeTask).Principal.RunLevel -ne 'Limited') { throw "$probeTask ليست محدودة الصلاحية." }
+    Say "$probeTask مسجّلة بصلاحية محدودة (docker وgit وgh بصلاحية المستخدم)."
+}
+
 function Start-AndVerify {
     Start-ScheduledTask -TaskName 'MonitorWidget-Server-Logon'
     Start-ScheduledTask -TaskName 'MonitorWidget-Agent'
@@ -422,6 +437,8 @@ function Invoke-Rollback {
         }
         Remove-Item -LiteralPath $marker -Force
     }
+    # المجس يشغّل الكود المحمي؛ بعد التراجع يجمع الخادم غير المرتفع بنفسه (commitmap.collect_docker)
+    if (Get-ScheduledTask -TaskName $probeTask -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $probeTask -Confirm:$false }
     Remove-Item -LiteralPath (Join-Path $src '.protected-launch') -Force -ErrorAction SilentlyContinue
     Start-ScheduledTask -TaskName 'MonitorWidget-Agent'
     Start-ScheduledTask -TaskName 'MonitorWidget-Launch'
@@ -531,6 +548,7 @@ try {
         Set-Tokens $migrated
         Set-PolicyTasks
         Set-BackendTasks; $registered = $true
+        Set-ProbeTask
         Protect-SecureTree
         Start-AndVerify
         $code = 0
