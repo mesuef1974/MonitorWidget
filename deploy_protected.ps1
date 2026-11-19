@@ -52,24 +52,27 @@ if (-not $id.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     exit $p.ExitCode
 }
 
+# البرنامج بمساره الكامل: أسماء الأوامر في PowerShell لا تفرّق بين الحروف، والدالة تُقدَّم على البرنامج، فدالة باسم git
+# تستدعي نفسها بلا نهاية (فشل النشر الأول 19/11: call depth overflow).
+$gitExe = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
 $log = New-Object System.Collections.Generic.List[string]
 function Say([string]$m) { $log.Add(('{0:HH:mm:ss} {1}' -f (Get-Date), $m)) }
 $admins = New-Object Security.Principal.SecurityIdentifier('S-1-5-32-544')
 $system = New-Object Security.Principal.SecurityIdentifier('S-1-5-18')
 
-function Git([string[]]$GitArgs) {
+function Invoke-RepoGit([string[]]$GitArgs) {
     # المستودع يملكه المستخدم والعملية مسؤول: safe.directory لهذا المجلد وحده
     # Continue محليًا: في Windows PowerShell 5.1 يرمي Stop على أي سطر في stderr من أمر أصلي
     $ErrorActionPreference = 'Continue'
-    $out = @(& git -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>&1)
+    $out = @(& $gitExe -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>&1)
     if ($LASTEXITCODE -ne 0) { throw ('git ' + ($GitArgs -join ' ') + ': ' + ($out -join ' ')) }
     $out | Where-Object { $_ -is [string] -and $_ -ne '' }   # بلا مخرجات = لا عناصر (لا $null واحد يُعدّ عنصرًا)
 }
 
-function Test-Git([string[]]$GitArgs) {
+function Test-RepoGit([string[]]$GitArgs) {
     # أوامر git التي جوابها رمز الخروج وحده (check-ignore، merge-base --is-ancestor)
     $ErrorActionPreference = 'Continue'
-    & git -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>$null | Out-Null
+    & $gitExe -c ("safe.directory=" + ($src -replace '\\', '/')) -C $src @GitArgs 2>$null | Out-Null
     $LASTEXITCODE -eq 0
 }
 
@@ -198,10 +201,10 @@ function Install-Code([string]$Commit) {
     $stage = Join-Path $state 'staging'
     $zip = Join-Path $state 'release.zip'
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
-    Git @('archive', '--format=zip', '-o', $zip, $Commit) | Out-Null
+    Invoke-RepoGit @('archive', '--format=zip', '-o', $zip, $Commit) | Out-Null
     Expand-Archive -LiteralPath $zip -DestinationPath $stage
     Remove-Item -LiteralPath $zip -Force
-    $files = @(Git @('ls-tree', '-r', '--name-only', $Commit) | Where-Object { $_ -notmatch $notShipped })
+    $files = @(Invoke-RepoGit @('ls-tree', '-r', '--name-only', $Commit) | Where-Object { $_ -notmatch $notShipped })
     New-Item -ItemType Directory -Force -Path $app | Out-Null
     $manifestPath = Join-Path $app '.deployment\manifest.json'
     $old = @()
@@ -257,8 +260,8 @@ function Move-Data {
     foreach ($item in Get-ChildItem -LiteralPath $src -Force) {
         $n = $item.Name
         if ($n -in $keepInSource -or $n -like '*.bak*' -or $n -like '*.edit_pending_*') { continue }
-        if (@(Git @('ls-files', '--', $n)).Count) { continue }            # متتبَّع: كود لا بيانات
-        if (-not (Test-Git @('check-ignore', '-q', '--', $n))) { continue }   # غير متتبَّع وغير متجاهَل: ملفات المالك، تُترك
+        if (@(Invoke-RepoGit @('ls-files', '--', $n)).Count) { continue }            # متتبَّع: كود لا بيانات
+        if (-not (Test-RepoGit @('check-ignore', '-q', '--', $n))) { continue }   # غير متتبَّع وغير متجاهَل: ملفات المالك، تُترك
         $to = Join-Path $app $n
         if (Test-Path -LiteralPath $to) {
             if ($item.PSIsContainer) {
@@ -390,8 +393,8 @@ try {
     if ($Rollback) { Invoke-Rollback; $code = 0 }
     else {
         if (-not (Test-Path -LiteralPath (Join-Path $src '.git'))) { throw "$src ليس مستودع المرصد." }
-        $commit = [string](Git @('rev-parse', 'HEAD'))
-        if (-not (Test-Git @('merge-base', '--is-ancestor', $commit, 'origin/main'))) { throw 'HEAD ليس ضمن origin/main: لا يُنشر إلا ما دُمج.' }
+        $commit = [string](Invoke-RepoGit @('rev-parse', 'HEAD'))
+        if (-not (Test-RepoGit @('merge-base', '--is-ancestor', $commit, 'origin/main'))) { throw 'HEAD ليس ضمن origin/main: لا يُنشر إلا ما دُمج.' }
         Install-Python
         Save-TaskXml $runBackup
         if (-not (Test-Path -LiteralPath (Join-Path $state 'tasks-original'))) { Copy-Item -LiteralPath $runBackup -Destination (Join-Path $state 'tasks-original') -Recurse }
