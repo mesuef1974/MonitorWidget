@@ -16,7 +16,7 @@ $pr = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel 
 $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::Zero)
 $task = New-ScheduledTask -Action $act -Principal $pr -Settings $set -Description 'Always-on monitor agent + server, elevated. Started on demand by the widget (no logon trigger).'
 Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-$ap = [regex]::Escape($root) + '[\/](agent|server)\.py'
+$ap = [regex]::Escape($root) + '[\\/](agent|server)\.py'   # [\\/] = شرطة عكسية أو أمامية؛ الصنف بشرطة عكسية مفردة في .NET يطابق الأمامية وحدها فلا تُقتل الخلفية القديمة
 Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'python.exe', 'pythonw.exe' -and $_.CommandLine -match $ap } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 Start-Sleep 2
 Register-ScheduledTask -TaskName $name -InputObject $task -Force | Out-Null
