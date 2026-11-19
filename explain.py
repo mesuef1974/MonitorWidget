@@ -2,7 +2,7 @@
 """Local-LLM explainer for the monitor (LM Studio, OpenAI-compatible server on 127.0.0.1 only).
 Read-only by design: it explains numbers that health.py already computed; it never decides or acts.
 Nothing leaves the machine. If LM Studio is off, every other feature of the monitor is unaffected."""
-import json, os, re, shutil, subprocess, time, urllib.request, urllib.error
+import json, os, re, time, urllib.request, urllib.error
 from datetime import datetime
 
 ROOT = "http://127.0.0.1:1234"
@@ -132,12 +132,6 @@ def _root(path, body=None):
         return json.loads(raw)
 
 
-def _lms():
-    for c in (shutil.which("lms"), os.path.join(os.path.expanduser("~"), ".lmstudio", "bin", "lms.exe")):
-        if c and os.path.exists(c):
-            return c
-    return None
-
 
 def unload():
     """Eject every model currently loaded in LM Studio so its VRAM is released. Touches nothing else."""
@@ -169,11 +163,7 @@ def unload():
                 break
         if ids and done == len(ids):
             return {"ok": True, "text": "أُخرج %d نموذج من LM Studio وتحررت ذاكرة الكرت." % done}
-        lms = _lms()   # fallback: the official CLI, if installed
-        if lms:
-            r = subprocess.run([lms, "unload", "--all"], capture_output=True, timeout=30, creationflags=0x08000000)
-            if r.returncode == 0:
-                return {"ok": True, "text": "أُخرجت النماذج المحمّلة (عبر lms)."}
+        # لا بديل بـ lms.exe: الخادم مرتفع وذلك الملف في مجلد يكتبه المستخدم (البند 2 من المجلس 19/11)؛ واجهة HTTP وحدها
         if not ids:
             return {"ok": True, "text": "لا نموذج محمّل في LM Studio."}
         return {"ok": False, "err": "تعذّر التفريغ آلياً. افتح LM Studio واضغط Eject بجانب النموذج."}

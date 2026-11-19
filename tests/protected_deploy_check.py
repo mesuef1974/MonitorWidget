@@ -66,7 +66,11 @@ class Contracts(unittest.TestCase):
     def test_policy_and_tasks(self):
         self.assertIn("-PolicyPath \"' + $protPolicy", _function("Set-PolicyTasks"))
         tasks = _function("Set-BackendTasks")
-        self.assertIn("Disable-ScheduledTask -TaskName 'MonitorWidget-Collector'", tasks)
+        self.assertIn("Unregister-ScheduledTask -TaskName 'MonitorWidget-Collector'", tasks)   # البند 4: لا Highest معطّلة باقية
+        self.assertNotIn("Disable-ScheduledTask -TaskName 'MonitorWidget-Collector'", tasks)
+        rb = _function("Invoke-Rollback")
+        self.assertIn("$col.Principal.RunLevel = 'Limited'", rb)   # التراجع يعيده محدودًا
+        self.assertLess(rb.index("RunLevel = 'Limited'"), rb.index("Enable-ScheduledTask -TaskName 'MonitorWidget-Collector'"))
         self.assertIn("'.protected-launch'", tasks)
         self.assertIn("Remove-Item -LiteralPath (Join-Path $app '.protected-launch')", _function("Install-Code"))   # لا حلقة في app
 
