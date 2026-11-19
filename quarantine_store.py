@@ -4,7 +4,9 @@ non-overwriting same-volume rename, and recovery under a process-shared mutex ma
 interrupted transitions explicit. No PID killing or expiring lease can steal live work.
 The mutex serializes cooperating application processes, not a hostile local admin.
 """
-import contextlib, ctypes, hashlib, json, os, shutil, stat, threading, time, uuid
+import contextlib, ctypes, hashlib, json, os, stat, threading, time, uuid
+
+import safedel
 
 _locks = {}
 _locks_guard = threading.Lock()
@@ -96,15 +98,32 @@ def _safe_tree(path):
                 _safe_path(os.path.join(folder, name))
 
 
+PURGE_STARTED = "purge started"   # op_error prefix: deletion began inside this item, so a folder may be incomplete
+RESTORED_KEEP_DAYS = 30
+
+
+def _partial(row):
+    return PURGE_STARTED in (row.get("op_error") or "")
+
+
+def _makedirs(path, root):
+    if os.name == "nt":
+        safedel.Root(root).makedirs(path)
+    else:
+        os.makedirs(path, exist_ok=True)
+
+
 def _identity(path):
     info = os.stat(path, follow_symlinks=False)
     return json.dumps([info.st_dev, info.st_ino])
 
 
-def _rename_no_replace(src, dst):
-    """Windows rename is atomic, same-volume and fails if dst already exists."""
+def _rename_no_replace(src, dst, src_root, dst_root):
+    """Atomic same-volume rename that fails if dst already exists. On Windows it runs by handle (safedel): the source is opened
+    without following a reparse point and must really lie inside src_root, and the destination is a name inside a validated
+    handle of its folder in dst_root, so a junction planted after the checks cannot redirect the move."""
     if os.name == "nt":
-        os.rename(src, dst)
+        safedel.Root(src_root).move(src, dst_root, dst)
     else:
         # Portable file fallback also never replaces a competing target. Directory
         # moves require an atomic no-replace API, so refuse rather than emulate it.
@@ -158,14 +177,14 @@ class QuarantineStore:
             return changed == 1
 
     def _claim(self, row, status):
-        """Atomic state reservation; also bind legacy held rows to their file identity."""
+        """Atomic state reservation from the row's current state (held, or failed for a retry); also bind legacy rows to their file identity."""
         path = self._qpath(row["qpath"])
         identity = _identity(path) if os.path.lexists(path) else row.get("op_identity")
         if row.get("op_identity") and identity != row["op_identity"]:
             raise OSError("quarantined object changed")
         with self.db._lock:
             c = self.connection()
-            changed = c.execute("UPDATE quarantine SET status=?,op_identity=COALESCE(op_identity,?),op_uuid=COALESCE(op_uuid,?),op_updated=?,op_error=NULL WHERE id=? AND status='held'", (status, identity, uuid.uuid4().hex, int(time.time()), row["id"])).rowcount
+            changed = c.execute("UPDATE quarantine SET status=?,op_identity=COALESCE(op_identity,?),op_uuid=COALESCE(op_uuid,?),op_updated=?,op_error=NULL WHERE id=? AND status=?", (status, identity, uuid.uuid4().hex, int(time.time()), row["id"], row.get("status") or "held")).rowcount
             c.commit()
             return changed == 1
 
@@ -180,6 +199,12 @@ class QuarantineStore:
         if not any(_inside(path, root) for root in self.origins) or _inside(path, self.root):
             raise OSError("original path outside allowed disposable roots")
         return _safe_path(path)
+
+    def _origin_root(self, path):
+        for root in self.origins:
+            if _inside(path, root):
+                return root
+        raise OSError("original path outside allowed disposable roots")
 
     def _matches(self, row, path):
         return not row.get("op_identity") or row["op_identity"] == _identity(path)
@@ -208,11 +233,11 @@ class QuarantineStore:
                 elif not qexists:
                     self._mark(row["id"], "purged")
                 elif self._matches(row, qpath):
-                    self._mark(row["id"], "held", error="interrupted purge; remaining content preserved")
+                    self._mark(row["id"], "held", error=PURGE_STARTED + ": interrupted; remaining content preserved")
                 else:
                     self._mark(row["id"], "failed", error="quarantined object changed")
             except OSError as exc:
-                self._mark(row["id"], "failed", error=str(exc)[:200])
+                self._mark(row["id"], "failed", error=((PURGE_STARTED + ": ") if row["status"] == "purging" else "") + str(exc)[:180])
 
     def move(self, path, action_id=None, size=lambda path: os.path.getsize(path)):
         with self._operation():
@@ -230,11 +255,11 @@ class QuarantineStore:
                 c.commit()
                 qid = cur.lastrowid
             try:
-                os.mkdir(os.path.dirname(destination))
+                _makedirs(os.path.dirname(destination), self.root)   # by handle: never created through a planted junction
                 _safe_path(destination)
                 if _identity(original) != identity:
                     raise OSError("source changed before quarantine move")
-                _rename_no_replace(original, destination)
+                _rename_no_replace(original, destination, self._origin_root(original), self.root)
             except OSError as exc:
                 self._mark(qid, "failed", expected="moving", error=str(exc)[:200])
                 raise
@@ -251,7 +276,8 @@ class QuarantineStore:
     def restore(self, qid):
         try:
             with self._operation():
-                rows = self._rows("SELECT * FROM quarantine WHERE id=? AND status='held'", (qid,))
+                # failed: a purge that could not delete (file in use) leaves the content in place; it stays restorable
+                rows = self._rows("SELECT * FROM quarantine WHERE id=? AND status IN ('held','failed')", (qid,))
                 if not rows:
                     return {"ok": False, "error": "عنصر الحجر غير متاح للاسترجاع"}
                 row = rows[0]
@@ -261,12 +287,15 @@ class QuarantineStore:
                     return {"ok": False, "error": "المسار الأصلي مشغول؛ لم يُستبدل"}
                 if not os.path.exists(source) or not self._matches(row, source):
                     return {"ok": False, "error": "عنصر الحجر مفقود أو تغير"}
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                if _partial(row) and os.path.isdir(source):
+                    # a purge already started deleting inside this folder: what is left may be incomplete
+                    return {"ok": False, "partial": True, "error": "بدأ تفريغ هذا المجلد سابقًا؛ المحتوى قد يكون ناقصًا فلم يُسترجع"}
+                _makedirs(os.path.dirname(target), self._origin_root(target))   # after the checks, by handle
                 _safe_path(target)
                 if not self._claim(row, "restoring"):
                     return {"ok": False, "error": "العنصر مشغول"}
                 try:
-                    _rename_no_replace(source, target)
+                    _rename_no_replace(source, target, self.root, self._origin_root(target))
                 except OSError as exc:
                     self._mark(qid, "held", expected="restoring", error=str(exc)[:200])
                     return {"ok": False, "error": "تعذر الاسترجاع دون استبدال؛ المحتوى محفوظ في الحجر"}
@@ -275,31 +304,58 @@ class QuarantineStore:
         except OSError:
             return {"ok": False, "error": "تعذر الاسترجاع: مسار غير آمن أو العملية مشغولة"}
 
+    def restored_paths(self, days=None):
+        """{normalized original path: identity or None} of items the owner restored in the last `days` days. The cleanup skips
+        such a file only while it is the same object (identity), since a restored file keeps its old modification time and would
+        otherwise be quarantined again within the hour; a new file with the same name is cleaned as usual."""
+        cut = int(time.time()) - (RESTORED_KEEP_DAYS if days is None else days) * 86400
+        rows = self._rows("SELECT orig,op_identity FROM quarantine WHERE status='restored' AND COALESCE(op_updated,ts)>=?", (cut,))
+        return {os.path.normcase(os.path.abspath(r["orig"])): r["op_identity"] for r in rows if r["orig"]}
+
+    @staticmethod
+    def is_restored(path, kept):
+        """path is a file the owner restored (the same object; a legacy row without identity counts within the time window)."""
+        key = os.path.normcase(os.path.abspath(path))
+        if key not in kept:
+            return False
+        if not kept[key]:
+            return True
+        try:
+            return _identity(path) == kept[key]
+        except OSError:
+            return False
+
     def held_bytes(self):
         return sum(r["bytes"] or 0 for r in self._rows("SELECT bytes FROM quarantine WHERE status='held'"))
 
     def purge(self, force=False):
-        """Permanently delete held items whose hold has expired; force=True (explicit owner action) ignores the expiry."""
+        """Permanently delete held items whose hold has expired; force=True (explicit owner action) ignores the expiry.
+        A failed row whose content is still in the quarantine is retried (a file in use at the last purge); one whose content
+        is gone is left to _sweep."""
         count, amount = 0, 0
         with self._operation():
-            rows = self._rows("SELECT * FROM quarantine WHERE status='held'" + ("" if force else " AND expires<=?"), () if force else (int(time.time()),))
+            rows = self._rows("SELECT * FROM quarantine WHERE status IN ('held','failed')" + ("" if force else " AND expires<=?"), () if force else (int(time.time()),))
+            guard = safedel.Root(self.root)
             for row in rows:
+                started = _partial(row)
                 try:
                     path = self._qpath(row["qpath"])
-                    _safe_tree(path)
+                    if row["status"] == "failed" and not os.path.lexists(path):
+                        continue
+                    # no textual _safe_tree here: remove_tree goes by handle and removes a planted link as a link, so a junction
+                    # planted inside a held item must not block its purge forever
                     if os.path.exists(path) and not self._matches(row, path):
                         raise OSError("quarantined object changed")
                     if not self._claim(row, "purging"):
                         continue
-                    if os.path.isdir(path):
-                        shutil.rmtree(path)  # validated root/tree; never ignore deletion failures
-                    elif os.path.lexists(path):
-                        os.remove(path)
+                    started = True
+                    if os.path.lexists(path):
+                        safedel.remove_tree(path, guard)  # by handle, links removed as links; never ignore deletion failures
                     self._mark(row["id"], "purged", expected="purging")
                     count += 1
                     amount += row["bytes"] or 0
                 except OSError as exc:
-                    self._mark(row["id"], "failed", error=str(exc)[:200])
+                    self._mark(row["id"], "failed", error=((PURGE_STARTED + ": ") if started else "") + str(exc)[:180])
             dirs, rows = self._sweep()
         return "purged %d (%.1f MB), empty dirs %d, failed rows %d" % (count, amount / 2**20, dirs, rows)
 
@@ -308,12 +364,13 @@ class QuarantineStore:
         file is still in place with nothing in the quarantine (an in-use file refused the move each hour: no state left to reconcile).
         rmdir refuses a folder that holds anything, so nothing quarantined is ever touched."""
         dirs = rows = 0
+        guard = safedel.Root(self.root)
         for name in os.listdir(self.root):
             path = os.path.join(self.root, name)
             try:
                 info = os.lstat(path)
                 if stat.S_ISDIR(info.st_mode) and not getattr(info, "st_file_attributes", 0) & 0x400:
-                    os.rmdir(path)
+                    guard.remove(path)   # empty folder only (by handle)
                     dirs += 1
             except OSError:
                 pass

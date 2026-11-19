@@ -41,14 +41,14 @@ class Quarantine(unittest.TestCase):
     def test_intent_is_durable_before_atomic_move_and_uuid_unique(self):
         original = self.source()
         move = qs._rename_no_replace
-        def inspect(src, dst):
+        def inspect(src, dst, *roots):
             row = dict(self.db.execute("SELECT * FROM quarantine").fetchone())
             self.assertEqual(row["status"], "moving")
             self.assertTrue(row["op_uuid"])
             check = sqlite3.connect(self.base / "test.db")
             try:self.assertEqual(check.execute("SELECT status FROM quarantine").fetchone()[0], "moving")
             finally:check.close()
-            move(src,dst)
+            move(src,dst,*roots)
         with mock.patch.object(qs, "_rename_no_replace", side_effect=inspect):
             qid = self.store.move(str(original))
         first = self.row(qid)
@@ -102,9 +102,9 @@ class Quarantine(unittest.TestCase):
         original = self.source()
         qid = self.store.move(str(original))
         rename = qs._rename_no_replace
-        def race(src,dst):
+        def race(src,dst,*roots):
             pathlib.Path(dst).write_bytes(b"new user file")
-            rename(src,dst)
+            rename(src,dst,*roots)
         with mock.patch.object(qs,"_rename_no_replace",side_effect=race):
             result = self.store.restore(qid)
         self.assertFalse(result["ok"])
@@ -210,6 +210,128 @@ class Quarantine(unittest.TestCase):
             if child.poll() is None:
                 child.kill()
                 child.communicate(timeout=5)
+
+    def test_failed_purge_is_retried_and_failed_item_stays_restorable(self):
+        """مراجعة 19/11 البند 4: عنصر فشل حذفه (ملف مستخدم) يصير failed ولا يبقى عالقًا: التفريغ التالي يعيد المحاولة، والاسترجاع متاح."""
+        a = self.store.move(str(self.source("a.txt", b"aa")))
+        b = self.store.move(str(self.source("b.txt", b"bb")))
+        self.expire(a); self.expire(b)
+        with mock.patch.object(qs.safedel, "remove_tree", side_effect=PermissionError(32, "in use")):
+            self.store.purge()
+        self.assertEqual((self.row(a)["status"], self.row(b)["status"]), ("failed", "failed"))
+        self.assertTrue(pathlib.Path(self.row(a)["qpath"]).exists())
+        self.assertTrue(self.store.restore(b)["ok"])            # failed مع بقاء المحتوى: يُسترجع
+        self.assertEqual((self.orig / "b.txt").read_bytes(), b"bb")
+        self.store.purge()                                       # إعادة المحاولة تنجح الآن
+        self.assertEqual(self.row(a)["status"], "purged")
+        self.assertFalse(pathlib.Path(self.row(a)["qpath"]).exists())
+
+    def test_failed_row_without_content_is_not_retried(self):
+        """failed بلا محتوى في الحجر (نقل لم يتم): لا تفريغ ولا استرجاع؛ يتولاه _sweep."""
+        original = self.source()
+        with mock.patch.object(qs, "_rename_no_replace", side_effect=OSError("busy")):
+            with self.assertRaises(OSError):
+                self.store.move(str(original))
+        self.expire(1)
+        self.store.purge(force=True)
+        self.assertEqual(self.row(1)["status"], "failed")
+        self.assertFalse(self.store.restore(1)["ok"])
+        self.assertEqual(original.read_bytes(), b"original")
+
+    def test_restored_paths_are_reported_for_the_cleanup_to_skip(self):
+        """البند 5: المسترجَع يحتفظ بوقته القديم؛ المخزن يبلّغ مساره فيتخطاه التنظيف الساعي."""
+        original = self.source("big.bin", b"big")
+        qid = self.store.move(str(original))
+        self.assertEqual(self.store.restored_paths(), {})
+        self.assertTrue(self.store.restore(qid)["ok"])
+        kept = self.store.restored_paths()
+        self.assertEqual(list(kept), [os.path.normcase(os.path.abspath(original))])
+        self.assertTrue(qs.QuarantineStore.is_restored(str(original), kept))       # الملف نفسه (الهوية)
+        original.unlink()
+        original.write_bytes(b"new file, same name")
+        self.assertFalse(qs.QuarantineStore.is_restored(str(original), kept))      # ملف جديد بالاسم نفسه يُنظَّف
+        self.db.execute("UPDATE quarantine SET op_updated=?", (int(time.time()) - 31 * 86400,))
+        self.db.commit()
+        self.assertEqual(self.store.restored_paths(), {})                          # بعد 30 يومًا ينتهي الاستثناء
+
+    def test_partially_purged_folder_is_not_restored_but_purge_retries(self):
+        """تفريغ بدأ داخل مجلد ثم فشل: المحتوى قد يكون ناقصًا فلا يُسترجع، والتفريغ التالي يكمله."""
+        folder = self.orig / "folder"
+        folder.mkdir()
+        (folder / "a.txt").write_bytes(b"a")
+        (folder / "b.txt").write_bytes(b"b")
+        qid = self.store.move(str(folder))
+        self.expire(qid)
+        qpath = pathlib.Path(self.row(qid)["qpath"])
+
+        def half(path, guard):
+            (pathlib.Path(path) / "a.txt").unlink()
+            raise PermissionError(32, "in use")
+        with mock.patch.object(qs.safedel, "remove_tree", side_effect=half):
+            self.store.purge()
+        self.assertEqual(self.row(qid)["status"], "failed")
+        self.assertIn(qs.PURGE_STARTED, self.row(qid)["op_error"])
+        r = self.store.restore(qid)
+        self.assertEqual((r["ok"], r.get("partial")), (False, True))
+        self.assertFalse(folder.exists())
+        self.store.purge()
+        self.assertEqual(self.row(qid)["status"], "purged")
+        self.assertFalse(qpath.exists())
+
+    def test_failed_single_file_purge_stays_restorable(self):
+        """حذف ملف واحد ذري (موجود كاملًا أو محذوف)، فالفاشل يُسترجع ولو بدأ تفريغه."""
+        qid = self.store.move(str(self.source("one.txt", b"1")))
+        self.expire(qid)
+        with mock.patch.object(qs.safedel, "remove_tree", side_effect=PermissionError(32, "in use")):
+            self.store.purge()
+        self.assertIn(qs.PURGE_STARTED, self.row(qid)["op_error"])
+        self.assertTrue(self.store.restore(qid)["ok"])
+        self.assertEqual((self.orig / "one.txt").read_bytes(), b"1")
+
+    def test_restore_creates_missing_folders_by_handle_never_through_a_junction(self):
+        """مجلدات الأصل الناقصة تُنشأ بعد الفحص وبالمقبض؛ junction زُرع بعد الفحص النصي لا يُنشأ عبره شيء."""
+        if os.name != "nt":
+            self.skipTest("Windows only")
+        import _winapi
+        outside = self.base / "outside"
+        outside.mkdir()
+        (self.orig / "a" / "b").mkdir(parents=True)
+        src = self.orig / "a" / "b" / "f.txt"
+        src.write_bytes(b"f")
+        qid = self.store.move(str(src))
+        (self.orig / "a" / "b").rmdir()
+        (self.orig / "a").rmdir()
+        r = self.store.restore(qid)                       # المجلدات الناقصة تُنشأ
+        self.assertTrue(r["ok"])
+        self.assertEqual(src.read_bytes(), b"f")
+        qid = self.store.move(str(src))
+        (self.orig / "a" / "b").rmdir()
+        (self.orig / "a").rmdir()
+        _winapi.CreateJunction(str(outside), str(self.orig / "a"))
+        with mock.patch.object(qs, "_safe_path", lambda p: os.path.abspath(p)):   # يحاكي الزرع بعد الفحص النصي
+            r = self.store.restore(qid)
+        self.assertFalse(r["ok"])
+        self.assertEqual(os.listdir(outside), [])
+        self.assertEqual(self.row(qid)["status"], "held")
+
+    def test_purge_never_follows_a_junction_planted_in_the_quarantine(self):
+        """الحذف بالمقبض: junction زُرع داخل عنصر محجوز يُحذف كرابط ولا يُنزل فيه."""
+        if os.name != "nt":
+            self.skipTest("Windows only")
+        import _winapi
+        outside = self.base / "outside"
+        outside.mkdir()
+        (outside / "victim.txt").write_bytes(b"keep")
+        folder = self.orig / "folder"
+        folder.mkdir()
+        (folder / "f.txt").write_bytes(b"f")
+        qid = self.store.move(str(folder))
+        qpath = pathlib.Path(self.row(qid)["qpath"])
+        _winapi.CreateJunction(str(outside), str(qpath / "planted"))   # لا يعطّل التفريغ: يُحذف كرابط
+        self.store.purge(force=True)
+        self.assertEqual((outside / "victim.txt").read_bytes(), b"keep")
+        self.assertEqual(self.row(qid)["status"], "purged")
+        self.assertFalse(qpath.exists())
 
     def test_cross_volume_move_refused_before_intent(self):
         original=self.source()
