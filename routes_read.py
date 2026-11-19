@@ -133,7 +133,7 @@ _TABLE = {
     "/api/theme": (lambda q: {"theme": routes_settings.get_theme()}, _E200),
     "/api/appearance": (lambda q: routes_settings.APPEARANCE.get(), _E200),
     "/api/health": (_health, _E200),
-    "/api/page-use": (lambda q: pageuse.stats(db.conn()), _E200),   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
+    "/api/page-use": (lambda q: pageuse.stats_shared(), _E200),   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
     "/api/db-info": (lambda q: db.info(), _E200),
     "/api/maintenance": (lambda q: routes_policy.maintenance_state(), None),
     "/api/cpu": (lambda q: cpuwatch.api_payload(), "cpu data unavailable"),
