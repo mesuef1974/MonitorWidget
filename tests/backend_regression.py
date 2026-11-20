@@ -511,7 +511,7 @@ class DestructiveRoutes(unittest.TestCase):
     def test_space_clean_needs_preview_then_confirm_bound_to_params(self):
         calls = []
 
-        def fake_start(key, seen, early=False):
+        def fake_start(key, seen, early=False, volumes=None):
             calls.append((key, seen, early))
             return {"ok": True, "state": "running", "phase": "measure"}
         with patch.object(self.rd.space, "clean_start", fake_start), \
@@ -538,7 +538,7 @@ class DestructiveRoutes(unittest.TestCase):
                    "nope": {"ok": False, "state": "error", "error": "غير مسموح"}}
         calls = []
 
-        def fake_start(key, seen, early=False):
+        def fake_start(key, seen, early=False, volumes=None):
             calls.append((key, early))
             return replies.get(key, {"ok": True, "state": "running"})
 

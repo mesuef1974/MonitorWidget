@@ -146,7 +146,7 @@ class Quarantine(unittest.TestCase):
         self.store.listing()
         self.assertEqual(self.row(qid)["status"],"purged")
 
-    def test_purge_sweeps_empty_dirs_and_only_stale_failed_rows_with_intact_original(self):
+    def test_purge_sweeps_empty_dirs_and_stale_failed_rows_with_nothing_held(self):
         gone = self.store.move(str(self.source()))
         self.expire(gone)
         keep = self.store.move(str(self.source("keep.txt", b"k")))
@@ -159,7 +159,9 @@ class Quarantine(unittest.TestCase):
         self.assertFalse(pathlib.Path(self.row(gone)["qpath"]).parent.exists())   # the purged item's folder is gone
         self.assertEqual(pathlib.Path(self.row(keep)["qpath"]).read_bytes(), b"k")   # a held item and its folder stay
         left = {pathlib.Path(r[0]).name for r in self.db.execute("SELECT orig FROM quarantine WHERE status='failed'")}
-        self.assertEqual(left, {"missing.txt", "young.txt"})   # only the stale row with an intact original is dropped
+        # a stale failed row with nothing in the quarantine is dropped whether or not its original remains (council 19/11 item 13:
+        # rows of temp files that vanished stayed forever); a row younger than a day stays
+        self.assertEqual(left, {"young.txt"})
         self.assertEqual(busy.read_bytes(), b"busy")
 
     def test_purge_waits_for_expiry_but_force_purges_every_held_item(self):
@@ -172,6 +174,21 @@ class Quarantine(unittest.TestCase):
         self.assertEqual({self.row(a)["status"], self.row(b)["status"]}, {"purged"})
         self.assertEqual(self.store.held_bytes(), 0)
         self.assertFalse(pathlib.Path(self.row(a)["qpath"]).exists())
+
+    def test_size_cap_purges_oldest_held_first_and_keeps_the_rest(self):
+        ids = []
+        for i, name in enumerate(("old.txt", "mid.txt", "new.txt")):
+            ids.append(self.store.move(str(self.source(name, b"x" * 10))))
+            self.db.execute("UPDATE quarantine SET ts=? WHERE id=?", (1000 + i, ids[-1]))
+        self.db.commit()
+        res = self.store.purge(cap_bytes=15)   # 30 held, cap 15: the two oldest go, the newest stays
+        self.assertIn("over cap 2", res)
+        self.assertEqual([self.row(q)["status"] for q in ids], ["purged", "purged", "held"])
+        self.assertEqual(self.store.held_bytes(), 10)
+        self.assertIn("over cap 0", self.store.purge(cap_bytes=15))   # under the cap: nothing more
+        self.assertEqual(self.row(ids[2])["status"], "held")
+        self.store.purge(force=True, cap_bytes=0)   # force already takes everything; the cap adds nothing
+        self.assertEqual(self.row(ids[2])["status"], "purged")
 
     def test_outside_quarantine_path_is_never_deleted(self):
         outside=self.source("outside.txt",b"keep")

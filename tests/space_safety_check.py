@@ -465,7 +465,7 @@ class DockerActual(unittest.TestCase):
                 mock.patch.object(extras, "_docker_volumes_list", lambda: [("v1", 0.5), ("v2", 4.0)]):
             r = extras._dockerimages(False, "test")
             self.assertEqual((r["mb"], r["files"], r["skipped"], r["expectedMB"]), (1024.0, 1, 1, 3072.0))
-            r = extras._dockervolumes(False, "test")
+            r = extras._dockervolumes(False, "test", ("v1", "v2"))   # both confirmed by the owner (council 19/11 item 16)
             self.assertEqual((r["mb"], r["files"], r["skipped"], r["expectedMB"]), (512.0, 1, 1, 4608.0))
 
 
