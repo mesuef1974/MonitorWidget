@@ -19,7 +19,7 @@ WARN = []
 sys.modules["db"] = types.SimpleNamespace(conn=lambda: CON, _lock=threading.RLock())
 sys.modules["infra"] = types.SimpleNamespace(log=types.SimpleNamespace(warning=lambda *a: WARN.append(a), error=lambda *a: None, exception=lambda *a: None),
                                              record_job=lambda *a: None)
-import sched
+import mwsched as sched
 
 NOW = 1794613440            # 14/11/2026 02:44
 JUMP = 1798750795           # 31/12/2026 23:59:55

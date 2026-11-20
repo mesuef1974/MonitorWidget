@@ -169,7 +169,8 @@ function Restore-TaskXml([string]$Dir) {
 function Set-PythonPath([string]$Dir) {
     # ._pth يجعل sys.path هذه الأسطر وحدها ويعطّل site وPYTHON* (عزل تام عن مجلدات المستخدم). app أولًا: مع ._pth لا يُضاف
     # مجلد السكربت إلى sys.path، فلو سبقته Lib لحُمّلت sched القياسية بدل sched.py في المشروع (فشل النشر الثالث 19/11:
-    # /api/mini يعيد 500 بـ module 'sched' has no attribute 'next_run'). يُكتب في كل تشغيل لأن نسخ المفسّر يُتخطّى إن طابق.
+    # /api/mini يعيد 500 بـ module 'sched' has no attribute 'next_run'؛ صارت mwsched.py في البند 19 من المجلس، وcheck_all يمنع
+    # أي اسم قياسي، فالترتيب الآن عزل لا شرط استيراد). يُكتب في كل تشغيل لأن نسخ المفسّر يُتخطّى إن طابق.
     $dll = Get-ChildItem -LiteralPath $Dir -Filter 'python3*.dll' | Where-Object Name -ne 'python3.dll' | Select-Object -First 1
     if (-not $dll) { throw "لا مكتبة python3XX.dll في $Dir." }
     $pth = Join-Path $Dir ($dll.BaseName + '._pth')

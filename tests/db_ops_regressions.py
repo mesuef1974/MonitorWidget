@@ -27,7 +27,7 @@ ensure_sqlite()
 import ast, ctypes, importlib.util, json, sqlite3, threading, time, unittest
 from unittest import mock
 import db, infra, health
-spec = importlib.util.spec_from_file_location("mw_scheduler", pathlib.Path("sched.py"))
+spec = importlib.util.spec_from_file_location("mw_scheduler", pathlib.Path("mwsched.py"))
 scheduler = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(scheduler)
 

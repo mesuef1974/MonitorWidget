@@ -1,5 +1,5 @@
 """فحوصات سريعة لمرصد الجهاز. تشغيل: python tests/check_all.py  (يتطلب node للجزء الخاص بالواجهة)"""
-import glob, os, py_compile, re, subprocess, sys, tempfile, html.parser
+import ast, glob, html.parser, importlib.machinery, os, py_compile, re, subprocess, sys, tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 fails = []
@@ -15,6 +15,33 @@ for f in sorted(glob.glob(os.path.join(ROOT, "*.py"))):
         check("compile " + os.path.basename(f), True)
     except (SyntaxError, UnicodeError, OSError) as e:
         check("compile " + os.path.basename(f), False, str(e)[:200])
+
+# 1ب) لا وحدة في المشروع باسم وحدة قياسية (البند 19 من المجلس 19/11: sched.py حجبته sched القياسية تحت ._pth
+# المنشور فسقط الجمع 13 دقيقة). وكل وحدة مشروع يستوردها الكود تُحلّ إلى ملف المشروع ولو سبقت المكتبةُ القياسية
+# مجلدَ المشروع في sys.path، فلا يتوقف الاستيراد على ترتيب ._pth.
+own = {os.path.splitext(os.path.basename(f))[0] for f in glob.glob(os.path.join(ROOT, "*.py"))}
+own |= {d for d in os.listdir(ROOT) if os.path.isfile(os.path.join(ROOT, d, "__init__.py"))}
+clash = sorted(own & set(sys.stdlib_module_names))
+check("no project module shadows a stdlib module", not clash, ", ".join(clash))
+stdlib_first = [p for p in sys.path if p and os.path.abspath(p) != ROOT and "site-packages" not in p] + [ROOT]
+used = set()
+for f in glob.glob(os.path.join(ROOT, "*.py")) + glob.glob(os.path.join(ROOT, "tests", "*.py")):
+    try:
+        with open(f, encoding="utf-8-sig") as fh:
+            tree = ast.parse(fh.read())
+    except (SyntaxError, UnicodeError, OSError):
+        continue
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import):
+            used |= {a.name.split(".")[0] for a in n.names}
+        elif isinstance(n, ast.ImportFrom) and n.module and not n.level:
+            used.add(n.module.split(".")[0])
+bad = []
+for name in sorted(used & own):
+    spec = importlib.machinery.PathFinder.find_spec(name, stdlib_first)
+    if not (spec and spec.origin and os.path.dirname(os.path.abspath(spec.origin)).startswith(ROOT)):
+        bad.append(name)
+check("project imports resolve to project files with stdlib first on sys.path", not bad, ", ".join(bad))
 
 src = open(os.path.join(ROOT, "web", "index.html"), encoding="utf-8").read()
 

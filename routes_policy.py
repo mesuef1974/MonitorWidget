@@ -18,7 +18,7 @@ import time
 import cfgjson
 import db
 import errlog
-import sched
+import mwsched as sched
 import startup_mgr
 from paths import CNW, POLICY, PWSH, ROOT, TIERS
 

@@ -28,7 +28,7 @@ import memtrim
 import pageuse
 import routes_policy
 import routes_settings
-import sched
+import mwsched as sched
 import boothist
 import shellwin
 import widgetwatch
