@@ -13,6 +13,16 @@ $t0 = Get-Date
 $o = [ordered]@{ ts = [int][DateTimeOffset]::UtcNow.ToUnixTimeSeconds(); kind = $Kind; state = 'error'; ok = $false; mb = 0; files = 0; skipped = 0; freeBeforeGB = 0; freeAfterGB = 0; error = $null }
 function Save { $o | ConvertTo-Json -Compress | Set-Content -LiteralPath $Result -Encoding UTF8 }
 function FreeGB { [math]::Round((Get-PSDrive C).Free / 1GB, 2) }
+# swdist بعتبة 0 يوم: حذف مجلد التنزيل أثناء تحديث جارٍ أو قبل إعادة تشغيل معلّقة يقطع التحديث (البند 17 من المجلس 19/11).
+# يُرفض التنظيف إن وُجد أحد مفتاحي إعادة التشغيل المعلّقة، أو عملية من عمليات خدمة التحديث والتثبيت قيد العمل.
+function UpdateBusy {
+    $keys = @('HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired',
+              'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending')
+    foreach ($k in $keys) { if (Test-Path -LiteralPath $k) { return 'إعادة تشغيل معلّقة لتحديث ويندوز' } }
+    $p = @(Get-Process -Name 'TiWorker', 'TrustedInstaller', 'MoUsoCoreWorker', 'wuauclt' -ErrorAction SilentlyContinue)
+    if ($p.Count -gt 0) { return ('تحديث ويندوز يعمل الآن ({0})' -f (($p.Name | Sort-Object -Unique) -join '، ')) }
+    return $null
+}
 try {
     $id = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
     if (-not $id.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { throw 'يلزم تشغيل مرتفع (المهمة المجدولة)' }
@@ -23,6 +33,8 @@ try {
         $p = Start-Process -FilePath "$env:SystemRoot\System32\Dism.exe" -ArgumentList '/Online', '/Cleanup-Image', '/StartComponentCleanup' -Wait -PassThru -WindowStyle Hidden
         $o.ok = ($p.ExitCode -eq 0)
         if (-not $o.ok) { $o.error = ('DISM أعاد الرمز {0}' -f $p.ExitCode) }
+    } elseif ($Kind -eq 'swdist' -and ($busy = UpdateBusy)) {
+        $o.ok = $false; $o.error = $busy + '؛ لم يُحذف شيء'
     } else {
         # الحذف بالمقبض (MwSafeDel، نظير safedel.py): Windows\Temp يكتب فيه أي مستخدم، فمجلد يُحوَّل junction بعد السرد كان
         # يوجّه Remove-Item المرتفع إلى System32. pwsh 7 يترجم Add-Type في الذاكرة فلا ملفات ترجمة في مجلد قابل للكتابة.

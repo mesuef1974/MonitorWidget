@@ -50,7 +50,8 @@ steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]
     ("حد التنفيذ المرتفع (معزول)", "elevated_execution_check.py"),
     ("النشر المحمي: الرمز والمفسّر والسياسة والمهام (معزول)", "protected_deploy_check.py"),
     ("حذف Windows.old عبر المهمة المرتفعة (معزول)", "winold_task_check.py"),
-    ("تنظيفات wintemp/swdist/DISM عبر المهام المرتفعة الثابتة (معزول)", "elevated_clean_task_check.py"))]
+    ("تنظيفات wintemp/swdist/DISM عبر المهام المرتفعة الثابتة (معزول)", "elevated_clean_task_check.py"),
+    ("سلامة البيانات: swap.vhdx ووحدات Docker وswdist (معزول، المجلس 19/11)", "data_safety_check.py"))]
 # The full original widget is restored. The compact/balanced-only contracts
 # remain historical and are replaced by widget_restored_check.
 # Legacy greedy-packing tests remain historical; canonical acceptance replaces that retired path.

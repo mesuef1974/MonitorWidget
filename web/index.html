@@ -709,6 +709,18 @@ async function spAction(t) {
     else if (a === "clean") {
       const early = t.dataset.early === "1";
       const seen = Math.round(SPV[k]?.res?.mb || 0);
+      // وحدات Docker المجهولة: كل وحدة تُعرض ويؤكّدها المالك وحدها، ولا يُحذف إلا ما أكّده (البند 16 من المجلس 19/11)
+      if (k === "dockervolumes") {
+        const vols = SPV[k]?.res?.volumes || [], pick = [];
+        if (!vols.length) { toast("عاين الوحدات أولًا", true); return; }
+        for (const [i, v] of vols.entries()) {
+          if (await confirmDlg(`الوحدة ${i + 1} من ${vols.length}: ${v.name.slice(0, 12)}… (${Math.round(v.mb)} MB${v.created ? "، أُنشئت " + v.created : ""}${v.project ? "، مشروع " + v.project : ""}). قد تحمل بيانات قاعدة بيانات وحيدة. هل تُحذف؟`, "احذفها", true)) pick.push(v.name);
+        }
+        if (!pick.length) return;
+        if (!(await spJob(k, () => post("/api/space", { action: "clean", kind: k, seen_mb: seen, volumes: pick }, true), `/api/space-clean?kind=${encodeURIComponent(k)}`, true))) return;
+        const done = SPV[k]; later(5000, reload); later(15000, () => { if (SPV[k] === done) { delete SPV[k]; redraw(); } });
+        return;
+      }
       // الحذف بعد المعاينة يحتاج تأكيد المالك صراحةً: الخادم يطلب رمز 428، ولا يُرسل الرمز إلا بعد هذا الحوار
       if (early ? !(await confirmDlg("سيُحذف Windows.old نهائيًا قبل انقضاء 14 يومًا، ولن تستطيع الرجوع إلى إصدار ويندوز السابق ولا التراجع عن الحذف. هل تريد المتابعة؟", "احذف الآن", true))
         : !(await confirmDlg(`تنظيف «${(d?.labels || {})[k] || k}» الآن — المتوقع تحرير ${seen} MB بحسب المعاينة. هل تريد المتابعة؟`, "نظّف", true))) return;

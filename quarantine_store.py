@@ -328,13 +328,32 @@ class QuarantineStore:
     def held_bytes(self):
         return sum(r["bytes"] or 0 for r in self._rows("SELECT bytes FROM quarantine WHERE status='held'"))
 
-    def purge(self, force=False):
+    def _over_cap(self, cap_bytes):
+        """Held rows not yet expired, oldest first, that must go so what stays held fits under cap_bytes (the size cap, item 13 of
+        the 19/11 council: the 7-day hold reached 20 GB on C). Expired rows are purged anyway, so they are not counted here."""
+        now = int(time.time())
+        rows = self._rows("SELECT * FROM quarantine WHERE status='held' AND expires>? ORDER BY ts ASC, id ASC", (now,))
+        excess = sum(r["bytes"] or 0 for r in rows) - cap_bytes
+        out = []
+        for r in rows:
+            if excess <= 0:
+                break
+            out.append(r)
+            excess -= r["bytes"] or 0
+        return out
+
+    def purge(self, force=False, cap_bytes=None):
         """Permanently delete held items whose hold has expired; force=True (explicit owner action) ignores the expiry.
+        cap_bytes: also delete the oldest held items, before their hold ends, until what stays held fits under the cap.
         A failed row whose content is still in the quarantine is retried (a file in use at the last purge); one whose content
         is gone is left to _sweep."""
-        count, amount = 0, 0
+        count, amount, capped = 0, 0, 0
         with self._operation():
             rows = self._rows("SELECT * FROM quarantine WHERE status IN ('held','failed')" + ("" if force else " AND expires<=?"), () if force else (int(time.time()),))
+            if not force and cap_bytes is not None and cap_bytes >= 0:
+                extra = self._over_cap(cap_bytes)
+                capped = len(extra)
+                rows += extra
             guard = safedel.Root(self.root)
             for row in rows:
                 started = _partial(row)
@@ -357,11 +376,12 @@ class QuarantineStore:
                 except OSError as exc:
                     self._mark(row["id"], "failed", error=((PURGE_STARTED + ": ") if started else "") + str(exc)[:180])
             dirs, rows = self._sweep()
-        return "purged %d (%.1f MB), empty dirs %d, failed rows %d" % (count, amount / 2**20, dirs, rows)
+        return f"purged {count} ({amount / 2**20:.1f} MB), over cap {capped}, empty dirs {dirs}, failed rows {rows}"
 
     def _sweep(self):
-        """After a purge: remove the empty per-operation folders it left behind, and the failed rows older than a day whose original
-        file is still in place with nothing in the quarantine (an in-use file refused the move each hour: no state left to reconcile).
+        """After a purge: remove the empty per-operation folders it left behind, and the failed rows older than a day with nothing in
+        the quarantine: an in-use file refused the move (WinError 32), or a purge already deleted the content. No state is left to
+        reconcile whether or not the original is still in place (a temp file often is gone by then, and such rows stayed forever).
         rmdir refuses a folder that holds anything, so nothing quarantined is ever touched."""
         dirs = rows = 0
         guard = safedel.Root(self.root)
@@ -378,7 +398,7 @@ class QuarantineStore:
         for row in self._rows("SELECT id,orig,qpath FROM quarantine WHERE status='failed' AND COALESCE(op_updated,ts)<?", (cut,)):
             try:
                 qpath = os.path.abspath(row["qpath"])
-                if _inside(qpath, self.root) and not os.path.lexists(qpath) and os.path.lexists(row["orig"]):
+                if _inside(qpath, self.root) and not os.path.lexists(qpath):
                     with self.db._lock:
                         c = self.connection()
                         rows += c.execute("DELETE FROM quarantine WHERE id=? AND status='failed'", (row["id"],)).rowcount

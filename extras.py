@@ -252,20 +252,44 @@ def _dockerimages(dry, src):
     return _res(False, freed * 1024, done, len(ids) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط", expectedMB=round(gb * 1024, 1))
 
 
-def _dockervolumes(dry, src):
+def _docker_volume_info(names):
+    """{name: (created, project)} from one `docker volume inspect`, for the per-volume confirmation; empty on any failure."""
+    if not names:
+        return {}
+    r = space._docker(["volume", "inspect", "--format", "{{json .}}", *names], 40)
+    out = {}
+    for ln in r.stdout.splitlines():
+        try:
+            v = json.loads(ln)
+        except ValueError:
+            continue
+        labels = v.get("Labels") or {}
+        out[v.get("Name", "")] = ((v.get("CreatedAt") or "")[:16].replace("T", " "), labels.get("com.docker.compose.project") or "")
+    return out
+
+
+def _dockervolumes(dry, src, sel=None):
+    """Item 16 of the 19/11 council: an anonymous volume may hold the only copy of a database, so the preview lists every candidate
+    and a real run removes only the names the owner confirmed one by one (sel), and only while each is still anonymous and unlinked."""
     up, ver = _docker_up()
     if not up:
         return {"ok": False, "error": "Docker غير مشغّل"}
     vols = _docker_volumes_list()
     gb = sum(s for _, s in vols)
     if dry:
-        return _res(True, gb * 1024, len(vols), note="داخل Docker؛ المجهولة غير المرتبطة فقط")
+        info = _docker_volume_info([n for n, _ in vols])
+        listing = [{"name": n, "mb": round(s * 1024, 1), "created": info.get(n, ("", ""))[0], "project": info.get(n, ("", ""))[1]} for n, s in vols]
+        return _res(True, gb * 1024, len(vols), note="داخل Docker؛ المجهولة غير المرتبطة فقط، وكل وحدة تحتاج تأكيدها", volumes=listing)
+    if not sel:
+        return {"ok": False, "error": "لم تُؤكَّد أي وحدة؛ لم يُحذف شيء"}
+    chosen = set(sel)
+    pick = [(n, s) for n, s in vols if n in chosen]
     done, freed = 0, 0.0
-    for name, size in vols:
+    for name, size in pick:
         r = space._docker(["volume", "rm", name], 60)   # refuses a volume that is in use
         if r.returncode == 0:
             done += 1; freed += size
-    return _res(False, freed * 1024, done, len(vols) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط", expectedMB=round(gb * 1024, 1))
+    return _res(False, freed * 1024, done, len(pick) - done, note="حُرّر داخل Docker؛ يعود للقرص بعد الضغط", expectedMB=round(sum(s for _, s in pick) * 1024, 1))
 
 
 def _dockercompact_estimate():
@@ -517,13 +541,13 @@ def _archive_job(src, cands):
 
 
 # ---------------- dispatcher used by space._clean_impl
-def run(kind, dry, src):
+def run(kind, dry, src, sel=None):
     if kind in LIGHT:
         return _light(kind, dry, src)
     if kind == "dockerimages":
         return _safe(_dockerimages, dry, src)
     if kind == "dockervolumes":
-        return _safe(_dockervolumes, dry, src)
+        return _safe(lambda d, s: _dockervolumes(d, s, sel), dry, src)
     if kind == "dockercompact":
         return _safe(_dockercompact, dry, src)
     if kind == "dism":

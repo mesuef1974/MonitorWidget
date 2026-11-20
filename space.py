@@ -258,11 +258,14 @@ def clean_status(key):
     return out
 
 
-def clean_start(key, seen, early=False):
+def clean_start(key, seen, early=False, volumes=None):
     """Start a confirmed clean of key (a kind, or "all" for BULK) in the background. The same key already running is returned as is;
-    any other running clean refuses (two walks deleting in the same folders would double count and race)."""
+    any other running clean refuses (two walks deleting in the same folders would double count and race).
+    volumes: for dockervolumes, the names the owner confirmed one by one; nothing else is removed (item 16 of the 19/11 council)."""
     if key != "all" and not _previewable(key):
         return {"ok": False, "state": "error", "error": "غير مسموح"}
+    if key == "dockervolumes" and not volumes:
+        return {"ok": False, "state": "error", "error": "اختر الوحدات التي تُحذف واحدةً واحدة"}
     with _cj_lock:
         run = next((k for k, j in _cj.items() if j["state"] == "running"), None)
         if run is not None and run != key:
@@ -270,6 +273,8 @@ def clean_start(key, seen, early=False):
         if run is None:
             kinds = tuple(BULK) if key == "all" else (key,)
             j = _cj[key] = {"state": "running", "started": time.time(), "ended": None, "phase": "measure", "kind": kinds[0], "dirs": 0, "files": 0, "mb": 0.0}
+            if key == "dockervolumes":
+                j["volumes"] = tuple(volumes)
             threading.Thread(target=_clean_run, args=(key, kinds, seen, early, j), daemon=True).start()
     return {"ok": True, **clean_status(key)}
 
@@ -311,8 +316,24 @@ def _restored_paths():
         return {}
 
 
+Q_CAP_GB = 10   # setting "space.quarantine_cap_gb": what the hold may keep on C; above it the oldest held items go before their 7 days
+
+
 def purge_quarantine():
-    return _quarantine_store().purge()
+    """Hourly: the expired items, then the oldest beyond the size cap; an early purge leaves an alert (item 13 of the 19/11 council)."""
+    try:
+        cap = float(_setting("space.quarantine_cap_gb", Q_CAP_GB))
+    except (TypeError, ValueError):
+        cap = Q_CAP_GB
+    res = _quarantine_store().purge(cap_bytes=int(max(1.0, cap) * 2**30))
+    m = re.search(r"over cap (\d+)", res)
+    if m and int(m.group(1)):
+        try:
+            db.add_event(int(time.time()), "disk", "warn", "الحجر تجاوز سقفه فحُذف أقدمه قبل موعده",
+                         "سقف الحجر %g GB؛ حُذف %s عنصرًا قبل انقضاء %d أيام. %s" % (cap, m.group(1), Q_DAYS, res))
+        except Exception:
+            errlog.swallowed()
+    return res
 
 
 QP = {"running": False, "res": None}
@@ -1105,6 +1126,17 @@ def _tick(prog, files, freed):
         prog["mb"] = round(freed / 2**20, 1)
 
 
+_SWAP_RE = re.compile(r"\{?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}?", re.I)
+
+
+def _wsl_swap(path):
+    """WSL's swap file TEMP\\<GUID>\\swap.vhdx: recreated at every WSL start, so holding it 7 days only filled the quarantine
+    (18 of 18.4 GB held on 20/11). It is deleted at once like a small file; while WSL runs it is in use and simply skipped."""
+    parent = os.path.dirname(path)
+    return (os.path.basename(path).lower() == "swap.vhdx" and _SWAP_RE.fullmatch(os.path.basename(parent)) is not None
+            and os.path.normcase(os.path.dirname(parent)) == os.path.normcase(TEMP))
+
+
 def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     """dry=True only measures. Real deletion is limited to the whitelist; failures (files in use) are skipped.
     prog: a dict the walks update with folders walked, files handled and MB found or freed so far (the background preview and clean jobs)."""
@@ -1131,7 +1163,7 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
                     skipped += 1; locked += sz
                 _tick(prog, n + skipped, freed)
                 continue
-            if kind in qkinds and sz >= Q_MIN_BYTES:
+            if kind in qkinds and sz >= Q_MIN_BYTES and not _wsl_swap(p):
                 try:
                     quarantine_move(p); held += sz; n += 1
                 except Exception:
@@ -1210,7 +1242,8 @@ def _clean_impl(kind, dry=True, src="manual", early=False, prog=None):
     else:
         import extras
         if kind in extras.KINDS:
-            return extras.run(kind, dry, src)
+            # the clean job carries the volumes the owner confirmed one by one (dockervolumes); a preview carries none
+            return extras.run(kind, dry, src, sel=(prog or {}).get("volumes"))
         return {"ok": False, "error": "غير مسموح"}
     if not dry:
         try:

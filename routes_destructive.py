@@ -16,6 +16,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import secrets
 import subprocess
 import threading
@@ -76,6 +77,9 @@ def confirm_required(route, body):
     if isinstance(tok, str) and CONFIRMS.take(key, tok):
         return None
     return 428, {"error": "confirm_required", "confirm": CONFIRMS.issue(key), "ttl": CONFIRMS.ttl}
+
+
+VOL_RE = re.compile(r"[0-9a-f]{64}")   # اسم وحدة Docker المجهولة
 
 
 def _space_confirmed(route, body, act, kind):
@@ -205,7 +209,12 @@ def _space(route, body):
             return r
     if act in ("cleanall", "clean"):   # الحذف في الخلفية؛ الصفحة تستطلع GET /api/space-clean
         early = act == "clean" and kind == "winold" and body.get("early") is True
-        r = space.clean_start("all" if act == "cleanall" else kind, body["seen_mb"], early)
+        vols = None
+        if act == "clean" and kind == "dockervolumes":   # الوحدات التي أكّدها المالك واحدةً واحدة (البند 16 من المجلس 19/11)
+            vols = body.get("volumes")
+            if not isinstance(vols, list) or not 1 <= len(vols) <= 500 or not all(isinstance(v, str) and VOL_RE.fullmatch(v) for v in vols):
+                return 400, {"error": "volumes: قائمة أسماء وحدات مجهولة (64 حرفًا ست عشريًّا)"}
+        r = space.clean_start("all" if act == "cleanall" else kind, body["seen_mb"], early, vols)
         return (200 if r["ok"] else 409 if r.get("running") else 400), r
     if act == "preview":   # القياس في الخلفية؛ الصفحة تستطلع GET /api/space-preview
         return 200, space.preview_start(kind)
