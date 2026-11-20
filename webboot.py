@@ -20,6 +20,7 @@ import procprio
 import shellwin
 import snapshot
 import startup_mgr
+import updwatch
 import websession
 import winguard
 from paths import CNW, PORT, ROOT
@@ -80,7 +81,7 @@ def claim_single_server():
 
 def background_workers():
     """الخيوط الخلفية التي يطلقها الإقلاع بالترتيب (كلها daemon)."""
-    return (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, maint, winguard.watch, localai.watch, bootaudit.watch)
+    return (watchdog, snapshot.sampler, snapshot.refresher, snapshot.ingester, maint, winguard.watch, localai.watch, bootaudit.watch, updwatch.watch)
 
 
 def run(server_cls, handler_cls, argv):
