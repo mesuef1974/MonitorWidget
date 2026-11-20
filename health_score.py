@@ -44,6 +44,21 @@ def number(value):
 
 
 EXTERNAL_MAX_AGE = 36 * 3600
+BACKUP_MAX_AGE = 36 * 3600
+
+
+def status_problem(task, now):
+    """لماذا لا يشهد ملف حالة المهمة (statusFile في tasks.json) بنجاحها؛ None إن شهد أو لم يُعرَّف لها ملف.
+    بعض المهام ملفوفة بـ conhost --headless فيسجّل المجدول 0 مع فشل السكربت (20/11/2026)، فملفها هو الشاهد."""
+    st = task.get("status")
+    if not isinstance(st, dict):
+        return None
+    if st.get("ok") is not True:
+        return str(st.get("error") or "ملف الحالة لا يؤكد النجاح")[:80]
+    ts = task_last_ts({"last": st.get("time")})
+    if ts is None or now - ts > BACKUP_MAX_AGE or ts - now > TASK_FUTURE_SLACK:
+        return "آخر نجاح مسجّل في ملف الحالة قديم"
+    return None
 
 
 def external_problem(external, now):
@@ -111,12 +126,14 @@ def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, no
     backups = [t for t in enabled if t.get("group") == "backup"]
     tasks_known = bool(backups) and all(not t.get("missing") and isinstance(t.get("result"), int) for t in backups)
     old_backups = [t for t in backups if age_hours(t) > 36 or age_hours(t) < -1 / 60 or t.get("result") not in (0, 267009)]
+    status_bad = [(t, why) for t in backups if t not in old_backups for why in [status_problem(t, now)] if why]
     ext_bad = external_problem(external, now)
     units = (len(backups) if tasks_known else 0) + (1 if external else 0)
-    bad_units = (len(old_backups) if tasks_known else 0) + (1 if ext_bad else 0)
+    bad_units = (len(old_backups) + len(status_bad) if tasks_known else 0) + (1 if ext_bad else 0)
     backups_known = tasks_known or bool(external)
     backup_points = (10 if not bad_units else 5 if bad_units < units else 0) if backups_known else None
-    reasons = (["نسخة قديمة أو مهمة فاشلة: " + names(old_backups)] if tasks_known and old_backups else []) + ([ext_bad] if ext_bad else [])
+    reasons = ((["نسخة قديمة أو مهمة فاشلة: " + names(old_backups)] if old_backups else [])
+               + ["%s: %s" % (names([t]), why) for t, why in status_bad] if tasks_known else []) + ([ext_bad] if ext_bad else [])
     add("backup", "النسخ الاحتياطي", backup_points, 10,
         "؛ ".join(reasons) if reasons else "حديثة" if backups_known else "لم تثبت حالة النسخ الاحتياطي",
         now if backups_known else None)

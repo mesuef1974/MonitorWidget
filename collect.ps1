@@ -41,6 +41,17 @@ function TrigText($t) {
     }
 }
 
+function ReadStatus($spec) {
+    # statusFile اختياري في tasks.json: ملف JSON يكتبه سكربت المهمة {time, ok, error}. المجدول قد يسجّل 0 مع فشل
+    # السكربت (conhost --headless يبتلع رمز الخروج، 20/11/2026)، فهذا الملف شاهد health_score على نجاحها.
+    if (-not $spec) { return $null }
+    $f = [Environment]::ExpandEnvironmentVariables([string]$spec)
+    try { $j = Get-Content -LiteralPath $f -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json -ErrorAction Stop }
+    catch { return [pscustomobject]@{ ok = $null; time = $null; error = 'تعذّرت قراءة ملف الحالة' } }
+    $t = $j.time; if ($t -is [datetime]) { $t = $t.ToString('o') }
+    [pscustomobject]@{ ok = $(if ($j.ok -is [bool]) { $j.ok } else { $null }); time = [string]$t; error = [string]$j.error }
+}
+
 # ---- scheduled tasks (whitelist from tasks.json)
 $wl = Get-Content "$Root\tasks.json" -Raw -Encoding UTF8 | ConvertFrom-Json
 $allTasks = @{}
@@ -58,6 +69,7 @@ $tasks = foreach ($w in $wl) {
         state = [string]$t.State; enabled = (-not $off)
         schedule = (@($t.Triggers | ForEach-Object { TrigText $_ }) -join ' · ')
         last = (Iso $i.LastRunTime); next = $(if ($off) { $null } else { Iso $i.NextRunTime }); result = [int64]$i.LastTaskResult
+        status = (ReadStatus $w.statusFile)
     }
 }
 
