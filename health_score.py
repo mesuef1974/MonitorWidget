@@ -43,7 +43,30 @@ def number(value):
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
-def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, now):
+EXTERNAL_MAX_AGE = 36 * 3600
+
+
+def external_problem(external, now):
+    """Why the external copy is not trustworthy, judged by the file itself; None when it is (or none is configured)."""
+    if not external:
+        return None
+    if external.get("error"):
+        return "تعذّر فحص النسخة الخارجية: " + str(external["error"])[:80]
+    copy = external.get("copy")
+    if not copy:
+        return "لا نسخة في المجلد الخارجي " + str(external.get("dir", ""))
+    age = now - copy.get("ts", 0)
+    if age > EXTERNAL_MAX_AGE or age < -60:
+        return "آخر نسخة خارجية (%s) عمرها %d ساعة" % (copy.get("name"), age // 3600)
+    if not copy.get("bytes"):
+        return "النسخة الخارجية %s فارغة" % copy.get("name")
+    local = external.get("local")
+    if local and local.get("bytes") != copy.get("bytes"):
+        return "حجم النسخة الخارجية %s يخالف المحلية" % copy.get("name")
+    return None
+
+
+def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, now, external=None):
     hardware = hardware or {}
     parts = []
 
@@ -86,11 +109,16 @@ def build_score(metrics, tasks, probe_ts, hardware, updates_ts, updates, gpu, no
     add("tasks", "المهام المجدولة", max(0, 15 - 5 * recent_bad - 2 * (len(bad) - recent_bad)) if task_data else None,
         15, why if task_data else "بيانات المهام غير مكتملة", now if task_data else None)
     backups = [t for t in enabled if t.get("group") == "backup"]
-    backups_known = bool(backups) and all(not t.get("missing") and isinstance(t.get("result"), int) for t in backups)
+    tasks_known = bool(backups) and all(not t.get("missing") and isinstance(t.get("result"), int) for t in backups)
     old_backups = [t for t in backups if age_hours(t) > 36 or age_hours(t) < -1 / 60 or t.get("result") not in (0, 267009)]
-    backup_points = (10 if not old_backups else 5 if len(old_backups) < len(backups) else 0) if backups_known else None
+    ext_bad = external_problem(external, now)
+    units = (len(backups) if tasks_known else 0) + (1 if external else 0)
+    bad_units = (len(old_backups) if tasks_known else 0) + (1 if ext_bad else 0)
+    backups_known = tasks_known or bool(external)
+    backup_points = (10 if not bad_units else 5 if bad_units < units else 0) if backups_known else None
+    reasons = (["نسخة قديمة أو مهمة فاشلة: " + names(old_backups)] if tasks_known and old_backups else []) + ([ext_bad] if ext_bad else [])
     add("backup", "النسخ الاحتياطي", backup_points, 10,
-        "نسخة قديمة أو مهمة فاشلة" if backups_known and old_backups else "حديثة" if backups_known else "لم تثبت حالة النسخ الاحتياطي",
+        "؛ ".join(reasons) if reasons else "حديثة" if backups_known else "لم تثبت حالة النسخ الاحتياطي",
         now if backups_known else None)
 
     probe_fresh = fresh(probe_ts, PROBE_MAX_AGE)
