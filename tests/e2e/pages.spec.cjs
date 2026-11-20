@@ -103,3 +103,13 @@ test('عدّاد فتح الصفحات: بلاغ واحد لكل انتقال إ
   expect(rows).toBe(keys);                           // كل صفحة في PAGES لها صف، مفتوحة أو لا
   expect(await panel.locator('tbody tr').first().textContent()).toContain('نظرة عامة');   // الأكثر فتحًا أولًا
 });
+
+// البند 26 من المجلس 19/11: المظهر في مكان واحد بالواجهة (لوحة «المظهر» في التحكم) والرابط القديم يصل إليها
+test('المظهر في مكان واحد: لا صفحة «المظهر الموحد» في القائمة، و#/appearance يفتح التحكم بعيّنات الألوان', async ({ page }) => {
+  await page.goto('/#/appearance');
+  await page.waitForFunction(() => document.querySelectorAll('#main .swatch[data-palette]').length === 4);
+  expect(await page.evaluate(() => location.hash)).toBe('#/ctrl');
+  expect(await page.locator('#nav a[href="#/appearance"]').count()).toBe(0);
+  expect(await page.locator('#main [data-mode]').count()).toBe(3);
+  expect(await page.evaluate(() => typeof PAGES.appearance)).toBe('undefined');
+});
