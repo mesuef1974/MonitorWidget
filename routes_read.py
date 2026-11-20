@@ -111,18 +111,23 @@ def _infra(q):
 
 def _health(q):
     out = health.overview(snapshot.native_metrics(), snapshot.tasks())
-    out["shell"] = shellwin.shell_status()
-    try:
-        out["widget"] = widgetwatch.payload()   # سقطات الويدجت وتوقفات واجهته وإعادات تشغيله من widget.log
-    except Exception:
-        errlog.swallowed()
-        out["widget"] = None
     try:
         with db._lock:
             out["bootTrend"] = boothist.payload(db.conn())   # اتجاه زمن الإقلاع من كل الإقلاعات المحفوظة
     except Exception:
         errlog.swallowed()
         out["bootTrend"] = None
+    return out
+
+
+def _apphealth(q):
+    """صحة التطبيق نفسه لصفحة «التحكم» (البند 30 من المجلس 19/11، كانت في /api/health): محرّك نافذة التطبيق وسبب سقوطه، وسقطات الويدجت."""
+    out = {"shell": shellwin.shell_status()}
+    try:
+        out["widget"] = widgetwatch.payload()   # سقطات الويدجت وتوقفات واجهته وإعادات تشغيله من widget.log
+    except Exception:
+        errlog.swallowed()
+        out["widget"] = None
     return out
 
 
@@ -166,6 +171,7 @@ _TABLE = {
     "/api/theme": (lambda q: {"theme": routes_settings.get_theme()}, _E200),
     "/api/appearance": (_appearance, _E200),
     "/api/health": (_health, _E200),
+    "/api/apphealth": (_apphealth, _E200),
     "/api/page-use": (lambda q: pageuse.stats_shared(), _E200),   # عدّاد فتح الصفحات (البند 5): آخر أسبوعين لصفحة الإعدادات والتحكم
     "/api/db-info": (lambda q: db.info(), _E200),
     "/api/maintenance": (lambda q: routes_policy.maintenance_state(), None),

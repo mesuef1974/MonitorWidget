@@ -240,7 +240,7 @@ def mem_payload(m, extra, rng="24h"):
     except Exception:
         errlog.swallowed()
     cfg = alertcfg.get()["mem"]
-    return {"ok": True, "now": int(time.time()), "m": m, "perf": perf, "top": top, "cats": catl, "leaks": leaks, "wslcfg": _wslconfig(),
+    return {"ok": True, "now": int(time.time()), "m": m, "perf": perf, "top": top, "cats": catl, "leaks": leaks,
             "series": mem_series(rng), "range": rng if rng in RANGES else "24h", "span": RANGES.get(rng, RANGES["24h"]), "thr": cfg,
             "claudeGB": (extra or {}).get("claudeGB"), "wslGB": wsl_gb}
 

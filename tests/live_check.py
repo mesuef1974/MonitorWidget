@@ -69,6 +69,7 @@ ENDPOINTS = {
     "/api/space": ["quarantine"],
     "/api/startup": ["items"],
     "/api/health": [],
+    "/api/apphealth": [],
     "/api/widget": [],
     "/api/history": [],
     "/api/db-info": [],

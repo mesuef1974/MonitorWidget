@@ -155,8 +155,8 @@ test.describe('عدّاد فتح الصفحات والجولات الآلية', 
   });
 });
 
-test('صفحة الصحة: لوحة الويدجت تعرض حالته وسقطاته وتوقفات واجهته وآخر خطأ نصًّا لا HTML', async ({ page }) => {
-  await page.goto('/#/health');
+test('صفحة التحكم: لوحة الويدجت تعرض حالته وسقطاته وتوقفات واجهته وآخر خطأ نصًّا لا HTML', async ({ page }) => {
+  await page.goto('/#/ctrl');
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
   const w = panelOf(page, 'الويدجت');
   await expect(w.locator('.tag.bad')).toHaveText('سقط');
@@ -167,7 +167,7 @@ test('صفحة الصحة: لوحة الويدجت تعرض حالته وسقط�
   await expect(w.locator('p.note').last().locator('bdi[dir=ltr]')).toContainText('<b>op_Subtraction</b>');   // النص الإنجليزي معزول باتجاهه
   await expect(w.locator('p.note b')).toHaveCount(0);
   let mode = 'running';
-  await page.route('**/api/health', async route => {
+  await page.route('**/api/apphealth', async route => {
     const res = await route.fetch(); const body = await res.json();
     if (mode === 'running') body.widget = { running: true, state: 'running', starts: 1, fatals: 0, stalls: 0, stallMaxS: 0, stallSumS: 0, lastStart: 1793015330, lastFatal: null, lastLayout: null, relaunches: 0, wanted: false };
     else body.widget = null;
@@ -257,4 +257,18 @@ test('صفحة الطاقة: السكون والاستيقاظ بجلساته و
   await page.reload();
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 2);
   await expect(sl.locator('.empty')).toHaveText('غير متاح');   // تظهر حتى بلا بطارية: السكون يخصّ المكتبي أيضًا
+});
+
+test('البند 30: لا لوحة WSL في «الذاكرة» (مكانها «WSL وDocker»)، ولا لوحة الويدجت في «الصحة» (مكانها «التحكم»)', async ({ page }) => {
+  await page.goto('/#/mem');
+  await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
+  await expect(panelOf(page, 'إعداد WSL')).toHaveCount(0);
+  await expect(panelOf(page, 'أكبر البرامج')).toHaveClass('panel c12');
+  await page.evaluate(() => { location.hash = '#/wsl'; });
+  await page.waitForFunction(() => location.hash === '#/wsl' && document.querySelectorAll('#main .panel').length > 3);
+  await expect(panelOf(page, 'إعداد .wslconfig')).toHaveCount(1);
+  await page.evaluate(() => { location.hash = '#/health'; });
+  await page.waitForFunction(() => location.hash === '#/health' && document.querySelectorAll('#main .panel').length > 3);
+  await expect(page.locator('#main .panel .ph h2').filter({ hasText: /^الويدجت$/ })).toHaveCount(0);
+  await expect(page.locator('#main .banner.warn')).toHaveCount(0);
 });
