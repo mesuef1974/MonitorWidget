@@ -126,7 +126,7 @@ def main():
     s.register("commitwatch", commitwatch.job, commitwatch.INTERVAL, timeout_s=20, delay=35)
     s.register("bootwatch", bootwatch.job, bootwatch.INTERVAL, timeout_s=40, delay=60)
     s.register("portwatch", portwatch.job, portwatch.INTERVAL, timeout_s=40, delay=70)
-    s.register("portsample", portwatch.sample_job, portwatch.SAMPLE_S, timeout_s=15, delay=5)   # حلقة لقطات netstat خفيفة تلتقط ذروة اندفاعة المنافذ قبل الحادثة
+    s.register("portsample", portwatch.sample_job, portwatch.SAMPLE_S, timeout_s=15, delay=5)   # حلقة لقطات اتصالات خفيفة (جداول IP Helper لا netstat) تلتقط ذروة اندفاعة المنافذ قبل الحادثة
     s.register("power", insight.power_job, 60, timeout_s=20, delay=50)
     s.register("gpu", gpuwatch.job, gpuwatch.INTERVAL, timeout_s=25, delay=40)
     def _shots_job():
