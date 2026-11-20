@@ -19,7 +19,7 @@ test('هامش التمرير أعلى الصفحة يتبع ارتفاع الش
 });
 
 test('الأزرار والروابط والحقول بلا تأخير نقر ولا وميض لمس', async ({ page }) => {
-  const cases = [['overview', ['.nav a', '.btn']], ['ctrl', ['.chips button', '.swatch']], ['rules', ['.switch']], ['alerts', ['.inp']]];
+  const cases = [['overview', ['.nav a', '.btn']], ['ctrl', ['.chips button', '.swatch']], ['rules', ['.switch']], ['ctrl', ['.inp']]];
   for (const [pg, sels] of cases) {
     await page.goto(`/#/${pg}`); await ready(page);
     for (const sel of sels) {
@@ -30,7 +30,7 @@ test('الأزرار والروابط والحقول بلا تأخير نقر و
 });
 
 test('الدرج والحوار وصناديق التمرير تحبس التمرير داخلها', async ({ page }) => {
-  await page.goto('/#/alerts'); await ready(page);
+  await page.goto('/#/dbx'); await ready(page);
   expect(await css(page, '#nav', 'overscroll-behavior-y')).toBe('contain');
   expect(await css(page, '#main .scrollbox', 'overscroll-behavior-y')).toBe('contain');
   await page.evaluate(() => { confirmDlg('اختبار', 'نفّذ'); });

@@ -775,7 +775,7 @@ def advice_payload(m, extra, maint, trim):
     order = {"bad": 0, "warn": 1, "info": 2, "ok": 3}
     items.sort(key=lambda x: order.get(x["lvl"], 9))
     if not any(i["lvl"] in ("bad", "warn") for i in items):
-        items.insert(0, {"id": "fine", "lvl": "ok", "title": "لا شيء عاجل", "text": "كل المؤشرات ضمن الحدود التي حددتها في صفحة التنبيهات.", "action": None, "go": None})
+        items.insert(0, {"id": "fine", "lvl": "ok", "title": "لا شيء عاجل", "text": "كل المؤشرات ضمن حدود التنبيه التي حددتها في صفحة التحكم.", "action": None, "go": None})
     return {"ok": True, "now": int(time.time()), "items": items, "counts": {k: sum(1 for i in items if i["lvl"] == k) for k in ("bad", "warn", "info", "ok")}}
 
 

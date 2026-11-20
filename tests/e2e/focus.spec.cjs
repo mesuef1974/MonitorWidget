@@ -21,7 +21,7 @@ test('التركيز على زر داخل المحتوى يبقى بعد redraw 
 });
 
 test('قيمة معدَّلة في نموذج الحدود لا تضيع عند التحديث، وتُستبدل بعد الحفظ', async ({ page }) => {
-  await page.goto('/#/alerts'); await ready(page);
+  await page.goto('/#/ctrl'); await ready(page);
   const inp = page.locator('#alForm input[name="mem.ramWarn"]');
   await expect(inp).toHaveValue('80');
   await inp.fill('77');
