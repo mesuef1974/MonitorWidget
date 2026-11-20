@@ -102,7 +102,7 @@ test('لا قاعدة تلوّن نصًّا بـ accent الخام؛ النص ب
 
 // عيّنات صفحة المظهر تطابق لون accent الفعلي لكل لوحة في الوضعين (لا قيمة منفصلة عن اللوحة)
 test('عيّنة كل لوحة في صفحة المظهر بلون accent الفعلي لتلك اللوحة في الوضعين', async ({ page }) => {
-  await page.goto('/#/appearance');
+  await page.goto('/#/ctrl');
   await page.waitForFunction(() => document.querySelectorAll('#main .swatch i').length === 4);
   const bad = [];
   for (const theme of THEMES) for (const palette of PALETTES) {

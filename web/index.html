@@ -999,7 +999,7 @@ Object.assign(PAGES, {
     title: "الإعدادات والتحكم", sub: "المهام الخلفية وتنظيف الذاكرة والمظهر", icon: "sliders",
     async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget"), api("/api/page-use")); },
     render([j, m, ap, inf, wg, pu]) {
-      let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="chips" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button data-palette="${k}" aria-pressed="${ap?.palette === k}">${l}</button>`).join("")}</div></div><p class="note">يُحفظ الاختيار للواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`, { cls: "c6" });
+      let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="swatches" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button class="swatch" data-palette="${k}" aria-pressed="${ap?.palette === k}"><i style="background:var(--pal-${k})"></i>${l}</button>`).join("")}</div></div><p class="note">المكان الوحيد للمظهر في الواجهة (مع قائمة الويدجت)؛ يُحفظ الاختيار للواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`, { cls: "c6" });
       out += panel("الذاكرة", `<p>يفرّغ صفحات الانتظار منخفضة الأولوية فقط، ولا يمسّ ذاكرة العمليات النشطة ولا الالتزام. لتحرير ذاكرة حقيقية أغلق أكبر المستهلكين من صفحة «العمليات».</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button></div>`, { cls: "c6" });
       out += panel("وضع الصيانة المؤقت", m ? `<div class="row-sw"><span>${m.on ? "مفعّل" : "غير مفعّل"} — يوقف ${(m.rules || []).map(esc).join("، ")} أثناء عمل Claude Code</span>${sw(!!m.on, 'data-maint="1"', "وضع الصيانة المؤقت")}</div>` : '<div class="empty">غير متاح</div>', { cls: "c12" });
       if (inf) {
@@ -1029,16 +1029,6 @@ Object.assign(PAGES, {
       const cols = rows?.columns || rows?.cols || (rows?.rows?.[0] ? Object.keys(rows.rows[0]) : []);
       out += panel(ui.dbTable || "—", rows ? `<div class="scroll xs"><table class="tbl"><thead><tr>${cols.map(c => `<th>${esc(c.name || c)}</th>`).join("")}</tr></thead><tbody>${(rows.rows || []).map(r => `<tr>${(Array.isArray(r) ? r : cols.map(c => r[c.name || c])).map(v => `<td class="note mw-260 ellipsis" title="${esc(v)}">${esc(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>${pager("db", rows.total || 0, 15, ui.dbOff)}` : '<div class="empty">اختر جدولًا</div>', { cls: "c8", meta: `${Q(rows?.total)} صفًا` });
       return out;
-    }
-  },
-
-  appearance: {
-    title: "المظهر الموحد", sub: "الوضع ولون الهوية للتطبيق والويدجت", icon: "palette",
-    async load() { return settle(api("/api/appearance")); },
-    render([ap]) {
-      return panel("الوضع", `<div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div>`, { cls: "c6" })
-        + panel("لون الهوية", `<div class="swatches" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button class="swatch" data-palette="${k}" aria-pressed="${ap?.palette === k}"><i style="background:var(--pal-${k})"></i>${l}</button>`).join("")}</div>`, { cls: "c6" })
-        + panel("للمعلومات", `<p class="note">المراجعة ${Q(ap?.revision)} · يُطبَّق الاختيار على الواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`);
     }
   }
 });
@@ -1100,7 +1090,7 @@ const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
   ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
   ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
-  ["الإعدادات", [["ctrl", "التحكم"], ["appearance", "المظهر الموحد"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
+  ["الإعدادات", [["ctrl", "التحكم"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
 ];
 
 /* ───────── shell + router ───────── */
@@ -1231,8 +1221,9 @@ function track(key) {
   fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
 }
 let routed = false;
+const PAGE_ALIAS = { appearance: "ctrl" };   // البند 26 من المجلس 19/11: صفحة «المظهر الموحد» دُمجت في لوحة المظهر بصفحة التحكم؛ الروابط القديمة تصل إليها
 function route() {
-  const { key: k, qs } = parseHash(); const key = PAGES[k] ? k : "overview"; page = PAGES[key];
+  const { key: k0, qs } = parseHash(), k = PAGE_ALIAS[k0] || k0; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */
   buildNav(key); setNav(false); curKey = key; applyHash(qs); syncHash(); lastSig = ""; inflight = false; ++seq; track(key);
   const m = $("#main"), c = CACHE[key];
@@ -1265,7 +1256,7 @@ function applyAppearance(ap) {
   try { localStorage.setItem(AP_KEY, JSON.stringify({ mode: ap.mode, palette: ap.palette })); } catch (_) { }
 }
 try { applyAppearance(JSON.parse(localStorage.getItem(AP_KEY))); } catch (_) { }   // first paint only; the server value overrides it
-async function loadAppearance() { try { const ap = await api("/api/appearance"); if (!APPEAR || ap.revision !== APPEAR.revision || ap.mode !== APPEAR.mode || ap.palette !== APPEAR.palette) { applyAppearance(ap); if (page && page === PAGES.appearance || page === PAGES.ctrl) show(true); } } catch { } }
+async function loadAppearance() { try { const ap = await api("/api/appearance"); if (!APPEAR || ap.revision !== APPEAR.revision || ap.mode !== APPEAR.mode || ap.palette !== APPEAR.palette) { applyAppearance(ap); if (page === PAGES.ctrl) show(true); } } catch { } }
 darkMq.addEventListener("change", () => { if (APPEAR?.mode === "auto") applyAppearance(APPEAR); });
 $("#theme").onclick = async () => {
   const cur = await api("/api/appearance").catch(() => APPEAR) || { mode: "auto", palette: "teal", revision: 0 }, next = { ...cur, mode: document.documentElement.dataset.theme === "dark" ? "light" : "dark" };
