@@ -91,6 +91,25 @@ class ScoreTests(unittest.TestCase):
         tasks = copy.deepcopy(self.args["tasks"]); tasks[0]["last"] = "2020-01-01T00:00:00+00:00"
         self.assertEqual(self.run_score(tasks=tasks)["score"], 90)
 
+    def test_backup_status_file_overrides_scheduler_zero(self):
+        # 20/11/2026: المجدول سجّل 0 والسكربت فشل (conhost --headless يبتلع رمز الخروج)؛ ملف الحالة هو الشاهد
+        iso = lambda h: datetime.fromtimestamp(self.now - h * 3600, timezone.utc).isoformat()
+        base = dict(self.args["tasks"][0], label="نسخ إعدادات Claude")
+        failed = dict(base, status={"ok": False, "time": iso(0), "error": "نمط سر في: hooks/pre_bash.py"})
+        part = self.backup_part(tasks=[failed])
+        self.assertEqual(part["pts"], 0)
+        self.assertEqual(part["why"], "نسخ إعدادات Claude: نمط سر في: hooks/pre_bash.py")
+        good = dict(self.args["tasks"][0], label="أخرى")
+        self.assertEqual(self.backup_part(tasks=[failed, good])["pts"], 5)
+        self.assertEqual(self.backup_part(tasks=[dict(base, status={"ok": True, "time": iso(1)})])["pts"], 10)
+        stale = self.backup_part(tasks=[dict(base, status={"ok": True, "time": iso(40)})])
+        self.assertEqual((stale["pts"], stale["why"]), (0, "نسخ إعدادات Claude: آخر نجاح مسجّل في ملف الحالة قديم"))
+        unread = self.backup_part(tasks=[dict(base, status={"ok": None, "error": "تعذّرت قراءة ملف الحالة"})])
+        self.assertEqual(unread["pts"], 0)
+        # المهمة القديمة بالمجدول لا تُحسب مرتين ولو فشل ملفها أيضًا
+        both = dict(failed, last="2020-01-01T00:00:00+00:00")
+        self.assertEqual(self.backup_part(tasks=[both, good])["pts"], 5)
+
     def backup_part(self, **changes):
         return next(p for p in self.run_score(**changes)["parts"] if p["key"] == "backup")
 
