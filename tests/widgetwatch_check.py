@@ -130,5 +130,57 @@ class Payload(unittest.TestCase):
         self.assertEqual(ww.read_tail(os.path.join(ROOT, "no-such-widget.log")), [])
 
 
+class StallCauses(unittest.TestCase):
+    """البند 36 من المجلس 19/11: كل توقف واجهة يُربط بما قيس في نافذته، وإلا فهو داخلي."""
+    def setUp(self):
+        c = self.c = sqlite3.connect(":memory:")
+        c.execute("CREATE TABLE job_runs(id INTEGER PRIMARY KEY, ts INTEGER, name TEXT, ok INTEGER, ms INTEGER, detail TEXT)")
+        c.execute("CREATE TABLE io_min(ts INTEGER, dev TEXT, busy_max REAL, lat_r_max REAL, lat_w_max REAL)")
+        c.execute("CREATE TABLE io_stalls(id INTEGER PRIMARY KEY, ts_start INTEGER, ts_end INTEGER)")
+        c.execute("CREATE TABLE cpu_top(ts INTEGER, name TEXT, cores REAL, n INTEGER)")
+        c.execute("CREATE TABLE samples(ts INTEGER, source TEXT, commit_pct REAL)")
+        self.end = int(NOW) - 600
+
+    def kinds(self, sec=10):
+        return [x["kind"] for x in ww.stall_causes([(self.end, sec)], self.c)[0]["causes"]]
+
+    def test_nothing_measured_means_internal(self):
+        self.c.execute("INSERT INTO io_min VALUES(?, '_total', 40, 3, 5)", (self.end - 60,))
+        self.c.execute("INSERT INTO cpu_top VALUES(?, '__total__', 7.3, 20)", (self.end,))
+        self.c.execute("INSERT INTO samples VALUES(?, 'live', 60)", (self.end,))
+        self.assertEqual(self.kinds(), ["internal"])
+
+    def test_overlapping_heavy_job_disk_cpu_and_memory(self):
+        self.c.execute("INSERT INTO job_runs(ts,name,ok,ms) VALUES(?, 'scan_big', 1, 339000)", (self.end + 200,))   # بدأ قبل التوقف وانتهى بعده
+        self.c.execute("INSERT INTO job_runs(ts,name,ok,ms) VALUES(?, 'live', 1, 6000)", (self.end - 3600,))         # قبله بساعة: لا
+        self.c.execute("INSERT INTO io_min VALUES(?, '_total', 97, 2, 250)", (self.end - 60,))
+        self.c.execute("INSERT INTO cpu_top VALUES(?, '__total__', 19, 20)", (self.end - 5,))
+        self.c.execute("INSERT INTO cpu_top VALUES(?, 'pytest.exe', 15, 20)", (self.end - 5,))
+        self.c.execute("INSERT INTO samples VALUES(?, 'live', 95)", (self.end - 3,))
+        got = ww.stall_causes([(self.end, 10)], self.c)[0]["causes"]
+        self.assertEqual([x["kind"] for x in got], ["job", "disk", "cpu", "memory"])
+        self.assertIn("scan_big", got[0]["text"]); self.assertIn("pytest.exe", got[2]["text"])
+
+    def test_disk_stall_record_counts_when_minutes_look_quiet(self):
+        self.c.execute("INSERT INTO io_stalls(ts_start, ts_end) VALUES(?, ?)", (self.end - 8, self.end - 2))
+        self.assertEqual(self.kinds(), ["disk"])
+
+    def test_missing_tables_are_not_an_error_and_sleep_gaps_are_skipped(self):
+        bare = sqlite3.connect(":memory:")
+        self.assertEqual([x["kind"] for x in ww.stall_causes([(self.end, 9)], bare)[0]["causes"]], ["internal"])
+        self.assertEqual(ww.stall_causes([(self.end, 5074.1)], bare), [])
+
+    def test_newest_first_and_capped(self):
+        st = [(self.end + i, 6.0) for i in range(12)]
+        out = ww.stall_causes(st, self.c)
+        self.assertEqual(len(out), ww.STALL_CAUSES_MAX); self.assertEqual(out[0]["ts"], self.end + 11)
+
+    def test_parse_lists_recent_stalls_and_payload_carries_causes(self):
+        lines = [START, "2026-11-12T17:06:00 ui stall: 5.3 s between ticks"]
+        self.assertEqual(ww.parse(lines, NOW)["stallList"], [(ww._ts("2026-11-12T17:06:00"), 5.3)])
+        p = ww.payload(now=NOW, running=lambda: True, lines=lambda: lines, causes=lambda st: [{"ts": st[0][0], "s": st[0][1], "causes": []}])
+        self.assertEqual(p["stallCauses"][0]["s"], 5.3)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

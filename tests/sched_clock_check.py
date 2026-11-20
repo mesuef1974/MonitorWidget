@@ -16,9 +16,10 @@ sys.path.insert(0, ROOT)
 CON = sqlite3.connect(":memory:", check_same_thread=False)
 CON.row_factory = sqlite3.Row
 WARN = []
+RUNS = []
 sys.modules["db"] = types.SimpleNamespace(conn=lambda: CON, _lock=threading.RLock())
 sys.modules["infra"] = types.SimpleNamespace(log=types.SimpleNamespace(warning=lambda *a: WARN.append(a), error=lambda *a: None, exception=lambda *a: None),
-                                             record_job=lambda *a: None)
+                                             record_job=lambda *a: RUNS.append(a[1:]))
 import mwsched as sched
 
 NOW = 1794613440            # 14/11/2026 02:44
@@ -130,6 +131,26 @@ class SlowSuccess(unittest.TestCase):
         self.assertEqual(ran, [])
         self.assertEqual(CON.execute("SELECT last_status, fails FROM jobs WHERE name='late'").fetchone()[:], ("error", 1))
 
+
+    def test_heavy_runs_are_recorded_for_stall_matching_and_short_ones_are_not(self):
+        """البند 36 من المجلس 19/11: تشغيل يطول HEAVY_MS فأكثر يُسجَّل ناجحًا بمدته وتفاصيله؛ القصير لا."""
+        RUNS.clear()
+        for name in ("heavy", "light"):
+            job(name, 3600, NOW)
+        s = sched.Scheduler()
+        s.fns["light"] = lambda: "quick"
+        s.fns["heavy"] = lambda: "big scan"
+        clock = iter([100.0, 100.0 + sched.HEAVY_MS / 1000.0 + 1])
+        real = sched.time.time
+        sched.time.time = lambda: next(clock, real())
+        try:
+            s._execute("heavy")
+        finally:
+            sched.time.time = real
+        s._execute("light")
+        self.assertEqual(len(RUNS), 1)
+        name, ok, ms, detail = RUNS[0]
+        self.assertEqual((name, ok, detail), ("heavy", True, "big scan")); self.assertGreaterEqual(ms, sched.HEAVY_MS)
 
 class RunningNow(unittest.TestCase):
     """مراجعة 19/11/2026: «شغّل الآن» لمهمة جارية كان يضيع بصمت؛ running_now يميّزها لمسار /api/jobs/run."""

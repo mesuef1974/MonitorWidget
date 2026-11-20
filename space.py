@@ -574,7 +574,30 @@ def _root_rows(ts, deadline):
 
 
 def scan_big(budget=900):
-    """Slow whole-volume pass (daily). Partial results are flagged, never presented as exact."""
+    """Slow whole-volume pass (daily). Partial results are flagged, never presented as exact.
+    يعمل الخيط بوضع الخلفية (أولوية قرص منخفضة جدًا، البند 36 من المجلس 19/11)، ويعيد مدته وذروة القرص الكلية في نافذته
+    (من io_min) فتُحفظ في تفاصيل المهمة وسجل job_runs، ويُعرف هل زاحم المسحُ القرصَ أم لا."""
+    import procprio
+    t0 = time.time()
+    with procprio.background_thread() as low:
+        n = _scan_big(budget)
+    return "%d بندًا في %.0f ث%s؛ %s" % (n, time.time() - t0, "" if low else " (بلا وضع الخلفية)", _disk_peak(t0, time.time()))
+
+
+def _disk_peak(t0, t1):
+    """ذروة القرص الكلية بين t0 وt1 من دقائق io_min: أعلى انشغال وأعلى زمن استجابة وأطول طابور. نصّ للتفاصيل، لا يرمي."""
+    try:
+        with db.ro() as c:
+            r = c.execute("SELECT MAX(busy_max), MAX(MAX(COALESCE(lat_r_max,0), COALESCE(lat_w_max,0))), MAX(q_max) FROM io_min "
+                          "WHERE dev='_total' AND ts BETWEEN ? AND ?", (int(t0) - 60, int(t1))).fetchone()
+    except Exception:
+        return "ذروة القرص غير مقيسة"
+    if not r or r[0] is None:
+        return "ذروة القرص غير مقيسة"
+    return "ذروة القرص: انشغال %.0f%%، استجابة %.1f مللي ث، طابور %.1f" % (r[0] or 0, r[1] or 0, r[2] or 0)
+
+
+def _scan_big(budget):
     ts = int(time.time()); deadline = time.time() + budget; rows = []
     for k, (_, p, kind) in BIG.items():
         if not os.path.exists(p):
@@ -594,6 +617,7 @@ def scan_big(budget=900):
     for d in drives():
         if d["letter"] != "C":
             scan_drive(d["letter"])
+    return len(rows)
 
 
 def scan_if_due(hours=6):

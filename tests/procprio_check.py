@@ -56,5 +56,40 @@ class ProcPrio(unittest.TestCase):
         self.assertLess(boot.index("procprio.restore_normal()"), boot.index("claim_single_server()", boot.index("def run(")))
 
 
+BG_CHILD = r"""
+import ctypes, json, sys; sys.path.insert(0, sys.argv[1]); import procprio
+k, nt = ctypes.WinDLL("kernel32"), ctypes.WinDLL("ntdll")
+k.GetCurrentThread.restype = ctypes.c_void_p; k.GetThreadPriority.argtypes = [ctypes.c_void_p]
+nt.NtQueryInformationThread.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
+def io():
+    v = ctypes.c_ulong(99); nt.NtQueryInformationThread(k.GetCurrentThread(), 22, ctypes.byref(v), 4, None); return v.value
+r = {"io0": io(), "prio0": k.GetThreadPriority(k.GetCurrentThread())}
+with procprio.background_thread() as on:
+    r["on"], r["io_in"] = on, io()
+    with procprio.background_thread() as again:
+        r["again"] = again
+    r["io_still"] = io()
+r["io1"], r["prio1"] = io(), k.GetThreadPriority(k.GetCurrentThread())
+print(json.dumps(r))
+"""
+
+
+@unittest.skipUnless(os.name == "nt", "Windows only")
+class BackgroundThread(unittest.TestCase):
+    """البند 36 من المجلس 19/11: scan_big يعمل بأولوية قرص منخفضة جدًا للخيط وحده، وتعود الأولوية بعده."""
+    def test_lowers_io_inside_and_restores_after(self):
+        out = subprocess.run([sys.executable, "-X", "utf8", "-B", "-c", BG_CHILD, ROOT], capture_output=True, text=True, timeout=60)
+        r = json.loads(out.stdout)
+        self.assertTrue(r["on"]); self.assertEqual(r["io_in"], 0)          # IoPriorityVeryLow
+        self.assertFalse(r["again"]); self.assertEqual(r["io_still"], 0)   # المتداخل لا ينهي وضع الخارجي
+        self.assertEqual((r["io1"], r["prio1"]), (r["io0"], r["prio0"]))
+
+    def test_scan_big_runs_inside_it(self):
+        with open(os.path.join(ROOT, "space.py"), encoding="utf-8") as f:
+            src = f.read()
+        body = src[src.index("def scan_big("):src.index("def _disk_peak(")]
+        self.assertLess(body.index("procprio.background_thread()"), body.index("_scan_big(budget)"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
