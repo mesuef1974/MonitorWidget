@@ -37,6 +37,7 @@ import routes_destructive
 import routes_settings
 import mwsched as sched
 import secure
+import selfwatch
 from cfgjson import read_json
 from paths import CNW, POLICY, PWSH, ROOT, RUNS, TIERS, TIER_TASK
 
@@ -329,6 +330,7 @@ def mini_payload():
         "manual": {"running": manual["running"], "tier": manual["tier"], "dry": manual["dry"]},
         "ready": data is not None, "guardNext": memtrim.guard_next(), "trim": memtrim.view(), "theme": appearance_state["mode"], "appearance": appearance_state, "cpuAlert": _cpu_alert_safe(), "battAlert": battwatch.mini(),
         "admin": IS_ADMIN, "agentAge": _agent_hb_age(), "cpuNow": cpuwatch.now_total(), "gpu": _gpu_safe(), "thr": alertcfg.get(), "score": _score_safe(m),
+        "self": selfwatch.mini(),
     }
 
 

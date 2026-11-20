@@ -28,6 +28,7 @@ import memtrim
 import pageuse
 import routes_policy
 import routes_settings
+import selfwatch
 import mwsched as sched
 import boothist
 import shellwin
@@ -131,7 +132,14 @@ def _events(q):
 def _home(q):
     if homeapi is None:   # module failed to import: answer clearly instead of hanging the request
         return 503, {"error": "home module unavailable"}
-    return homeapi.payload(db, q.get("range", "1h"))
+    out = homeapi.payload(db, q.get("range", "1h"))
+    if isinstance(out, dict):
+        try:
+            out["self"] = selfwatch.view()   # صحة المرصد نفسه وميزانيته (البندان 21 و22 من المجلس 19/11)
+        except Exception:
+            errlog.swallowed()
+            out["self"] = None
+    return out
 
 
 # المسار: (الدالة، نصّ خطأ 500). النصّ إمّا ثابت أو دالة تأخذ الاستثناء (المسارات التي كانت تعيد str(e)[:200] أو collect failed)؛
