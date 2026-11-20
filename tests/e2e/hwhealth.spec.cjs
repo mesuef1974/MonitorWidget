@@ -109,11 +109,14 @@ test('صفحة الصحة: فحص مرتفع قديم بلا مسبّبات يط
   await expect(panelOf(page, 'مسبّبات بطء الإقلاع').locator('.empty')).toContainText('لم يسجّل ويندوز مسبّبًا');
 });
 
-test('القائمة بلا «السجل» و«القاعدة»، وهما تعملان برابط من صفحة التحكم', async ({ page }) => {
+test('القائمة بلا «السجل» و«القاعدة» و«اسأل المرصد» و«حركة القرص»، وكلها تعمل برابط من صفحة التحكم', async ({ page }) => {
   await page.goto('/#/ctrl');
   await page.waitForFunction(() => document.querySelectorAll('#main .panel').length > 3);
   await expect(page.locator('#nav a[href="#/history"]')).toHaveCount(0);
   await expect(page.locator('#nav a[href="#/dbx"]')).toHaveCount(0);
+  await expect(page.locator('#nav a[href="#/ask"]')).toHaveCount(0);   // البند 31 من المجلس 19/11
+  await expect(page.locator('#nav a[href="#/io"]')).toHaveCount(0);
+  await expect(panelOf(page, 'صفحات خارج القائمة').locator('a[href="#/ask"], a[href="#/io"]')).toHaveCount(2);
   await expect(page.locator('#nav a[href="#/ctrl"]')).toHaveCount(1);
   const other = panelOf(page, 'صفحات خارج القائمة');
   await other.locator('a[href="#/history"]').click();

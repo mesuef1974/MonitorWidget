@@ -27,7 +27,7 @@ test('المدى والجهاز يُقرآن من الرابط ويُكتبان 
   await pressed(page, '[data-range="6h"]');
   await page.click('#nav a[href="#/procs"]'); await ready(page);
   await page.waitForFunction(() => location.hash === '#/procs');                                // صفحة بلا مدى: لا يُكتب فيها
-  await page.click('#nav a[href="#/io"]'); await ready(page);
+  await page.evaluate(() => { location.hash = '#/io'; }); await ready(page);                // «حركة القرص» خارج القائمة (البند 31)؛ تنقّل بـ hashchange كالرابط
   await page.waitForFunction(() => location.hash === '#/io?range=6h');                       // بعد hashchange لا قبله
   await pressed(page, '[data-iodev="disk0"]');                                              // عاد إلى الافتراضي
 

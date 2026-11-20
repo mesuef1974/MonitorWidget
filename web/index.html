@@ -987,7 +987,7 @@ Object.assign(PAGES, {
       }
       out += panel("ويدجت سطح المكتب", `<div class="row-sw"><span>${wg?.running ? "ظاهر الآن" : "مخفي"}</span>${sw(!!wg?.running, 'data-widget="1"', "إظهار ويدجت سطح المكتب")}</div>`, { cls: "c12" });
       out += panel("الويدجت", widgetBody(ah?.widget), { cls: "c12" });
-      out += panel("صفحات خارج القائمة", `<p class="note">قليلتا الاستعمال فأُخرجتا من القائمة الجانبية، وما زالتا تعملان.</p><div class="acts"><a class="btn" href="#/history">السجل</a><a class="btn" href="#/dbx">قاعدة البيانات</a></div>`, { cls: "c12" });
+      out += panel("صفحات خارج القائمة", `<p class="note">قليلة الاستعمال فأُخرجت من القائمة الجانبية، وما زالت تعمل.</p><div class="acts"><a class="btn" href="#/ask">اسأل المرصد</a><a class="btn" href="#/io">حركة القرص</a><a class="btn" href="#/history">السجل</a><a class="btn" href="#/dbx">قاعدة البيانات</a></div>`, { cls: "c12" });
       out += panel("استخدام الصفحات", pageUseBody(pu), { cls: "c12", meta: pu ? (pu.complete ? `<span class="tag ok">اكتملت مدة القياس</span>` : `<span class="tag">${nf(pu.elapsedDays)} من ${nf(pu.windowDays)} يومًا</span>`) : "" });
       return out;
     },
@@ -1065,10 +1065,10 @@ document.addEventListener("click", async e => {
 });
 
 const NAV = [
-  ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"]]],
-  ["الأداء", [["procs", "العمليات والمعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
+  ["نظرة", [["overview", "نظرة عامة"], ["health", "صحة الجهاز"]]],
+  ["الأداء", [["procs", "العمليات والمعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"]]],
   ["الصيانة", [["space", "المساحة وتنظيفها"], ["startup", "بدء التشغيل"], ["automation", "الأتمتة"]]],
-  ["الإعدادات", [["ctrl", "التحكم"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
+  ["الإعدادات", [["ctrl", "التحكم"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026، و«اسأل المرصد» و«حركة القرص» بالبند 31 من المجلس 19/11 (شبه معدومة الفتح)؛ روابطها في صفحة التحكم
 ];
 
 /* ───────── shell + router ───────── */
