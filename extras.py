@@ -39,14 +39,16 @@ def _g(pattern):
 
 # key -> spec. roots(): folders whose FILES may be removed; days: only files not modified for that long (0 = all, in-use files skipped);
 # guard: processes that must be closed first; auto: may be switched to the hourly auto-clean; admin: system folder, deleted only by its fixed elevated task (space.elevated_clean).
+# keep: the newest N files of each root stay whatever their age (البند 14: آخر تفريغات الأعطال للتشخيص).
 LIGHT = {
     "pipcache": dict(label="ذاكرة pip", roots=lambda: [os.path.join(LA, "pip", "Cache")], days=0, guard=(), auto=True, admin=False,
                      note="حزم بايثون المنزّلة؛ تُعاد عند الحاجة."),
     "crashdumps": dict(label="تقارير الأعطال", roots=lambda: [os.path.join(LA, "CrashDumps"), os.path.join(PD, "Microsoft", "Windows", "WER", "ReportArchive"),
                                                                os.path.join(PD, "Microsoft", "Windows", "WER", "ReportQueue"), os.path.join(LA, "Microsoft", "Windows", "WER")],
-                       days=7, guard=(), auto=True, admin=False, note="ملفات تشخيص الأعطال الأقدم من 7 أيام."),
-    "wintemp": dict(label="Windows\\Temp", roots=lambda: [r"C:\Windows\Temp"], days=3, guard=(), auto=True, admin=True,
-                    note="مؤقتات النظام الأقدم من 3 أيام."),
+                       days=7, keep=3, guard=(), auto=False, admin=False,
+                       note="ملفات تشخيص الأعطال الأقدم من 7 أيام، وتبقى أحدث 3 في كل مجلد. ينظّفها محرّك التنظيف يوميًّا؛ الزر للتنظيف الفوري."),
+    "wintemp": dict(label="Windows\\Temp", roots=lambda: [r"C:\Windows\Temp"], days=3, guard=(), auto=False, admin=True,
+                    note="مؤقتات النظام الأقدم من 3 أيام. ينظّفها محرّك التنظيف يوميًّا؛ الزر للتنظيف الفوري."),
     "pycharm": dict(label="ذاكرة PyCharm", roots=lambda: [p for sub in ("caches", "index", "log", "jcef_cache", "tmp") for p in _g(os.path.join(LA, "JetBrains", "PyCharm*", sub))],
                     days=0, guard=("pycharm64.exe",), auto=False, admin=False, note="الفهارس والذاكرة المؤقتة؛ يعيد PyCharm بناءها (فهرسة أولى أبطأ). أغلقه أولاً."),
     "olkcache": dict(label="ذاكرة Outlook الجديد", roots=lambda: [os.path.join(LA, "Microsoft", "Olk", "EBWebView", "Default", s) for s in ("Cache", "Code Cache", "GPUCache")],
@@ -65,7 +67,7 @@ MANUAL_LABEL = {
     "dockerimages": ("صور Docker المعلّقة (dangling)", "طبقات يتيمة بلا اسم؛ لا تُحذف الصور المسمّاة ولا الحاويات."),
     "dockervolumes": ("وحدات تخزين Docker المجهولة", "الوحدات المجهولة غير المرتبطة بأي حاوية فقط؛ لا تُحذف الوحدات المسمّاة أبداً."),
     "dockercompact": ("ضغط قرص Docker الافتراضي", "يُغلق Docker وWSL مؤقتاً ثم يُضغط القرص الافتراضي لتعود المساحة إلى C. يوقف الحاويات الجارية."),
-    "dism": ("تنظيف مكوّنات ويندوز (DISM)", "StartComponentCleanup فقط؛ لا /ResetBase ولا يُلغى التراجع عن التحديثات. يستغرق دقائق."),
+    "dism": ("تنظيف مكوّنات ويندوز (DISM)", "StartComponentCleanup فقط؛ لا /ResetBase ولا يُلغى التراجع عن التحديثات. يدوي: ويندوز يشغّله بنفسه بمهمته المجدولة. يستغرق دقائق."),
     "claudearchive": ("أرشفة سجلات Claude القديمة", "تُضغط جلسات .claude الأقدم من 60 يوماً في أرشيف zip مُتحقَّق منه ثم تُزال الأصول؛ لا حذف بلا أرشفة."),
 }
 KIND_LABELS = {k: s["label"] for k, s in LIGHT.items()}
@@ -156,9 +158,22 @@ def _light(kind, dry, src):
             except OSError:
                 errlog.swallowed()
                 continue
-        for dp, dn, links, fn in reversed(list(space._walk(root))):
+        walk = list(space._walk(root))
+        keep = set()
+        if s.get("keep"):
+            stamps = []
+            for dp, dn, links, fn in walk:
+                for f in fn:
+                    try:
+                        stamps.append((os.lstat(os.path.join(dp, f)).st_mtime, os.path.join(dp, f)))
+                    except OSError:
+                        pass
+            keep = {p for _, p in sorted(stamps, reverse=True)[:s["keep"]]}
+        for dp, dn, links, fn in reversed(walk):
             for f in fn:
                 p = os.path.join(dp, f)
+                if p in keep:
+                    continue
                 try:
                     st = os.lstat(p)
                     if s["days"] and st.st_mtime >= cut:
@@ -437,30 +452,6 @@ def _dism_job(src):
         JOBS["dism"] = {"state": "error", "error": str(e)[:80], "ts": int(t0)}
     finally:
         threading.Thread(target=space.scan, args=(60,), daemon=True).start()
-
-
-DISM_RETRY_S = 86400   # بعد محاولة آلية: يوم واحد قبل التالية
-
-
-def dism_monthly():
-    """Agent job: StartComponentCleanup at most every 30 days, only when the owner enabled it and the fixed elevated task is available."""
-    if not space._setting("space.dism_monthly", False) or space.elevated_gate("dism"):
-        return "off"
-    with db._lock:
-        r = space._c().execute("SELECT MAX(ts) FROM actions WHERE kind='dism' AND ok=1 AND actual_mb IS NOT NULL").fetchone()
-    now = time.time()
-    if r and r[0] and now - r[0] < 30 * 86400:
-        return "not due"
-    if (JOBS.get("dism") or {}).get("state") == "running":
-        return "running"
-    # آخر محاولة آلية أيًّا كانت نتيجتها (فشلت، أو انتهت مهلتها بلا صف تدقيق): لا إعادة قبل يوم، وإلا أُعيد DISM كل ساعة ما دام يفشل.
-    # وقت محاولة في المستقبل (رجوع الساعة) لا يحجب: تُعاد المحاولة ويُكتب وقت جديد.
-    last = space._setting("space.dism_last_try", 0) or 0
-    if 0 <= now - last < DISM_RETRY_S:
-        return "backoff"
-    space._setting_set("space.dism_last_try", int(now))
-    space.clean("dism", dry=False, src="auto")
-    return "started"
 
 
 # ---------------- Claude transcript archive (zip -> verify -> remove originals)
@@ -750,6 +741,6 @@ def overview():
                       "elevated": space.elevated_state(k) if s["admin"] else None})
     for k, (lab, note) in MANUAL_LABEL.items():
         items.append({"key": k, "label": lab, "note": note, "mode": "job" if k in JOB_KINDS else "manual", "mb": None, "auto": None, "last": last.get(k),
-                      "job": JOBS.get(k), "monthly": space._setting("space.dism_monthly", False) if k == "dism" else None,
+                      "job": JOBS.get(k),
                       "admin": k == "dism", "elevated": space.elevated_state(k) if k == "dism" else None})
     return {"items": items, "memory": memory_top(), "report": report()}

@@ -14,7 +14,7 @@ sys.path.insert(0, ROOT)
 import space
 
 GB = 2**30
-AUTO = {"temp": True, "edgecache": True, "npmcache": True, "pipcache": True, "crashdumps": False, "wintemp": True}
+AUTO = {"temp": True, "edgecache": True, "npmcache": True, "pipcache": True}
 
 
 class Gate(unittest.TestCase):
@@ -26,8 +26,7 @@ class Gate(unittest.TestCase):
             if usage_error:
                 raise OSError("no volume")
             return types.SimpleNamespace(free=free_gb * GB)
-        fake_extras = types.SimpleNamespace(dism_monthly=lambda: None)
-        with patch.dict(sys.modules, {"alertcfg": cfg, "extras": fake_extras}), \
+        with patch.dict(sys.modules, {"alertcfg": cfg}), \
              patch.object(space.shutil, "disk_usage", usage), \
              patch.object(space, "get_auto", lambda: dict(AUTO)), \
              patch.object(space, "clean", lambda k, dry=True, src="manual", **kw: cleaned.append((k, dry, src))):
@@ -38,12 +37,12 @@ class Gate(unittest.TestCase):
     def test_plenty_of_space_skips_caches_only(self):
         gate, done = self._run(216)
         self.assertEqual((gate["gated"], gate["freeGB"], gate["thresholdGB"]), (True, 216.0, 40))
-        self.assertEqual(done, ["temp", "wintemp"])
+        self.assertEqual(done, ["temp"])
 
     def test_below_threshold_cleans_caches_too(self):
         gate, done = self._run(39.5)
         self.assertFalse(gate["gated"])
-        self.assertEqual(done, ["temp", "edgecache", "npmcache", "pipcache", "wintemp"])
+        self.assertEqual(done, ["temp", "edgecache", "npmcache", "pipcache"])
 
     def test_threshold_follows_alert_setting(self):
         self.assertFalse(self._run(80, threshold=100)[0]["gated"])
@@ -56,6 +55,16 @@ class Gate(unittest.TestCase):
 
     def test_cache_kinds_are_known_auto_kinds(self):
         self.assertTrue(set(space.CACHE_KINDS) <= set(space.SAFE + space.AUTO_EXTRA))
+
+    def test_engine_owned_folders_are_not_hourly(self):
+        """البند 32: Windows\\Temp وتقارير الأعطال يملكها محرّك التنظيف؛ لا ساعي لهما هنا ولا مفتاح تلقائي ولو بقي في الإعدادات."""
+        self.assertNotIn("wintemp", space.AUTO_EXTRA)
+        self.assertNotIn("crashdumps", space.AUTO_EXTRA)
+        with patch.object(space, "_setting", lambda k, d=None: {"temp": True, "wintemp": True, "crashdumps": True} if k == "space.auto" else d):
+            auto = space.get_auto()
+        self.assertNotIn("wintemp", auto)
+        self.assertNotIn("crashdumps", auto)
+        self.assertFalse(space.set_auto("wintemp", True))
 
 
 if __name__ == "__main__":

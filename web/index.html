@@ -588,7 +588,7 @@ function spaceKinds(d) {
   const add = (kind, label, o = {}) => { if (!kind || seen.has(kind)) return; seen.add(kind); rows.push({ kind, label: label || lab[kind] || kind, ...o }); };
   (d.items || []).filter(i => i.clean).forEach(i => add(i.clean, i.label, { note: i.advice }));
   (d.bulk || []).forEach(k => add(k));
-  (d.extras?.items || []).forEach(x => add(x.key, x.label, { note: x.note, blockedBy: x.blockedBy, last: x.last, admin: x.admin, elevated: x.elevated, job: x.job, mb: x.mb, lockedMB: x.lockedMB, monthly: x.key === "dism" ? x.monthly : undefined }));
+  (d.extras?.items || []).forEach(x => add(x.key, x.label, { note: x.note, blockedBy: x.blockedBy, last: x.last, admin: x.admin, elevated: x.elevated, job: x.job, mb: x.mb, lockedMB: x.lockedMB }));
   if (d.winold?.present) add("winold", lab.winold || "Windows.old");
   rows.forEach(r => { const e = r.elevated || d.elevated?.[r.kind]; if (e) { r.elevated = e; r.admin = true; } });
   return rows;
@@ -605,7 +605,7 @@ function spCtl(r, d) {
   if (res?.ok) return `<span class="tag ok">تحرّر ${fmtMB(res.mb || 0)}</span>${res.skipped ? ` <span class="note">+${Q(res.skipped)} متروك</span>` : ""}${res.emptyDirs ? ` <span class="note">أُزيل ${Q(res.emptyDirs)} مجلد فارغ</span>` : ""}`;
   if (res) return `<span class="tag bad">${esc(res.error || "تعذّر")}</span>`;
   const hasAuto = d.auto && r.kind in d.auto;
-  return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note"${d.autoGate && d.autoGate.kinds.includes(r.kind) ? ` title="يُمسح تلقائيًا فقط حين تنزل المساحة الحرة في C عن ${Q(d.autoGate.thresholdGB, "GB")} (عتبة تحذير المساحة)"` : ""}>${d.autoGate && d.autoGate.kinds.includes(r.kind) ? `تلقائي تحت ${Q(d.autoGate.thresholdGB, "GB")}` : "تلقائي"}</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`, `التنظيف التلقائي: ${(d.labels || {})[r.kind] || r.kind}`)}` : '<span class="tag">يدوي</span>'}${r.monthly !== undefined ? `<span class="note">شهري</span>${sw(!!r.monthly, 'data-sp="dismmonthly"', "تنظيف DISM الشهري")}` : ""}</span>`;
+  return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note"${d.autoGate && d.autoGate.kinds.includes(r.kind) ? ` title="يُمسح تلقائيًا فقط حين تنزل المساحة الحرة في C عن ${Q(d.autoGate.thresholdGB, "GB")} (عتبة تحذير المساحة)"` : ""}>${d.autoGate && d.autoGate.kinds.includes(r.kind) ? `تلقائي تحت ${Q(d.autoGate.thresholdGB, "GB")}` : "تلقائي"}</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`, `التنظيف التلقائي: ${(d.labels || {})[r.kind] || r.kind}`)}` : '<span class="tag">يدوي</span>'}</span>`;
 }
 /* elevated kinds run only through their fixed scheduled task; the owner switches each one on/off here */
 function elevTag(r) {
@@ -757,7 +757,6 @@ async function spAction(t) {
     }
     else if (a === "auto") { await post("/api/space", { action: "auto", kind: k, on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
     else if (a === "elevated") { await post("/api/space", { action: "elevated", kind: k, on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
-    else if (a === "dismmonthly") { await post("/api/space", { action: "dismmonthly", on: t.getAttribute("aria-checked") !== "true" }); toast("حُفظ"); reload(); }
     else if (a === "scan") { await post("/api/space", { action: "scan" }); toast("بدأ القياس"); later(20000, reload); reload(); }
     else if (a === "report") { await post("/api/space", { action: "report" }); toast("بدأ إعداد التقرير"); later(15000, reload); later(45000, reload); }
     else if (a === "qpurge") {
