@@ -363,8 +363,8 @@ function Set-BackendTasks {
     # النشر المحمي يجمع داخل الوكيل المرتفع (agent.register_protected_collector)؛ مهمة المجمّع المستقلة (Highest على pythonw
     # في مجلد المستخدم) يُلغى تسجيلها لا تعطيلها فقط (البند 4 من المجلس 19/11). تعريفها محفوظ في tasks-original للتراجع.
     if (Get-ScheduledTask -TaskName 'MonitorWidget-Collector' -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName 'MonitorWidget-Collector' -Confirm:$false }
-    # البند 24 من المجلس 19/11: لا تفريغ لقائمة الانتظار كلها ولا لمجموعات العمل؛ يبقى MemoryPurge-Light وحده
-    foreach ($n in 'MemoryPurge-Standby', 'MemoryPurge-Deep') {
+    # البند 24 من المجلس 19/11 حذف تفريغ قائمة الانتظار ومجموعات العمل، وقرار المالك 20/11/2026 حذف التفريغ الخفيف (يحرّر نحو 3 MB)
+    foreach ($n in 'MemoryPurge-Standby', 'MemoryPurge-Deep', 'MemoryPurge-Light') {
         if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $n -Confirm:$false }
     }
     # نسخة المستودع من launch_mini.vbs تحيل إلى المهمة بدل تشغيل ويدجت من مجلد يكتبه المستخدم

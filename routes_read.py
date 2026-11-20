@@ -24,7 +24,6 @@ import gpuwatch
 import health
 import infra
 import insight
-import memtrim
 import pageuse
 import routes_policy
 import routes_settings
@@ -186,7 +185,7 @@ _TABLE = {
     "/api/power": (lambda q: insight.power_payload(q.get("range", "24h")), "data unavailable"),
     "/api/alerts": (lambda q: insight.alerts_payload(), "data unavailable"),
     "/api/boot-audit": (lambda q: bootaudit.payload(), None),   # البند 11: فحص الإقلاع للملفات التي يكتبها المستخدم ويشغّلها شيء مرتفع
-    "/api/advice": (lambda q: insight.advice_payload(snapshot.native_metrics(), snapshot.metrics_extra(), routes_policy.maintenance_state(), memtrim.view()), "data unavailable"),
+    "/api/advice": (lambda q: insight.advice_payload(snapshot.native_metrics(), snapshot.metrics_extra(), routes_policy.maintenance_state()), "data unavailable"),
     "/api/io": (lambda q: diskio_api.payload(db, q.get("range", "24h"), q.get("dev", "disk0")), "io data unavailable"),
     "/api/home": (_home, "home data unavailable"),
     "/api/reliab": (lambda q: reliab.snapshot(db), "reliability data unavailable"),

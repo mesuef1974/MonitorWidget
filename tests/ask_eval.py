@@ -26,7 +26,6 @@ CASES = (
     {"q": "ما النماذج المحمّلة الآن؟", "tool": "local_ai_status"},
     {"q": "ما الذي تغيّر منذ أمس؟", "tool": "compare_day"},
     {"q": "كيف تغيّر الجهاز هذا الأسبوع؟", "tool": "compare_week"},
-    {"q": "نظّف الذاكرة", "action": "trim_memory"},
     {"q": "أخرج النموذج المحمّل", "action": "unload_model"},
     {"q": "فرّغ ذاكرة كرت الشاشة", "action": "gpu_purge"},
     {"q": "افتح صفحة الجدولة", "action": "open_page", "target": "automation"},

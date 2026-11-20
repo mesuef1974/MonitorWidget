@@ -102,8 +102,8 @@ class Proposals(Base):
         return assistant.answer("x")
 
     def test_valid_action_becomes_card_and_nothing_else(self):
-        r = self.propose({"action": "trim_memory", "target": "ignored"})
-        self.assertEqual(r["actions"], [{"action": "trim_memory", "target": "", "label": "تنظيف الذاكرة"}])
+        r = self.propose({"action": "unload_model", "target": "ignored"})
+        self.assertEqual(r["actions"], [{"action": "unload_model", "target": "", "label": "إخراج النموذج من LM Studio"}])
         self.assertIn("بتأكيدك", r["text"])
         self.assertEqual(self.fetched, [])
 
@@ -284,7 +284,7 @@ class Eval(unittest.TestCase):
 
 class Surface(unittest.TestCase):
     def test_no_tool_reaches_a_write_route(self):
-        write = ("/api/trim-memory", "/api/llm-unload", "/api/gpu-purge", "/api/winguard-silence", "/api/run-cleanup")
+        write = ("/api/llm-unload", "/api/gpu-purge", "/api/winguard-silence", "/api/run-cleanup")
         self.assertFalse({v[1] for v in assistant.READ_TOOLS.values()} & set(write))
 
     def test_tool_schema_lists_every_action(self):

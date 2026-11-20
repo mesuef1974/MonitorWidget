@@ -3,7 +3,7 @@ python guard_check.py [مسار memory_guard.log]
 الفحوصات الحية تُتخطى تلقائياً إذا لم يكن الخادم يعمل."""
 import atexit
 import json, os, re, shutil, sqlite3, sys, tempfile, time, urllib.request, urllib.error
-from datetime import datetime, timedelta
+from datetime import datetime
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOME = os.environ.get("USERPROFILE", os.path.expanduser("~"))
@@ -87,14 +87,8 @@ else:
     if g:
         check("guard.lastMode known", g.get("lastMode") in (None, "APPLY", "DRYRUN"), str(g.get("lastMode")))
         check("guard acts (applyInArgs)", bool(g.get("applyInArgs")), "الحارس في وضع التجربة فقط ولا يحرر شيئاً", warn=True)
-    gn = st.get("guardNext") or {}
-    if gn.get("auto"):
-        check("trim countdown period is 600s", gn.get("period") == 600, str(gn.get("period")))
-        if gn.get("next"):
-            nxt = datetime.strptime(gn["next"], "%Y-%m-%dT%H:%M:%S")
-            check("next trim is in the future", nxt >= datetime.now() - timedelta(seconds=60))
-    else:
-        print("SKIP العد التنازلي: التنظيف التلقائي للذاكرة معطّل")
+    # قرار المالك 20/11/2026: حُذف التنظيف الخفيف وعدّه التنازلي؛ لا guardNext ولا trim في الحالة
+    check("no trim countdown in state", "guardNext" not in st and "trim" not in st, "حقل guardNext أو trim ما زال في الحالة")
 
 print("\nنتيجة الحارس:", "نجحت" if not fails else f"{len(fails)} فشل")
 if warns: print("تحذيرات:", len(warns))

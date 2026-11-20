@@ -58,7 +58,6 @@ NO_THINK = " /no_think"
 
 PAGES = ("overview", "health", "mem", "gpu", "procs", "power", "space", "startup", "automation")
 ACTIONS = {
-    "trim_memory": "تنظيف الذاكرة",
     "unload_model": "إخراج النموذج من LM Studio",
     "gpu_purge": "تفريغ ذاكرة كروت الشاشة",
     "silence_task": "إسكات مهمة تفتح نوافذ",
@@ -196,7 +195,7 @@ def _tool(name, desc, props=None, required=()):
 
 
 TOOLS = [_tool(n, v[0]) for n, v in READ_TOOLS.items()] + [_tool(
-    "propose_action", "اقتراح أمر ليؤكده المالك في بطاقة، ولا ينفذ شيئًا. trim_memory ينظف الذاكرة فقط، ولا يحذف ملفات. unload_model يخرج النموذج. "
+    "propose_action", "اقتراح أمر ليؤكده المالك في بطاقة، ولا ينفذ شيئًا. unload_model يخرج النموذج. "
     "gpu_purge يفرغ ذاكرة كرت الشاشة. silence_task يسكت مهمة واسمها في target. open_page يفتح صفحة واسمها في target: " + PAGE_HELP,
     {"action": {"type": "string", "enum": list(ACTIONS)}, "target": {"type": "string"}}, ("action",))]
 
