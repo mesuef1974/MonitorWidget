@@ -692,17 +692,15 @@ def advice_payload(m, extra, maint, trim):
     ram, commit = (m or {}).get("ramPct"), (m or {}).get("commitPct")
     mc = cfg["mem"]
     if ram is not None and ram >= mc["ramBad"]:
-        add("ram", "bad", "الذاكرة ممتلئة تقريباً (%d%%)" % ram, "المتاح %.1f GB فقط. اضغط «تنظيف الذاكرة» لنقل الصفحات غير المستخدمة، ثم راجع أكبر المستهلكين." % (m.get("availGB") or 0),
-            {"label": "تنظيف الذاكرة الآن", "api": "/api/trim-memory"}, "mem")
+        # البند 24 من المجلس 19/11: لا زر تنظيف هنا؛ صفحات الانتظار متاحة أصلًا، والذي يحرّر ذاكرة هو إغلاق أكبر المستهلكين
+        add("ram", "bad", "الذاكرة ممتلئة تقريباً (%d%%)" % ram, "المتاح %.1f GB فقط. أغلق ما لا تحتاجه من أكبر المستهلكين في صفحة «العمليات»." % (m.get("availGB") or 0),
+            None, "procs")
     elif ram is not None and ram >= mc["ramWarn"]:
-        add("ram", "warn", "الذاكرة مرتفعة (%d%%)" % ram, "ما زال هناك هامش، لكن راقب أكبر المستهلكين.", None, "mem")
+        add("ram", "warn", "الذاكرة مرتفعة (%d%%)" % ram, "ما زال هناك هامش، لكن راقب أكبر المستهلكين.", None, "procs")
     if commit is not None and commit >= mc["commitBad"]:
         add("commit", "bad", "الالتزام قريب من الحدّ (%d%%)" % commit, "عند بلوغ الحد تفشل التطبيقات في طلب ذاكرة جديدة. أغلق ما لا تحتاجه أو زد حجم ملف الصفحات.", None, "mem")
     elif commit is not None and commit >= mc["commitWarn"]:
         add("commit", "warn", "الالتزام مرتفع (%d%%)" % commit, "هامش الالتزام يتقلص؛ راجع التسرّب وعمليات Claude وWSL.", None, "mem")
-    if trim is not None and not trim.get("auto") and ram is not None and ram >= mc["ramWarn"]:
-        add("autotrim", "info", "التنظيف التلقائي للذاكرة متوقف", "تفعيله ينقل الصفحات غير المستخدمة دورياً ويُبقي الذاكرة أخف.",
-            {"label": "تفعيل التنظيف التلقائي", "api": "/api/trim-auto", "body": {"on": True}}, "mem")
     wsl = (extra or {}).get("wslGB")
     if wsl and wsl >= 3:
         add("wsl", "warn", "WSL يحجز %.1f GB من الذاكرة" % wsl, "يحجز WSL الذاكرة ولا يُرجعها بسرعة. سقف الذاكرة في .wslconfig يحل ذلك بعد أن يفرغ Claude Code من عمله على Docker.", None, "wsl")

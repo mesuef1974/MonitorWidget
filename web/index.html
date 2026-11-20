@@ -29,7 +29,7 @@
       <button class="btn menu-btn" id="menuBtn" aria-label="القائمة" aria-expanded="false" aria-controls="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="grow"><h1 id="title">…</h1><div class="sub" id="subtitle"></div></div>
       <span class="live" id="live"><i></i><span id="liveTxt">جارٍ التحميل…</span><span class="sr" id="liveState" role="status"></span></span>
-      <button class="btn" id="widgetBtn" aria-pressed="false" title="إظهار الويدجت أو إخفاؤه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>الويدجت</span></button><span class="boost"><button class="btn primary" id="boost" title="تنظيف الذاكرة الآن"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg><span id="boostTxt">تنظيف الذاكرة</span></button><select class="btn" id="boostMode" aria-label="عمق التنظيف" title="بسيط: آمن ولا يجمّد الجهاز. متوسط: العمليات الخاملة. عميق: يفرّغ التطبيقات النشطة وقد يجمّد الجهاز"><option value="light">بسيط (آمن)</option><option value="medium">متوسط (الخاملة)</option><option value="deep">عميق (بتأكيد)</option></select></span><select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
+      <button class="btn" id="widgetBtn" aria-pressed="false" title="إظهار الويدجت أو إخفاؤه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>الويدجت</span></button><span class="boost"><button class="btn primary" id="boost" title="تنظيف الذاكرة الآن"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg><span id="boostTxt">تنظيف الذاكرة</span></button></span><select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
       <button class="btn" id="refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>تحديث</button>
       <button class="btn" id="theme" aria-label="تبديل السمة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
     </header>
@@ -1000,7 +1000,7 @@ Object.assign(PAGES, {
     async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget"), api("/api/page-use")); },
     render([j, m, ap, inf, wg, pu]) {
       let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="chips" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button data-palette="${k}" aria-pressed="${ap?.palette === k}">${l}</button>`).join("")}</div></div><p class="note">يُحفظ الاختيار للواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`, { cls: "c6" });
-      out += panel("الذاكرة", `<p>تقليص مجموعات عمل العمليات مؤقتًا دون إنهاء أي عملية؛ يخفّض الذاكرة الفعلية المستخدمة لا الالتزام (بطاقة «الالتزام» في صفحة الذاكرة).</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button><button class="btn" data-trim="deep">تنظيف عميق</button></div>`, { cls: "c6" });
+      out += panel("الذاكرة", `<p>يفرّغ صفحات الانتظار منخفضة الأولوية فقط، ولا يمسّ ذاكرة العمليات النشطة ولا الالتزام. لتحرير ذاكرة حقيقية أغلق أكبر المستهلكين من صفحة «العمليات».</p><div class="acts"><button class="btn primary" data-trim="light">تنظيف الذاكرة الآن</button></div>`, { cls: "c6" });
       out += panel("وضع الصيانة المؤقت", m ? `<div class="row-sw"><span>${m.on ? "مفعّل" : "غير مفعّل"} — يوقف ${(m.rules || []).map(esc).join("، ")} أثناء عمل Claude Code</span>${sw(!!m.on, 'data-maint="1"', "وضع الصيانة المؤقت")}</div>` : '<div class="empty">غير متاح</div>', { cls: "c12" });
       if (inf) {
         const sv = inf.server || {}, dbh = inf.db || {};
@@ -1088,7 +1088,7 @@ document.addEventListener("click", async e => {
   else if (t.dataset.advrestore) { advSave({}); toast("أُظهرت المؤجّلة"); redraw(["[data-advsnooze]"]); }
   else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/trim-memory", "/api/trim-auto", "/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm, "نفّذ"))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
   else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(async () => { applyAppearance(await post("/api/appearance", next)); }, "حُفظ المظهر"); }
-  else if (t.dataset.trim) { if (await confirmDlg(t.dataset.trim === "deep" ? "تنظيف عميق للذاكرة؟ قد يبطّئ التطبيقات لحظات." : "تنظيف الذاكرة الآن؟", "نظّف")) act(() => post("/api/trim-memory", { mode: t.dataset.trim }), "بدأ التنظيف"); }
+  else if (t.dataset.trim) { if (await confirmDlg("تنظيف الذاكرة الآن؟", "نظّف")) act(() => post("/api/trim-memory", {}), "بدأ التنظيف"); }
   else if (t.dataset.widget) { const show = t.getAttribute("aria-checked") !== "true"; act(() => post("/api/widget", { show }), show ? "أُظهر الويدجت" : "أُخفي الويدجت"); }
   else if (t.dataset.maint) { const on = t.getAttribute("aria-checked") === "true"; act(() => post("/api/maintenance", { on: !on }), "حُدّث وضع الصيانة"); }
   else if (t.dataset.gpupurge) { if (await confirmDlg("تفريغ ذاكرة كروت الشاشة الآن؟ تُخرَج نماذج الذكاء المحلية (LM Studio وOllama) من كل الكروت، ولا يُنهى أي برنامج.", "فرّغ")) gpuPurge(); }
@@ -1112,9 +1112,6 @@ function buildNav(cur) {
     + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
 }
 let timer = 0, page = null, last = null, busy = false, lastSig = "";
-const boostGet = () => { try { const v = localStorage.getItem("mw-v2-boost"); return v === "medium" || v === "deep" ? v : "light"; } catch { return "light"; } };
-$("#boostMode").value = boostGet();
-$("#boostMode").onchange = e => { try { localStorage.setItem("mw-v2-boost", e.target.value); } catch { } };
 // نتيجة تنظيف الذاكرة من /api/mini → trim بمنطق الويدجت (widget.ps1): الخطأ يُفحص قبل الأرقام، لأن الفشل لا يحدّث
 // before/after/freedMB/ts فتبقى أرقام تنظيف سابق. والأرقام لا تُعرض إلا إن كان ختمها (ts) من هذا التشغيل؛ t0 لحظة الضغط بالملّي ثانية
 function trimOutcome(m, t0) {
@@ -1128,11 +1125,10 @@ function trimOutcome(m, t0) {
   return { text: `الذاكرة الفعلية ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB (الالتزام لا يتغيّر)`, bad: false };
 }
 $("#boost").onclick = async () => {
-  const b = $("#boost"), mode = $("#boostMode").value, txt = $("#boostTxt"); if (b.disabled) return;
-  if (mode === "deep" && !(await confirmDlg("الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟", "تابع"))) return;
+  const b = $("#boost"), txt = $("#boostTxt"); if (b.disabled) return;   // البند 24: وضع واحد (light)
   const t0 = Date.now();
-  try { await post("/api/trim-memory", { mode }); } catch (e) { return toast("تعذّر: " + e.message, true); }
-  b.disabled = true; txt.textContent = "جارٍ التنظيف…"; toast({ light: "بدأ التنظيف البسيط", medium: "بدأ التنظيف المتوسط", deep: "بدأ التنظيف العميق" }[mode]);
+  try { await post("/api/trim-memory", {}); } catch (e) { return toast("تعذّر: " + e.message, true); }
+  b.disabled = true; txt.textContent = "جارٍ التنظيف…"; toast("بدأ تنظيف الذاكرة");
   let m = null;
   for (let i = 0; i < 80; i++) { await new Promise(r => setTimeout(r, 700)); try { m = (await api("/api/mini")).trim; } catch { } if (m && !m.running) break; }
   b.disabled = false; txt.textContent = "تنظيف الذاكرة";

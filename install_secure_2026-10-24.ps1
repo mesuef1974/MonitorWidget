@@ -15,10 +15,10 @@ $bin = Join-Path $secure 'bin'; $out = Join-Path $secure 'out'
 $pwsh = 'C:\Program Files\PowerShell\7\pwsh.exe'
 $csc  = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 $expected = @{
-  'purge.cs' = 'B3D9DBCD149284ED62854017223D9690DA0297AA161D3A900AE97277D9C0A63F'
+  'purge.cs' = 'D7C934CB7F2C611748AC67128F2FEDD52033B96E7D580060E2004930A0E91F4F'
   'healthprobe.ps1' = 'F37D177EC6D386CFAE96A00BD49890C35B9B28FD404307C2FFB6D0CA574FB53E'
   'winold_delete.ps1' = 'D338ABDBDA50AA7D6D7FB1D4DC5DF94F48687D747304BC761B9C5BB54B5D9FAE'
-  'elevated_clean.ps1' = 'B764FC255F73F5E1CF18249C45A296F2615B2E43810F6E77B4932CB3559721F4'
+  'elevated_clean.ps1' = 'BAB443DE631D2D64D0562E256D15EE41B8E723E9ED78A0776CC2D6D6C62869A3'
   'gpu_dwm_restart.ps1' = 'A3E2465CE7C3CCED2FB43FA25A3F037BE1F0E8AA5AD82DED010440B8EB9945BD'
   'mwsafedel.cs' = '4F1BE3F38ED35755DBF245F6EE6B81E8AEB141072C82468812E56F0F0CC0DB60'
 }
@@ -65,10 +65,13 @@ if ($reaperHash) {
 $user = "$env:USERDOMAIN\$env:USERNAME"
 $pr = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
 $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -MultipleInstances IgnoreNew -Hidden
-foreach ($m in 'light','standby','deep') {
+foreach ($m in @('light')) {   # item 24: standby and deep were removed
   $name = 'MemoryPurge-' + (Get-Culture).TextInfo.ToTitleCase($m)
   $act = New-ScheduledTaskAction -Execute "$bin\purge.exe" -Argument "$m `"$out\purge_result.json`"" -WorkingDirectory $bin
   Register-ScheduledTask -TaskName $name -Action $act -Principal $pr -Settings $set -Description "On-demand RAM purge, mode=$m (protected install)" -Force | Out-Null
+}
+foreach ($n in 'MemoryPurge-Standby','MemoryPurge-Deep') {
+  if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $n -Confirm:$false }
 }
 $cmd = "& '$bin\healthprobe.ps1' -SkipUpdates | Set-Content -LiteralPath '$out\admin_probe.json' -Encoding UTF8"
 $a  = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -Command `"$cmd`"" -WorkingDirectory $bin

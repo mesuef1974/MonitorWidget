@@ -362,6 +362,10 @@ function Set-BackendTasks {
     # النشر المحمي يجمع داخل الوكيل المرتفع (agent.register_protected_collector)؛ مهمة المجمّع المستقلة (Highest على pythonw
     # في مجلد المستخدم) يُلغى تسجيلها لا تعطيلها فقط (البند 4 من المجلس 19/11). تعريفها محفوظ في tasks-original للتراجع.
     if (Get-ScheduledTask -TaskName 'MonitorWidget-Collector' -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName 'MonitorWidget-Collector' -Confirm:$false }
+    # البند 24 من المجلس 19/11: لا تفريغ لقائمة الانتظار كلها ولا لمجموعات العمل؛ يبقى MemoryPurge-Light وحده
+    foreach ($n in 'MemoryPurge-Standby', 'MemoryPurge-Deep') {
+        if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) { Unregister-ScheduledTask -TaskName $n -Confirm:$false }
+    }
     # نسخة المستودع من launch_mini.vbs تحيل إلى المهمة بدل تشغيل ويدجت من مجلد يكتبه المستخدم
     [IO.File]::WriteAllText((Join-Path $src '.protected-launch'), '')
     Say 'المهام تشغّل المفسّر والكود المحميين؛ المجمّع داخل الوكيل.'

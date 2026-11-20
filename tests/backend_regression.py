@@ -738,8 +738,21 @@ class MemTrim(unittest.TestCase):
             self.assertEqual(self.mt.post("/api/trim-memory", {}), (409, {"error": "trim already running"}))
             self.assertFalse(self.mt._run_lock.locked())
             self.mt.TRIM["running"] = False
-        self.assertEqual(started, [("trim_memory", ("light", True)), ("trim_memory", ("deep", True))])
+        # البند 24 من المجلس 19/11: الوضع في الطلب يُتجاهل؛ light وحده
+        self.assertEqual(started, [("trim_memory", ("light", True)), ("trim_memory", ("light", True))])
         self.assertEqual(invalidated, [1])   # الجولة الناجحة تعيد جمع حالة المهام كما كان
+
+    def test_only_light_mode_remains(self):
+        """البند 24: لا medium ولا deep ولا تفريغ شامل لكل العمليات؛ trim_memory يطلب مهمة light أيًّا كان الوضع المطلوب."""
+        for gone in ("_trim_medium", "_trim_cold", "_trim_all_working_sets"):
+            self.assertFalse(hasattr(self.mt, gone), gone)
+        asked = []
+        with patch.object(self.mt, "_purge_task", lambda mode="light": asked.append(mode) or {"freedMB": 1, "beforePct": 50, "afterPct": 49}), \
+                patch.object(self.mt.db, "add_trim", lambda *a: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
+            self.assertTrue(self.mt.trim_memory("deep"))
+            self.assertTrue(self.mt.trim_memory("medium"))
+        self.assertEqual(asked, ["light", "light"])
+        self.assertEqual(self.mt.TRIM["mode"], "light")
 
     def test_guard_next_is_idle_when_auto_is_off_or_trim_runs(self):
         with patch.object(self.mt, "auto_trim_on", lambda: False):
