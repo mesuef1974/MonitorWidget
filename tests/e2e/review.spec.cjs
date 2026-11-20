@@ -69,7 +69,7 @@ test('المعالج والرسوميات: القراءة القديمة معل�
   const g = page.locator('#main .gauge', { has: page.locator('.gl', { hasText: 'المعالج' }) });
   await expect(g.locator('.gv')).toHaveText('—');
   await expect(g.locator('.gs')).toContainText('قراءة قديمة · قبل 15 د');
-  await page.goto('/#/cpu');
+  await page.goto('/#/procs');
   const now = page.locator('#main section.panel', { has: page.locator('h2', { hasText: 'الحمل الحالي' }) });
   await expect(now.locator('.meta .tag.warn')).toContainText('قراءة قديمة');
   await expect(now.locator('.meter')).toHaveCount(0);
@@ -103,7 +103,7 @@ test('متوسط 10 دقائق للجهاز كله من سلسلة المجمو�
   const c = fixture('cpu'), t10 = c.ts - 600, w = c.series.v.filter((v, i) => c.series.t[i] >= t10);
   const expected = (w.reduce((a, v) => a + v, 0) / w.length).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   const top8 = c.avg10.reduce((a, x) => a + x.avg, 0).toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-  await page.goto('/#/cpu');
+  await page.goto('/#/procs');
   const v = kpiValue(page, 'الحمل الحالي', 'متوسط 10 دقائق');
   await expect(v).toHaveText(expected + 'نواة', { timeout: 30000 });
   expect(w.length).toBeGreaterThan(1);

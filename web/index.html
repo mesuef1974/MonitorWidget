@@ -153,6 +153,22 @@ const RANGES = [["1h", "ساعة"], ["6h", "6 ساعات"], ["24h", "24 ساعة
 const rangeChips = () => `<div class="chips" role="group" aria-label="المدى الزمني">${RANGES.map(([k, l]) => `<button data-range="${k}" aria-pressed="${state.range === k}">${l}</button>`).join("")}</div>`;
 const verdict = score => score >= 90 ? ["ممتازة", "ok"] : score >= 75 ? ["جيدة", "ok"] : score >= 55 ? ["تحتاج انتباهًا", "warn"] : ["حرجة", "bad"];
 
+// البند 28 من المجلس 19/11: صفحة «المعالج» (0 فتحة في 7 أيام) دُمجت في «العمليات»؛ الرابط القديم #/cpu يصل إليها
+function cpuPanels(c) {   // [أعلى الصفحة، أسفلها]
+  const pct = c.total / c.ncpu * 100, maxc = Math.max(...[...(c.now || []), ...(c.avg10 || []), ...(c.avg60 || [])].map(x => x.cores ?? x.avg ?? 0), .1);
+  const tbl = (rows, key) => `<table class="tbl"><thead><tr><th>التطبيق</th><th>الاستهلاك</th><th class="n">نسخ</th></tr></thead><tbody>${rows.slice(0, 8).map(p => `<tr><td translate="no">${esc(p.name)}</td><td><div class="rowbar"><div class="meter"><i style="--p:${((clamp((p[key] ?? 0) / maxc * 100, 2, 100)) / 100).toFixed(3)}"></i></div><span class="num">${nf(p[key], 2)}</span></div></td><td class="n num">${p.n ?? ""}</td></tr>`).join("")}</tbody></table>`;
+  // «متوسط 10 دقائق» للجهاز كله من سلسلة المجموع (__total__) في آخر 10 دقائق حتى آخر قراءة، لا من avg10 (أعلى 8 تطبيقات فقط)
+  const st = c.series?.t || [], sv = c.series?.v || [], t10 = (c.ts ?? st[st.length - 1]) - 600, w10 = sv.filter((v, i) => st[i] >= t10 && v != null);
+  const avg10 = w10.length ? w10.reduce((a, v) => a + v, 0) / w10.length : null;
+  const old = !!c.stale;   // الخادم يحكم بالقِدم بساعته (آخر قراءة أقدم من 180 ث)؛ العمر المعروض تقريبي من ساعة الصفحة
+  let out = panel("الحمل الحالي", `<div class="kpis">${kpi("المجموع", nf(c.total, 1), "نواة", `من ${Q(c.ncpu)} نواة`, old ? "" : meter(pct, 70, 90))}${kpi("النسبة", nf(pct, 1), "%")}${kpi("متوسط 10 دقائق", nf(avg10, 1), "نواة", "للجهاز كله")}</div>`, { cls: "c4", meta: old ? staleTag(c.ts != null ? Date.now() / 1000 - c.ts : null) : "" });
+  out += panel("المعالج الكلي خلال ساعة", `<div id="cpuChart" class="grow"></div>`, { cls: "c8", meta: c.alert ? `<span class="tag warn">${esc(c.alert.text || "تنبيه")}</span>` : "" });
+  const top = out; out = "";
+  out += panel("متوسط آخر 10 دقائق", tbl(c.avg10 || [], "avg"), { cls: "c6" });
+  out += panel("متوسط آخر ساعة", tbl(c.avg60 || [], "avg"), { cls: "c6" });
+  return [top, out];
+}
+function cpuChart(c) { const el = $("#cpuChart"); if (!c || !el) return; const ix = compact(c.series.t, 160), p = a => ix.map(i => a[i]); chart(el, { t: p(c.series.t), series: [{ id: "c", name: "نواة", color: "var(--accent)", v: p(c.series.v), fmt: v => nf(v, 2) }], min: 0, max: c.ncpu, height: 230, yFmt: v => nf(v, 0) }); }
 const PAGES = {
   overview: {
     title: "نظرة عامة", sub: "حالة الجهاز الآن في لمحة واحدة", icon: "home",
@@ -247,27 +263,6 @@ const PAGES = {
       const el = $("#hhChart"); if (!h || !el) return; const hs = h.history || []; if (hs.length < 2) return;
       chart(el, { t: hs.map(d => Date.parse(d.day + "T12:00:00") / 1000), series: [{ id: "h", name: "الدرجة", color: "var(--accent)", v: hs.map(d => d.score) }], min: 40, max: 100, height: 190, yFmt: v => nf(v) });
     }
-  },
-
-  cpu: {
-    title: "المعالج", sub: "الاستخدام عبر الوقت وأكثر التطبيقات استهلاكًا", icon: "cpu",
-    async load() { return settle(api("/api/cpu")); },
-    render([c]) {
-      if (!c) return nodata("بيانات المعالج");
-      const pct = c.total / c.ncpu * 100, maxc = Math.max(...c.now.map(x => x.cores), .1);
-      const tbl = (rows, key) => `<table class="tbl"><thead><tr><th>التطبيق</th><th>الاستهلاك</th><th class="n">نسخ</th></tr></thead><tbody>${rows.slice(0, 8).map(p => `<tr><td translate="no">${esc(p.name)}</td><td><div class="rowbar"><div class="meter"><i style="--p:${((clamp((p[key] ?? 0) / maxc * 100, 2, 100)) / 100).toFixed(3)}"></i></div><span class="num">${nf(p[key], 2)}</span></div></td><td class="n num">${p.n ?? ""}</td></tr>`).join("")}</tbody></table>`;
-      // «متوسط 10 دقائق» للجهاز كله من سلسلة المجموع (__total__) في آخر 10 دقائق حتى آخر قراءة، لا من avg10 (أعلى 8 تطبيقات فقط)
-      const st = c.series?.t || [], sv = c.series?.v || [], t10 = (c.ts ?? st[st.length - 1]) - 600, w10 = sv.filter((v, i) => st[i] >= t10 && v != null);
-      const avg10 = w10.length ? w10.reduce((a, v) => a + v, 0) / w10.length : null;
-      const old = !!c.stale;   // الخادم يحكم بالقِدم بساعته (آخر قراءة أقدم من 180 ث)؛ العمر المعروض تقريبي من ساعة الصفحة
-      let out = panel("الحمل الحالي", `<div class="kpis">${kpi("المجموع", nf(c.total, 1), "نواة", `من ${Q(c.ncpu)} نواة`, old ? "" : meter(pct, 70, 90))}${kpi("النسبة", nf(pct, 1), "%")}${kpi("متوسط 10 دقائق", nf(avg10, 1), "نواة", "للجهاز كله")}</div>`, { cls: "c4", meta: old ? staleTag(c.ts != null ? Date.now() / 1000 - c.ts : null) : "" });
-      out += panel("المعالج الكلي خلال ساعة", `<div id="cpuChart" class="grow"></div>`, { cls: "c8", meta: c.alert ? `<span class="tag warn">${esc(c.alert.text || "تنبيه")}</span>` : "" });
-      out += panel("الآن", tbl(c.now, "cores"), { cls: "c4" });
-      out += panel("متوسط آخر 10 دقائق", tbl(c.avg10 || [], "avg"), { cls: "c4" });
-      out += panel("متوسط آخر ساعة", tbl(c.avg60 || [], "avg"), { cls: "c4" });
-      return out;
-    },
-    after([c]) { const el = $("#cpuChart"); if (!c || !el) return; const ix = compact(c.series.t, 160), p = a => ix.map(i => a[i]); chart(el, { t: p(c.series.t), series: [{ id: "c", name: "نواة", color: "var(--accent)", v: p(c.series.v), fmt: v => nf(v, 2) }], min: 0, max: c.ncpu, height: 230, yFmt: v => nf(v, 0) }); }
   },
 
   mem: {
@@ -787,20 +782,22 @@ const upd = () => { syncHash(); lastSig = ""; show(); };   // تغيير مرش�
 
 Object.assign(PAGES, {
   procs: {
-    title: "العمليات", sub: "مصادر استهلاك الموارد قبل إيقاف أي عمل", icon: "list",
-    async load() { return settle(api("/api/procs")); },
-    render([d]) {
-      if (!d || !d.cats) return nodata("العمليات");
+    title: "العمليات والمعالج", sub: "حمل المعالج عبر الوقت ومصادر استهلاك الموارد قبل إيقاف أي عمل", icon: "list",
+    async load() { return settle(api("/api/procs"), api("/api/cpu")); },
+    render([d, c]) {
+      const [cTop, cBottom] = c ? cpuPanels(c) : ["", ""];
+      if (!d || !d.cats) return cTop + nodata("العمليات") + cBottom;
       const r = d.reaper || {}, tot = d.cats.reduce((a, c) => a + c.mb, 0) || 1;
-      let out = panel("الملخص", `<div class="kpis">${kpi("كل العمليات", Q(d.total), "", `${Q(d.cats.length)} فئات`)}${kpi("Claude", Q(d.claudeTotal), "", `${Q(d.claudeMB / 1024, "GB", 1)} ذاكرة`)}${kpi("نوافذ conhost", Q(d.conhost))}${kpi("الشلات", Q(d.shellTotal), "", `${Q(d.orphans)} يتيمة · ${Q(d.bareNow)} عارية`)}</div>`);
+      let out = cTop + panel("الملخص", `<div class="kpis">${kpi("كل العمليات", Q(d.total), "", `${Q(d.cats.length)} فئات`)}${kpi("Claude", Q(d.claudeTotal), "", `${Q(d.claudeMB / 1024, "GB", 1)} ذاكرة`)}${kpi("نوافذ conhost", Q(d.conhost))}${kpi("الشلات", Q(d.shellTotal), "", `${Q(d.orphans)} يتيمة · ${Q(d.bareNow)} عارية`)}</div>`);
       out += panel("حسب الفئة", `${stack(d.cats.map(c => ({ label: c.label, v: c.mb })), PAL)}<div class="list">${d.cats.map((c, i) => `<div class="li"><span class="t"><i class="dot" style="background:${PAL[i % PAL.length]}"></i>${esc(c.label)}</span><span class="r">${Q(c.mb >= 1024 ? c.mb / 1024 : c.mb, c.mb >= 1024 ? "GB" : "MB", c.mb >= 1024 ? 1 : 0)}</span><span class="d">${Q(c.n)} عملية · ${Q(c.cores, "نواة", 2)} · ${Q(c.mb / tot * 100, "%")}</span></div>`).join("")}</div>`, { cls: "c4" });
       out += panel("الأكثر استهلاكًا للمعالج", `<table class="tbl"><thead><tr><th>العملية</th><th class="n">PID</th><th class="n">المعالج</th><th class="n">الذاكرة</th></tr></thead><tbody>${d.topCpu.map(p => `<tr><td translate="no">${esc(p.name)}</td><td class="n">${Q(p.pid)}</td><td class="n">${Q(p.cores, "نواة", 2)}</td><td class="n">${Q(p.mb, "MB")}</td></tr>`).join("")}</tbody></table>`, { cls: "c4" });
       out += panel("عمليات Claude", `<table class="tbl"><thead><tr><th>PID</th><th class="n">العمر</th><th class="n">الذاكرة</th><th class="n">معالج</th></tr></thead><tbody>${d.claude.map(c => `<tr><td>${Q(c.pid)}</td><td class="n">${dur(c.age)}</td><td class="n">${Q(c.mb, "MB")}</td><td class="n">${Q(c.cores, "نواة", 2)}</td></tr>`).join("")}</tbody></table>`, { cls: "c4", meta: `${Q(d.claudeTotal)} عملية` });
       out += panel("الشلات", `<table class="tbl"><thead><tr><th>الشل</th><th>الأب</th><th class="n">العمر</th><th class="n">الذاكرة</th><th>الحالة</th></tr></thead><tbody>${d.shells.map(s => `<tr><td translate="no">${esc(s.name)} <span class="note">${Q(s.pid)}</span></td><td>${esc(s.parent || "—")}</td><td class="n">${dur(s.age)}</td><td class="n">${Q(s.mb, "MB")}</td><td>${s.orphan ? '<span class="tag warn">يتيم</span>' : s.bare ? '<span class="tag warn">عارٍ</span>' : '<span class="tag ok">سليم</span>'}</td></tr>`).join("") || `<tr><td colspan="5" class="empty">لا شلات</td></tr>`}</tbody></table>`, { cls: "c6", meta: arN(d.shellTotal, "شل واحد", "شلّان", "شلات", "شلًا") });
       out += panel("عمليات محمية", `<div class="pill-row">${(r.protect || []).map(x => { const n = String(typeof x === "string" ? x : x.name || JSON.stringify(x)).replace(/\\\./g, "."); return `<span class="tag" translate="no">${esc(n)} <button class="x" data-protdel="${esc(n)}" aria-label="إزالة ${esc(n)}">×</button></span>`; }).join("") || '<span class="note">لا شيء</span>'}</div><div class="field-row"><span>إضافة اسم محمي</span><span class="acts"><input class="inp w-170" id="protIn" name="protName" dir="ltr" maxlength="64" placeholder="backup.exe" aria-label="اسم عملية تُضاف إلى المحميّ" autocomplete="off"><button class="btn" data-protadd="1">إضافة</button></span></div>`, { cls: "c2" });
       out += panel("الكانس", `<div class="pill-row"><span class="tag ${r.mode === "Apply" ? "ok" : "warn"}">${r.mode === "Apply" ? "تنفيذ فعلي" : "تجربة فقط"}</span><span class="tag">عمر أقصى ${Q(r.maxAgeMin, "د")}</span><span class="tag">معالج أقصى ${Q(r.maxCpuS, "ث")}</span><span class="tag">عارٍ بعد ${Q(r.bareMin, "د")}</span></div><div class="kpis two">${kpi("أُنهيت / 24س", Q(r.killed24h))}${kpi("كانت ستُنهى", Q(r.would24h))}</div><div class="row-sw"><span>إنهاء الشلات العارية تلقائيًا</span>${sw(!!r.killBare, 'data-reaper="1"', "إنهاء الشلات العارية تلقائيًا")}</div><div class="acts"><button class="btn" data-reaprun="dry">فحص (بلا إنهاء)</button><button class="btn primary" data-reaprun="real">تشغيل الكانس الآن</button></div><div class="field-row"><span>الشل العاري بعد (دقيقة، 60–2880)</span><span class="acts"><input class="inp w-90" id="bareMin" name="bareMin" type="number" dir="ltr" min="60" max="2880" value="${esc(r.bareMin ?? 240)}" aria-label="مدة الشل العاري بالدقائق" autocomplete="off"><button class="btn" data-baremin="1">حفظ</button></span></div><div class="list">${(r.acts || []).slice(0, 3).map(a => `<div class="li"><span class="t ellipsis" title="${esc(a.text)}">${esc(a.text)}</span><span class="r note">${when(a.ts)}</span></div>`).join("")}</div>`, { cls: "c4" });
-      return out;
-    }
+      return out + cBottom;
+    },
+    after([d, c]) { if (c) cpuChart(c); }
   },
 
   wsl: {
@@ -1086,7 +1083,7 @@ document.addEventListener("click", async e => {
 
 const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
-  ["الأداء", [["cpu", "المعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["procs", "العمليات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
+  ["الأداء", [["procs", "العمليات والمعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
   ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["الإعدادات", [["ctrl", "التحكم"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
 ];
@@ -1219,7 +1216,7 @@ function track(key) {
   fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
 }
 let routed = false;
-const PAGE_ALIAS = { appearance: "ctrl" };   // البند 26 من المجلس 19/11: صفحة «المظهر الموحد» دُمجت في لوحة المظهر بصفحة التحكم؛ الروابط القديمة تصل إليها
+const PAGE_ALIAS = { appearance: "ctrl", cpu: "procs" };   // البندان 26 و28 من المجلس 19/11: «المظهر الموحد» دُمجت في لوحة المظهر بالتحكم، و«المعالج» في «العمليات»؛ الروابط القديمة تصل إليها
 function route() {
   const { key: k0, qs } = parseHash(), k = PAGE_ALIAS[k0] || k0; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */

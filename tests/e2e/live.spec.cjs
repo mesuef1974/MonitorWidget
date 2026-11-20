@@ -3,11 +3,12 @@
 // والدرج على الشاشة الضيقة: الفتح ينقل التركيز إلى أول رابط، Esc يغلقه ويعيد التركيز إلى الزر، وروابطه خارج Tab وهو مغلق.
 const { test, expect } = require('@playwright/test');
 
+const CPU_PROCS = /\/api\/(cpu|procs)(\?|$)/;   // صفحة «العمليات والمعالج» تجلب الاثنين (البند 28)
 const ready = page => page.waitForFunction(() => document.querySelector('#main .panel'));
 const liveState = page => page.locator('#liveState').textContent();
 
 test('مؤشر «مباشر» يعلن عند تغيّر الحالة فقط؛ الوقت المرئي خارج المنطقة الحية', async ({ page }) => {
-  await page.goto('/#/cpu'); await ready(page);
+  await page.goto('/#/procs'); await ready(page);
   expect(await page.locator('#live').getAttribute('role')).toBeNull();
   expect(await page.locator('#liveState').getAttribute('role')).toBe('status');
   expect(await liveState(page)).toBe('');                                   // أول نجاح لا يُعلن
@@ -17,7 +18,7 @@ test('مؤشر «مباشر» يعلن عند تغيّر الحالة فقط؛ �
   await page.waitForFunction(t => document.querySelector('#liveTxt').textContent !== t, t1);   // الوقت المرئي تغيّر
   expect(await liveState(page)).toBe('');                                   // ولم يُعلن شيء
 
-  await page.route('**/api/cpu', route => route.fulfill({ status: 500, json: { error: 'x' } }));
+  await page.route(CPU_PROCS, route => route.fulfill({ status: 500, json: { error: 'x' } }));
   await page.evaluate(() => show());
   await page.waitForFunction(() => document.querySelector('#live').classList.contains('err'));
   expect(await liveState(page)).toBe('تعذّر التحديث');
@@ -25,7 +26,7 @@ test('مؤشر «مباشر» يعلن عند تغيّر الحالة فقط؛ �
   await page.waitForTimeout(300);
   expect(await liveState(page)).toBe('تعذّر التحديث');                       // تكرار الفشل لا يكرّر الإعلان
 
-  await page.unroute('**/api/cpu');
+  await page.unroute(CPU_PROCS);
   await page.evaluate(() => show());
   await page.waitForFunction(() => !document.querySelector('#live').classList.contains('err'));
   expect(await liveState(page)).toBe('عاد التحديث المباشر');
@@ -37,8 +38,8 @@ test('بنرات الخطأ تحمل role=alert: في المصدر كلها، و
   expect((src.match(/<div class="banner" role="alert">/g) || []).length).toBeGreaterThan(1);
   expect((src.match(/return nodata\("/g) || []).length).toBeGreaterThan(15);   // بنرات «تعذّر قراءة…» عبر دالة واحدة
 
-  await page.route('**/api/cpu', route => route.fulfill({ status: 500, json: { error: 'x' } }));
-  await page.goto('/#/cpu');
+  await page.route(CPU_PROCS, route => route.fulfill({ status: 500, json: { error: 'x' } }));
+  await page.goto('/#/procs');
   const banner = page.locator('#main .banner');
   await expect(banner).toBeVisible();
   expect(await banner.getAttribute('role')).toBe('alert');

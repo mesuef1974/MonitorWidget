@@ -25,8 +25,8 @@ test('المدى والجهاز يُقرآن من الرابط ويُكتبان 
   await page.click('#nav a[href="#/mem"]'); await ready(page);
   await page.waitForFunction(() => location.hash === '#/mem?range=6h');                      // المدى يبقى والجهاز خاص بصفحته
   await pressed(page, '[data-range="6h"]');
-  await page.click('#nav a[href="#/cpu"]'); await ready(page);
-  await page.waitForFunction(() => location.hash === '#/cpu');                                // صفحة بلا مدى: لا يُكتب فيها
+  await page.click('#nav a[href="#/procs"]'); await ready(page);
+  await page.waitForFunction(() => location.hash === '#/procs');                                // صفحة بلا مدى: لا يُكتب فيها
   await page.click('#nav a[href="#/io"]'); await ready(page);
   await page.waitForFunction(() => location.hash === '#/io?range=6h');                       // بعد hashchange لا قبله
   await pressed(page, '[data-iodev="disk0"]');                                              // عاد إلى الافتراضي
@@ -58,7 +58,7 @@ test('جدول القاعدة وإزاحته في الرابط', async ({ page }
 });
 
 test('theme-color يتبع لون الخلفية في الوضعين، والخطوط الأولى مُحمَّلة مسبقًا من fonts.css', async ({ page }) => {
-  await page.goto('/#/cpu'); await ready(page);
+  await page.goto('/#/procs'); await ready(page);
   const same = () => page.waitForFunction(() => document.querySelector('meta[name="theme-color"]').content === getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   await same();
   const before = await page.evaluate(() => document.querySelector('meta[name="theme-color"]').content);
