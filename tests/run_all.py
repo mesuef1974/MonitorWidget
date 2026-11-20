@@ -48,6 +48,7 @@ steps = [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)])
 steps += [(title, [sys.executable, "-X", "utf8", "-B", os.path.join(HERE, file)]) for title,file in (
     ("فتح النافذة وسياسة CSP (معزول)", "window_security_check.py"),
     ("جمع النسخة المحمية (معزول)", "deployment_agent_check.py"),
+    ("المجمّع: كاتب واحد لكل جدول وtypeperf واحد بلا pwsh (معزول، المجلس 19/11)", "collector_writers_check.py"),
     ("حد التنفيذ المرتفع (معزول)", "elevated_execution_check.py"),
     ("النشر المحمي: الرمز والمفسّر والسياسة والمهام (معزول)", "protected_deploy_check.py"),
     ("حذف Windows.old عبر المهمة المرتفعة (معزول)", "winold_task_check.py"),

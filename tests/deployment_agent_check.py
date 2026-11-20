@@ -37,7 +37,7 @@ class AgentDeployment(unittest.TestCase):
         now = time.time()
         record = lambda *a, **k: calls.append((a,k))
         health = types.SimpleNamespace(ADMIN_PROBE="unused", add_procs=record, read_procs=lambda:[],
-            read_gpu=lambda:(None, []), add_igpu=record, read_igpu=lambda _:None,
+            latest_gpu_vram=lambda:None, read_gpu_counters=lambda _:(None, []), add_gpu_procs=record, add_igpu=record,
             get_hw=lambda _:(now,{}), score=lambda *a:{}, save_daily=record)
         db = types.SimpleNamespace(bootstrap=lambda:calls.append("bootstrap"), import_all=record,
             add_sample=record,get_json=lambda _:{"ts":now,"tasks":[]}, prune_if_due=record)

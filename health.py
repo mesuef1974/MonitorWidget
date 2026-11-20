@@ -56,6 +56,16 @@ def add_gpu(ts, g, procs):
         c.commit()
 
 
+def add_gpu_procs(ts, procs):
+    """ذاكرة GPU لكل عملية من المجمّع؛ جدول gpu نفسه يكتبه gpuwatch.job وحده كل دقيقة (البند 33)."""
+    if not procs:
+        return
+    with db._lock:
+        c = _c()
+        c.executemany("INSERT OR REPLACE INTO gpu_procs VALUES(?,?,?)", [(int(ts), n, v) for n, v in procs])
+        c.commit()
+
+
 def set_hw(key, obj):
     with db._lock:
         c = _c(); c.execute("INSERT OR REPLACE INTO hw VALUES(?,?,?)", (key, int(time.time()), json.dumps(obj, ensure_ascii=False))); c.commit()
@@ -68,32 +78,12 @@ def get_hw(key):
 
 
 # ------------------------------------------------------------------ collectors
-def read_gpu():
-    """nvidia-smi one-shot. Returns (summary dict, [(process name, vram MB)]) or (None, [])."""
-    if not os.path.exists(NVSMI):
-        return None, []
-    try:
-        r = subprocess.run([NVSMI, "--query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,pstate,clocks_throttle_reasons.active",
-                            "--format=csv,noheader,nounits"], capture_output=True, timeout=20, creationflags=CNW)
-        f = [x.strip() for x in r.stdout.decode("utf-8", "replace").strip().split(",")]
-        num = lambda v: float(v) if v.replace(".", "", 1).isdigit() else None
-        g = {"temp": num(f[0]), "util": num(f[1]), "vram": num(f[2]), "vramTotal": num(f[3]), "power": num(f[4]), "pstate": f[5], "throttle": f[6]}
-    except Exception:
-        return None, []
-    procs = []
-    try:  # per-process dedicated GPU memory from the Windows counters (nvidia-smi shows N/A under WDDM)
-        ps = ("(Get-Counter '\\GPU Process Memory(*)\\Dedicated Usage' -ErrorAction Stop).CounterSamples | Where-Object CookedValue -gt 20MB | "
-              "ForEach-Object { if($_.InstanceName -match 'pid_(\\d+)'){ $p=Get-Process -Id $Matches[1] -ErrorAction SilentlyContinue; if($p){ '{0}|{1}' -f $p.ProcessName,[int]($_.CookedValue/1MB) } } }")
-        r = subprocess.run([PWSH, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], capture_output=True, timeout=40, creationflags=CNW)
-        agg = {}
-        for ln in r.stdout.decode("utf-8", "replace").splitlines():
-            if "|" in ln:
-                n, v = ln.strip().split("|"); agg[n] = agg.get(n, 0) + int(v)
-        cap = (g.get("vram") or 0) * 1.05  # counters can over-report shared/reserved memory: drop impossible values and system processes
-        procs = sorted(((n, v) for n, v in agg.items() if v <= cap and n.lower() not in ("dwm", "csrss", "system")), key=lambda x: -x[1])[:8]
-    except Exception:
-        errlog.swallowed()
-    return g, procs
+def latest_gpu_vram(max_age=180):
+    """VRAM المستعملة (MB) من أحدث صف كتبه gpuwatch.job، أو None إن لم يكن حديثًا (لا NVIDIA أو الوكيل متوقف).
+    المجمّع يقرؤها بدل تشغيل nvidia-smi ثانيةً وكتابة صف مكرّر في جدول gpu."""
+    with db._lock:
+        r = _c().execute("SELECT ts,vram_mb FROM gpu ORDER BY ts DESC LIMIT 1").fetchone()
+    return r["vram_mb"] if r and time.time() - r["ts"] <= max_age else None
 
 
 IGPU_PS = r"""
@@ -164,48 +154,98 @@ def _ram_mb():
     return int(m.ullTotalPhys / 1048576)
 
 
-def read_igpu(nv_vram_mb):
-    """Fast path (typeperf, ~2 s). Falls back to the PowerShell reader if anything is unexpected."""
+GPU_COUNTERS = (r"\GPU Engine(*)\Utilization Percentage", r"\GPU Adapter Memory(*)\Dedicated Usage", r"\GPU Adapter Memory(*)\Shared Usage",
+                r"\GPU Process Memory(*)\Dedicated Usage")
+_SYSTEM_GPU_PROCS = ("dwm", "csrss", "system")
+
+
+def parse_gpu_counters(hdr, last, pidn):
+    """أعمدة typeperf ← (المحوّلات حسب LUID، ذاكرة GPU المخصّصة لكل (pid, LUID) بالـ MB). دالة نقية تُختبر بلا عدّادات."""
+    luids, pmem = {}, {}
+    for col, val in zip(hdr[1:], last[1:]):
+        try:
+            v = float(val)
+        except ValueError:
+            continue
+        m = re.search(r"GPU Process Memory\(pid_(\d+)_luid_(0x[0-9a-f]+_0x[0-9a-f]+)_phys_\d+\)\\dedicated usage", col, re.I)
+        if m:   # قبل نمط المحوّل: اسم المثيل ينتهي بـ _phys_0)\Dedicated Usage مثله
+            key = (int(m.group(1)), m.group(2).lower())
+            pmem[key] = pmem.get(key, 0) + int(v / 1048576)
+            continue
+        m = re.search(r"pid_(\d+)_luid_(0x[0-9a-f]+_0x[0-9a-f]+)_phys_\d+_eng_\d+_engtype_(\w+)\)", col, re.I)
+        if m:
+            L = luids.setdefault(m.group(2).lower(), {"eng": {}, "procs": {}, "ded": 0, "sh": 0})
+            t = m.group(3).lower()
+            L["eng"][t] = L["eng"].get(t, 0) + v
+            if v > 0.5 and t in ("3d", "videodecode", "videoencode", "videoprocessing"):
+                n = pidn.get(int(m.group(1)))
+                if n:
+                    L["procs"][n] = L["procs"].get(n, 0) + v
+            continue
+        m = re.search(r"(0x[0-9a-f]+_0x[0-9a-f]+)_phys_\d+\)\\(dedicated|shared) usage", col, re.I)
+        if m:
+            L = luids.setdefault(m.group(1).lower(), {"eng": {}, "procs": {}, "ded": 0, "sh": 0})
+            L["ded" if m.group(2).lower() == "dedicated" else "sh"] = int(v / 1048576)
+    return luids, pmem
+
+
+def nvidia_luid(luids, nv_vram_mb):
+    """محوّل NVIDIA هو الذي تقرب ذاكرته المخصّصة من memory.used في nvidia-smi؛ كل محوّل غيره مدمج."""
+    if not luids:
+        return None
+    return min(luids, key=lambda k: abs((luids[k].get("ded") or 0) - (nv_vram_mb or 0)))
+
+
+def gpu_procs_from(pmem, pidn, nv, nv_vram_mb):
+    """أعلى 8 عمليات بذاكرة GPU المخصّصة على محوّل NVIDIA (nvidia-smi يعطي N/A تحت WDDM).
+    يُسقط ما دون 20 MB وما يفوق الذاكرة المستعملة كلها (العدّادات تبالغ أحيانًا) وعمليات النظام."""
+    if nv_vram_mb is None:
+        return []
+    agg = {}
+    for (pid, luid), mb in pmem.items():
+        n = pidn.get(pid)
+        if n and mb > 20 and (nv is None or luid == nv):
+            agg[n] = agg.get(n, 0) + mb
+    cap = nv_vram_mb * 1.05
+    return sorted(((n, v) for n, v in agg.items() if v <= cap and n.lower() not in _SYSTEM_GPU_PROCS), key=lambda x: -x[1])[:8]
+
+
+def _pid_names():
+    pidn = {}
+    for ln in subprocess.run(["tasklist", "/fo", "csv", "/nh"], capture_output=True, timeout=20, creationflags=CNW).stdout.decode("utf-8", "replace").splitlines():
+        p = ln.strip().strip('"').split('","')
+        if len(p) > 1 and p[1].isdigit():
+            pidn[int(p[1])] = re.sub(r"\.exe$", "", p[0], flags=re.I)
+    return pidn
+
+
+def read_gpu_counters(nv_vram_mb):
+    """قراءة واحدة بـ typeperf (نحو ثانيتين، بلا PowerShell) لواجبَي المجمّع كل 5 دقائق:
+    حمل المعالج الرسومي المدمج وذاكرته، وذاكرة NVIDIA لكل عملية. تعيد (igpu، [(اسم، MB)]).
+    كانت ذاكرة العمليات تُقرأ بـ pwsh وGet-Counter في كل دورة (البند 33)؛ pwsh الآن احتياط للمدمج إن فشل typeperf."""
+    import csv
     topo = igpu_topology_cached()
-    if topo is not None and not topo["present"]:
-        return topo
+    absent = topo is not None and not topo["present"]
+    if absent and nv_vram_mb is None:
+        return topo, []   # لا مدمج ولا NVIDIA: لا شيء يستحق تشغيل العدّادات
     try:
-        import csv
-        r = subprocess.run(["typeperf", r"\GPU Engine(*)\Utilization Percentage", r"\GPU Adapter Memory(*)\Dedicated Usage", r"\GPU Adapter Memory(*)\Shared Usage", "-sc", "2"],
-                           capture_output=True, timeout=40, creationflags=CNW)
+        r = subprocess.run(["typeperf", *GPU_COUNTERS, "-sc", "2"], capture_output=True, timeout=40, creationflags=CNW)
         rows = [x for x in csv.reader(r.stdout.decode("utf-8", "replace").splitlines()) if len(x) > 3]
-        hdr, last = rows[0], rows[-1]
-        luids = {}
-        pidn = {}
-        for ln in subprocess.run(["tasklist", "/fo", "csv", "/nh"], capture_output=True, timeout=20, creationflags=CNW).stdout.decode("utf-8", "replace").splitlines():
-            p = ln.strip().strip('"').split('","')
-            if len(p) > 1 and p[1].isdigit():
-                pidn[int(p[1])] = re.sub(r"\.exe$", "", p[0], flags=re.I)
-        for col, val in zip(hdr[1:], last[1:]):
-            try:
-                v = float(val)
-            except ValueError:
-                continue
-            m = re.search(r"pid_(\d+)_luid_(0x[0-9a-f]+_0x[0-9a-f]+)_phys_\d+_eng_\d+_engtype_(\w+)\)", col, re.I)
-            if m:
-                L = luids.setdefault(m.group(2), {"eng": {}, "procs": {}, "ded": 0, "sh": 0})
-                t = m.group(3).lower()
-                L["eng"][t] = L["eng"].get(t, 0) + v
-                if v > 0.5 and t in ("3d", "videodecode", "videoencode", "videoprocessing"):
-                    n = pidn.get(int(m.group(1)))
-                    if n:
-                        L["procs"][n] = L["procs"].get(n, 0) + v
-                continue
-            m = re.search(r"(0x[0-9a-f]+_0x[0-9a-f]+)_phys_\d+\)\\(dedicated|shared) usage", col, re.I)
-            if m:
-                L = luids.setdefault(m.group(1), {"eng": {}, "procs": {}, "ded": 0, "sh": 0})
-                L["ded" if m.group(2).lower() == "dedicated" else "sh"] = int(v / 1048576)
-        d = luids
+        pidn = _pid_names()
+        d, pmem = parse_gpu_counters(rows[0], rows[-1], pidn)
         if not d:
             raise ValueError("no adapters")
     except Exception:
-        return _read_igpu_ps(nv_vram_mb)
-    nv = min(d, key=lambda k: abs((d[k].get("ded") or 0) - (nv_vram_mb or 0)))
+        errlog.swallowed()
+        return (topo if absent else _read_igpu_ps(nv_vram_mb)), []
+    nv = nvidia_luid(d, nv_vram_mb)
+    procs = gpu_procs_from(pmem, pidn, nv, nv_vram_mb)
+    if absent:
+        return topo, procs
+    return _igpu_from(d, nv, topo), procs
+
+
+def _igpu_from(d, nv, topo):
     others = [k for k in d if k != nv]
     if not others:
         return None
