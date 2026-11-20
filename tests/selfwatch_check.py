@@ -15,23 +15,34 @@ NOW = 1_800_000_000
 
 
 class Collectors(unittest.TestCase):
-    def job(self, **kw):
+    def job(self, hb=10, **kw):
         j = {"name": "j", "interval_s": 60, "timeout_s": 600, "last_start": NOW - 30, "last_end": NOW - 29, "last_status": "ok", "next_run": NOW + 30}
         j.update(kw)
-        return sw.collectors([j], NOW)[0]
+        rows = sw.collectors([j], NOW, hb)
+        return rows[0] if rows else None
 
     def test_fresh_is_ok(self):
         self.assertEqual(self.job()["level"], "ok")
 
-    def test_late_by_slack_then_bad(self):
-        self.assertEqual(self.job(last_start=NOW - 700, last_end=NOW - 700)["level"], "ok")    # ضمن 2×60+600
-        self.assertEqual(self.job(last_start=NOW - 800, last_end=NOW - 800)["level"], "warn")
-        r = self.job(last_start=NOW - 9000, last_end=NOW - 9000)
+    def test_postponed_by_agent_restart_is_ok(self):
+        # الوكيل أعيد تشغيله فأجّل الجامع: آخر تشغيل قبل 4 ساعات وموعده التالي في المستقبل (quarantine_purge 20/11)
+        self.assertEqual(self.job(interval_s=3600, last_start=NOW - 15500, last_end=NOW - 15500, next_run=NOW + 1400)["level"], "ok")
+
+    def test_overdue_by_slack_then_bad(self):
+        self.assertEqual(self.job(next_run=NOW - 700)["level"], "ok")    # ضمن 2×60+600
+        self.assertEqual(self.job(next_run=NOW - 800)["level"], "warn")
+        r = self.job(next_run=NOW - 9000)
         self.assertEqual(r["level"], "bad")
         self.assertIn("ساعة", r["why"])
 
+    def test_orphan_row_skipped_only_while_agent_alive(self):
+        # trimwatch أُزيل من الوكيل وبقي صفّه: موعده متأخر 11 يومًا
+        self.assertIsNone(self.job(next_run=NOW - 11 * 86400))
+        self.assertEqual(self.job(hb=None, next_run=NOW - 11 * 86400)["level"], "bad")    # لا نبضة: كل تأخر يُعدّ
+        self.assertEqual(self.job(hb=3600, next_run=NOW - 2 * 86400)["level"], "bad")    # وكيل متوقف
+
     def test_stuck_and_error(self):
-        r = self.job(last_start=NOW - 1000, last_end=NOW - 2000)
+        r = self.job(last_start=NOW - 1000, last_end=NOW - 2000, next_run=NOW - 2 * 86400)   # العالق لا يُتجاوز يتيمًا
         self.assertEqual((r["level"], r["why"][:4]), ("bad", "عالق"))
         self.assertEqual(self.job(last_status="error")["level"], "warn")
 

@@ -48,24 +48,33 @@ def _worse(a, b):
 
 
 # ------------------------------------------------------------------ نقية
-def collectors(jobs, now):
-    """[{name, ageS, intervalS, level, why}] من صفوف جدول jobs. الجامع متأخر إن مضى على آخر انتهاء له أكثر من
-    ضعفي فاصله و10 دقائق (هامش mwsched.future_slack نفسه)، أو عالق، أو انتهى آخر تشغيل بخطأ."""
+ORPHAN_AFTER = 86400     # صفّ تأخّر موعده يومًا والوكيل حيّ: جامع أُزيل من الوكيل (trimwatch) لا جامع متوقف
+HB_FRESH = 300           # نبضة الوكيل كل 15 ث
+
+
+def collectors(jobs, now, hb_age=None):
+    """[{name, ageS, intervalS, overdueS, level, why}] من صفوف جدول jobs، أو بلا الصفوف اليتيمة.
+    الحكم بالموعد التالي لا بعمر آخر تشغيل: الوكيل يؤجّل الجامع عند كل إعادة تشغيل (delay)، فعمر آخر تشغيل يطول
+    بلا خلل. متأخر إن تجاوز next_run بأكثر من ضعفي فاصله و10 دقائق (هامش mwsched.future_slack)، أو عالق، أو آخر
+    تشغيل انتهى بخطأ. إن كان الوكيل حيًّا (hb_age < HB_FRESH) فما تأخّر موعده أكثر من ORPHAN_AFTER صفّ يتيم يُتجاوز؛
+    وإن كان الوكيل متوقفًا فكل تأخر يُعدّ."""
     out = []
+    alive = hb_age is not None and hb_age < HB_FRESH
     for j in jobs:
         iv = int(j.get("interval_s") or 0)
-        start, end = j.get("last_start"), j.get("last_end")
+        start, end, nxt = j.get("last_start"), j.get("last_end"), j.get("next_run")
         age = now - end if end else None
+        over = now - nxt if nxt else None
+        if alive and over is not None and over > ORPHAN_AFTER and not (start and (not end or end < start)):
+            continue
         lvl, why = "ok", None
         if start and (not end or end < start) and now - start > (j.get("timeout_s") or 600):
             lvl, why = "bad", f"عالق منذ {_dur(now - start)}"
-        elif end is None:
-            lvl, why = ("warn", "لم يعمل بعد") if start is None and j.get("next_run") and j["next_run"] < now - 600 else ("ok", None)
-        elif iv and age > 2 * iv + 600:
-            lvl, why = ("bad" if age > 6 * iv + 3600 else "warn"), f"آخر تشغيل قبل {_dur(age)}"
+        elif over is not None and over > 2 * iv + 600:
+            lvl, why = ("bad" if over > 6 * iv + 3600 else "warn"), f"متأخر عن موعده {_dur(over)}"
         elif (j.get("last_status") or "") == "error":
             lvl, why = "warn", "آخر تشغيل انتهى بخطأ"
-        out.append({"name": j.get("name"), "ageS": age, "intervalS": iv, "level": lvl, "why": why})
+        out.append({"name": j.get("name"), "ageS": age, "intervalS": iv, "overdueS": over, "level": lvl, "why": why})
     return out
 
 
@@ -345,13 +354,27 @@ def _collectors_item(now):
         c.row_factory = None
         cols = [d[1] for d in c.execute("PRAGMA table_info(jobs)")]
         jobs = [dict(zip(cols, r)) for r in c.execute("SELECT * FROM jobs")]
-    rows = collectors(jobs, now)
+        hb = c.execute("SELECT value FROM meta WHERE key='agent_hb'").fetchone()
+    hb_age = max(0, int(now - int(hb[0]))) if hb and str(hb[0]).isdigit() else None
+    rows = collectors(jobs, now, hb_age)
     late = [r for r in rows if r["level"] != "ok"]
     lvl = "ok"
     for r in late:
         lvl = _worse(lvl, r["level"])
     text = ("، ".join("{} {}".format(r["name"], r["why"]) for r in late[:3])) if late else f"{len(rows)} جامعًا في موعدها"
     return {"key": "collectors", "label": "الجوامع", "level": lvl, "text": text, "value": len(late), "rows": rows}
+
+
+def _agent_item(now):
+    """نبضة الوكيل (agent_hb كل 15 ث): إن توقفت فكل الجوامع متوقفة معه."""
+    import db
+    with db.ro() as c:
+        hb = c.execute("SELECT value FROM meta WHERE key='agent_hb'").fetchone()
+    age = max(0, int(now - int(hb[0]))) if hb and str(hb[0]).isdigit() else None
+    if age is None:
+        return {"key": "agent", "label": "الوكيل", "level": "bad", "text": "لا نبضة للوكيل", "value": None}
+    lvl = "ok" if age < HB_FRESH else "bad"
+    return {"key": "agent", "label": "الوكيل", "level": lvl, "text": f"آخر نبضة قبل {age} ثانية" if age < 120 else f"آخر نبضة قبل {_dur(age)}", "value": age}
 
 
 def _swallowed_item(now):
@@ -390,7 +413,7 @@ def view(now=None):
     with _lock:
         if _state["v"] is not None and 0 <= now - _state["t"] < TTL:
             return _state["v"]
-        items = [_safe(_external, now, "backup", "النسخة الخارجية"), _safe(_collectors_item, now, "collectors", "الجوامع"),
+        items = [_safe(_agent_item, now, "agent", "الوكيل"), _safe(_external, now, "backup", "النسخة الخارجية"), _safe(_collectors_item, now, "collectors", "الجوامع"),
                  _safe(_last_task_fail, now, "tasks", "المهام المجدولة"), _safe(_swallowed_item, now, "swallowed", "استثناءات مبتلعة اليوم")]
         try:
             b = _budget_now(now)
