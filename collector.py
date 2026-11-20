@@ -1,5 +1,5 @@
 """Headless collector, run every 5 minutes by the scheduled task MonitorWidget-Collector (pythonw = no window).
-Keeps history alive even when the dashboard is closed: metrics sample, process snapshot (leak detection), GPU sample,
+Keeps history alive even when the dashboard is closed: metrics sample, process snapshot (leak detection), GPU per-process memory and iGPU sample (one typeperf run),
 hardware/security probe (every 6 h), dashboard state (every 3 h) and the daily health score."""
 
 from sqlite_runtime import ensure_sqlite
@@ -60,14 +60,14 @@ def main(*, raise_errors=False):
         db.bootstrap()
         now = time.time()
         db.import_all()
+        # كاتب واحد لكل جدول (البند 33): samples يكتبها الوكيل كل 60 ث (j_sample) وgpu يكتبها gpuwatch.job كل 60 ث؛
+        # المجمّع يقرأ القياسات للدرجة اليومية فقط، ويكتب ما لا يكتبه غيره: procs وgpu_procs وigpu.
         m = snapshot.native_metrics()
-        db.add_sample(now, m, "collector")
         health.add_procs(now, health.read_procs())
-        g, gp = health.read_gpu()
-        if g:
-            health.add_gpu(now, g, gp)
         try:
-            health.add_igpu(now, health.read_igpu(g and g.get('vram')))
+            ig, gp = health.read_gpu_counters(health.latest_gpu_vram())
+            health.add_gpu_procs(now, gp)
+            health.add_igpu(now, ig)
         except Exception:
             errlog.swallowed()
         try:
