@@ -809,8 +809,6 @@ function Update-Compact($d) {
 }
 
 # ------------------------------------------------------------------ backend access
-$script:pyw = (Get-Command pythonw -ErrorAction SilentlyContinue).Source
-if (-not $script:pyw) { $script:pyw = "$env:LOCALAPPDATA\Programs\Python\Python312\pythonw.exe" }
 $script:tok = (Get-Content "$Root\.token" -ErrorAction SilentlyContinue | Select-Object -First 1)
 # الاستطلاع (GET) برمز القراءة حيث وُجد (النشر المحمي، البند 6 من المجلس 19/11)؛ الرمز الكامل لأفعال POST وحدها
 $script:readTok = (Get-Content "$Root\.token.read" -ErrorAction SilentlyContinue | Select-Object -First 1)
@@ -861,7 +859,7 @@ function Start-Bg([string]$path, $body, [scriptblock]$ok, [scriptblock]$err) {
     $bgTimer.Start()
 }
 $poll = {
-    param($sync, $Root, $pyw, $tok)
+    param($sync, $Root, $tok)
     $h = @{ 'X-Token' = $tok }; $lastStart = [datetime]::MinValue
     while ($true) {
         try { $sync.data = Invoke-RestMethod 'http://127.0.0.1:47832/api/mini' -Headers $h -TimeoutSec 4 -NoProxy; $sync.err = $null; $sync.lastAt = Get-Date; $sync.stamp = $sync.stamp + 1 }
@@ -873,7 +871,7 @@ $poll = {
         Start-Sleep -Seconds 2
     }
 }
-if (-not $script:smoke) { $script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:pyw).AddArgument($script:readTok); [void]$script:ps.BeginInvoke() }
+if (-not $script:smoke) { $script:ps = [powershell]::Create(); [void]$script:ps.AddScript($poll).AddArgument($script:sync).AddArgument($Root).AddArgument($script:readTok); [void]$script:ps.BeginInvoke() }
 $appearancePoll = {
     param($sync, $Root, $token)
     # انتظار طويل: ?key= بصمة آخر حالة، فيعود الخادم فور تغيّر المظهر أو بعد 25 ث؛ اتصال واحد لكل تغيير بدل اتصال كل 650 ms.
