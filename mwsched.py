@@ -14,6 +14,9 @@ import db, infra
 
 log = infra.log
 HEAL_EVERY = 60     # seconds between wall-clock guard passes in the loop
+# كل تشغيل يطول HEAVY_MS فأكثر يُسجَّل في job_runs (لا الإخفاق وحده) بوقت نهايته ومدته: مراقب الويدجت يطابق به
+# توقفات الواجهة مع ما كان يعمل في نافذتها (البند 36 من المجلس 19/11). القصيرة لا تُسجَّل فلا يتضخّم الجدول.
+HEAVY_MS = 5000
 # أختام «آخر تشغيل» بالثواني في جدول meta تُقارن بـ time.time(): ختم كُتب أثناء قفزة الساعة للأمام يوقف عمله حتى يلحقه الزمن
 # (prune يوميًا وVACUUM أسبوعيًا في db.py، والنسخ والسلامة والنسخ الخارجي في infra.py). heal_clock يعيدها إلى الآن (مراجعة 19/11/2026).
 META_STAMPS = ("last_prune", "last_vacuum", "last_backup", "last_integrity", "backup_extra_last_attempt", "backup_extra_last_success")
@@ -137,6 +140,8 @@ class Scheduler:
                 c.commit()
         if status == "error":
             infra.record_job(db.conn(), name, False, (t1 - t0) * 1000, err)
+        elif (t1 - t0) * 1000 >= HEAVY_MS:
+            infra.record_job(db.conn(), name, True, (t1 - t0) * 1000, str(detail) if detail else status)
 
     def loop(self):
         healed = None

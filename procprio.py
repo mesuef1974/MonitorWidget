@@ -3,6 +3,7 @@
 مجدول المهام يشغّل كل مهمة بأولوية 7: صنف «أقل من العادي» للمعالج مع أولوية إدخال/إخراج وذاكرة منخفضتين، ويرثها كل ابن.
 حين تشغل مهمة بأولوية عادية كل الأنوية (pytest موزّع مثلًا) تُجوَّع هذه العمليات: قيس 13/11/2026 تجمّد الويدجت
 حتى 116 ث وتأخّر عيّنات الوكيل حتى 113 ث مع أن متوسط الحمل نصف الأنوية. العملية ترفع نفسها إلى «عادي» بلا صلاحية خاصة."""
+import contextlib
 import ctypes
 import os
 
@@ -56,3 +57,30 @@ def restore_normal(io=True):
     except (OSError, AttributeError):
         pass
     return {"before": before, "after": state()}
+
+
+_BG_BEGIN, _BG_END = 0x00010000, 0x00020000   # THREAD_MODE_BACKGROUND_BEGIN/END: معالج وإدخال/إخراج وذاكرة منخفضة للخيط وحده
+
+
+@contextlib.contextmanager
+def background_thread():
+    """يشغّل كتلة في الخيط الحالي بوضع الخلفية (أولوية قرص «منخفضة جدًا» ومعالج وذاكرة منخفضة) ثم يعيده في finally،
+    فمسح طويل كـ scan_big لا يزاحم القرص في عملية الخادم (زر «أعد القياس») ولا في الوكيل. يُنتج True إن دخل الوضع، ولا يرمي.
+    الوضع للخيط نفسه فقط: لا يرثه خيط يبدأ داخله، ولا يمسّ خيوط العملية الأخرى."""
+    on = False
+    if os.name == "nt":
+        try:
+            k = ctypes.WinDLL("kernel32", use_last_error=True)
+            k.GetCurrentThread.restype = ctypes.c_void_p
+            k.SetThreadPriority.argtypes = [ctypes.c_void_p, ctypes.c_int]
+            on = bool(k.SetThreadPriority(k.GetCurrentThread(), _BG_BEGIN))
+        except (OSError, AttributeError):
+            on = False
+    try:
+        yield on
+    finally:
+        if on:
+            try:
+                k.SetThreadPriority(k.GetCurrentThread(), _BG_END)
+            except (OSError, AttributeError):
+                pass
