@@ -50,7 +50,7 @@ class Lower(unittest.TestCase):
     def run_lower(self, name, busy, results):
         calls = []
 
-        def setter(pid):
+        def setter(pid, created):
             calls.append(pid)
             return results[pid]
         code, reply = cpuprio.lower(name, measure=lambda n: busy, setter=setter, now=1000)
@@ -84,6 +84,13 @@ class Lower(unittest.TestCase):
         self.assertIsNone(_meta_get("cpu_lowered"))
         self.assertEqual(EVENTS, [])
 
+    def test_foreign_is_reported_and_not_recorded(self):
+        code, reply, _ = self.run_lower("svc.exe", [(7, 1, 4.0)], {7: "foreign"})
+        self.assertEqual((code, reply["foreign"], reply["lowered"]), (200, 1, 0))
+        self.assertIn("للنظام", reply["text"])
+        self.assertIsNone(_meta_get("cpu_lowered"))
+        self.assertEqual(EVENTS, [])
+
     def test_never_lowers_own_process(self):
         code, reply, calls = self.run_lower("python.exe", [(os.getpid(), 1, 9.0)], {})
         self.assertEqual(calls, [])
@@ -107,8 +114,12 @@ class RealChild(unittest.TestCase):
         child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], creationflags=0x08000000 | 0x20)   # NORMAL_PRIORITY_CLASS صريحة: مشغّل CI نفسه بأولوية منخفضة فيرثها الابن
         try:
             created = cpuprio.cpuwatch._snap()[child.pid][1]
-            self.assertEqual(cpuprio._set_below(child.pid), "lowered")
-            self.assertEqual(cpuprio._set_below(child.pid), "already")
+            self.assertEqual(cpuprio._set_below(child.pid, created + 1), "skipped")   # معرّف أُعيد استعماله: لا يُمسّ
+            sid, session = cpuprio.procclose.me()
+            self.assertEqual(cpuprio._set_below(child.pid, created, mine=("S-1-5-21-0-0-0-1", session)), "foreign")
+            self.assertEqual(cpuprio._set_below(child.pid, created, mine=("S-1-5-18", session)), "foreign")   # الخادم بحساب خدمة
+            self.assertEqual(cpuprio._set_below(child.pid, created), "lowered")
+            self.assertEqual(cpuprio._set_below(child.pid, created), "already")
             self.assertTrue(cpuprio._alive(child.pid, created))
             self.assertFalse(cpuprio._alive(child.pid, created + 1))
         finally:
