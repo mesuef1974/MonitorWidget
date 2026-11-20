@@ -127,7 +127,7 @@ def integrity_cached(ttl=INTEGRITY_TTL):
         return dict(_INTEG)
 
 def _io_deadline(seconds):
-    import sched
+    import mwsched as sched
     bounded = sched.remaining_timeout(seconds) if hasattr(sched, "remaining_timeout") else seconds
     return time.monotonic() + bounded
 

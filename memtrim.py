@@ -21,7 +21,7 @@ from ctypes import wintypes
 
 import db
 import errlog
-import sched
+import mwsched as sched
 import secure
 from paths import CNW, ROOT
 

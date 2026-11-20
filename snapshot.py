@@ -35,7 +35,7 @@ import infra
 import memtrim
 import routes_destructive
 import routes_settings
-import sched
+import mwsched as sched
 import secure
 from cfgjson import read_json
 from paths import CNW, POLICY, PWSH, ROOT, RUNS, TIERS, TIER_TASK

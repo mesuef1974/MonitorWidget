@@ -14,7 +14,7 @@ import subprocess
 import time
 
 import infra
-import sched
+import mwsched as sched
 from paths import CNW, PWSH, ROOT
 
 ROUTES = ("/api/widget",)

@@ -37,7 +37,7 @@ class Contracts(unittest.TestCase):
         self.assertIn("'Lib\\site-packages'", body)
         self.assertIn("Set-PythonPath $tmp", body)   # يُتحقق من sys.path فعليًا قبل التبديل
         pth = _function("Set-PythonPath")
-        # ._pth يعطّل site وPYTHON* ويحصر sys.path؛ app أولًا لأن مجلد السكربت لا يُضاف فتحجب Lib وحدة sched.py
+        # ._pth يعطّل site وPYTHON* ويحصر sys.path؛ app أولًا لأن مجلد السكربت لا يُضاف فتحجب Lib أي وحدة مشروع باسم قياسي (كانت sched.py، صارت mwsched.py)
         self.assertIn("@('..\\app', 'Lib', 'DLLs')", pth)
         self.assertIn("المفسّر المحمي يبحث خارج المجلد المحمي", pth)
         self.assertIn("أول sys.path في المفسّر المحمي ليس app", pth)

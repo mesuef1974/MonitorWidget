@@ -9,7 +9,7 @@ import ctypes, os, sys, threading, time
 import procprio
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import db, infra, sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch, bootwatch, portwatch, widgetwatch, battwatch  # noqa: E402
+import db, infra, mwsched as sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch, bootwatch, portwatch, widgetwatch, battwatch  # noqa: E402
 from paths import PORT  # noqa: E402
 
 log = infra.log
