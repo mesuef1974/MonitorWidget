@@ -47,7 +47,7 @@ test('خطأ المعاينة يظهر في الصف بدل البقاء معل�
 });
 
 test('تأجيل توصية بلوحة المفاتيح ينقل التركيز إلى التالية ثم إلى «إظهار المؤجّلة»، والإظهار يعيده إلى أول تأجيل', async ({ page }) => {
-  await page.goto('/#/advice');
+  await page.goto('/#/overview');
   const snz = page.locator('#main [data-advsnooze]');
   await snz.first().waitFor({ timeout: 30000 });
   const ids = await snz.evaluateAll(bs => bs.map(b => b.dataset.advsnooze));

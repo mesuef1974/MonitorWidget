@@ -169,18 +169,42 @@ function cpuPanels(c) {   // [أعلى الصفحة، أسفلها]
   return [top, out];
 }
 function cpuChart(c) { const el = $("#cpuChart"); if (!c || !el) return; const ix = compact(c.series.t, 160), p = a => ix.map(i => a[i]); chart(el, { t: p(c.series.t), series: [{ id: "c", name: "نواة", color: "var(--accent)", v: p(c.series.v), fmt: v => nf(v, 2) }], min: 0, max: c.ncpu, height: 230, yFmt: v => nf(v, 0) }); }
+// البند 29-ب من المجلس 19/11: «التوصيات» و«التنبيهات» صارتا صندوق «يحتاج انتباهك» أعلى «نظرة عامة»،
+// وحدود التنبيه لوحة في «التحكم»، والسجل الكامل في «السجل»
+const advCard = i => `<article class="card lvl-${esc(i.lvl)}"><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p><div class="acts">${i.go ? `<a class="btn" href="#/${esc(i.go)}">فتح الصفحة</a>` : ""}${i.action ? `<button class="btn primary" data-adv='${esc(JSON.stringify({ api: i.action.api, body: i.action.body || {}, confirm: i.action.confirm || "" }))}'>${esc(i.action.label || "تنفيذ")}</button>` : ""}${i.lvl !== "ok" ? `<button class="btn" data-advsnooze="${esc(i.id)}" title="تُخفى 24 ساعة على هذا المتصفح">تأجيل 24 س</button>` : ""}</div></article>`;
+const LVL_ORDER = { bad: 0, warn: 1, info: 2, ok: 3 };
+function attentionPanel(adv, al) {
+  const sn = advSnoozed(), all = (adv?.items || []).slice().sort((a, b) => (LVL_ORDER[a.lvl] ?? 9) - (LVL_ORDER[b.lvl] ?? 9));
+  const vis = all.filter(i => !sn[i.id] && i.lvl !== "ok"), hid = all.filter(i => sn[i.id]).length, oks = all.filter(i => !sn[i.id] && i.lvl === "ok");
+  const t24 = Date.now() / 1000 - 86400, log = (al?.log || []).filter(x => x.ts >= t24);
+  const c = { bad: 0, warn: 0, info: 0 }; vis.forEach(i => { if (i.lvl in c) c[i.lvl]++; });
+  const meta = adv ? `<span class="tag bad">${Q(c.bad)} حرج</span> <span class="tag warn">${Q(c.warn)} انتبه</span> <span class="tag">${Q(c.info)} للعلم</span>` : "";
+  const cards = adv ? `<div class="cards">${(vis.length ? vis : oks).map(advCard).join("") || '<div class="empty">لا شيء يحتاج انتباهك</div>'}</div>` : '<p class="note">تعذّر قراءة التوصيات.</p>';
+  const logs = al ? (log.length ? `<details class="att-log"${log.some(x => x.sev === "bad") ? " open" : ""}><summary>تنبيهات آخر 24 ساعة (${Q(log.length)})</summary><div class="list scrollbox">${log.map(x => `<div class="li"><span class="t"><span class="tag ${sev(x.sev)}">${SRC[x.source] || esc(x.source)}</span> ${esc(x.title)}</span><span class="r note">${when(x.ts)}</span><span class="d">${esc(x.detail || "")}</span></div>`).join("")}</div></details>` : '<p class="note">لا تنبيهات في آخر 24 ساعة.</p>') : "";
+  const foot = `<div class="acts">${hid ? `<button class="btn" data-advrestore="1">إظهار ${Q(hid)} مؤجّلة</button>` : ""}<a class="btn" href="#/history">السجل الكامل</a><a class="btn" href="#/ctrl">حدود التنبيه</a></div>`;
+  return panel("يحتاج انتباهك", cards + logs + foot, { cls: "c12", meta });
+}
+function alertsForm(d) {
+  const F = [["mem", "الذاكرة", [["ramWarn", "تحذير الذاكرة %"], ["ramBad", "خطر الذاكرة %"], ["commitWarn", "تحذير الالتزام %"], ["commitBad", "خطر الالتزام %"]]], ["cpu", "المعالج", [["minCores", "حدّ التنبيه (نواة)"], ["windowMin", "النافذة (دقائق)"]]], ["disk", "القرص C", [["freeWarnGB", "تحذير: أقل من GB"], ["freeBadGB", "خطر: أقل من GB"]]], ["gpu", "كرت الشاشة", [["tempWarn", "تحذير الحرارة °"], ["tempBad", "خطر الحرارة °"]]]];
+  return `<form id="alForm" class="panel c12 form-grid"><div class="ph"><h2>حدود التنبيه</h2></div>${F.map(([sec, t, fs]) => `<fieldset class="fs"><legend>${t}</legend>${fs.map(([k, l]) => `<label class="fld"><span>${l}</span><input class="inp" type="number" dir="ltr" autocomplete="off" name="${sec}.${k}" value="${d.cfg[sec][k]}" step="any" min="${d.limits[sec][k][0]}" max="${d.limits[sec][k][1]}"></label>`).join("")}</fieldset>`).join("")}<fieldset class="fs"><legend>برامج لا ينبّه المعالج عنها</legend><textarea class="inp" name="cpu.ignore" rows="3" dir="ltr" placeholder="backup.exe" aria-label="برامج لا ينبّه المعالج عنها، اسم في كل سطر">${esc((d.cfg.cpu.ignore || []).join("\n"))}</textarea></fieldset><div class="acts"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" id="alReset">القيم الافتراضية</button></div></form>`;
+}
+function alertsFormHook(d) {
+  const f = $("#alForm"); if (!f) return;
+  f.onsubmit = async e => { e.preventDefault(); const o = { cpu: {}, mem: {}, disk: {}, gpu: {} }; f.querySelectorAll("input[type=number]").forEach(i => { const [s, k] = i.name.split("."); o[s][k] = Number(i.value); }); o.cpu.ignore = f.querySelector("textarea").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); await act(async () => { await post("/api/alerts", o); f.querySelectorAll("input, textarea").forEach(i => { i.defaultValue = i.value; }); }, "حُفظت حدود التنبيه"); };   // بعد الحفظ يصير النموذج نظيفًا فيُسمح للتحديث باستبداله
+  $("#alReset").onclick = () => { for (const [sec, vals] of Object.entries(d.defaults)) for (const [k, v] of Object.entries(vals)) { const i = f.querySelector(`[name="${sec}.${k}"]`); if (i && k !== "ignore") i.value = v; } };
+}
 const PAGES = {
   overview: {
     title: "نظرة عامة", sub: "حالة الجهاز الآن في لمحة واحدة", icon: "home",
-    async load() { return settle(api("/api/home"), api("/api/mem?range=6h"), api("/api/health")); },
-    render([home, mem, health]) {
-      if (!home && !mem) return nodata("البيانات من الخادم");
+    async load() { return settle(api("/api/home"), api("/api/mem?range=6h"), api("/api/health"), api("/api/advice"), api("/api/alerts")); },
+    render([home, mem, health, adv, al]) {
+      if (!home && !mem) return attentionPanel(adv, al) + nodata("البيانات من الخادم");
       const m = mem?.m || {}, sc = health?.score?.score, [vt, vl] = sc != null ? verdict(sc) : ["—", ""];
       const cpuPct = home?.cpu?.pct, g = home?.gpu, io = home?.io?.now;
       // قراءة قديمة لا تُعرض حيّة: المؤشر بلا قيمة ولا لون، وآخر قيمة تُذكر مع عمرها؛ والرسوميات بلا مقاييس ألوان ومعلّمة بالقِدم
       const cpuOld = cpuPct != null && isStale(home?.cpu?.age), gOld = !!g && isStale(g.age);
       const ms = mem?.series, idx = ms ? compact(ms.t, 160) : [];
-      let out = panel("الحالة العامة", `<div class="hero"><div class="big num" style="color:var(--${vl === "bad" ? "bad" : vl === "warn" ? "warn" : "accent-text"})">${sc ?? "—"}</div><div><h3>صحة الجهاز ${vt}</h3><p>${health?.forecast ? `المساحة الحرة على C ${nf(health.forecast.freeGB, 1)} GB، والاتجاه ${esc(health.forecast.state)}${health.forecast.daysLeft ? ` — يكفي نحو ${nf(health.forecast.daysLeft)} يومًا` : ""}.` : "لا تتوفر بيانات التوقع بعد."}</p><div class="pill-row mt-2"><span class="tag ${vl}">${health?.score?.coveragePct ?? "—"}% تغطية القياس</span><span class="tag">${nf(m.claude)} عملية Claude</span><span class="tag">${nf(io?.stalls24 ?? home?.io?.stalls24)} توقفات قرص / 24س</span></div></div></div>`, { cls: "c12" });
+      let out = attentionPanel(adv, al) + panel("الحالة العامة", `<div class="hero"><div class="big num" style="color:var(--${vl === "bad" ? "bad" : vl === "warn" ? "warn" : "accent-text"})">${sc ?? "—"}</div><div><h3>صحة الجهاز ${vt}</h3><p>${health?.forecast ? `المساحة الحرة على C ${nf(health.forecast.freeGB, 1)} GB، والاتجاه ${esc(health.forecast.state)}${health.forecast.daysLeft ? ` — يكفي نحو ${nf(health.forecast.daysLeft)} يومًا` : ""}.` : "لا تتوفر بيانات التوقع بعد."}</p><div class="pill-row mt-2"><span class="tag ${vl}">${health?.score?.coveragePct ?? "—"}% تغطية القياس</span><span class="tag">${nf(m.claude)} عملية Claude</span><span class="tag">${nf(io?.stalls24 ?? home?.io?.stalls24)} توقفات قرص / 24س</span></div></div></div>`, { cls: "c12" });
       out += panel("المقاييس الحية", `<div class="gauges">${gauge({ value: cpuOld ? null : cpuPct, label: "المعالج", sub: cpuOld ? `${staleTag(home.cpu.age)} آخرها ${Q(cpuPct, "%")}` : `${Q(home?.cpu?.cores, "", 1)} من ${Q(home?.cpu?.ncpu)} نواة`, warn: 70, bad: 90 })}${gauge({ value: m.ramPct, label: "الذاكرة الفعلية", sub: `${Q(m.totalGB - m.availGB, "", 1)} من ${Q(m.totalGB, "GB", 1)}`, warn: 80, bad: 92 })}${gauge({ value: m.commitPct, label: "التزام الذاكرة", sub: `${Q(m.commitGB, "", 1)} من ${Q(m.limitGB, "GB", 1)}`, warn: 85, bad: 95 })}${gauge({ value: m.diskPct, label: "القرص C", sub: `حرّ ${Q(m.diskFreeGB, "GB", 1)}`, warn: 85, bad: 93 })}${(m.drives || []).map(d => gauge({ value: d.pct, label: `القرص ${esc(d.letter)}`, sub: `حرّ ${Q(d.freeGB, "GB", 1)}`, warn: 85, bad: 93 })).join("")}</div>`, { cls: "c8" });
       const gm = (...a) => gOld ? "" : meter(...a);
       out += panel("الرسوميات", g ? `<div class="kpis two">${kpi("الحرارة", nf(g.temp), "°C", "", gm(g.temp, 75, 85))}${kpi("الحمل", nf(g.util), "%", "", gm(g.util, 80, 95))}${kpi("ذاكرة الشاشة", nf(g.vramMB / 1024, 1), "GB", `من ${Q(g.vramTotal / 1024, "GB", 1)}`, gm(g.vramMB, g.vramTotal * .8, g.vramTotal * .95, g.vramTotal))}${kpi("القدرة", nf(g.power, 1), "W")}</div>` : `<div class="empty">لا توجد بيانات</div>`, { cls: "c4", meta: `${gOld ? staleTag(g.age) + " " : ""}<a href="#/gpu" class="tag">التفاصيل</a>` });
@@ -954,39 +978,12 @@ Object.assign(PAGES, {
     }
   },
 
-  advice: {
-    title: "التوصيات", sub: "مرتبطة بالقياسات؛ لا تُنفَّذ تلقائيًا", icon: "bulb",
-    async load() { return settle(api("/api/advice")); },
-    render([d]) {
-      if (!d) return nodata("التوصيات");
-      const sn = advSnoozed(), vis = (d.items || []).filter(i => !sn[i.id]), hid = (d.items || []).length - vis.length;
-      const c = { bad: 0, warn: 0, info: 0, ok: 0 }; vis.forEach(i => { if (i.lvl in c) c[i.lvl]++; });
-      return panel("الملخص", `<div class="pill-row"><span class="tag bad">${Q(c.bad)} حرج</span><span class="tag warn">${Q(c.warn)} انتبه</span><span class="tag">${Q(c.info)} للعلم</span><span class="tag ok">${Q(c.ok)} سليم</span>${hid ? `<button class="btn" data-advrestore="1">إظهار ${Q(hid)} مؤجّلة</button>` : ""}</div>`)
-        + `<div class="cards">${vis.map(i => `<article class="card lvl-${esc(i.lvl)}"><h3>${esc(i.title)}</h3><p>${esc(i.text)}</p><div class="acts">${i.go ? `<a class="btn" href="#/${esc(i.go)}">فتح الصفحة</a>` : ""}${i.action ? `<button class="btn primary" data-adv='${esc(JSON.stringify({ api: i.action.api, body: i.action.body || {}, confirm: i.action.confirm || "" }))}'>${esc(i.action.label || "تنفيذ")}</button>` : ""}${i.lvl !== "ok" ? `<button class="btn" data-advsnooze="${esc(i.id)}" title="تُخفى 24 ساعة على هذا المتصفح">تأجيل 24 س</button>` : ""}</div></article>`).join("") || '<div class="empty">لا توصيات ظاهرة</div>'}</div>`;
-    }
-  },
-
-  alerts: {
-    title: "مركز التنبيهات", sub: "حدود التنبيه المشتركة وسجل التنبيهات", icon: "bell",
-    async load() { return settle(api("/api/alerts")); },
-    render([d]) {
-      if (!d || !d.cfg || !d.limits) return nodata("التنبيهات");
-      const F = [["mem", "الذاكرة", [["ramWarn", "تحذير الذاكرة %"], ["ramBad", "خطر الذاكرة %"], ["commitWarn", "تحذير الالتزام %"], ["commitBad", "خطر الالتزام %"]]], ["cpu", "المعالج", [["minCores", "حدّ التنبيه (نواة)"], ["windowMin", "النافذة (دقائق)"]]], ["disk", "القرص C", [["freeWarnGB", "تحذير: أقل من GB"], ["freeBadGB", "خطر: أقل من GB"]]], ["gpu", "كرت الشاشة", [["tempWarn", "تحذير الحرارة °"], ["tempBad", "خطر الحرارة °"]]]];
-      return `<form id="alForm" class="panel c12 form-grid"><div class="ph"><h2>الحدود</h2></div>${F.map(([sec, t, fs]) => `<fieldset class="fs"><legend>${t}</legend>${fs.map(([k, l]) => `<label class="fld"><span>${l}</span><input class="inp" type="number" dir="ltr" autocomplete="off" name="${sec}.${k}" value="${d.cfg[sec][k]}" step="any" min="${d.limits[sec][k][0]}" max="${d.limits[sec][k][1]}"></label>`).join("")}</fieldset>`).join("")}<fieldset class="fs"><legend>برامج لا ينبّه المعالج عنها</legend><textarea class="inp" name="cpu.ignore" rows="3" dir="ltr" placeholder="backup.exe" aria-label="برامج لا ينبّه المعالج عنها، اسم في كل سطر">${esc((d.cfg.cpu.ignore || []).join("\n"))}</textarea></fieldset><div class="acts"><button class="btn primary" type="submit">حفظ</button><button class="btn" type="button" id="alReset">القيم الافتراضية</button></div></form>`
-        + panel("سجل التنبيهات", `<div class="list scrollbox">${d.log.map(x => `<div class="li"><span class="t"><span class="tag ${sev(x.sev)}">${SRC[x.source] || esc(x.source)}</span> ${esc(x.title)}</span><span class="r note">${when(x.ts)}</span><span class="d">${esc(x.detail || "")}</span></div>`).join("") || '<div class="empty">لا تنبيهات</div>'}</div>`, { cls: "c12" });
-    },
-    after([d]) {
-      const f = $("#alForm"); if (!f) return;
-      f.onsubmit = async e => { e.preventDefault(); const o = { cpu: {}, mem: {}, disk: {}, gpu: {} }; f.querySelectorAll("input[type=number]").forEach(i => { const [s, k] = i.name.split("."); o[s][k] = Number(i.value); }); o.cpu.ignore = f.querySelector("textarea").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean); await act(async () => { await post("/api/alerts", o); f.querySelectorAll("input, textarea").forEach(i => { i.defaultValue = i.value; }); }, "حُفظت حدود التنبيه"); };   // بعد الحفظ يصير النموذج نظيفًا فيُسمح للتحديث باستبداله
-      $("#alReset").onclick = () => { for (const [sec, vals] of Object.entries(d.defaults)) for (const [k, v] of Object.entries(vals)) { const i = f.querySelector(`[name="${sec}.${k}"]`); if (i && k !== "ignore") i.value = v; } };
-    }
-  },
-
   ctrl: {
     title: "الإعدادات والتحكم", sub: "المظهر والمهام الخلفية وصحة الخادم", icon: "sliders",
-    async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget"), api("/api/page-use")); },
-    render([j, m, ap, inf, wg, pu]) {
+    async load() { return settle(api("/api/jobs"), api("/api/maintenance"), api("/api/appearance"), api("/api/infra"), api("/api/widget"), api("/api/page-use"), api("/api/alerts")); },
+    render([j, m, ap, inf, wg, pu, al]) {
       let out = panel("المظهر", `<div class="field-row"><span>الوضع</span><div class="chips" role="group" aria-label="الوضع">${[["auto", "تلقائي"], ["light", "فاتح"], ["dark", "داكن"]].map(([k, l]) => `<button data-mode="${k}" aria-pressed="${ap?.mode === k}">${l}</button>`).join("")}</div></div><div class="field-row"><span>لون الهوية</span><div class="swatches" role="group" aria-label="لون الهوية">${[["teal", "أخضر بحري"], ["blue", "أزرق"], ["violet", "بنفسجي"], ["graphite", "رمادي"]].map(([k, l]) => `<button class="swatch" data-palette="${k}" aria-pressed="${ap?.palette === k}"><i style="background:var(--pal-${k})"></i>${l}</button>`).join("")}</div></div><p class="note">المكان الوحيد للمظهر في الواجهة (مع قائمة الويدجت)؛ يُحفظ الاختيار للواجهة والويدجت معًا؛ «تلقائي» يتبع نظام التشغيل، وزر القمر في الشريط يبدّل الوضع ويحفظه.</p>`, { cls: "c12" });
+      if (al?.cfg && al?.limits) out += alertsForm(al);
       out += panel("وضع الصيانة المؤقت", m ? `<div class="row-sw"><span>${m.on ? "مفعّل" : "غير مفعّل"} — يوقف ${(m.rules || []).map(esc).join("، ")} أثناء عمل Claude Code</span>${sw(!!m.on, 'data-maint="1"', "وضع الصيانة المؤقت")}</div>` : '<div class="empty">غير متاح</div>', { cls: "c12" });
       if (inf) {
         const sv = inf.server || {}, dbh = inf.db || {};
@@ -998,7 +995,8 @@ Object.assign(PAGES, {
       out += panel("استخدام الصفحات", pageUseBody(pu), { cls: "c12", meta: pu ? (pu.complete ? `<span class="tag ok">اكتملت مدة القياس</span>` : `<span class="tag">${nf(pu.elapsedDays)} من ${nf(pu.windowDays)} يومًا</span>`) : "" });
       out += panel("المهام الخلفية", j ? `<table class="tbl"><thead><tr><th>المهمة</th><th class="n">كل</th><th>آخر تشغيل</th><th>الحالة</th><th class="n">التالي</th><th></th></tr></thead><tbody>${j.jobs.map(x => `<tr><td><b>${esc(x.name)}</b></td><td class="n">${dur(x.interval_s)}</td><td class="note">${when(x.last_end)} · ${Q(x.last_ms / 1000, "ث", 1)}</td><td><span class="tag ${x.last_status === "ok" ? "ok" : "bad"}">${esc(x.last_status || "—")}</span> <span class="note">${Q(x.runs)} تشغيل · ${Q(x.fails)} فشل</span></td><td class="n note">${when(x.next_run)}</td><td><button class="btn" data-job="${esc(x.name)}">تشغيل</button></td></tr>`).join("")}</tbody></table>` : '<div class="empty">غير متاح</div>');
       return out;
-    }
+    },
+    after(data) { if (data[6]?.cfg) alertsFormHook(data[6]); }
   },
 
   dbx: {
@@ -1072,7 +1070,7 @@ document.addEventListener("click", async e => {
 });
 
 const NAV = [
-  ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
+  ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"]]],
   ["الأداء", [["procs", "العمليات والمعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
   ["الصيانة", [["space", "المساحة وتنظيفها"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["الإعدادات", [["ctrl", "التحكم"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
@@ -1191,7 +1189,7 @@ async function show(first = false) {
 }
 // warm the heavy pages once the first one is on screen so opening them later is instant
 async function prefetch() {
-  for (const k of ["space", "advice", "startup", "dbx", "health", "procs", "history"]) {
+  for (const k of ["space", "startup", "dbx", "health", "procs", "history"]) {
     if (CACHE[k]) continue;
     try { const data = await PAGES[k].load(); if (!data.every(x => x == null)) CACHE[k] = { data, sig: JSON.stringify(data) }; } catch { }
     await new Promise(r => setTimeout(r, 400));
@@ -1206,7 +1204,7 @@ function track(key) {
   fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
 }
 let routed = false;
-const PAGE_ALIAS = { appearance: "ctrl", cpu: "procs", spaceclean: "space" };   // البندان 26 و28 من المجلس 19/11: «المظهر الموحد» دُمجت في لوحة المظهر بالتحكم، و«المعالج» في «العمليات»، و«تنظيف المساحة» في «المساحة» (البند 29)؛ الروابط القديمة تصل إليها
+const PAGE_ALIAS = { appearance: "ctrl", cpu: "procs", spaceclean: "space", advice: "overview", alerts: "overview" };   // البندان 26 و28 من المجلس 19/11: «المظهر الموحد» دُمجت في لوحة المظهر بالتحكم، و«المعالج» في «العمليات»، و«تنظيف المساحة» في «المساحة» (البند 29)؛ الروابط القديمة تصل إليها
 function route() {
   const { key: k0, qs } = parseHash(), k = PAGE_ALIAS[k0] || k0; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */

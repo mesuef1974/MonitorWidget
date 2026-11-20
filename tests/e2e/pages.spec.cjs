@@ -147,3 +147,29 @@ test('المساحة وتنظيفها صفحة واحدة: #/spaceclean يفتح
   expect(titles).not.toContain('حالة التنظيف');
   await expect(page.locator('#main section.panel', { has: page.locator('h2', { hasText: /^القرص C$/ }) })).toContainText('محجوز بالحجر');
 });
+
+// البند 29-ب من المجلس 19/11: «التوصيات» و«التنبيهات» صندوق «يحتاج انتباهك» أعلى «نظرة عامة»؛ الحدود في التحكم
+test('يحتاج انتباهك: أول لوحة في نظرة عامة بالتوصيات وتنبيهات 24 ساعة، والصفحتان القديمتان تُحوَّلان إليها', async ({ page }) => {
+  const now = Math.floor(Date.now() / 1000);
+  await page.route('**/api/alerts', async r => {
+    const res = await r.fetch(), d = await res.json();
+    d.log = [{ ts: now - 600, source: 'disk', sev: 'bad', title: 'تنبيه حديث للاختبار', detail: '' }, ...d.log];
+    await r.fulfill({ response: res, json: d });
+  });
+  for (const h of ['#/advice', '#/alerts']) {
+    await page.goto('/' + h);
+    await page.waitForFunction(() => location.hash === '#/overview' && document.querySelector('#main section.panel h2'));
+  }
+  const first = page.locator('#main section.panel').first();
+  await expect(first.locator('h2')).toHaveText('يحتاج انتباهك');
+  await expect(first.locator('.card.lvl-warn')).toHaveCount(1);
+  await expect(first.locator('.card.lvl-ok')).toHaveCount(0);   // «سليم» لا يظهر مع بنود أهم
+  await expect(first.locator('details.att-log[open]')).toContainText('تنبيه حديث للاختبار');   // تنبيه حرج يفتح القائمة
+  await expect(first.locator('details.att-log .li')).toHaveCount(1);   // تنبيهات الثوابت أقدم من 24 ساعة
+  for (const k of ['advice', 'alerts']) {
+    expect(await page.locator(`#nav a[href="#/${k}"]`).count()).toBe(0);
+    expect(await page.evaluate(x => typeof PAGES[x], k)).toBe('undefined');
+  }
+  await page.goto('/#/ctrl');
+  await expect(page.locator('#alForm h2')).toHaveText('حدود التنبيه');
+});
