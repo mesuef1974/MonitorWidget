@@ -390,6 +390,8 @@ $stack.Children.Add($hdr) | Out-Null
 $UI.cpuAlert = New-Text '' 11.5 $C.warn; $UI.cpuAlert.TextWrapping = 'Wrap'; $UI.cpuAlert.Margin = '0,6,0,0'; $UI.cpuAlert.Visibility = 'Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.cpuAlert, 'Assertive'); $stack.Children.Add($UI.cpuAlert) | Out-Null
 # إنذار البطارية: نصّ الخادم (battAlert) حين الجهاز على البطارية وقريب من حدّه الحرج
 $UI.battAlert = New-Text '' 11.5 $C.warn; $UI.battAlert.TextWrapping = 'Wrap'; $UI.battAlert.Margin = '0,6,0,0'; $UI.battAlert.Visibility = 'Collapsed'; [Windows.Automation.AutomationProperties]::SetLiveSetting($UI.battAlert, 'Assertive'); $stack.Children.Add($UI.battAlert) | Out-Null
+# صحة المرصد نفسه (self في /api/mini، البندان 21 و22 من المجلس 19/11): سطر حين يتأخر جامع أو نسخة أو تتجاوز عملياته ميزانيتها؛ لا يغيّر لون حالة الجهاز
+$UI.selfAlert = New-Text '' 11 $C.muted; $UI.selfAlert.TextWrapping = 'Wrap'; $UI.selfAlert.Margin = '0,6,0,0'; $UI.selfAlert.Visibility = 'Collapsed'; $stack.Children.Add($UI.selfAlert) | Out-Null
 # حارس المعالج: يخفض أولوية العملية المنبَّه إليها (لا يوقفها)؛ الخادم يستثني عمليات النظام والمرصد
 $UI.cpuLower = New-ActionButton 'اخفض أولوية العملية التي تستهلك المعالج'; $UI.cpuLower.Content = 'اخفض أولويتها'; $UI.cpuLower.Foreground = Brush $C.accentText; $UI.cpuLower.Background = Brush $C.card; $UI.cpuLower.BorderBrush = Brush $C.line; $UI.cpuLower.BorderThickness = 1; $UI.cpuLower.FontSize = 12; $UI.cpuLower.FontFamily = $FONTS.list; $UI.cpuLower.Padding = '10,2,10,2'; $UI.cpuLower.HorizontalAlignment = 'Left'; $UI.cpuLower.HorizontalContentAlignment = 'Center'; $UI.cpuLower.Margin = '0,4,0,0'; $UI.cpuLower.Visibility = 'Collapsed'; $stack.Children.Add($UI.cpuLower) | Out-Null
 $UI.cpuLower.Add_Click({
@@ -673,7 +675,7 @@ foreach ($spec in @(@('cpu','المعالج'), @('ram','الذاكرة الفع�
     $UI[('compact'+$spec[0])]=$value;$UI.approvedReadingRows+=@{Root=$row;Label=$label;Value=$value}
 }
 $UI.compactAlert=New-Text '' 12 $C.muted;$UI.compactAlert.TextWrapping='Wrap';$UI.compactAlert.Margin='0,4,0,0';[void]$compact.Children.Clear();[void]$compact.Children.Add($UI.compactAlert)
-foreach($n in @($hdr,$UI.battAlert,$UI.cpuAlert,$UI.cpuLower,$UI.appearanceWarning)){[void]$stack.Children.Add($n)}
+foreach($n in @($hdr,$UI.battAlert,$UI.cpuAlert,$UI.cpuLower,$UI.selfAlert,$UI.appearanceWarning)){[void]$stack.Children.Add($n)}
 $UI.historyNotice=New-Text '' 12 $C.muted;$UI.historyNotice.TextWrapping='Wrap';$UI.historyNotice.Visibility='Collapsed';[void]$stack.Children.Add($UI.historyNotice)
 $UI.restoredBody=New-Object Windows.Controls.Grid
 $UI.restoredMetrics=New-Object Windows.Controls.StackPanel;$UI.restoredActions=New-Object Windows.Controls.StackPanel
@@ -1047,6 +1049,12 @@ function Update-Widget {
             $UI.battAlert.Text = '⚠ ' + [string]$ba.text; $UI.battAlert.Foreground = Brush $(if ($ba.level -eq 'bad') { $C.bad } else { $C.warn }); $UI.battAlert.Visibility = 'Visible'
             if ($ba.level -eq 'bad') { $worst = 'bad'; if (-not $script:battToasted) { $script:battToasted = $true; Show-Toast ([string]$ba.text) } } elseif ($worst -eq 'ok') { $worst = 'warn' }
         } else { $UI.battAlert.Visibility = 'Collapsed'; $script:battToasted = $false }
+    } catch {}
+    try {
+        $sh = $d.self
+        if ($sh -and $sh.level -and $sh.level -ne 'ok' -and $sh.text) {
+            $UI.selfAlert.Text = [string]$sh.text; $UI.selfAlert.Foreground = Brush $(if ($sh.level -eq 'bad') { $C.bad } else { $C.warn }); $UI.selfAlert.Visibility = 'Visible'
+        } else { $UI.selfAlert.Visibility = 'Collapsed' }
     } catch {}
     $UI.pill.Background = Level-Brush $worst; $UI.pillText.Text = switch ($worst) { 'bad' { 'حرج' } 'warn' { 'تنبيه' } default { 'مستقر' } }
     $sc = $d.score

@@ -664,7 +664,7 @@ Describe 'حارس المعالج في الويدجت: زر «اخفض أولو�
     It 'الزر مسمّى لقارئ الشاشة، مخفيّ افتراضيًا، ويُعاد إلى المكدّس مع التنبيه في التخطيط المستعاد' {
         $script:cpuSrc | Should -Match "\`$UI\.cpuLower = New-ActionButton 'اخفض أولوية العملية التي تستهلك المعالج'"
         $script:cpuSrc | Should -Match "\`$UI\.cpuLower\.Visibility = 'Collapsed'; \`$stack\.Children\.Add\(\`$UI\.cpuLower\)"
-        $script:cpuSrc | Should -Match '@\(\$hdr,\$UI\.battAlert,\$UI\.cpuAlert,\$UI\.cpuLower,\$UI\.appearanceWarning\)'
+        $script:cpuSrc | Should -Match '@\(\$hdr,\$UI\.battAlert,\$UI\.cpuAlert,\$UI\.cpuLower,\$UI\.selfAlert,\$UI\.appearanceWarning\)'
     }
     It 'الضغط يرسل اسم العملية المنبَّه إليها إلى /api/cpu-lower ويعرض ردّ الخادم' {
         $script:cpuSrc | Should -Match "Start-Bg '/api/cpu-lower' @\{ name = \`$target \}"
