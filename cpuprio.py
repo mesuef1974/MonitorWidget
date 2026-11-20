@@ -3,7 +3,9 @@
 
 الخفض إلى BELOW_NORMAL فقط، لعمليات الاسم المطلوب التي تستهلك الآن نصف نواة فأكثر، ولا يمسّ عملية أولويتها
 ليست NORMAL (ما رفعه أو خفضه صاحبه عمدًا يبقى). لا إيقاف ولا قتل: العملية تكمل عملها، والواجهات تأخذ المعالج
-حين تحتاجه، والأثر يزول بانتهاء العملية. عمليات النظام والمرصد نفسه مستثناة.
+حين تحتاجه، والأثر يزول بانتهاء العملية. عمليات النظام والمرصد نفسه مستثناة بالاسم، والخادم مسؤول دائمًا فلا يكفي الاسم:
+على المقبض المفتوح نفسه يُطابَق وقت الإنشاء المقيس (المعرّف لم يُعَد استعماله) وتُشترط ملكية المستخدم التفاعلي في جلسته
+(procclose.owner_reason)، فلا تُخفض عملية SYSTEM أو خدمة أو مستخدم آخر.
 
     ROUTES / post(route, body, invalidate)   POST /api/cpu-lower {"name": "python.exe"}
     busy_pids(name, snap0, snap1, dt)        نقية: [(pid, وقت الإنشاء, الأنوية)] لعمليات الاسم المشغولة
@@ -18,6 +20,7 @@ from ctypes import wintypes
 
 import cpuwatch
 import db
+import procclose
 
 K = cpuwatch.K
 K.SetPriorityClass.argtypes = [ctypes.c_void_p, wintypes.DWORD]
@@ -60,12 +63,20 @@ def _measure(name):
     return busy_pids(name, a, b, time.time() - t0)
 
 
-def _set_below(pid):
-    """lowered | already | skipped (أولوية غير عادية) | denied."""
+def _set_below(pid, created, mine=None):
+    """lowered | already | skipped (أولوية غير عادية أو تبدّل وقت الإنشاء) | foreign (ليست للمستخدم التفاعلي) | denied.
+    الفحص على المقبض المفتوح نفسه، والمعرّف لا يُعاد استعماله ما دام مفتوحًا، فلا سباق بين الفحص والتغيير."""
     h = K.OpenProcess(0x0200 | 0x1000, False, pid)   # PROCESS_SET_INFORMATION | PROCESS_QUERY_LIMITED_INFORMATION
     if not h:
         return "denied"
     try:
+        cur_created, sid, session = procclose._ident(h, pid)
+        if cur_created is None:
+            return "denied"
+        if cur_created != str(created):
+            return "skipped"
+        if procclose.owner_reason(sid, session, procclose.me() if mine is None else mine):
+            return "foreign"
         cur = K.GetPriorityClass(h)
         if cur in (BELOW_NORMAL, IDLE):
             return "already"
@@ -82,14 +93,14 @@ def lower(name, measure=_measure, setter=_set_below, now=None):
         return 400, {"error": "عملية محمية أو اسم غير صالح"}
     busy = measure(name)
     if not busy:
-        return 200, {"ok": True, "name": name, "lowered": 0, "already": 0, "denied": 0, "skipped": 0,
+        return 200, {"ok": True, "name": name, "lowered": 0, "already": 0, "denied": 0, "skipped": 0, "foreign": 0,
                      "text": "لا عملية بهذا الاسم تستهلك المعالج الآن"}
-    counts = {"lowered": 0, "already": 0, "denied": 0, "skipped": 0}
+    counts = {"lowered": 0, "already": 0, "denied": 0, "skipped": 0, "foreign": 0}
     kept = []
     for pid, created, _cores in busy:
         if pid == os.getpid():
             continue
-        res = setter(pid)
+        res = setter(pid, created)
         counts[res] = counts.get(res, 0) + 1
         if res in ("lowered", "already"):
             kept.append([pid, created])
@@ -103,6 +114,8 @@ def lower(name, measure=_measure, setter=_set_below, now=None):
         text = "خُفضت أولوية %s (%d)" % (name, counts["lowered"])
     elif counts["already"]:
         text = "أولوية %s مخفّضة من قبل" % name
+    elif counts["foreign"]:
+        text = "العملية للنظام أو لمستخدم آخر فلا تُخفض"
     elif counts["denied"]:
         text = "تعذّر: العملية تعمل بصلاحية أعلى من الخادم"
     else:
