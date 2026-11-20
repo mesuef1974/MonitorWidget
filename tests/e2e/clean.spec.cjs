@@ -8,7 +8,7 @@ const replier = replies => { let n = 0; return route => route.fulfill({ json: re
 async function previewThenClean(page, cleanReplies) {
   await page.route('**/api/space-preview*', replier([{ state: 'done', dirs: 2600, files: 1840, mb: 512.3, elapsed: 2, res: { ok: true, dry: true, mb: 512.3, files: 1840, skipped: 0 } }]));
   await page.route('**/api/space-clean*', replier(cleanReplies));
-  await page.goto('/#/spaceclean');
+  await page.goto('/#/space');
   const cell = page.locator('#main td[data-fa="sp-temp"]');
   await cell.locator('button[data-sp="preview"]').click({ timeout: 30000 });
   await cell.locator('button[data-sp="clean"]').click({ timeout: 5000 });
@@ -41,7 +41,7 @@ test('التنظيف الجماعي يعرض النوع الجاري وتقدّ�
     run('clean', 'edgecache', 40, 300, 12),
     { state: 'done', phase: 'clean', kind: 'swdist', dirs: 0, files: 0, mb: 0, elapsed: 5, res: { ok: true, mb: 270.4, parts: [{ kind: 'temp', emptyDirs: 1200 }, { kind: 'edgecache', emptyDirs: 0 }] } },
   ]));
-  await page.goto('/#/spaceclean');
+  await page.goto('/#/space');
   await page.locator('#main button[data-sp="all"]').click({ timeout: 30000 });
   await page.getByRole('button', { name: 'نظّف الكل' }).click();
   await expect(page.locator('#main [data-spall-prog]')).toContainText('ذاكرة Edge · فُحص 40 مجلد · عولج 300 ملف · تحرّر 12 MB');
@@ -52,7 +52,7 @@ test('الحذف بعد المعاينة يعرض حوار تأكيد، و«إل
   const posts = [];
   page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/api/space')) posts.push(JSON.parse(r.postData() || '{}').action); });
   await page.route('**/api/space-preview*', replier([{ state: 'done', dirs: 2600, files: 1840, mb: 512.3, elapsed: 2, res: { ok: true, dry: true, mb: 512.3, files: 1840, skipped: 0 } }]));
-  await page.goto('/#/spaceclean');
+  await page.goto('/#/space');
   const cell = page.locator('#main td[data-fa="sp-temp"]');
   await cell.locator('button[data-sp="preview"]').click({ timeout: 30000 });
   await cell.locator('button[data-sp="clean"]').click({ timeout: 5000 });

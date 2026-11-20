@@ -9,7 +9,7 @@ const done = res => ({ state: 'done', files: res.files || 0, mb: res.mb || 0, el
 async function openTemp(page, replies) {
   let n = 0;
   await page.route('**/api/space-preview*', route => route.fulfill({ json: replies[Math.min(n++, replies.length - 1)] }));
-  await page.goto('/#/spaceclean');
+  await page.goto('/#/space');
   const btn = page.locator('#main button[data-sp="preview"][data-spk="temp"]');
   await btn.waitFor({ timeout: 30000 });
   await btn.focus();

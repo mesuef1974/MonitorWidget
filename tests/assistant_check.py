@@ -210,7 +210,7 @@ class DeleteRequests(Base):
         script = self.use()
         for q in ("احذف كل الملفات المؤقتة الآن", "امسح ملفات التنزيلات القديمة", "فرّغ القرص من الملفات الكبيرة", "نظّف المساحة"):
             r = assistant.answer(q)
-            self.assertEqual(r["actions"], [{"action": "open_page", "target": "spaceclean", "label": assistant.ACTIONS["open_page"]}], q)
+            self.assertEqual(r["actions"], [{"action": "open_page", "target": "space", "label": assistant.ACTIONS["open_page"]}], q)
         self.assertEqual(script.sent, [])
 
     def test_other_requests_still_reach_the_model(self):

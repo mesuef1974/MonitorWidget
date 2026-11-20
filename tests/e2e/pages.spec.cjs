@@ -132,3 +132,18 @@ test('المعالج داخل العمليات: لا رابط #/cpu في الق�
   for (const h of ['الحمل الحالي', 'المعالج الكلي خلال ساعة', 'الملخص', 'متوسط آخر ساعة'])
     expect(await page.locator('#main section.panel h2', { hasText: h }).count(), h).toBeGreaterThan(0);
 });
+
+// البند 29 (أ) من المجلس 19/11: «المساحة» و«تنظيف المساحة» صفحة واحدة بقسمين؛ الرابط القديم يصل إليها
+test('المساحة وتنظيفها صفحة واحدة: #/spaceclean يفتح #/space بقسم التحليل ثم قسم التنظيف', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.goto('/#/spaceclean');
+  await page.waitForFunction(() => location.hash === '#/space' && document.querySelectorAll('#main section.panel').length > 6, null, { timeout: 45000 });
+  expect(await page.locator('#nav a[href="#/spaceclean"]').count()).toBe(0);
+  expect(await page.evaluate(() => typeof PAGES.spaceclean)).toBe('undefined');
+  const titles = await page.locator('#main section.panel h2').allTextContents();
+  const c = titles.indexOf('القرص C'), q = titles.findIndex(t => t.startsWith('الحجر'));
+  expect(c, titles.join(' | ')).toBe(0);
+  expect(q, titles.join(' | ')).toBeGreaterThan(c);
+  expect(titles).not.toContain('حالة التنظيف');
+  await expect(page.locator('#main section.panel', { has: page.locator('h2', { hasText: /^القرص C$/ }) })).toContainText('محجوز بالحجر');
+});

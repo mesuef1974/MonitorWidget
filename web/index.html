@@ -864,7 +864,7 @@ Object.assign(PAGES, {
   },
 
   space: {
-    title: "المساحة", sub: "أين ذهبت المساحة وأكبر ما يشغل الأقراص", icon: "folder",
+    title: "المساحة وتنظيفها", sub: "أين ذهبت المساحة، ثم المعاينة والتنظيف والتقارير والحجر بتأكيد قبل أي حذف", icon: "folder",   // البند 29 من المجلس 19/11: «تنظيف المساحة» دُمجت هنا قسمًا ثانيًا
     async load() { return settle(api("/api/space")); },
     render([d]) {
       if (!d) return nodata("المساحة");
@@ -877,7 +877,7 @@ Object.assign(PAGES, {
       const hs = d.hist || [], hl = hs.length ? hs[hs.length - 1] : null, hb = hl ? hs.find(x => x[0] >= hl[0] - 86400) : null;
       const dlt = hl && hb && hl[0] - hb[0] >= 6 * 3600 ? hl[1] - hb[1] : null, days = dlt !== null && dlt < -0.5 ? d.free / -dlt : null;
       const trend = kpi("التغير خلال 24 ساعة", dlt === null ? "—" : `<span class="tag ${dlt < -0.5 ? "warn" : "ok"}">${dlt < 0 ? "−" : "+"}${Q(Math.abs(dlt), "GB", 1)}</span>`, "", days !== null && days < 90 ? `يمتلئ بعد نحو ${Q(days, "يوم", 0)} بهذا المعدل` : "");
-      let out = panel("القرص C", `<div class="kpis">${driveKpis(cD)}${trend}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("آخر قياس", ageQ(d.ts))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
+      let out = panel("القرص C", `<div class="kpis">${driveKpis(cD)}${trend}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("محجوز بالحجر", fmtMB((d.quarantine || []).filter(q => q.status === "held").reduce((a, q) => a + (q.bytes || 0), 0) / 1048576))}${kpi("آخر قياس", ageQ(d.ts))}${kpi("الوكيل", d.agent?.alive ? "يعمل" : "متوقف", "", "", "")}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
       for (const x of (d.drives || []).filter(z => z.letter !== "C")) {
         const dp = d.dvol?.[x.letter], top = dp?.parts?.[0];
         out += panel(`القرص ${x.letter}${x.label ? " · " + x.label : ""}`, `<div class="kpis">${driveKpis(x)}${kpi("أكبر مجلد", top ? `<bdi dir="auto">${esc(top.label)}</bdi>` : "—", "", top ? Q(top.gb, "GB", 1) : "")}${kpi("عمر القياس", dp?.ts ? ageQ(dp.ts) : "—")}</div>`, { cls: "c12" });
@@ -889,24 +889,14 @@ Object.assign(PAGES, {
       out += panel("الأقراص", `<div class="list">${(d.drives || []).map(x => `<div class="li"><span class="t">${esc(x.letter)}: ${esc(x.label)}</span><span class="r">${Q(x.free, "GB", 1)} حرّ</span><span class="d">${Q(x.used, "GB", 1)} من ${Q(x.total, "GB", 1)}</span>${meter(x.used, 85, 93, x.total)}</div>`).join("")}</div>`, { cls: "c4" });
       out += panel("ما يشغله القرص C", d.volume ? vp([...d.volume.parts, ...(d.volume.other > 0 ? [{ label: "غير مصنّف (محميّ أو غير مقيس)", gb: d.volume.other }] : [])].sort((a, b) => b.gb - a.gb), d.volume.used) + (d.volume.other > 0 ? `<p class="note">«غير مصنّف» غالبًا ما لا يقرؤه الخادم بصلاحية عادية: مجلدات محميّة مثل WindowsApps داخل Program Files، و«System Volume Information» (نقاط الاستعادة)، و«Recovery»، وبيانات NTFS الوصفية.</p>` : "") : `<div class="empty">لا بيانات</div>`, { cls: "c4", meta: d.volume ? `${Q(d.volume.used, "GB", 1)} مستخدم` : "" });
       out += panel("القرص D", d.dvol?.D ? vp(d.dvol.D.parts, (d.drives || []).find(x => x.letter === "D")?.used) : `<div class="empty">لا بيانات</div>`, { cls: "c4" });
-      return out;
-    },
-    after([d]) { if (!d?.hist?.length) return; const ix = compact(d.hist, 170), H = ix.map(i => d.hist[i]); chart($("#spChart"), { t: H.map(x => x[0]), series: [{ id: "s", name: "حرّ", color: "var(--accent)", v: H.map(x => x[1]), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...H.map(x => x[1])) * .97, height: 220, yFmt: v => nf(v, 0) }); }
-  },
-
-  spaceclean: {
-    title: "تنظيف المساحة", sub: "المعاينة والتنظيف والتقارير والحجر، بتأكيد قبل أي حذف", icon: "folder",
-    async load() { return settle(api("/api/space")); },
-    render([d]) {
-      if (!d) return nodata("المساحة");
-      const rec = Object.values(d.recoverableMB || {}).reduce((a, b) => a + (b || 0), 0);
-      let out = panel("حالة التنظيف", `<div class="kpis">${kpi("حرّ", Q(d.free, "GB", 1))}${kpi("قابل للتحرير بأمان", Q(rec, "MB"))}${kpi("محجوز بالحجر", fmtMB((d.quarantine || []).filter(q => q.status === "held").reduce((a, q) => a + (q.bytes || 0), 0) / 1048576))}${kpi("آخر قياس", Q((Date.now() / 1000 - d.ts) / 60, "د"))}</div>${d.running ? '<span class="tag warn">تنظيف جارٍ</span>' : ""}`, { cls: "c12" });
+      // القسم الثاني: التنظيف
       out += spaceCleanPanel(d) + spaceReportPanel(d);
       out += panel("آخر عمليات التنظيف", `<table class="tbl"><thead><tr><th>الوقت</th><th>النوع</th><th class="n">المحرَّر</th><th class="n">ملفات</th></tr></thead><tbody>${(d.runs || []).map(r => `<tr><td>${when(r.ts)}</td><td>${esc((d.labels || {})[r.kind] || r.kind)} <span class="note">${esc({ manual: "يدوي", auto: "تلقائي", "manual-early": "يدوي (مبكر)" }[r.src] || r.src)}</span></td><td class="n">${Q(r.mb, "MB", 1)}</td><td class="n">${Q(r.files)}</td></tr>`).join("")}</tbody></table>`, { cls: "c6" });
       const qh = (d.quarantine || []).filter(q => q.status === "held"), qhMB = qh.reduce((a, q) => a + (q.bytes || 0), 0) / 1048576, qn = (d.quarantine || []).length;
       out += panel("الحجر (استرجاع خلال 7 أيام)", `<p class="note">المحجوز ${fmtMB(qhMB)} في ${Q(qh.length)} عنصرًا على القرص C؛ يتحرّر آليًا عند انقضاء أيام الحجز، ولا يدخل في «القابل للتحرير».${qn > 40 ? ` يُعرض أحدث 40 من ${Q(qn)}.` : ""}</p><p>${d.qpurge && d.qpurge.running ? '<span class="tag warn">تفريغ الحجر جارٍ…</span>' : `<button class="btn" data-sp="qpurge"${qh.length ? "" : " disabled"} title="حذف دائم لكل المحجوز قبل انقضاء الأيام">فرّغ الحجر الآن (حذف نهائي)</button>`}${d.qpurge && d.qpurge.res ? ` <span class="note">${esc(d.qpurge.res)}</span>` : ""}</p><div class="scrollbox"><table class="tbl"><thead><tr><th>الملف</th><th class="n">الحجم</th><th>الحالة</th><th></th></tr></thead><tbody>${(d.quarantine || []).slice(0, 40).map(q => `<tr><td class="note cell-path" title="${esc(q.orig)}">${esc(q.orig)}</td><td class="n">${Q(q.bytes / 1048576, "MB", 1)}</td><td><span class="tag ${q.status === "held" ? "" : "warn"}">${esc({ held: "محجوز", failed: "فشل", moving: "يُنقل", restoring: "يُسترجع", purging: "يُحذف" }[q.status] || q.status)}</span></td><td>${q.status === "held" || q.status === "failed" ? `<button class="btn" data-sp="qr" data-id="${q.id}">استرجاع</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="4" class="empty">فارغ</td></tr>'}</tbody></table></div>`, { cls: "c6", meta: `${Q(qn)} عنصرًا · ${fmtMB(qhMB)}` });
       return out;
-    }
+    },
+    after([d]) { if (!d?.hist?.length) return; const ix = compact(d.hist, 170), H = ix.map(i => d.hist[i]); chart($("#spChart"), { t: H.map(x => x[0]), series: [{ id: "s", name: "حرّ", color: "var(--accent)", v: H.map(x => x[1]), fmt: v => nf(v, 1) + " GB" }], min: Math.min(...H.map(x => x[1])) * .97, height: 220, yFmt: v => nf(v, 0) }); }
   },
 
   startup: {
@@ -1084,7 +1074,7 @@ document.addEventListener("click", async e => {
 const NAV = [
   ["نظرة", [["overview", "نظرة عامة"], ["ask", "اسأل المرصد"], ["health", "صحة الجهاز"], ["advice", "التوصيات"], ["alerts", "التنبيهات"]]],
   ["الأداء", [["procs", "العمليات والمعالج"], ["mem", "الذاكرة"], ["gpu", "الرسوميات"], ["wsl", "WSL و\u00a0Docker"], ["power", "الطاقة والحرارة"], ["io", "حركة القرص"]]],
-  ["الصيانة", [["space", "المساحة"], ["spaceclean", "تنظيف المساحة"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
+  ["الصيانة", [["space", "المساحة وتنظيفها"], ["startup", "بدء التشغيل"], ["tasks", "الجدولة"], ["rules", "قواعد التنظيف"]]],
   ["الإعدادات", [["ctrl", "التحكم"]]]   // «السجل» و«القاعدة» خارج القائمة بقرار المالك 10/11/2026 (شبه معدومتَي الفتح)؛ رابطاهما في صفحة التحكم
 ];
 
@@ -1201,7 +1191,7 @@ async function show(first = false) {
 }
 // warm the heavy pages once the first one is on screen so opening them later is instant
 async function prefetch() {
-  for (const k of ["space", "spaceclean", "advice", "startup", "dbx", "health", "procs", "history"]) {
+  for (const k of ["space", "advice", "startup", "dbx", "health", "procs", "history"]) {
     if (CACHE[k]) continue;
     try { const data = await PAGES[k].load(); if (!data.every(x => x == null)) CACHE[k] = { data, sig: JSON.stringify(data) }; } catch { }
     await new Promise(r => setTimeout(r, 400));
@@ -1216,7 +1206,7 @@ function track(key) {
   fetch("/api/page-open", { method: "POST", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json" }, body: JSON.stringify({ page: key }) }).catch(() => { });
 }
 let routed = false;
-const PAGE_ALIAS = { appearance: "ctrl", cpu: "procs" };   // البندان 26 و28 من المجلس 19/11: «المظهر الموحد» دُمجت في لوحة المظهر بالتحكم، و«المعالج» في «العمليات»؛ الروابط القديمة تصل إليها
+const PAGE_ALIAS = { appearance: "ctrl", cpu: "procs", spaceclean: "space" };   // البندان 26 و28 من المجلس 19/11: «المظهر الموحد» دُمجت في لوحة المظهر بالتحكم، و«المعالج» في «العمليات»، و«تنظيف المساحة» في «المساحة» (البند 29)؛ الروابط القديمة تصل إليها
 function route() {
   const { key: k0, qs } = parseHash(), k = PAGE_ALIAS[k0] || k0; const key = PAGES[k] ? k : "overview"; page = PAGES[key];
   $("#title").textContent = page.title; $("#subtitle").textContent = page.sub; document.title = "مرصد الجهاز";  /* الويدجت يطابق عنوان النافذة حرفيًا */

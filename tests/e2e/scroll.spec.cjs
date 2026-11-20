@@ -46,7 +46,7 @@ test('الضغط على صف في قائمة جداول القاعدة لا يع
 });
 
 test('البطاقة المتغيّرة تُحدَّث في مكانها: الصندوق المُمرَّر هو العنصر نفسه، وتمرير العجلة الجاري لا يُقطع', async ({ page }) => {
-  await page.goto('/#/spaceclean'); await ready(page); await page.waitForTimeout(300);
+  await page.goto('/#/space'); await ready(page); await page.waitForTimeout(300);
   const max = await page.evaluate(() => {
     const e = [...document.querySelectorAll('#main *')].find(x => /auto|scroll/.test(getComputedStyle(x).overflowY) && x.scrollHeight > x.clientHeight + 200);
     window.__sc = e; e.scrollTo({ top: e.scrollHeight, behavior: 'smooth' }); return e.scrollHeight - e.clientHeight;
