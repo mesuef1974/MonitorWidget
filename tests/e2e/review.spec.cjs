@@ -14,8 +14,6 @@ const kpiValue = (page, panelTitle, label) => page.locator('#main section.panel'
 const planFocused = page => page.waitForFunction(() => !!document.activeElement?.closest('#commitPlan'));
 
 test('زر «تحرير الالتزام» يفتح خطة الالتزام في «الذاكرة» ولا ينظّف، ولكل خطوة فعلها', async ({ page }) => {
-  const trims = [];
-  await page.route('**/api/trim-memory', r => { trims.push(1); return r.fulfill({ json: { ok: true } }); });
   await page.goto('/#/overview');
   await page.waitForFunction(() => document.querySelector('#main .panel'));
   await expect(page.locator('#boostTxt')).toHaveText('تحرير الالتزام');
@@ -29,7 +27,6 @@ test('زر «تحرير الالتزام» يفتح خطة الالتزام في
   await page.evaluate(() => { scrollTo(0, 0); document.activeElement?.blur(); });
   await page.locator('#boost').click();                                                           // وهو في «الذاكرة»: يكشف الخطة دون انتقال
   await planFocused(page);
-  expect(trims).toEqual([]);
 });
 
 test('رابط الويدجت ‎#/mem?plan=1‎ يكشف الخطة ويُحذف الوسيط من الرابط', async ({ page }) => {

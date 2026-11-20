@@ -1,5 +1,5 @@
 """SQLite history store for the monitor (stdlib only). One file next to the server: monitor.db (WAL).
-Tables: samples, events, cleanup_runs, trims, meta. Importers are idempotent (UNIQUE keys + byte offsets in meta)."""
+Tables: samples, events, cleanup_runs, trims (سجل قديم للقراءة فقط؛ لا يكتب فيه شيء منذ حذف التنظيف الخفيف), meta. Importers are idempotent (UNIQUE keys + byte offsets in meta)."""
 import contextlib, json, os, re, sqlite3, threading, time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -162,15 +162,6 @@ def add_event(ts, source, severity, title, detail=None):
     with _lock:
         conn().execute("INSERT OR IGNORE INTO events(ts,source,severity,title,detail) VALUES(?,?,?,?,?)", (int(ts), source, severity, title, detail))
         conn().commit()
-
-
-def add_trim(ts, before, after, freed_mb, ms, mode):
-    with _lock:
-        conn().execute("INSERT OR REPLACE INTO trims VALUES(?,?,?,?,?,?)", (int(ts), before, after, freed_mb, ms, mode))
-        c = conn()
-        c.execute("INSERT OR IGNORE INTO events(ts,source,severity,title,detail) VALUES(?,?,?,?,?)",
-                  (int(ts), "trim", "info", "تنظيف الذاكرة", "%s%% ← %s%% · %.2f GB · %s" % (before, after, (freed_mb or 0) / 1024, "كامل" if mode == "full" else "مستخدم فقط")))
-        c.commit()
 
 
 def set_json(key, value):

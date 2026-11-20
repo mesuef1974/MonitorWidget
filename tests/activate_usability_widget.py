@@ -22,7 +22,7 @@ def call(path,body=None):
 record=dict(date=datetime.datetime.now(datetime.timezone.utc).isoformat(),widgetSha256=args.expected_sha,browserRendered=False)
 try:
     mini=call('/api/mini')
-    assert not (mini.get('manual') or {}).get('running') and not (mini.get('trim') or {}).get('running'), 'Maintenance active; activation deferred'
+    assert not (mini.get('manual') or {}).get('running'), 'Maintenance active; activation deferred'
     before=call('/api/appearance')
     pid=call('/api/healthz')['pid']
     assert call('/api/widget')['running'], 'Widget hidden or unavailable; no automatic activation'

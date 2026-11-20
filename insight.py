@@ -672,7 +672,7 @@ def _folder_size_gb(p):
     return tot / 1073741824.0
 
 
-def advice_payload(m, extra, maint, trim):
+def advice_payload(m, extra, maint):
     items = []
     cfg = alertcfg.get()
     add = lambda iid, lvl, title, text, action=None, go=None: items.append({"id": iid, "lvl": lvl, "title": title, "text": text, "action": action, "go": go})

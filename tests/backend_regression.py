@@ -692,95 +692,65 @@ class DestructiveRoutes(unittest.TestCase):
             self.assertEqual(self.rd.post("/api/run-cleanup", {"tier": "daily"}), (503, {"error": "لا محرّك"}))
 
 
-class MemTrim(unittest.TestCase):
-    """البند 6/ب: memtrim.py بلا خادم ولا قاعدة: مسارا trim-auto وtrim-memory بعقودهما، 409 أثناء تنظيف جارٍ، العدّ التنازلي
-    حين يكون المفتاح مطفأً، والمهمة المحمية الناقصة لا تسقط إلى المهمة القديمة أبدًا."""
+class LightTrimRemoved(unittest.TestCase):
+    """قرار المالك 20/11/2026: حُذف التنظيف الخفيف للذاكرة (كان يحرّر نحو 3 MB). لا وحدة توجّه مساري التنظيف القديمين فيردّ
+    الخادم 404، والوكيل لا يسجّل مهمة trim، ولا مهمة MemoryPurge-Light يعرفها التطبيق إلا في قائمة المتقاعد."""
+    GONE = ("/api/trim-memory", "/api/trim-auto")
 
-    def setUp(self):
-        import memtrim
-        self.mt = memtrim
-        self.mt.TRIM.update(running=False, err=None, ts=None)
+    def post_modules(self):
+        tree = ast.parse((ROOT / "server.py").read_text(encoding="utf-8-sig"))
+        node = next(n for n in tree.body if isinstance(n, ast.Assign) and any(getattr(t, "id", None) == "POST_MODULES" for t in n.targets))
+        return [e.id for e in node.value.elts]
 
-    def test_trim_auto_route_validates_and_persists(self):
-        saved = []
-        with patch.object(self.mt, "set_trim_auto", lambda on: saved.append(on)):
-            self.assertEqual(self.mt.post("/api/trim-auto", {"on": "yes"}), (400, {"error": "on must be boolean"}))
-            self.assertEqual(self.mt.post("/api/trim-auto", {"on": True}), (200, {"ok": True, "auto": True}))
-            self.assertEqual(self.mt.post("/api/trim-auto", {"on": False}), (200, {"ok": True, "auto": False}))
-        self.assertEqual(saved, [True, False])
-        self.assertIsNone(self.mt.post("/api/other", {}))
-        self.assertEqual(self.mt.ROUTES, ("/api/trim-memory", "/api/trim-auto"))
+    def test_removed_routes_are_not_routed_and_server_returns_404(self):
+        names = self.post_modules()
+        self.assertNotIn("memtrim", names)
+        self.assertFalse((ROOT / "memtrim.py").exists())
+        for name in names:
+            for route in self.GONE:
+                self.assertNotIn(route, __import__(name).ROUTES, name)
+        ns = extracted()
+        ns["POST_MODULES"] = tuple(__import__(n) for n in names)   # الوحدات الحقيقية: لا واحدة منها تعرف المسارين
+        sends = []
+        for route in self.GONE:
+            sends.clear()
+            req = types.SimpleNamespace(_guard=lambda: True, _authed=lambda: True, rfile=io.BytesIO(b"{}"), path=route, close_connection=False,
+                                        headers={"Content-Type": "application/json", "Content-Length": "2"}, _send=lambda *a: sends.append(a))
+            ns["Handler"].do_POST(req)
+            self.assertEqual(sends, [(404, {"error": "not found"})], route)
 
-    def test_trim_memory_route_starts_one_pass_and_refuses_overlap(self):
-        started, invalidated = [], []
+    def test_agent_no_longer_registers_a_trim_job(self):
+        tree = ast.parse((ROOT / "agent.py").read_text(encoding="utf-8-sig"))
+        main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "main")
+        names = {n.id for n in ast.walk(main) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+        self.assertFalse({n.name for n in tree.body if isinstance(n, ast.FunctionDef)} & {"j_trim", "j_trimwatch"})
+        registered = []
 
-        class FakeThread:
-            def __init__(self, target=None, args=(), daemon=False):
-                started.append((target.__name__, args))
+        class FakeScheduler:
+            def register(self, name, *a, **k):
+                registered.append(name)
 
-            def start(self):
+            def loop(self):
                 pass
-        def finish():   # ما يفعله الخيط عند انتهائه: إنزال العلم وتحرير القفل
-            self.mt.TRIM["running"] = False
-            self.mt._run_lock.release()
-        with patch.object(self.mt.threading, "Thread", FakeThread):
-            self.assertEqual(self.mt.post("/api/trim-memory", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
-            self.assertTrue(self.mt.TRIM["running"])   # العلم يُرفع قبل بدء الخيط
-            # نقرة ثانية قبل أن يبدأ الخيط الأول: مرفوضة (كانت تبدأ مرورًا ثانيًا متزامنًا)
-            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (409, {"error": "trim already running"}))
-            self.mt.TRIM["running"] = False   # حتى لو نزل العلم فالقفل ما زال مأخوذًا
-            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (409, {"error": "trim already running"}))
-            finish()
-            self.assertEqual(self.mt.post("/api/trim-memory", {"mode": "deep"}), (200, {"ok": True}))
-            self.assertFalse(self.mt.trim_memory("light"))   # مستدعٍ آخر (الوكيل) لا يبدأ مرورًا والقفل مأخوذ
-            finish()
-            self.mt.TRIM["running"] = True
-            self.assertEqual(self.mt.post("/api/trim-memory", {}), (409, {"error": "trim already running"}))
-            self.assertFalse(self.mt._run_lock.locked())
-            self.mt.TRIM["running"] = False
-        # البند 24 من المجلس 19/11: الوضع في الطلب يُتجاهل؛ light وحده
-        self.assertEqual(started, [("trim_memory", ("light", True)), ("trim_memory", ("light", True))])
-        self.assertEqual(invalidated, [1])   # الجولة الناجحة تعيد جمع حالة المهام كما كان
+        from unittest.mock import MagicMock
+        ns = {n: MagicMock() for n in names}
+        ns.update(os=os, single_instance=lambda: True, sched=types.SimpleNamespace(Scheduler=FakeScheduler))
+        exec(compile(ast.Module(body=[main], type_ignores=[]), "extracted-agent", "exec"), ns)
+        with patch.dict(sys.modules, {"diskio_collect": MagicMock(), "reliab": MagicMock()}):
+            ns["main"]()
+        self.assertIn("sample", registered)
+        self.assertNotIn("trim", registered)
+        self.assertNotIn("trimwatch", registered)
 
-    def test_only_light_mode_remains(self):
-        """البند 24: لا medium ولا deep ولا تفريغ شامل لكل العمليات؛ trim_memory يطلب مهمة light أيًّا كان الوضع المطلوب."""
-        for gone in ("_trim_medium", "_trim_cold", "_trim_all_working_sets"):
-            self.assertFalse(hasattr(self.mt, gone), gone)
-        asked = []
-        with patch.object(self.mt, "_purge_task", lambda mode="light": asked.append(mode) or {"freedMB": 1, "beforePct": 50, "afterPct": 49}), \
-                patch.object(self.mt.db, "add_trim", lambda *a: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
-            self.assertTrue(self.mt.trim_memory("deep"))
-            self.assertTrue(self.mt.trim_memory("medium"))
-        self.assertEqual(asked, ["light", "light"])
-        self.assertEqual(self.mt.TRIM["mode"], "light")
-
-    def test_guard_next_is_idle_when_auto_is_off_or_trim_runs(self):
-        with patch.object(self.mt, "auto_trim_on", lambda: False):
-            self.assertEqual(self.mt.guard_next(), {"next": None, "period": self.mt.AUTO_PERIOD, "running": False, "auto": False})
-            self.mt.TRIM["running"] = True
-            self.assertEqual(self.mt.guard_next()["running"], True)
-
-    def test_missing_protected_purge_never_falls_back(self):
-        calls = []
-        fake_secure = types.SimpleNamespace(protected_expected=lambda: True, installed=lambda: True,
-                                            PURGE_TASKS={"light": "protected"}, PURGE_RESULT="result")
-        with patch.object(self.mt, "secure", fake_secure), patch.object(self.mt, "PURGE_TASK", "legacy"), \
-                patch.object(self.mt, "_schtasks", lambda args, timeout=10: (calls.append(args) or types.SimpleNamespace(returncode=1))):
-            with self.assertRaisesRegex(RuntimeError, "protected purge task missing"):
-                self.mt._purge_task("light")
-        self.assertEqual(calls, [["/query", "/tn", "protected"]])
-
-    def test_incomplete_protected_purge_fails_before_task_query(self):
-        fake_secure = types.SimpleNamespace(protected_expected=lambda: True, installed=lambda: False, PURGE_TASKS={"light": "protected"})
-        with patch.object(self.mt, "secure", fake_secure), patch.object(self.mt, "_schtasks", lambda *a, **k: self.fail("schtasks must not run")):
-            with self.assertRaisesRegex(RuntimeError, "incomplete"):
-                self.mt._purge_task("light")
-
-    def test_trim_memory_records_error_and_releases_running_flag(self):
-        with patch.object(self.mt, "_purge_task", lambda mode: None), patch.object(self.mt.sched, "set_next", lambda *a: None):
-            self.assertTrue(self.mt.trim_memory("light"))
-        self.assertEqual((self.mt.TRIM["running"], self.mt.TRIM["err"]), (False, "purge task not installed"))
-        self.assertFalse(self.mt._run_lock.locked())   # القفل يُحرَّر حتى مع الخطأ
+    def test_light_purge_task_is_only_retired(self):
+        import secure
+        self.assertIn("MemoryPurge-Light", secure.RETIRED_PURGE_TASKS)
+        self.assertFalse(hasattr(secure, "PURGE_TASKS"))
+        for f in ("deploy_protected.ps1", "install_secure_2026-10-24.ps1"):
+            text = (ROOT / f).read_text(encoding="utf-8-sig")
+            self.assertIn("'MemoryPurge-Light'", text, f)
+            self.assertNotIn("Register-ScheduledTask -TaskName $name -Action $act", text, f)
+            self.assertNotIn("(Join-Path $src 'purge.cs')", text, f)
 
 
 class PageUseSharedConnection(unittest.TestCase):
@@ -910,16 +880,16 @@ class PolicyRoutes(unittest.TestCase):
 
     def test_jobs_run_maintenance_and_startup(self):
         nxt = []
-        with patch.object(self.rp.sched, "next_run", lambda name: {"next_run": 1} if name == "trim" else None), \
+        with patch.object(self.rp.sched, "next_run", lambda name: {"next_run": 1} if name == "live" else None), \
                 patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
-            self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (200, {"ok": True}))
+            self.assertEqual(self.post("/api/jobs/run", {"name": "live"}), (200, {"ok": True}))
             self.assertEqual(self.post("/api/jobs/run", {"name": "nope"}), (404, {"error": "unknown job"}))
-        self.assertEqual(nxt, ["trim"])
+        self.assertEqual(nxt, ["live"])
         running = {"next_run": 1, "last_start": int(time.time()) - 5, "last_end": int(time.time()) - 900, "timeout_s": 600}
         with patch.object(self.rp.sched, "next_run", lambda name: running),                 patch.object(self.rp.sched, "set_next", lambda name, ts: nxt.append(name)):
             # مراجعة 19/11/2026: «شغّل الآن» لمهمة جارية كان يضيع بصمت (تكتب next_run عند انتهائها فوقه)
-            self.assertEqual(self.post("/api/jobs/run", {"name": "trim"}), (409, {"error": "job running", "running": True}))
-        self.assertEqual(nxt, ["trim"])
+            self.assertEqual(self.post("/api/jobs/run", {"name": "live"}), (409, {"error": "job running", "running": True}))
+        self.assertEqual(nxt, ["live"])
         with patch.object(self.rp, "maintenance_set", lambda on: {"on": on, "rules": [], "since": 1}):
             self.assertEqual(self.post("/api/maintenance", {"on": "x"}), (400, {"error": "on must be boolean"}))
             self.assertEqual(self.post("/api/maintenance", {"on": True}), (200, {"on": True, "rules": [], "since": 1}))
@@ -1163,7 +1133,7 @@ class ReadRoutes(unittest.TestCase):
         page = (ROOT / "web" / "index.html").read_text(encoding="utf-8")
         called = set(re.findall(r'api\("(/api/[^"?]+)"', page)) | set(re.findall(r"api\(`(/api/[^`?]+)`", page))
         posted = set()
-        for m in ("routes_destructive", "memtrim", "routes_policy", "routes_settings", "shellwin", "widgetctl", "gpupurge", "routes_app"):
+        for m in ("routes_destructive", "routes_policy", "routes_settings", "shellwin", "widgetctl", "gpupurge", "routes_app"):
             posted |= set(__import__(m).ROUTES)
         missing = sorted(p for p in called if p not in self.rr.ROUTES and p not in posted and p not in ("/api/ticket", "/api/session/logout"))   # ما بقي في الخادم: التذكرة والجلسة
         self.assertEqual(missing, [])
@@ -1270,7 +1240,7 @@ class GpuPurge(unittest.TestCase):
             def start(self):
                 pass
         with patch.object(self.gp.threading, "Thread", FakeThread):
-            self.assertIsNone(self.gp.post("/api/trim-memory", {}))
+            self.assertIsNone(self.gp.post("/api/maintenance", {}))
             self.assertEqual(self.gp.post("/api/gpu-purge", {}, invalidate=lambda: invalidated.append(1)), (200, {"ok": True}))
             self.assertTrue(self.gp.STATE["running"])
             self.assertEqual(self.gp.post("/api/gpu-purge", {"dwm": True}), (409, {"error": "gpu purge already running"}))

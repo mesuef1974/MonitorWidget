@@ -202,7 +202,7 @@ function Set-WidgetControlTheme {
     if($UI.title){$UI.title.Foreground=Brush $C.accentText};if($UI.logoMark){foreach($shape in $UI.logoMark){$shape.Fill=Brush $C.markInk}};if($UI.confirm){$UI.confirm.Background=Brush $C.card;$UI.confirm.BorderBrush=Brush $C.warn}
     foreach($key in @('menuBtn','closeBtn','open')){$button=$UI[$key];if($button){$button.Background=Brush $C.card;$button.BorderBrush=Brush $C.line;$button.BorderThickness=1;$button.Foreground=Brush $(if($key -eq 'open'){$C.accentText}else{$C.muted});if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=$button.Foreground}}}
     if($UI.toast){$UI.toast.Background=Brush $C.line;$UI.toast.Foreground=Brush $C.ink;$UI.toast.FontWeight='SemiBold'}
-    if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accentText;$UI.trimCd.Foreground=Brush $C.muted}
+    if($UI.trim){$UI.trim.Background=Brush $C.card;$UI.trim.BorderBrush=Brush $C.accent;$UI.trimText.Foreground=Brush $C.accentText}
     foreach($spec in @(@('cfReal',$C.warn,$C.onWarn),@('cfDry',$C.hover,$C.ink),@('cfNo',$C.card,$C.muted))){$button=$UI[$spec[0]];if($button){$button.Background=Brush $spec[1];$button.Foreground=Brush $spec[2];if($button.Content -is [Windows.Controls.TextBlock]){$button.Content.Foreground=Brush $spec[2]}}}
     if($UI.tiers){foreach($tier in $UI.tiers.Values){if($tier.Run){$tier.Run.Background=Brush $C.card;$tier.Run.BorderBrush=Brush $C.accent;$tier.RunText.Foreground=Brush $C.accentText};if($tier.Switch -and $tier.Switch.Content -is [Windows.Shapes.Ellipse]){$tier.Switch.Content.Fill=Brush $C.knob;$tier.Switch.Background=if($tier.Switch.IsChecked){Brush $C.accent}else{Brush $C.swoff}}}}
 }
@@ -648,8 +648,7 @@ $stack.Children.Add($UI.confirm) | Out-Null
 $stack.Children.Add((Gap 2)) | Out-Null
 $UI.trim = New-ActionButton 'تحرير الالتزام'; $UI.trim.Padding = '10,7,10,8'; $UI.trim.Cursor = 'Hand'
 $UI.trim.Background = Brush (Alpha $C.accent '26'); $UI.trim.BorderBrush = Brush (Alpha $C.accent '70'); $UI.trim.BorderThickness = 1
-$UI.trimText = New-Text '⚡ تحرير الالتزام' 12 $C.accentText 'SemiBold'; $UI.trimText.HorizontalAlignment = 'Center'; $UI.trimCd = New-Text '' 12 $C.muted; $UI.trimCd.HorizontalAlignment = 'Center'; $UI.trimCd.Margin = '0,2,0,0'
-$tsp = New-Object Windows.Controls.StackPanel; [void]$tsp.Children.Add($UI.trimText); [void]$tsp.Children.Add($UI.trimCd); $UI.trim.Content = $tsp
+$UI.trimText = New-Text '⚡ تحرير الالتزام' 12 $C.accentText 'SemiBold'; $UI.trimText.HorizontalAlignment = 'Center'; $UI.trim.Content = $UI.trimText
 $stack.Children.Add($UI.trim) | Out-Null
 $stack.Children.Add((Gap 6)) | Out-Null
 # ---- footer
@@ -726,7 +725,7 @@ function Start-WidgetSmoke {
         try {
             if ($script:smokeStep -in 2, 4) { Set-RestoredLayout 1000 }
             elseif ($script:smokeStep -in 3, 5) { Set-RestoredLayout 1400 }
-            elseif ($script:smokeStep -eq 6) { $script:sync.stamp = 2; Update-Countdown; Update-Widget }
+            elseif ($script:smokeStep -eq 6) { $script:sync.stamp = 2; Update-Widget }
             elseif ($script:smokeStep -ge 7) { $script:smokeTimer.Stop(); Log 'smoke: ok'; $script:userExit = $true; $win.Close() }
         } catch { $script:smokeTimer.Stop(); Log ('fatal: smoke step ' + $script:smokeStep + ': ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage); $win.Close() }
     })
@@ -1335,20 +1334,6 @@ $win.Add_Loaded({
 $win.Add_Closing({ Save-Settings; if ($script:dashPlaceTimer) { $script:dashPlaceTimer.Stop() }; try { $script:ps.Stop(); $script:ps.Dispose() } catch {}; try { $script:appearancePs.Stop(); $script:appearancePs.Dispose() } catch {} })
 
 # Appearance is consumed by the existing UI timer; local geometry writes never override it.
-$script:trimPendingAt = [datetime]::MinValue
-function Update-Countdown {
-    # runs every second (not gated by the poll stamp), so the countdown ticks each second
-    $d = $script:sync.data; if (-not $d) { return }
-    try {
-        $busy = ($d.trim -and $d.trim.running) -or ($d.guardNext -and $d.guardNext.running) -or (((Get-Date) - $script:trimPendingAt).TotalSeconds -lt 8)
-        if ($busy) { $UI.trimCd.Text = 'التنظيف جارٍ · العداد متوقف'; $UI.trimCd.Foreground = Brush $C.accentText; return }
-        if ($d.guardNext -and $d.guardNext.next) {
-            $rem = [int][Math]::Ceiling(([datetime]::Parse([string]$d.guardNext.next) - (Get-Date)).TotalSeconds)
-            if ($rem -le 0) { $UI.trimCd.Text = 'التنظيف التلقائي الآن…'; $UI.trimCd.Foreground = Brush $C.accentText }
-            else { $UI.trimCd.Text = ('التنظيف التلقائي بعد {0:00}:{1:00}' -f [Math]::Floor($rem / 60), ($rem % 60)); $UI.trimCd.Foreground = Brush $C.muted }
-        } else { $UI.trimCd.Text = '' }
-    } catch { $UI.trimCd.Text = '' }
-}
 $timer = New-Object Windows.Threading.DispatcherTimer; $timer.Interval = [TimeSpan]::FromMilliseconds(1000)
 $timer.Add_Tick({
     $tickAt = Get-Date; $awakeAt = Get-WidgetAwakeSeconds
@@ -1358,7 +1343,7 @@ $timer.Add_Tick({
         if ($gap.stall) { Log ('ui stall: {0:N1} s between ticks' -f $gap.stall) }
     }
     $script:lastTickAt = $tickAt; $script:lastAwakeAt = $awakeAt
-    try { Update-Countdown; Update-Widget } catch { Log ('update: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) }
+    try { Update-Widget } catch { Log ('update: ' + $_.Exception.Message + ' @ ' + $_.InvocationInfo.PositionMessage) }
 })
 $timer.Start()
 

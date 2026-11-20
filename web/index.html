@@ -356,7 +356,7 @@ const confirmDlg = (text, okLabel = "تأكيد", danger = false) => new Promise
 });
 const ERR_AR = { "not allowed": "غير مسموح", "update task": "مهمة تحديث؛ تعطيلها يوقف تحديثات الأمن فلا يُعطَّل من هنا", "job running": "المهمة تعمل الآن؛ انتظر انتهاءها ثم أعد المحاولة", "bad name": "اسم غير صالح", "bad action": "إجراء غير صالح", "bad tier": "مستوى غير صالح", confirm_required: "يلزم تأكيد العملية", "bad params": "معاملات غير صالحة", protected: "عملية محمية لا تُغلق من هنا", not_found: "العملية لم تعد موجودة", name_mismatch: "تبدّلت العملية على هذا المعرّف؛ حدّث الصفحة", created_mismatch: "أُعيد استعمال هذا المعرّف لعملية أحدث؛ حدّث الصفحة", not_owner: "عملية نظام أو خدمة لا يملكها المستخدم؛ لا تُغلق من هنا", access_denied: "عملية محمية تعذّر فتحها؛ أغلقها من مدير المهام إن لزم",
   candidates_changed: "تغيّرت الملفات المرشّحة للحذف منذ المعاينة؛ أعد المعاينة", "seen_mb required": "عاين أولاً قبل التنفيذ", "a manual cleanup is already running": "تنظيف يدوي يعمل الآن", "clean already running": "تنظيف آخر يعمل الآن",
-  "trim already running": "تنظيف الذاكرة يعمل الآن", "gpu purge already running": "تفريغ ذاكرة الشاشة يعمل الآن", unauthorized: "انتهت الجلسة", "bad origin": "مصدر الطلب غير مسموح" };
+  "gpu purge already running": "تفريغ ذاكرة الشاشة يعمل الآن", unauthorized: "انتهت الجلسة", "bad origin": "مصدر الطلب غير مسموح" };
 // confirmed: المستدعي عرض على المالك حوار تأكيد لهذا الفعل بعينه قبل الطلب، فيُعاد الطلب برمز 428 مباشرة.
 // بدونه لا يُعاد الطلب آليًّا أبدًا: الخادم طلب تأكيدًا لفعل هدّام، فيرى المالك حوارًا أولًا، وإن رفضه لا يُرسل الرمز
 async function post(path, body, confirmed = false) {
@@ -371,7 +371,7 @@ async function post(path, body, confirmed = false) {
 }
 const askState = { msgs: [], busy: false, draft: "", loaded: false, facts: [], ratings: { good: 0, bad: 0 }, keep: null };
 // المسارات هنا لا في الرد: الخادم يعيد اسم الأمر فقط، فلا يستطيع نص النموذج توجيه الواجهة إلى مسار آخر
-const ASK_RUN = { trim_memory: ["/api/trim-memory", () => ({ mode: "light" })], unload_model: ["/api/llm-unload", () => ({})], gpu_purge: ["/api/gpu-purge", () => ({})], silence_task: ["/api/winguard-silence", a => ({ name: a.target })] };
+const ASK_RUN = { unload_model: ["/api/llm-unload", () => ({})], gpu_purge: ["/api/gpu-purge", () => ({})], silence_task: ["/api/winguard-silence", a => ({ name: a.target })] };
 const askCard = (a, i, j) => {
   if (a.action === "open_page") return PAGES[a.target] ? `<a class="btn" href="#/${esc(a.target)}">افتح صفحة «${esc(PAGES[a.target].title)}»</a>` : "";
   if (!ASK_RUN[a.action]) return "";
@@ -1055,7 +1055,7 @@ document.addEventListener("click", async e => {
     redraw([...near.map(id => `[data-advsnooze="${CSS.escape(id)}"]`), "[data-advrestore]"]);
   }
   else if (t.dataset.advrestore) { advSave({}); toast("أُظهرت المؤجّلة"); redraw(["[data-advsnooze]"]); }
-  else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/trim-memory", "/api/trim-auto", "/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm, "نفّذ"))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
+  else if (t.dataset.adv) { const a = JSON.parse(t.dataset.adv); if (!["/api/maintenance"].includes(a.api)) return toast("إجراء غير مسموح", true); if (a.confirm && !(await confirmDlg(a.confirm, "نفّذ"))) return; act(() => post(a.api, a.body), "بدأ التنفيذ"); }
   else if (t.dataset.mode || t.dataset.palette) { const cur = await api("/api/appearance").catch(() => null); if (!cur) return; const next = { ...cur, ...(t.dataset.mode ? { mode: t.dataset.mode } : { palette: t.dataset.palette }) }; act(async () => { applyAppearance(await post("/api/appearance", next)); }, "حُفظ المظهر"); }
   else if (t.dataset.widget) { const show = t.getAttribute("aria-checked") !== "true"; act(() => post("/api/widget", { show }), show ? "أُظهر الويدجت" : "أُخفي الويدجت"); }
   else if (t.dataset.maint) { const on = t.getAttribute("aria-checked") === "true"; act(() => post("/api/maintenance", { on: !on }), "حُدّث وضع الصيانة"); }

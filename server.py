@@ -11,7 +11,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import infra
 import routes_destructive   # البند 6/أ: المسارات الهدّامة (space/reaper-run/run-cleanup) مع تأكيد 428 من جانب الخادم
-import memtrim              # البند 6/ب: تنظيف الذاكرة (trim-memory/trim-auto) وحالته والعدّ التنازلي
 import routes_policy        # البند 6/ج: سياسة التنظيف والمهام ووضع الصيانة وبدء التشغيل ومهام الوكيل
 import routes_settings      # البند 6/د: المظهر والوضع والتنبيهات وخطة الطاقة وإعدادات reaper
 import shellwin             # البند 6/هـ: نافذة التطبيق وغلافها وحالة الغلاف لصفحة الصحة وبلاغ الويدجت
@@ -25,7 +24,7 @@ import routes_app           # البند 8: ما بقي من POST في الخا�
 import websession           # البند 6/ط: جلسات المتصفح والتذاكر أحادية الاستعمال والرمز المحلي
 import webstatic            # البند 6/ي: الصفحة والأنماط والخطوط والأيقونات وسياسة CSP للصفحة
 import webboot              # البند 6/ك: الإقلاع (النسخة الواحدة، تشخيص الانهيار، الوكيل، الخيوط الخلفية، حلقة الخدمة)
-POST_MODULES = (routes_destructive, memtrim, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, cpuprio, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
+POST_MODULES = (routes_destructive, routes_policy, routes_settings, shellwin, widgetctl, gpupurge, askstore, cpuprio, routes_app)   # وحدات المسارات: كل وحدة post(route, body, invalidate) تعيد (رمز، ردّ) أو None
 from paths import PORT
 # التذاكر أحادية الاستعمال والجلسات والرمز في websession.py (البند 6/ط)
 MAX_POST_BYTES = 65536

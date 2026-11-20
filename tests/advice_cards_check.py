@@ -31,7 +31,7 @@ APPS = os.path.join(TMP, "cleanup_apps")
 
 
 def _ids(m=None, extra=None):
-    return {i["id"]: i for i in insight.advice_payload(m or {}, extra or {}, None, None)["items"]}
+    return {i["id"]: i for i in insight.advice_payload(m or {}, extra or {}, None)["items"]}
 
 
 class AdviceCards(unittest.TestCase):

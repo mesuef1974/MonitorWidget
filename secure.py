@@ -1,6 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 """Protected-location constants and integrity helpers (see CHANGES_2026-10-24.md, item 1).
-The owner runs install_secure_2026-10-24.ps1 as administrator once: it copies purge.exe and the probe scripts to
+The owner runs install_secure_2026-10-24.ps1 as administrator once: it copies the probe and cleanup scripts to
 SECURE_DIR\bin (ACL: admins/SYSTEM full, users read+execute) and registers tasks that run only from there.
 Legacy fallback is available only before any protected installation state exists."""
 import hashlib, json, os
@@ -27,10 +27,10 @@ _DEPLOYMENT_MARKER = os.path.join(_CODE_ROOT, ".deployment", "manifest.json")
 SECURE_DIR = _system_secure_dir() if os.path.isfile(_DEPLOYMENT_MARKER) else (os.environ.get("MW_SECURE_DIR") or _system_secure_dir())
 BIN = os.path.join(SECURE_DIR, "bin")
 OUT = os.path.join(SECURE_DIR, "out")
-PURGE_TASKS = {"light": "MemoryPurge-Light"}   # البند 24 من المجلس 19/11: حُذف standby وdeep؛ النشر يلغي تسجيل مهمتيهما
-RETIRED_PURGE_TASKS = ("MemoryPurge-Standby", "MemoryPurge-Deep")
-PURGE_EXE = os.path.join(BIN, "purge.exe")
-PURGE_RESULT = os.path.join(OUT, "purge_result.json")
+# مهام تفريغ الذاكرة المتقاعدة: البند 24 من المجلس 19/11 حذف standby وdeep، وقرار المالك 20/11/2026 حذف light (يحرّر نحو 3 MB)؛
+# النشر والمثبّت المحمي يلغيان تسجيلها
+RETIRED_PURGE_TASKS = ("MemoryPurge-Standby", "MemoryPurge-Deep", "MemoryPurge-Light")
+HEALTH_PROBE = os.path.join(BIN, "healthprobe.ps1")   # علامة التثبيت المحمي: ينسخه المثبّت دائمًا (كانت purge.exe قبل حذف التنظيف الخفيف)
 ADMIN_PROBE = os.path.join(OUT, "admin_probe.json")
 WINOLD_TASKS = {"normal": "MonitorWidget-WinOld", "early": "MonitorWidget-WinOld-Early"}   # fixed elevated tasks; the server never deletes Windows.old itself
 WINOLD_RESULT = os.path.join(OUT, "winold_result.json")
@@ -60,8 +60,8 @@ def sha256_file(path):
 
 
 def installed():
-    """True once the protected install exists (executable plus output folder)."""
-    return os.path.isfile(PURGE_EXE) and os.path.isdir(OUT)
+    """True once the protected install exists (the probe script plus output folder)."""
+    return os.path.isfile(HEALTH_PROBE) and os.path.isdir(OUT)
 
 
 def protected_expected():

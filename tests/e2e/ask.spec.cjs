@@ -22,19 +22,19 @@ test('السؤال يُرسل ويظهر جوابه واسم النموذج', as
 });
 
 test('بطاقة الأمر لا تنفذ إلا بعد التأكيد', async ({ page }) => {
-  route(page, { state: 'done', text: 'اقترحت أمرًا', actions: [{ action: 'trim_memory', target: '', label: 'تنظيف الذاكرة' }], tools: [], model: 'm', ms: 1000 });
-  const trims = [];
-  await page.route('**/api/trim-memory', r => { trims.push(JSON.parse(r.request().postData())); return r.fulfill({ json: { ok: true } }); });
+  route(page, { state: 'done', text: 'اقترحت أمرًا', actions: [{ action: 'unload_model', target: '', label: 'إخراج النموذج من LM Studio' }], tools: [], model: 'm', ms: 1000 });
+  const unloads = [];
+  await page.route('**/api/llm-unload', r => { unloads.push(JSON.parse(r.request().postData())); return r.fulfill({ json: { ok: true } }); });
   await open(page);
   await page.locator('[data-askq]').last().click();
   const card = page.locator('[data-askrun]');
-  await expect(card).toHaveText('تنظيف الذاكرة');
+  await expect(card).toHaveText('إخراج النموذج من LM Studio');
   await card.click();
-  await expect(page.locator('dialog.dlg')).toContainText('تنظيف الذاكرة');
-  expect(trims).toEqual([]);
+  await expect(page.locator('dialog.dlg')).toContainText('إخراج النموذج من LM Studio');
+  expect(unloads).toEqual([]);
   await page.locator('dialog.dlg button[value="yes"]').click();
   await expect(page.locator('.ask-msg .tag.ok')).toContainText('نُفّذ');
-  expect(trims).toEqual([{ mode: 'light' }]);
+  expect(unloads).toEqual([{}]);
 });
 
 test('أمر غير معروف وصفحة غير معروفة لا يظهران زرين', async ({ page }) => {

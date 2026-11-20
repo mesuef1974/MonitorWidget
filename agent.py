@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Always-on headless agent. Owns every background duty so they no longer depend on the dashboard being open:
-sampling, automatic memory trim, live folder sizes, space scans, enabled auto-cleanups, quarantine purge, DB maintenance.
+sampling, live folder sizes, space scans, enabled auto-cleanups, quarantine purge, DB maintenance.
 Single instance (named mutex). Started at logon and re-started every 5 minutes by a scheduled task if it ever dies."""
 
 from sqlite_runtime import ensure_sqlite
@@ -9,7 +9,7 @@ import ctypes, os, sys, threading, time
 import procprio
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import db, infra, mwsched as sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, memtrim, commitwatch, bootwatch, portwatch, widgetwatch, battwatch  # noqa: E402
+import db, infra, mwsched as sched, space, snapshot, cpuwatch, gpuwatch, shotwatch, insight, commitwatch, bootwatch, portwatch, widgetwatch, battwatch  # noqa: E402
 from paths import PORT  # noqa: E402
 
 log = infra.log
@@ -32,50 +32,6 @@ def j_heartbeat():
 
 def j_sample():
     db.add_sample(time.time(), snapshot.native_metrics(), "live")
-
-
-def j_trim():
-    """Adaptive: skip when the auto switch is off, during the first 10 minutes after boot, and whenever memory is comfortable."""
-    if not memtrim.auto_trim_on():
-        return "skipped: auto trim is off"
-    import ctypes
-    try:
-        k = ctypes.windll.kernel32; k.GetTickCount64.restype = ctypes.c_ulonglong
-        up_min = k.GetTickCount64() / 60000.0
-    except Exception:
-        up_min = 999
-    if up_min < 10:
-        return "skipped: %.1f min since boot" % up_min
-    m = snapshot.native_metrics()
-    av, rp = m.get("availGB"), m.get("ramPct")
-    try:
-        import alertcfg
-        warn = float(alertcfg.get()["mem"]["ramWarn"])   # same threshold the dashboard calls "warning" (default 80%)
-    except Exception:
-        warn = 80.0
-    # trim when RAM reaches the warning level (the old gate, < 1 GB free, only fired when the machine was already thrashing)
-    # automatic trim only under real pressure: both low free RAM and high use (the old 80% gate fired every ~10 min
-    # on a machine that normally runs at 70-75%, and each trim re-read GBs from disk)
-    if not (av is not None and av < 3.0 and rp is not None and rp >= 90):
-        return "skipped: RAM %s%% (%.2f GB free): no pressure" % (rp, av if av is not None else -1)
-    if memtrim.trim_memory() is False:
-        return "skipped: trim already running"
-    t = memtrim.TRIM
-    if t.get("err"):
-        raise RuntimeError(t["err"])
-    return "%s%% -> %s%% (%s MB)" % (t.get("before"), t.get("after"), t.get("freedMB"))
-
-
-def j_trimwatch():
-    """Reacts within ~30 s when RAM crosses the user's warning level, instead of waiting for the 10-minute trim job.
-    trim_memory() pushes the trim job's next_run to now+AUTO_PERIOD, so 'cooldown' = no second trim within 5 minutes."""
-    if not memtrim.auto_trim_on() or memtrim.TRIM.get("running"):
-        return None
-    r = sched.next_run("trim")
-    if r and r["next_run"] > time.time() + memtrim.AUTO_PERIOD - 300:
-        return "cooldown"
-    out = j_trim()
-    return out if not str(out).startswith("skipped") else None
 
 
 def j_server_guard():
@@ -135,9 +91,6 @@ def main():
             importlib.reload(shotwatch)   # lets the review helper be edited without restarting the agent
         return shotwatch.job()
     s.register("shots", _shots_job, 15, mode="after_finish", timeout_s=900, delay=45)
-    # always registered; the job itself checks the trim.auto switch, so the dashboard switch works without restarting the agent
-    s.register("trim", j_trim, 3600, mode="after_finish", timeout_s=240, delay=60)  # hourly, pressure-gated (was every 600 s)
-    # trimwatch removed: it trimmed at 80% RAM every 5 min and was the main source of freezes
     s.register("live", space.live_tick, 300, mode="after_finish", timeout_s=120, delay=240)
     s.register("scan_small", space.scan, 6 * 3600, timeout_s=300, delay=900)
     s.register("scan_big", space.scan_big, 24 * 3600, timeout_s=1800, delay=1800)
