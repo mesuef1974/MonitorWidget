@@ -1,4 +1,4 @@
-// بنود الواجهة من مراجعة المنطق 19/11/2026 (خادم الثوابت): نتيجة زر تنظيف الذاكرة تفحص الخطأ والختم، ورد 428 لا يُعاد بلا حوار،
+// بنود الواجهة من مراجعة المنطق 19/11/2026 (خادم الثوابت): زر «تحرير الالتزام» يكشف خطة الالتزام (كان تنظيف الذاكرة)، ورد 428 لا يُعاد بلا حوار،
 // والقراءات القديمة للمعالج والرسوميات لا تُعرض حيّة، وتوقع المساحة لا يعرض «+0.00» في حالة الجمع وإشارته إشارة المساحة الحرة،
 // و«متوسط 10 دقائق» للجهاز كله من سلسلة المجموع لا مجموع أعلى 8 تطبيقات.
 const { test, expect } = require('@playwright/test');
@@ -7,33 +7,35 @@ const path = require('path');
 
 const FIX = path.join(__dirname, '..', 'fixtures', 'api');
 const fixture = name => JSON.parse(fs.readFileSync(path.join(FIX, name + '.json'), 'utf8'));
-const localIso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 19);   // ختم memtrim: محلي بلا منطقة
 const kpiValue = (page, panelTitle, label) => page.locator('#main section.panel', { has: page.locator('h2', { hasText: panelTitle }) })
   .locator('.kpi', { has: page.locator('.l', { hasText: label }) }).locator('.v');
 
-async function boost(page, trim) {
-  const mini = fixture('mini');
-  await page.route('**/api/trim-memory', r => r.fulfill({ json: { ok: true } }));
-  await page.route('**/api/mini', r => r.fulfill({ json: { ...mini, trim: { ...mini.trim, ...trim() } } }));
+// «تحرير الالتزام» حلّ محلّ «تنظيف الذاكرة» (قرار المالك 20/11/2026 بعد قياس deep): الزر لا ينظّف بل يكشف خطة الالتزام
+const planFocused = page => page.waitForFunction(() => !!document.activeElement?.closest('#commitPlan'));
+
+test('زر «تحرير الالتزام» يفتح خطة الالتزام في «الذاكرة» ولا ينظّف، ولكل خطوة فعلها', async ({ page }) => {
+  const trims = [];
+  await page.route('**/api/trim-memory', r => { trims.push(1); return r.fulfill({ json: { ok: true } }); });
   await page.goto('/#/overview');
+  await page.waitForFunction(() => document.querySelector('#main .panel'));
+  await expect(page.locator('#boostTxt')).toHaveText('تحرير الالتزام');
   await page.locator('#boost').click();
-}
-
-test('زر تنظيف الذاكرة: الفشل يُعرض فشلًا ولا تُعرض أرقام تنظيف سابق', async ({ page }) => {
-  await boost(page, () => ({ running: false, err: 'purge task timed out', ts: '2026-10-27T15:00:10', before: 67, after: 62, freedMB: 1671 }));
-  const t = page.locator('#toasts .toast.bad');
-  await expect(t).toContainText('تعذّر تنظيف الذاكرة: purge task timed out', { timeout: 5000 });
-  await expect(page.locator('#toasts')).not.toContainText('67%');
+  await page.waitForFunction(() => location.hash === '#/mem');
+  await planFocused(page);
+  const plan = page.locator('#commitPlan');
+  await expect(plan.locator('[data-gpupurge]')).toHaveCount(1);                                   // مشروع على كرت الشاشة: تفريغ النماذج
+  await expect(plan.locator('[data-dockerstop="demo-preview-a"][data-dockerpr="merged"]')).toHaveCount(1);   // حاويات طلب مدموج
+  await expect(plan).toContainText('يحرّر نحو');
+  await page.evaluate(() => { scrollTo(0, 0); document.activeElement?.blur(); });
+  await page.locator('#boost').click();                                                           // وهو في «الذاكرة»: يكشف الخطة دون انتقال
+  await planFocused(page);
+  expect(trims).toEqual([]);
 });
 
-test('زر تنظيف الذاكرة: نتيجة بلا خطأ لكن ختمها قديم لا تُعرض نجاحًا', async ({ page }) => {
-  await boost(page, () => ({ running: false, err: null, ts: '2026-10-27T15:00:10', before: 67, after: 62, freedMB: 1671 }));
-  await expect(page.locator('#toasts .toast.bad')).toContainText('دون نتيجة جديدة', { timeout: 5000 });
-});
-
-test('زر تنظيف الذاكرة: نتيجة هذا التشغيل تُعرض بأرقامها', async ({ page }) => {
-  await boost(page, () => ({ running: false, err: null, ts: localIso(new Date()), before: 70, after: 55, freedMB: 2048 }));
-  await expect(page.locator('#toasts .toast:not(.bad)').last()).toContainText('70% ← 55%، حُرّر 2.00 GB', { timeout: 5000 });
+test('رابط الويدجت ‎#/mem?plan=1‎ يكشف الخطة ويُحذف الوسيط من الرابط', async ({ page }) => {
+  await page.goto('/#/mem?plan=1');
+  await planFocused(page);
+  expect(await page.evaluate(() => location.hash)).toBe('#/mem');
 });
 
 test('رد 428 لا يُعاد آليًّا: حوار تأكيد أولًا، والرفض لا يرسل الرمز', async ({ page }) => {

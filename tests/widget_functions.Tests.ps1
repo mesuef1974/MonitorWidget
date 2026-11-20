@@ -394,8 +394,9 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         $source | Should -Not -Match '\[Windows\.MessageBox\]'
         $source | Should -Not -Match 'trimMenu'
         $source | Should -Not -Match "trim:deep"
-        $source | Should -Match '\$UI\.trim\.Add_Click\(\{ Start-Trim \}\)'
-        $source | Should -Match "function Start-Trim \{"
+        $source | Should -Not -Match 'function Start-Trim'                       # «تحرير الالتزام» بدل التنظيف (قرار المالك 20/11/2026)
+        $source | Should -Not -Match '/api/trim-memory'
+        $source | Should -Match "\`$UI\.trim\.Add_Click\(\{ Show-Dash '#/mem\?plan=1'"
         . ([scriptblock]::Create((& $section 'function Set-ConfirmButtons' 'function Start-Clean')))
         Set-ConfirmButtons 'تنفيذ فعلي' $true
         $AP::GetName($UI.cfReal) | Should -Be 'تنفيذ فعلي'

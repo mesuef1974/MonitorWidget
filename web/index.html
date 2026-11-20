@@ -29,7 +29,7 @@
       <button class="btn menu-btn" id="menuBtn" aria-label="القائمة" aria-expanded="false" aria-controls="nav"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <div class="grow"><h1 id="title">…</h1><div class="sub" id="subtitle"></div></div>
       <span class="live" id="live"><i></i><span id="liveTxt">جارٍ التحميل…</span><span class="sr" id="liveState" role="status"></span></span>
-      <button class="btn" id="widgetBtn" aria-pressed="false" title="إظهار الويدجت أو إخفاؤه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>الويدجت</span></button><span class="boost"><button class="btn primary" id="boost" title="تنظيف الذاكرة الآن: يفرّغ صفحات الانتظار منخفضة الأولوية فقط، ولا يمسّ ذاكرة العمليات النشطة ولا الالتزام؛ لتحرير ذاكرة حقيقية أغلق أكبر المستهلكين من «العمليات». المدخل الوحيد في الواجهة مع زر الويدجت (البند 27 من المجلس 19/11)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg><span id="boostTxt">تنظيف الذاكرة</span></button></span><select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
+      <button class="btn" id="widgetBtn" aria-pressed="false" title="إظهار الويدجت أو إخفاؤه"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>الويدجت</span></button><span class="boost"><button class="btn primary" id="boost" title="خطة تحرير الالتزام في صفحة الذاكرة: كم يلزم للنزول إلى الهدف، وأزرار تفريغ النماذج الخاملة وإيقاف حاويات الطلبات المنتهية. حلّ محلّ «تنظيف الذاكرة» لأنه لا يخفض الالتزام (قياس 20/11/2026)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h8l-1 8 10-12h-8z"/></svg><span id="boostTxt">تحرير الالتزام</span></button></span><select class="btn" id="every" aria-label="معدل التحديث"><option value="5000">كل 5 ثوانٍ</option><option value="10000">كل 10 ثوانٍ</option><option value="30000">كل 30 ثانية</option><option value="0">يدوي</option></select>
       <button class="btn" id="refresh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>تحديث</button>
       <button class="btn" id="theme" aria-label="تبديل السمة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 13A9 9 0 1 1 11 3a7 7 0 0 0 10 10z"/></svg></button>
     </header>
@@ -1080,29 +1080,16 @@ function buildNav(cur) {
     + NAV.map(([g, items]) => `<div class="nav-group"><div class="nav-label">${g}</div>${items.map(([k, l]) => `<a href="#/${k}" ${k === cur ? 'aria-current="page"' : ""}>${svgi(PAGES[k].icon)}<span>${l}</span></a>`).join("")}</div>`).join("")
 }
 let timer = 0, page = null, last = null, busy = false, lastSig = "";
-// نتيجة تنظيف الذاكرة من /api/mini → trim بمنطق الويدجت (widget.ps1): الخطأ يُفحص قبل الأرقام، لأن الفشل لا يحدّث
-// before/after/freedMB/ts فتبقى أرقام تنظيف سابق. والأرقام لا تُعرض إلا إن كان ختمها (ts) من هذا التشغيل؛ t0 لحظة الضغط بالملّي ثانية
-function trimOutcome(m, t0) {
-  if (!m) return null;
-  if (m.running) return { text: "ما زال تنظيف الذاكرة يعمل؛ تظهر نتيجته في الويدجت حين ينتهي", bad: false };
-  const fresh = !!m.ts && Date.parse(m.ts) >= t0 - 5000;   // ts محلي بدقة الثانية؛ هامش لتقريب الثواني
-  if (m.err) return fresh && m.freedMB > 0
-    ? { text: `نجح تنظيف الذاكرة جزئيًا: حُرّر ${(m.freedMB / 1024).toFixed(2)} GB ثم تعذّر الإكمال (${m.err})`, bad: true }
-    : { text: `تعذّر تنظيف الذاكرة: ${m.err}`, bad: true };
-  if (!fresh || m.before == null) return { text: "انتهى تنظيف الذاكرة دون نتيجة جديدة مسجّلة", bad: true };
-  return { text: `الذاكرة الفعلية ${m.before}% ← ${m.after}%، حُرّر ${(m.freedMB / 1024).toFixed(2)} GB (الالتزام لا يتغيّر)`, bad: false };
+// زر الشريط «تحرير الالتزام» (قرار المالك 20/11/2026 بعد قياس deep): يفتح خطة الالتزام في صفحة الذاكرة بدل تنظيف لا يخفضه.
+// الانتقال يصفّر التمرير في route ثم يرسم الصفحة لاحقًا، فالكشف يتم بعد أول رسم فيه اللوحة (show أو route من الذاكرة المؤقتة)
+let wantPlan = false;
+function revealPlan() {
+  const el = $("#commitPlan"); if (!el) return false;
+  wantPlan = false; el.scrollIntoView({ block: "start" });
+  const h = el.querySelector("h2"); if (h) { h.tabIndex = -1; h.focus({ preventScroll: true }); }
+  return true;
 }
-$("#boost").onclick = async () => {
-  const b = $("#boost"), txt = $("#boostTxt"); if (b.disabled) return;   // البند 24: وضع واحد (light)
-  const t0 = Date.now();
-  try { await post("/api/trim-memory", {}); } catch (e) { return toast("تعذّر: " + e.message, true); }
-  b.disabled = true; txt.textContent = "جارٍ التنظيف…"; toast("بدأ تنظيف الذاكرة");
-  let m = null;
-  for (let i = 0; i < 80; i++) { await new Promise(r => setTimeout(r, 700)); try { m = (await api("/api/mini")).trim; } catch { } if (m && !m.running) break; }
-  b.disabled = false; txt.textContent = "تنظيف الذاكرة";
-  const r = trimOutcome(m, t0); if (r) toast(r.text, r.bad);
-  show(true);
-};
+$("#boost").onclick = () => { wantPlan = true; if (curKey === "mem") revealPlan(); else location.hash = "#/mem"; };
 // خريطة الالتزام: لمن يذهب الالتزام (حسب المشروع)، وما الحجز الخامل، وكم يلزم للهدف، وحاويات Docker وطلباتها
 const mbq = mb => mb >= 1024 ? Q(mb / 1024, "GB", 1) : Q(mb, "MB");   // رقم ووحدة في عزل اتجاه واحد
 const mbt = mb => { const [v, u] = mbUnit(mb); return `${v} ${u}`; };   // نص خام داخل bdi
@@ -1113,8 +1100,14 @@ function commitMap(cm, thr) {
   const flags = p => `${p.gpu ? `<span class="tag" title="يستعمل كرت الشاشة؛ CUDA يحجز التزامًا كبيرًا ما دام النموذج محمَّلًا">كرت الشاشة</span>` : ""}${p.freeMB > 0 && !p.keep ? `<span class="tag warn" title="التزام كبير لا تستعمله العملية الآن؛ يتحرر بتفريغ النموذج أو إغلاق البرنامج">حجز خامل ${mbq(p.freeMB)}</span>` : ""}${p.keep ? `<span class="tag" title="${esc(p.note || "")}">لا يُفرَّغ</span>` : ""}`;
   const procs = p => p.procs.map(x => `<bdi dir="ltr" translate="no">${esc(x.name)} ${mbt(x.commitMB)}${x.idle || x.gpu ? "*" : ""}</bdi>`).join(" · ");
   let out = panel("الالتزام حسب المشروع", `<div class="scroll"><table class="tbl"><thead><tr><th>المشروع</th><th class="n">الالتزام</th><th class="n">مجموعة العمل</th><th class="n">حاويات</th><th>الحالة</th></tr></thead><tbody>${cm.projects.map(p => `<tr><td><b>${esc(p.name)}</b><div class="note">${p.count} عملية${p.procs.length ? ": " + procs(p) : ""}</div>${p.note ? `<div class="note">${esc(p.note)}</div>` : ""}</td><td class="n">${mbq(p.commitMB)}</td><td class="n">${mbq(p.wsMB)}</td><td class="n">${p.containers.count ? `${mbq(p.containers.memMB)}<div class="note">${p.containers.count} حاوية</div>` : "—"}</td><td><div class="pill-row">${flags(p)}</div></td></tr>`).join("")}</tbody></table></div>`, { cls: "c12", meta: "* حجز خامل أو كرت الشاشة · المشروع من سطر أمر البرنامج أو أبيه" });
-  const steps = (pl.steps || []).map(x => `<div class="li"><span class="t">${x.kind === "docker" ? `إيقاف حاويات <bdi dir="ltr" translate="no">${esc(x.name)}</bdi>${x.pr ? ` (طلب ${x.pr} منتهٍ)` : ""}` : `تفريغ الحجز الخامل في «${esc(x.name)}»`}</span><span class="r">${Q(x.freeGB, "GB", 1)}</span><span class="d">بعده نحو ${Q(x.afterPct, "%", 1)}</span></div>`).join("");
-  out += panel(`الوصول إلى ${pl.target ?? 40}%`, pl.target == null ? `<div class="empty">تعذّر الحساب</div>` : `<div class="kpis">${kpi("الآن", nf(cm.pct, 1), "%", `${Q(cm.usedGB, "", 1)} / ${Q(cm.limitGB, "GB", 1)}`, meter(cm.pct, thr?.commitWarn, thr?.commitBad))}${kpi("يلزم تحريره", pl.met ? "0" : nf(pl.needGB, 1), "GB", pl.met ? "تحت الهدف الآن" : "")}${kpi("الخامل القابل للتحرير", nf(pl.idleGB, 1), "GB", `أفضل ما يبلغه ${Q(pl.bestPct, "%", 1)}`)}${kpi("بديل: ملف ترحيل أكبر بـ", nf(pl.pagefileGB, 0), "GB", "يخفض النسبة لا الاستهلاك")}</div>${steps ? `<div class="list">${steps}</div>` : ""}${!pl.met && !pl.reachable ? `<div class="note">تحرير الحجز الخامل وحده لا يبلغ الهدف؛ الباقي يحتاج إغلاق برامج تعمل فعلًا أو جلسات خاملة.</div>` : ""}`, { cls: "c12" });
+  // كل خطوة بفعلها: الحاويات بزر الإيقاف نفسه، والمشروع على كرت الشاشة بتفريغ النماذج، وغيره بالإغلاق من «العمليات»
+  const stepAct = x => {
+    if (x.kind === "docker") { const g = (cm.stale || []).find(s => s.compose === x.name); return `<button class="btn" data-dockerstop="${esc(x.name)}" data-dockerpr="${esc(g?.pr?.state || "")}" title="إيقاف كل حاويات ${esc(x.name)} (لا حذف)">إيقاف</button>`; }
+    const p = cm.projects.find(q => q.id === x.id);
+    return p?.gpu ? `<button class="btn" data-gpupurge="1" title="يُخرج نماذج LM Studio وOllama من كروت الشاشة فيتحرر التزام CUDA">فرّغ النماذج</button>` : `<a class="btn" href="#/procs" title="أغلق البرنامج الخامل من «العمليات»">العمليات</a>`;
+  };
+  const steps = (pl.steps || []).map(x => `<div class="li"><span class="t">${x.kind === "docker" ? `إيقاف حاويات <bdi dir="ltr" translate="no">${esc(x.name)}</bdi>${x.pr ? ` (طلب ${x.pr} منتهٍ)` : ""}` : `تفريغ الحجز الخامل في «${esc(x.name)}»`}</span><span class="r">${stepAct(x)}</span><span class="d">يحرّر نحو ${Q(x.freeGB, "GB", 1)}، وبعده نحو ${Q(x.afterPct, "%", 1)}</span></div>`).join("");
+  out += panel(`الوصول إلى ${pl.target ?? 40}%`, pl.target == null ? `<div class="empty">تعذّر الحساب</div>` : `<div class="kpis">${kpi("الآن", nf(cm.pct, 1), "%", `${Q(cm.usedGB, "", 1)} / ${Q(cm.limitGB, "GB", 1)}`, meter(cm.pct, thr?.commitWarn, thr?.commitBad))}${kpi("يلزم تحريره", pl.met ? "0" : nf(pl.needGB, 1), "GB", pl.met ? "تحت الهدف الآن" : "")}${kpi("الخامل القابل للتحرير", nf(pl.idleGB, 1), "GB", `أفضل ما يبلغه ${Q(pl.bestPct, "%", 1)}`)}${kpi("بديل: ملف ترحيل أكبر بـ", nf(pl.pagefileGB, 0), "GB", "يخفض النسبة لا الاستهلاك")}</div>${steps ? `<div class="list">${steps}</div>` : ""}${!pl.met && !pl.reachable ? `<div class="note">تحرير الحجز الخامل وحده لا يبلغ الهدف؛ الباقي يحتاج إغلاق برامج تعمل فعلًا أو جلسات خاملة.</div>` : ""}`, { cls: "c12", id: "commitPlan" });
   const cs = dk.containers || [];
   out += panel("حاويات Docker", dk.state === "ok" ? (cs.length ? `<div class="scroll"><table class="tbl"><thead><tr><th>الحاوية</th><th>المشروع</th><th class="n">الذاكرة داخل WSL</th><th>طلب الدمج</th><th></th></tr></thead><tbody>${cs.map((c, i) => { const pr = c.pr, st = pr ? PR_AR[pr.state] || [pr.state, ""] : null, first = cs.findIndex(x => x.compose === c.compose) === i; return `<tr><td translate="no" class="minw-10"><bdi dir="ltr">${esc(c.name)}</bdi><div class="note"><bdi dir="ltr">${esc(c.status)}</bdi></div></td><td>${esc((cm.projects.find(p => p.id === c.project) || {}).name || "غير مصنّف")}</td><td class="n">${mbq(c.memMB)}</td><td>${pr ? `<span class="tag ${st[1]}">${pr.number ? pr.number + " · " : ""}${esc(st[0])}</span>` : "—"}</td><td>${c.compose && first ? `<button class="btn${stale.has(c.compose) ? " primary" : ""}" data-dockerstop="${esc(c.compose)}" data-dockerpr="${pr ? esc(pr.state) : ""}" title="إيقاف كل حاويات ${esc(c.compose)} (لا حذف)">إيقاف</button>` : ""}</td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">لا حاويات تعمل</div>`) : `<div class="empty">${dk.state === "pending" ? "تُقرأ الحاويات الآن؛ حدّث الصفحة بعد لحظات" : esc(dk.why || "تعذّرت قراءة Docker")}</div>`, { cls: "c12", meta: "الذاكرة داخل الآلة الافتراضية؛ تعود إلى ويندوز تدريجيًا بعد الإيقاف" });
   return out;
@@ -1179,6 +1172,7 @@ async function show(first = false) {
     const y = scrollY, fk = focusKey(main);
     paint(main, pg.render(data)); pg.after?.(data); refocus(main, fk);
     scrollTo(0, y);   // ومع show(true) بعد فعلٍ أيضًا؛ الانتقال بين الصفحات صفّر التمرير قبلها في route
+    if (wantPlan && key === "mem") revealPlan();
   } catch (e) { if (my === seq && e.name !== "AbortError") { console.error("render/load failed:", e && e.stack || e); setLive(false); $("#liveTxt").textContent = "تعذّر التحديث"; if (first && !CACHE[key]) $("#main").innerHTML = `<div class="banner" role="alert">تعذّر الاتصال بالخادم. تأكد من تشغيل المرصد ثم أعد المحاولة.</div>`; } }
   finally { if (my === seq) inflight = false; }
 }
@@ -1207,6 +1201,7 @@ function route() {
   const m = $("#main"), c = CACHE[key];
   if (c) { last = c.data; lastSig = c.sig; paint(m, page.render(c.data)); page.after?.(c.data); } else m.innerHTML = skeleton(6);
   scrollTo(0, 0); if (routed) m.focus({ preventScroll: true }); routed = true;   // بعد الانتقال يبدأ قارئ الشاشة ولوحة المفاتيح من المحتوى لا من أول الصفحة
+  if (key !== "mem") wantPlan = false; else { if (qs.get("plan")) wantPlan = true; if (wantPlan && c) revealPlan(); }   // ‎#/mem?plan=1‎ من زر الويدجت؛ syncHash يحذفه من الرابط
   show(!c); schedule();
 }
 addEventListener("hashchange", route);
