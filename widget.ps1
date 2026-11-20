@@ -644,11 +644,11 @@ foreach ($b in @($UI.cfReal, $UI.cfDry, $UI.cfNo)) { $cfBtns.Children.Add($b) | 
 $cf.Children.Add($UI.confirmText) | Out-Null; $cf.Children.Add($cfBtns) | Out-Null; $UI.confirm.Child = $cf
 $stack.Children.Add($UI.confirm) | Out-Null
 
-# ---- memory trim button (PC Manager style, on demand)
+# ---- memory trim button: «تحرير الالتزام» يفتح خطة الالتزام في صفحة الذاكرة (قرار المالك 20/11/2026 بعد قياس deep)
 $stack.Children.Add((Gap 2)) | Out-Null
-$UI.trim = New-ActionButton 'تنظيف الذاكرة الآن'; $UI.trim.Padding = '10,7,10,8'; $UI.trim.Cursor = 'Hand'
+$UI.trim = New-ActionButton 'تحرير الالتزام'; $UI.trim.Padding = '10,7,10,8'; $UI.trim.Cursor = 'Hand'
 $UI.trim.Background = Brush (Alpha $C.accent '26'); $UI.trim.BorderBrush = Brush (Alpha $C.accent '70'); $UI.trim.BorderThickness = 1
-$UI.trimText = New-Text '⚡ تنظيف الذاكرة الآن' 12 $C.accentText 'SemiBold'; $UI.trimText.HorizontalAlignment = 'Center'; $UI.trimCd = New-Text '' 12 $C.muted; $UI.trimCd.HorizontalAlignment = 'Center'; $UI.trimCd.Margin = '0,2,0,0'
+$UI.trimText = New-Text '⚡ تحرير الالتزام' 12 $C.accentText 'SemiBold'; $UI.trimText.HorizontalAlignment = 'Center'; $UI.trimCd = New-Text '' 12 $C.muted; $UI.trimCd.HorizontalAlignment = 'Center'; $UI.trimCd.Margin = '0,2,0,0'
 $tsp = New-Object Windows.Controls.StackPanel; [void]$tsp.Children.Add($UI.trimText); [void]$tsp.Children.Add($UI.trimCd); $UI.trim.Content = $tsp
 $stack.Children.Add($UI.trim) | Out-Null
 $stack.Children.Add((Gap 6)) | Out-Null
@@ -1020,14 +1020,6 @@ function Update-Widget {
         $UI.tierSummaryText.Text = $parts -join ' · '; $UI.tierSummaryText.ToolTip = $UI.tierSummaryText.Text
         $UI.tierSummaryText.Foreground = if ($failed.Count -or $paused.Count) { Brush $C.warn } else { Brush $C.muted }
     } catch { $UI.tierSummaryText.Text = 'تعذّرت قراءة حالة المستويات' }
-    $tr = $d.trim
-    if ($tr) {
-        if ($tr.running) { $UI.trimText.Text = '… جارٍ تنظيف الذاكرة' }
-        elseif ($tr.err -and $tr.freedMB -gt 0) { $UI.trimText.Text = ('⚡ تنظيف الذاكرة الآن · نجح جزئيًا، حُرّر {0}' -f (Fmt-Bytes ([double]$tr.freedMB * 1MB))) }   # انتهت المهلة بعد تحرير فعلي: لا نقول «تعذّر»
-        elseif ($tr.err) { $UI.trimText.Text = '⚡ تنظيف الذاكرة الآن · تعذّر' }
-        elseif ($null -ne $tr.before -and $tr.ts) { $UI.trimText.Text = ('⚡ تنظيف الذاكرة الآن · {0}% ← {1}% ({2})' -f $tr.before, $tr.after, (Ago $tr.ts)) }
-        else { $UI.trimText.Text = '⚡ تنظيف الذاكرة الآن' }
-    }
     $guardOk = ($d.guard -and $d.guard.applyInArgs -and $d.guard.lastMode -ne 'DRYRUN')
     $worst = Get-SummaryLevel @($lc, $lr, $ld)
     if ($worst -eq 'ok' -and ($anyFail -or ($d.guard -and -not $guardOk))) { $worst = 'warn' }
@@ -1091,35 +1083,9 @@ function Start-Clean([bool]$dry) {
     if (-not $tier) { return }
     Start-Bg '/api/run-cleanup' @{ tier = $tier; dry = $dry } ({ param($r) Show-Toast ($(if ($dry) { 'بدأت التجربة: ' } else { 'بدأ التنفيذ: ' }) + $UI.tiers[$tier].Label) }.GetNewClosure()) { param($m) Show-Toast ('تعذّر: ' + $(if ($m -match 'already running') { 'يعمل تنظيف يدوي آخر الآن' } else { $m })) }
 }
-# trim runs in a background runspace: the UI thread never waits on the server
-$script:trimJob = $null
-# البند 24 من المجلس 19/11: وضع واحد (light)؛ حُذف المتوسط والعميق وقائمتهما
-function Start-Trim {
-    if ($script:trimJob) { return }
-    $mode = 'light'
-    $script:trimPendingAt = Get-Date
-    $UI.trimText.Text = '… جارٍ تنظيف الذاكرة'; $script:lastStamp = -1
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    $ps = [powershell]::Create()
-    [void]$ps.AddScript({ param($tok, $body) Invoke-RestMethod 'http://127.0.0.1:47832/api/trim-memory' -Method Post -Headers @{ 'X-Token' = $tok } -ContentType 'application/json' -Body $body -TimeoutSec 6 -NoProxy }).AddArgument($script:tok).AddArgument((@{ mode = $mode } | ConvertTo-Json -Compress))
-    $script:trimJob = @{ ps = $ps; ar = $ps.BeginInvoke(); sw = $sw }
-    $trimTimer.Start()
-    Log ('trim: pressed ' + $mode)
-}
-$UI.trim.Add_Click({ Start-Trim })
-$trimTimer = New-Object Windows.Threading.DispatcherTimer; $trimTimer.Interval = [TimeSpan]::FromMilliseconds(200)
-$trimTimer.Add_Tick({
-    $j = $script:trimJob; if (-not $j) { $this.Stop(); return }; if (-not $j.ar.IsCompleted) { return }
-    $script:trimJob = $null; $this.Stop()
-    try {
-        $null = $j.ps.EndInvoke($j.ar)
-        if ($j.ps.Streams.Error.Count -gt 0) { throw ([string]$j.ps.Streams.Error[0]) }
-        Log ('trim: answered in {0} ms' -f $j.sw.ElapsedMilliseconds)
-    } catch {
-        Log ('trim: failed after {0} ms: {1}' -f $j.sw.ElapsedMilliseconds, $_.Exception.Message)
-        Show-Toast ('تعذّر: ' + $_.Exception.Message)
-    } finally { $j.ps.Dispose() }
-})
+# «تحرير الالتزام»: تنظيف الذاكرة لا يخفض الالتزام، وdeep قِيس 20/11/2026 فكلّف قراءة 5.5 GB من القرص في 10 دقائق بلا أثر عليه؛
+# فالزر يفتح خطة الالتزام (تفريغ النماذج الخاملة وإيقاف الحاويات المنتهية والإغلاق) في صفحة الذاكرة
+$UI.trim.Add_Click({ Show-Dash '#/mem?plan=1' 'خطة تحرير الالتزام في صفحة «الذاكرة»' })
 $UI.cfReal.Add_Click({ Start-Clean $false })
 $UI.cfDry.Add_Click({ Start-Clean $true })
 $UI.cfNo.Add_Click({ $script:pending = $null; $UI.confirm.Visibility = 'Collapsed' })
@@ -1190,20 +1156,24 @@ public static class WF {
     }
 }
 '@
-$UI.open.Add_Click({
+# النافذة المفتوحة تُنشَّط كما هي (لا تُفتح ثانية)؛ وإلا تُفتح بتذكرة وبصفحة اختيارية: التحويل 302 بعد التذكرة يحفظ الجزء بعد #
+function Show-Dash([string]$hash = '', [string]$openHint = '') {
     try {
         $m = [regex]::Match([IO.File]::ReadAllText((Join-Path $PSScriptRoot 'web\index.html'), [Text.Encoding]::UTF8), '<title>(.*?)</title>')
         if ($m.Success -and [WF]::Exists($m.Groups[1].Value.Trim())) {
             [void][WF]::Activate($m.Groups[1].Value.Trim())
+            if ($openHint) { Show-Toast $openHint }
             return
         }
     } catch { Show-Toast 'تعذّر تحديد نافذة التطبيق بأمان'; return }
     # one-time ticket: the token never goes on the command line
-    Start-Bg '/api/ticket' @{} { param($r) Open-Dash ([string]$r.ticket) } { param($m) Show-Toast 'الخادم غير متصل' }
-})
-function Open-Dash([string]$tk) {
+    Start-Bg '/api/ticket' @{} ({ param($r) Open-Dash ([string]$r.ticket) $hash }.GetNewClosure()) { param($m) Show-Toast 'الخادم غير متصل' }
+}
+$UI.open.Add_Click({ Show-Dash })
+function Open-Dash([string]$tk, [string]$hash = '') {
     if (-not $tk) { Show-Toast 'الخادم غير متصل'; return }
-    $url = "http://127.0.0.1:47832/?k=$tk"
+    if ($hash -notmatch '^(#/[a-z]+(\?[a-z]+=[a-z0-9]+)?)?$') { $hash = '' }   # جزء ثابت من الكود فقط؛ لا يدخل سطر الأمر غير المتوقع
+    $url = "http://127.0.0.1:47832/?k=$tk$hash"
     $edge = @('C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', 'C:\Program Files\Microsoft\Edge\Application\msedge.exe') | Where-Object { Test-Path $_ } | Select-Object -First 1
     $UI.open.Content = $script:txtClose
     try {
