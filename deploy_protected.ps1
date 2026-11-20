@@ -38,8 +38,9 @@ $policyTasks = @('Cleanup_v2_Daily', 'Cleanup_v2_Weekly', 'Cleanup_v2_Monthly', 
 $keepInSource = @('.git', '.claude', '.ruff_cache', '__pycache__', 'tests', 'docs', 'data', 'web', '.github',
     '.token', '.token.old', '.token.read', '.protected-launch', 'crash.dmp', 'crash_analysis.txt', 'proc_report.txt',
     'purge.exe', 'purge_mode.txt', 'install_purge.ok')
-# ما لا يُنسخ من الالتزام إلى app: ليس جزءًا من التطبيق الحي.
-$notShipped = '^(tests|docs|\.github|\.claude)/'
+# ما لا يُنسخ من الالتزام إلى app: ليس جزءًا من التطبيق الحي. أدوات التثبيت والتشخيص لمرة واحدة يشغّلها المالك من المستودع،
+# وملاحظات التطوير لا يقرؤها التطبيق (البند 37 من المجلس 19/11)؛ وما نُشر منها قبلًا يحذفه بيان النشر في Install-Code.
+$notShipped = '^((tests|docs|\.github|\.claude)/|(install_secure_[^/]*\.ps1|unify_python_[^/]*\.ps1|register_boot_trace\.ps1|_register_admin_probe\.ps1|build_secure_install\.py|restore_test\.py|analyze_dump\.ps1|proc_report\.ps1|CLAUDE\.md|CHANGES_[^/]*\.md)$)'
 
 $id = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
 if (-not $id.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {

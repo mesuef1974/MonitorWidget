@@ -163,5 +163,36 @@ class TaskXml(unittest.TestCase):
             shutil.rmtree(d, ignore_errors=True)
 
 
+class Shipped(unittest.TestCase):
+    """البند 37 من المجلس 19/11: أدوات التثبيت والتشخيص لمرة واحدة وملاحظات التطوير لا تُنشر في app، وكود التطبيق كله يُنشر."""
+    NOT_SHIPPED = frozenset({"install_secure_2026-10-24.ps1", "unify_python_2026-10-24.ps1", "register_boot_trace.ps1", "_register_admin_probe.ps1",
+                             "build_secure_install.py", "restore_test.py", "analyze_dump.ps1", "proc_report.ps1", "CLAUDE.md", "CHANGES_2026-10-24.md"})
+
+    @classmethod
+    def setUpClass(cls):
+        m = re.search(r"^\$notShipped = '([^']*)'", SCRIPT, re.MULTILINE)
+        assert m, "notShipped"
+        rx = re.compile(m.group(1), re.IGNORECASE)   # -notmatch في PowerShell لا يفرّق بين الحروف
+        files = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
+        cls.files, cls.shipped = files, {f for f in files if not rx.search(f)}
+
+    def test_one_off_tools_and_notes_stay_in_the_repo(self):
+        present = self.NOT_SHIPPED & set(self.files)
+        self.assertTrue(present)
+        self.assertFalse(present & self.shipped)
+        self.assertFalse({f for f in self.shipped if f.split("/")[0] in ("tests", "docs", ".github", ".claude")})
+
+    def test_runtime_code_still_ships(self):
+        for f in ("server.py", "agent.py", "widget.ps1", "app_shell.ps1", "identity.ps1", "boot_trace.ps1", "web/index.html", "deploy_protected.ps1"):
+            self.assertIn(f, self.shipped, f)
+        excluded = {os.path.splitext(f)[0] for f in self.NOT_SHIPPED if f.endswith(".py")}
+        for f in self.shipped:
+            if f.endswith(".py") and "/" not in f:
+                with open(os.path.join(ROOT, f), encoding="utf-8-sig") as fh:
+                    src = fh.read()
+                for mod in excluded:
+                    self.assertIsNone(re.search(rf"^\s*(import|from)\s+{mod}\b", src, re.MULTILINE), f"{f} imports {mod}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
