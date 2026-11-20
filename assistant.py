@@ -56,7 +56,7 @@ SYSTEM = (
 )
 NO_THINK = " /no_think"
 
-PAGES = ("overview", "health", "advice", "alerts", "mem", "gpu", "procs", "power", "space", "spaceclean", "startup", "tasks", "rules")
+PAGES = ("overview", "health", "advice", "alerts", "mem", "gpu", "procs", "power", "space", "startup", "tasks", "rules")
 ACTIONS = {
     "trim_memory": "تنظيف الذاكرة",
     "unload_model": "إخراج النموذج من LM Studio",
@@ -67,7 +67,7 @@ ACTIONS = {
 
 
 PAGE_HELP = ("overview نظرة عامة، health الصحة، advice التوصيات، alerts التنبيهات، mem الذاكرة، gpu الرسوميات، procs العمليات والمعالج، "
-             "power الطاقة، space المساحة، spaceclean تنظيف المساحة، startup بدء التشغيل، tasks الجدولة، rules قواعد التنظيف")
+             "power الطاقة، space المساحة وتنظيفها، startup بدء التشغيل، tasks الجدولة، rules قواعد التنظيف")
 
 
 def _pick(d, *keys):
@@ -264,7 +264,7 @@ def answer(question, history=None):
     model = explain._model()
     if _asks_to_delete(question):
         proposals = []
-        _propose({"action": "open_page", "target": "spaceclean"}, proposals)
+        _propose({"action": "open_page", "target": "space"}, proposals)
         return {"text": NO_DELETE, "actions": proposals, "tools": [], "model": model}
     messages = [{"role": "system", "content": _system()}, *_clean_history(history), {"role": "user", "content": question}]
     proposals, used = [], []

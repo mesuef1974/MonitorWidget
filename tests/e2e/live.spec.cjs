@@ -36,7 +36,7 @@ test('بنرات الخطأ تحمل role=alert: في المصدر كلها، و
   const src = await (await page.request.get('/')).text();
   expect(src.match(/<div class="banner"(?![^>]*role=)/g)).toBeNull();
   expect((src.match(/<div class="banner" role="alert">/g) || []).length).toBeGreaterThan(1);
-  expect((src.match(/return nodata\("/g) || []).length).toBeGreaterThan(15);   // بنرات «تعذّر قراءة…» عبر دالة واحدة
+  expect((src.match(/return nodata\("/g) || []).length).toBeGreaterThan(12);   // بنرات «تعذّر قراءة…» عبر دالة واحدة (قلّت بدمج الصفحات في بنود المجلس 26-29)
 
   await page.route(CPU_PROCS, route => route.fulfill({ status: 500, json: { error: 'x' } }));
   await page.goto('/#/procs');
