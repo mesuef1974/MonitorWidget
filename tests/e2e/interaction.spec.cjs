@@ -19,7 +19,7 @@ test('هامش التمرير أعلى الصفحة يتبع ارتفاع الش
 });
 
 test('الأزرار والروابط والحقول بلا تأخير نقر ولا وميض لمس', async ({ page }) => {
-  const cases = [['overview', ['.nav a', '.btn']], ['ctrl', ['.chips button', '.swatch']], ['rules', ['.switch']], ['ctrl', ['.inp']]];
+  const cases = [['overview', ['.nav a', '.btn']], ['ctrl', ['.chips button', '.swatch']], ['automation', ['.switch']], ['ctrl', ['.inp']]];
   for (const [pg, sels] of cases) {
     await page.goto(`/#/${pg}`); await ready(page);
     for (const sel of sels) {
@@ -50,6 +50,6 @@ test('الرقائق والمفاتيح والعيّنات تتغيّر عند �
   await page.goto('/#/ctrl'); await ready(page);
   await probe('.chips button:not([aria-pressed="true"])', 'background-color');
   await probe('.swatch:not([aria-pressed="true"])', 'border-color');
-  await page.goto('/#/rules'); await ready(page);
+  await page.goto('/#/automation'); await ready(page);
   await probe('.switch:not(:disabled)', 'border-color');
 });

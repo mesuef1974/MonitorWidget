@@ -56,7 +56,7 @@ SYSTEM = (
 )
 NO_THINK = " /no_think"
 
-PAGES = ("overview", "health", "mem", "gpu", "procs", "power", "space", "startup", "tasks", "rules")
+PAGES = ("overview", "health", "mem", "gpu", "procs", "power", "space", "startup", "automation")
 ACTIONS = {
     "trim_memory": "تنظيف الذاكرة",
     "unload_model": "إخراج النموذج من LM Studio",
@@ -67,7 +67,7 @@ ACTIONS = {
 
 
 PAGE_HELP = ("overview نظرة عامة (فيها التوصيات والتنبيهات)، health الصحة، mem الذاكرة، gpu الرسوميات، procs العمليات والمعالج، "
-             "power الطاقة، space المساحة وتنظيفها، startup بدء التشغيل، tasks الجدولة، rules قواعد التنظيف")
+             "power الطاقة، space المساحة وتنظيفها، startup بدء التشغيل، automation الأتمتة (قواعد التنظيف والجدولة والمهام الخلفية)")
 
 
 def _pick(d, *keys):

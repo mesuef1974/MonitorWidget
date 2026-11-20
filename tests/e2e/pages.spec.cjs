@@ -173,3 +173,22 @@ test('يحتاج انتباهك: أول لوحة في نظرة عامة بالت
   await page.goto('/#/ctrl');
   await expect(page.locator('#alForm h2')).toHaveText('حدود التنبيه');
 });
+
+// البند 29-ج من المجلس 19/11: «قواعد التنظيف» و«الجدولة» و«المهام الخلفية» صفحة «الأتمتة»
+test('الأتمتة: القواعد ثم المهام المجدولة ثم المهام الخلفية في صفحة واحدة، و#/tasks و#/rules تُحوَّلان إليها', async ({ page }) => {
+  for (const h of ['#/tasks', '#/rules']) {
+    await page.goto('/' + h);
+    await page.waitForFunction(() => location.hash === '#/automation' && document.querySelector('#main [data-job]') && document.querySelector('#main [data-tier]'));
+  }
+  const titles = await page.locator('#main section.panel h2').allTextContents();
+  const r = titles.findIndex(t => t.startsWith('مستوى ')), j = titles.indexOf('المهام الخلفية');
+  expect(r, titles.join(' | ')).toBe(0);
+  expect(j, titles.join(' | ')).toBe(titles.length - 1);
+  for (const k of ['tasks', 'rules']) {
+    expect(await page.locator(`#nav a[href="#/${k}"]`).count()).toBe(0);
+    expect(await page.evaluate(x => typeof PAGES[x], k)).toBe('undefined');
+  }
+  await page.goto('/#/ctrl');
+  await page.waitForFunction(() => document.querySelector('#alForm'));
+  expect(await page.locator('#main [data-job]').count()).toBe(0);
+});

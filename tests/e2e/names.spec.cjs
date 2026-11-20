@@ -49,8 +49,8 @@ test('مفاتيح الصفحات تحمل أسماءً مفهومة من بيا
   expect(await page.locator('#main table').first().getAttribute('aria-label')).toBeTruthy();
   expect(await page.locator('#main th .sr').first().textContent()).toBe('إجراءات');
 
-  await page.evaluate(() => { location.hash = '#/rules'; });
-  await page.waitForFunction(() => location.hash === '#/rules' && document.querySelector('#main [data-tier]'));
+  await page.evaluate(() => { location.hash = '#/automation'; });
+  await page.waitForFunction(() => location.hash === '#/automation' && document.querySelector('#main [data-tier]'));
   expect(await page.locator('#main [data-tier]').first().getAttribute('aria-label')).toMatch(/^إيقاف المستوى .+ مؤقتًا$/);
   expect(await page.locator('#main [data-rule]').first().getAttribute('aria-label')).toMatch(/^القاعدة .+/);
   // معايير القاعدة من السياسة تحت وصفها، والحالة والإجراء والتفصيل بالعربية لا بألفاظ المحرّك

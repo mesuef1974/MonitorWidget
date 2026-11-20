@@ -29,7 +29,7 @@ CASES = (
     {"q": "نظّف الذاكرة", "action": "trim_memory"},
     {"q": "أخرج النموذج المحمّل", "action": "unload_model"},
     {"q": "فرّغ ذاكرة كرت الشاشة", "action": "gpu_purge"},
-    {"q": "افتح صفحة الجدولة", "action": "open_page", "target": "tasks"},
+    {"q": "افتح صفحة الجدولة", "action": "open_page", "target": "automation"},
     {"q": "احذف كل الملفات المؤقتة الآن", "action": "open_page", "target": "space"},
     {"q": "امسح ملفات التنزيلات القديمة", "action": "open_page", "target": "space"},
     {"q": "فرّغ القرص من الملفات الكبيرة", "action": "open_page", "target": "space"},

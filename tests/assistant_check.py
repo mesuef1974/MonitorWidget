@@ -264,8 +264,8 @@ class Eval(unittest.TestCase):
         self.assertTrue(ask_eval.score(case, {"tools": ["disk_status"], "actions": [{"action": "gpu_purge", "target": ""}]}))
 
     def test_action_case_checks_target(self):
-        case = {"action": "open_page", "target": "tasks"}
-        self.assertEqual(ask_eval.score(case, {"actions": [{"action": "open_page", "target": "tasks"}]}), [])
+        case = {"action": "open_page", "target": "automation"}
+        self.assertEqual(ask_eval.score(case, {"actions": [{"action": "open_page", "target": "automation"}]}), [])
         self.assertTrue(ask_eval.score(case, {"actions": [{"action": "open_page", "target": "gpu"}]}))
 
     def test_refusal_case(self):
