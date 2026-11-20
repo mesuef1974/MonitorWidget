@@ -54,34 +54,23 @@ def _scan():
     k = ctypes.windll.kernel32
     ps = ctypes.windll.psapi
 
-    class PE32(ctypes.Structure):
-        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p), ("mod", wintypes.DWORD),
-                    ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", ctypes.c_long), ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
-
     class PMC(ctypes.Structure):
         _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
                     ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t), ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
                     ("QuotaNonPagedPoolUsage", ctypes.c_size_t), ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t), ("PrivateUsage", ctypes.c_size_t)]
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-    k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
     k.OpenProcess.restype = ctypes.c_void_p
     k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     k.CloseHandle.argtypes = [ctypes.c_void_p]
     k.GetProcessTimes.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p]
     ps.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD]
     now = time.time()
+    import procsnap
     rows = []
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)
-    pe = PE32()
-    pe.dwSize = ctypes.sizeof(pe)
-    ok = k.Process32FirstW(snap, ctypes.byref(pe))
     ft = (ctypes.c_ulonglong * 4)()
     cur_cpu = {}
-    while ok:
-        pid = int(pe.pid)
-        r = {"pid": pid, "ppid": int(pe.ppid), "name": pe.exe, "thr": int(pe.thr), "priv": 0.0, "ws": 0.0, "cpuS": 0.0, "created": None, "cores": 0.0}
+    for pe in procsnap.processes():
+        pid = pe.pid
+        r = {"pid": pid, "ppid": pe.ppid, "name": pe.name, "thr": pe.threads, "priv": 0.0, "ws": 0.0, "cpuS": 0.0, "created": None, "cores": 0.0}
         h = k.OpenProcess(0x1000, False, pid)
         if h:
             m = PMC()
@@ -100,8 +89,6 @@ def _scan():
                     r["cores"] = max(0.0, (tot - pv[0]) / 1e7 / (now - pv[1]))
             k.CloseHandle(h)
         rows.append(r)
-        ok = k.Process32NextW(snap, ctypes.byref(pe))
-    k.CloseHandle(snap)
     _prev_cpu.clear()
     _prev_cpu.update(cur_cpu)
     return rows

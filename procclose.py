@@ -15,6 +15,7 @@ routes_destructive.
 """
 import ctypes
 import os
+import procsnap
 from ctypes import wintypes
 
 DENY_NAMES = frozenset({
@@ -35,12 +36,6 @@ MB = 1048576.0
 REASONS = ("ok", "bad params", "protected", "not_found", "name_mismatch", "created_mismatch", "not_owner", "access_denied")
 
 
-class _PE32(ctypes.Structure):   # PROCESSENTRY32W
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p),
-                ("mod", wintypes.DWORD), ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", ctypes.c_long),
-                ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
-
-
 class _PMC(ctypes.Structure):   # PROCESS_MEMORY_COUNTERS_EX
     _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t),
                 ("WorkingSetSize", ctypes.c_size_t), ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
@@ -50,10 +45,6 @@ class _PMC(ctypes.Structure):   # PROCESS_MEMORY_COUNTERS_EX
 
 def _k32():
     k = ctypes.windll.kernel32
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-    k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
     k.OpenProcess.restype = ctypes.c_void_p
     k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     k.CloseHandle.argtypes = [ctypes.c_void_p]
@@ -77,19 +68,7 @@ def _adv():
 
 def names_by_pid():
     """لقطة {pid: اسم الملف التنفيذي} لكل العمليات (بلا فتح أي عملية)."""
-    k = _k32()
-    out = {}
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)
-    if not snap or snap == ctypes.c_void_p(-1).value:
-        return out
-    pe = _PE32()
-    pe.dwSize = ctypes.sizeof(pe)
-    ok = k.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
-        out[int(pe.pid)] = pe.exe
-        ok = k.Process32NextW(snap, ctypes.byref(pe))
-    k.CloseHandle(snap)
-    return out
+    return {p.pid: p.name for p in procsnap.processes()}
 
 
 def created_of(h):

@@ -28,10 +28,6 @@ if WIN:
     class IO_COUNTERS(ctypes.Structure):
         _fields_ = [(n, ctypes.c_ulonglong) for n in ("ReadOps", "WriteOps", "OtherOps", "ReadBytes", "WriteBytes", "OtherBytes")]
 
-    class PROCESSENTRY32W(ctypes.Structure):
-        _fields_ = [("dwSize", wt.DWORD), ("cntUsage", wt.DWORD), ("pid", wt.DWORD), ("heap", ctypes.c_size_t), ("mod", wt.DWORD),
-                    ("thr", wt.DWORD), ("ppid", wt.DWORD), ("pri", wt.LONG), ("flags", wt.DWORD), ("exe", ctypes.c_wchar * 260)]
-
     _k32 = ctypes.WinDLL("kernel32", use_last_error=True)
     _k32.CreateFileW.restype = wt.HANDLE
     _k32.CreateFileW.argtypes = [wt.LPCWSTR, wt.DWORD, wt.DWORD, ctypes.c_void_p, wt.DWORD, wt.DWORD, wt.HANDLE]
@@ -40,10 +36,6 @@ if WIN:
     _k32.OpenProcess.restype = wt.HANDLE
     _k32.OpenProcess.argtypes = [wt.DWORD, wt.BOOL, wt.DWORD]
     _k32.GetProcessIoCounters.argtypes = [wt.HANDLE, ctypes.POINTER(IO_COUNTERS)]
-    _k32.CreateToolhelp32Snapshot.restype = wt.HANDLE
-    _k32.CreateToolhelp32Snapshot.argtypes = [wt.DWORD, wt.DWORD]
-    _k32.Process32FirstW.argtypes = [wt.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
-    _k32.Process32NextW.argtypes = [wt.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
     _k32.QueryUnbiasedInterruptTime.argtypes = [ctypes.POINTER(ctypes.c_ulonglong)]
     _INVALID = wt.HANDLE(-1).value
 
@@ -91,20 +83,16 @@ class WinSource:
 
 def proc_io_snapshot():
     """{(pid, name): (read_bytes, write_bytes, read_ops, write_ops)} for every process we may open."""
+    import procsnap
     snap = {}
-    hs = _k32.CreateToolhelp32Snapshot(2, 0)
-    pe = PROCESSENTRY32W(); pe.dwSize = ctypes.sizeof(PROCESSENTRY32W)
     ioc = IO_COUNTERS()
-    ok = _k32.Process32FirstW(hs, ctypes.byref(pe))
-    while ok:
+    for pe in procsnap.processes():
         if pe.pid > 4:
             h = _k32.OpenProcess(0x1000, False, pe.pid)      # PROCESS_QUERY_LIMITED_INFORMATION
             if h:
                 if _k32.GetProcessIoCounters(h, ctypes.byref(ioc)):
-                    snap[(pe.pid, pe.exe.lower())] = (ioc.ReadBytes, ioc.WriteBytes, ioc.ReadOps, ioc.WriteOps)
+                    snap[(pe.pid, pe.name.lower())] = (ioc.ReadBytes, ioc.WriteBytes, ioc.ReadOps, ioc.WriteOps)
                 _k32.CloseHandle(h)
-        ok = _k32.Process32NextW(hs, ctypes.byref(pe))
-    _k32.CloseHandle(hs)
     return snap
 
 

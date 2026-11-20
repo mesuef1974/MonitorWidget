@@ -4,8 +4,7 @@ Everything here is a SELECT or a process-name snapshot: nothing is written, noth
 
 from sqlite_runtime import ensure_sqlite
 ensure_sqlite()
-import ctypes, sqlite3, time
-from ctypes import wintypes
+import sqlite3, time
 
 # background duties the user keeps asking about: (key, Arabic label, process names)
 BG = [
@@ -20,32 +19,11 @@ CPU_BUSY = 0.12      # cores
 IO_BUSY_MB = 30.0    # MB moved in the last 5 minutes
 
 
-class _PE(ctypes.Structure):
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
-                ("th32DefaultHeapID", ctypes.c_void_p), ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
-                ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", wintypes.LONG), ("dwFlags", wintypes.DWORD),
-                ("exe", ctypes.c_wchar * 260)]
-
-
 def running_names():
     """Lower-case exe names of every running process (Toolhelp snapshot); empty set when unavailable."""
     try:
-        k = ctypes.windll.kernel32
-        k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-        k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-        k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-        k.CloseHandle.argtypes = [ctypes.c_void_p]
-        snap = k.CreateToolhelp32Snapshot(0x2, 0)
-        out = set()
-        if snap and snap != ctypes.c_void_p(-1).value:
-            pe = _PE(); pe.dwSize = ctypes.sizeof(pe)
-            ok = k.Process32FirstW(snap, ctypes.byref(pe))
-            while ok:
-                out.add(pe.exe.lower())
-                ok = k.Process32NextW(snap, ctypes.byref(pe))
-            k.CloseHandle(snap)
-        return out
+        import procsnap
+        return {p.name.lower() for p in procsnap.processes()}
     except Exception:
         return set()
 
