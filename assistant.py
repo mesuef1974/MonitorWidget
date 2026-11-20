@@ -56,7 +56,7 @@ SYSTEM = (
 )
 NO_THINK = " /no_think"
 
-PAGES = ("overview", "health", "advice", "alerts", "cpu", "mem", "gpu", "procs", "power", "space", "spaceclean", "startup", "tasks", "rules")
+PAGES = ("overview", "health", "advice", "alerts", "mem", "gpu", "procs", "power", "space", "spaceclean", "startup", "tasks", "rules")
 ACTIONS = {
     "trim_memory": "تنظيف الذاكرة",
     "unload_model": "إخراج النموذج من LM Studio",
@@ -66,7 +66,7 @@ ACTIONS = {
 }
 
 
-PAGE_HELP = ("overview نظرة عامة، health الصحة، advice التوصيات، alerts التنبيهات، cpu المعالج، mem الذاكرة، gpu الرسوميات، procs العمليات، "
+PAGE_HELP = ("overview نظرة عامة، health الصحة، advice التوصيات، alerts التنبيهات، mem الذاكرة، gpu الرسوميات، procs العمليات والمعالج، "
              "power الطاقة، space المساحة، spaceclean تنظيف المساحة، startup بدء التشغيل، tasks الجدولة، rules قواعد التنظيف")
 
 

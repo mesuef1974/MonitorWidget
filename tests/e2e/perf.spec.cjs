@@ -6,7 +6,7 @@ const { test, expect } = require('@playwright/test');
 const ready = page => page.waitForFunction(() => document.querySelector('#main .panel'));
 
 test('التحديث يمسّ اللوحة المتغيّرة وحدها ويحدّثها في مكانها: كل اللوحات والرسم البياني يبقين بعناصرهن', async ({ page }) => {
-  await page.goto('/#/cpu'); await ready(page);
+  await page.goto('/#/procs'); await ready(page);
   await page.waitForFunction(() => document.querySelector('#cpuChart svg'));
   await page.evaluate(() => {
     document.querySelector('#cpuChart svg').__keep = 1;
@@ -24,9 +24,9 @@ test('التحديث يمسّ اللوحة المتغيّرة وحدها ويح�
     const ps = [...document.querySelectorAll('#main .panel')];
     return { n: ps.length, kept: ps.map(p => !!p.__keep), same: ps.map(p => p.__tpl === p.__tpl0), chartKept: !!document.querySelector('#cpuChart svg')?.__keep, hasChart: !!document.querySelector('#cpuChart svg') };
   });
-  expect(r.n).toBe(5);
-  expect(r.kept).toEqual([true, true, true, true, true]);   // لا لوحة تُستبدل؛ المتغيّرة تُحدَّث في مكانها
-  expect(r.same).toEqual([false, true, true, true, true]);   // لوحة الحمل وحدها تغيّر قالبها
+  expect(r.n).toBeGreaterThan(6);   // لوحات المعالج الأربع مع لوحات العمليات (البند 28)
+  expect(r.kept).toEqual(Array(r.n).fill(true));   // لا لوحة تُستبدل؛ المتغيّرة تُحدَّث في مكانها
+  expect(r.same).toEqual([false, ...Array(r.n - 1).fill(true)]);   // لوحة الحمل وحدها تغيّر قالبها
   expect(r.chartKept).toBe(true);
   expect(r.hasChart).toBe(true);
 });
@@ -47,7 +47,7 @@ test('العدّاد بلا filter: هالة حلقة أعرض شبه شفافة
 });
 
 test('نبضة «مباشر» على عنصر شبه بـ transform/opacity لا box-shadow', async ({ page }) => {
-  await page.goto('/#/cpu'); await ready(page);
+  await page.goto('/#/procs'); await ready(page);
   await page.waitForFunction(() => !document.querySelector('#live').classList.contains('err'));
   const r = await page.evaluate(() => {
     const i = document.querySelector('#live i');
@@ -62,7 +62,7 @@ test('نبضة «مباشر» على عنصر شبه بـ transform/opacity لا
 
 test('المقياس يملأ عرضه ويُقاس بـ scaleX من --p؛ لا انتقال على width', async ({ page }) => {
   for (const f of ['components']) expect(await (await page.request.get(`/css/${f}.css`)).text()).not.toMatch(/transition:[^;}]*\bwidth\b/);
-  await page.goto('/#/cpu'); await ready(page);
+  await page.goto('/#/procs'); await ready(page);
   const m = await page.evaluate(() => [...document.querySelectorAll('#main .meter>i')].slice(0, 6).map(i => {
     const cs = getComputedStyle(i), p = parseFloat(i.style.getPropertyValue('--p'));
     return { p, tr: cs.transform, wEq: cs.width === getComputedStyle(i.parentElement).width, origin: cs.transformOrigin, pw: parseFloat(getComputedStyle(i.parentElement).width) };

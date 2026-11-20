@@ -81,14 +81,14 @@ test('عدّاد فتح الصفحات: بلاغ واحد لكل انتقال إ
   });
   await page.goto('/#/health');
   await page.waitForFunction(() => location.hash === '#/health' && document.querySelector('#main .panel'));
-  await page.evaluate(() => { location.hash = '#/cpu'; });
-  await page.waitForFunction(() => location.hash === '#/cpu' && document.querySelector('#main .panel'));
-  await page.evaluate(() => { location.hash = '#/cpu?range=1h'; });   // الصفحة نفسها بمعاملات مختلفة: لا بلاغ ثانيًا
+  await page.evaluate(() => { location.hash = '#/procs'; });
+  await page.waitForFunction(() => location.hash === '#/procs' && document.querySelector('#main .panel'));
+  await page.evaluate(() => { location.hash = '#/procs?range=1h'; });   // الصفحة نفسها بمعاملات مختلفة: لا بلاغ ثانيًا
   await page.waitForTimeout(400);
   await page.evaluate(() => { location.hash = '#/ctrl'; });
   await page.waitForFunction(() => location.hash === '#/ctrl' && document.querySelector('#main .panel'));
   await page.waitForTimeout(400);
-  expect(opens).toEqual([['POST', 'application/json', 'health'], ['POST', 'application/json', 'cpu'], ['POST', 'application/json', 'ctrl']]);
+  expect(opens).toEqual([['POST', 'application/json', 'health'], ['POST', 'application/json', 'procs'], ['POST', 'application/json', 'ctrl']]);
 
   const panel = page.locator('#main .panel', { hasText: 'استخدام الصفحات' });
   await expect(panel).toBeVisible();
@@ -120,4 +120,15 @@ test('تنظيف الذاكرة من زر الشريط وحده: لا زر تن�
   await page.waitForFunction(() => document.querySelectorAll('#main .swatch[data-palette]').length === 4);
   expect(await page.locator('#main [data-trim]').count()).toBe(0);
   expect(await page.locator('#boost').count()).toBe(1);
+});
+
+// البند 28 من المجلس 19/11: صفحة «المعالج» دُمجت في «العمليات»؛ الرابط القديم يصل إليها برسمها البياني
+test('المعالج داخل العمليات: لا رابط #/cpu في القائمة، و#/cpu يفتح العمليات بالحمل والرسم والجداول', async ({ page }) => {
+  await page.goto('/#/cpu');
+  await page.waitForFunction(() => document.querySelector('#cpuChart svg'));
+  expect(await page.evaluate(() => location.hash)).toBe('#/procs');
+  expect(await page.locator('#nav a[href="#/cpu"]').count()).toBe(0);
+  expect(await page.evaluate(() => typeof PAGES.cpu)).toBe('undefined');
+  for (const h of ['الحمل الحالي', 'المعالج الكلي خلال ساعة', 'الملخص', 'متوسط آخر ساعة'])
+    expect(await page.locator('#main section.panel h2', { hasText: h }).count(), h).toBeGreaterThan(0);
 });
