@@ -151,9 +151,9 @@ def main():
         s.register("io_maint", diskio_collect.maintenance_job, 3600, timeout_s=120, delay=300)
     except Exception:
         log.exception("disk I/O collector not started")
-    try:   # reliability history (event-log reader, hourly); a failure here must never stop the agent
-        import relia
-        s.register("relia", relia.job, 3600, timeout_s=170, delay=420)
+    try:   # reliability history: the app's only event-log reader (reliab.py), new events every 30 min; a failure here must never stop the agent
+        import reliab
+        s.register("relia", reliab.job, 1800, timeout_s=170, delay=420)
     except Exception:
         log.exception("reliability job not registered")
     try:   # الخادم يبدأ فورًا؛ كان ينتظر تأخير الحارس (10 ثوانٍ) قبل أن يُطلَق

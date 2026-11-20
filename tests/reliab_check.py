@@ -1,4 +1,4 @@
-"""Reliability panel logic (any OS): provider-scoped queries, rel_events history, failure is not «no incidents»."""
+"""Reliability (any OS): provider-scoped queries, incremental scans into rel_events, the panel from rel_events alone, failure is not «no incidents»."""
 import os, subprocess, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

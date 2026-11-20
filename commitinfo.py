@@ -14,6 +14,7 @@ import ctypes
 import os
 import threading
 import time
+import procsnap
 from ctypes import wintypes
 
 SCAN_TTL = 3.0   # الواجهة والويدجت قد يطلبان المسار معًا؛ مسح العمليات يُعاد استعماله خلال هذه المدة
@@ -26,12 +27,6 @@ class _PERF(ctypes.Structure):   # PERFORMANCE_INFORMATION
                 ("PhysicalTotal", ctypes.c_size_t), ("PhysicalAvailable", ctypes.c_size_t), ("SystemCache", ctypes.c_size_t),
                 ("KernelTotal", ctypes.c_size_t), ("KernelPaged", ctypes.c_size_t), ("KernelNonpaged", ctypes.c_size_t),
                 ("PageSize", ctypes.c_size_t), ("HandleCount", wintypes.DWORD), ("ProcessCount", wintypes.DWORD), ("ThreadCount", wintypes.DWORD)]
-
-
-class _PE32(ctypes.Structure):   # PROCESSENTRY32W
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p),
-                ("mod", wintypes.DWORD), ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", ctypes.c_long),
-                ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
 
 
 class _PMC(ctypes.Structure):   # PROCESS_MEMORY_COUNTERS_EX؛ PrivateUsage = التزام العملية
@@ -81,29 +76,19 @@ def status():
 def scan(with_cmd=False):
     """صفوف {pid, ppid, name, commitMB, wsMB[, cmd]} لكل عملية يمكن فتحها بصلاحية المستخدم، وعدد العمليات المحجوبة (عمليات النظام غالبًا)."""
     k, ps = ctypes.windll.kernel32, ctypes.windll.psapi
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-    k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
     k.OpenProcess.restype = ctypes.c_void_p
     k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     k.CloseHandle.argtypes = [ctypes.c_void_p]
     ps.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD]
     rows, skipped = [], 0
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)
-    if not snap or snap == ctypes.c_void_p(-1).value:
-        return rows, skipped
-    pe = _PE32()
-    pe.dwSize = ctypes.sizeof(pe)
-    ok = k.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
+    for pe in procsnap.processes():
         if pe.pid:   # 0 = System Idle Process؛ لا يُفتح ولا يُعدّ
             h = k.OpenProcess(0x1000, False, pe.pid)   # PROCESS_QUERY_LIMITED_INFORMATION: يكفي لـ GetProcessMemoryInfo بلا صلاحيات مسؤول
             if h:
                 m = _PMC()
                 m.cb = ctypes.sizeof(m)
                 if ps.GetProcessMemoryInfo(h, ctypes.byref(m), m.cb):
-                    row = {"pid": int(pe.pid), "ppid": int(pe.ppid), "name": pe.exe, "commitMB": m.PrivateUsage / MB, "wsMB": m.WorkingSetSize / MB}
+                    row = {"pid": pe.pid, "ppid": pe.ppid, "name": pe.name, "commitMB": m.PrivateUsage / MB, "wsMB": m.WorkingSetSize / MB}
                     created = _created(k, h)
                     if created:
                         row["created"] = created   # يُرسل مع طلب الإغلاق فيرفض الخادم معرّفًا أُعيد استعماله
@@ -115,8 +100,6 @@ def scan(with_cmd=False):
                 k.CloseHandle(h)
             else:
                 skipped += 1
-        ok = k.Process32NextW(snap, ctypes.byref(pe))
-    k.CloseHandle(snap)
     return rows, skipped
 
 

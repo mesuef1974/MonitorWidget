@@ -7,6 +7,7 @@ from ctypes import wintypes
 
 import db
 import alertcfg
+import procsnap
 
 K = ctypes.WinDLL("kernel32", use_last_error=True)
 INTERVAL = 30
@@ -25,17 +26,6 @@ HINTS = {
 }
 
 
-class PE(ctypes.Structure):
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("th32ProcessID", wintypes.DWORD),
-                ("th32DefaultHeapID", ctypes.c_size_t), ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
-                ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", wintypes.LONG), ("dwFlags", wintypes.DWORD),
-                ("szExeFile", ctypes.c_wchar * 260)]
-
-
-K.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-K.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-K.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.POINTER(PE)]
-K.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.POINTER(PE)]
 K.OpenProcess.restype = ctypes.c_void_p
 K.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 K.GetProcessTimes.argtypes = [ctypes.c_void_p] + [ctypes.POINTER(wintypes.FILETIME)] * 4
@@ -49,26 +39,17 @@ def _ft(f):
 
 def _snap():
     out = {}
-    h = K.CreateToolhelp32Snapshot(2, 0)
-    if not h or h == ctypes.c_void_p(-1).value:
-        return out
-    try:
-        pe = PE(); pe.dwSize = ctypes.sizeof(PE)
-        ok = K.Process32FirstW(h, ctypes.byref(pe))
-        while ok:
-            pid = pe.th32ProcessID
-            if pid:
-                ph = K.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
-                if ph:
-                    c, e, k, u = (wintypes.FILETIME() for _ in range(4))
-                    if K.GetProcessTimes(ph, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)):
-                        out[pid] = (pe.szExeFile, _ft(c), _ft(k) + _ft(u))
-                    K.CloseHandle(ph)
-                else:
-                    out.setdefault(-pid, (pe.szExeFile, 0, 0))  # seen but not readable
-            ok = K.Process32NextW(h, ctypes.byref(pe))
-    finally:
-        K.CloseHandle(h)
+    for pe in procsnap.processes():
+        pid = pe.pid
+        if pid:
+            ph = K.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+            if ph:
+                c, e, k, u = (wintypes.FILETIME() for _ in range(4))
+                if K.GetProcessTimes(ph, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)):
+                    out[pid] = (pe.name, _ft(c), _ft(k) + _ft(u))
+                K.CloseHandle(ph)
+            else:
+                out.setdefault(-pid, (pe.name, 0, 0))  # seen but not readable
     return out
 
 

@@ -311,32 +311,22 @@ def read_procs():
     from ctypes import wintypes
     k = ctypes.windll.kernel32; ps = ctypes.windll.psapi
 
-    class PE32(ctypes.Structure):
-        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p), ("mod", wintypes.DWORD),
-                    ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", ctypes.c_long), ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
-
     class PMC(ctypes.Structure):
         _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD), ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
                     ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t), ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t),
                     ("QuotaNonPagedPoolUsage", ctypes.c_size_t), ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t), ("PrivateUsage", ctypes.c_size_t)]
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p; k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]; k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
     k.OpenProcess.restype = ctypes.c_void_p; k.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
     k.CloseHandle.argtypes = [ctypes.c_void_p]
     ps.GetProcessMemoryInfo.argtypes = [ctypes.c_void_p, ctypes.c_void_p, wintypes.DWORD]
+    import procsnap
     agg = {}
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)
-    pe = PE32(); pe.dwSize = ctypes.sizeof(pe)
-    ok = k.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
+    for pe in procsnap.processes():
         h = k.OpenProcess(0x1000, False, pe.pid)  # PROCESS_QUERY_LIMITED_INFORMATION
         if h:
             m = PMC(); m.cb = ctypes.sizeof(m)
             if ps.GetProcessMemoryInfo(h, ctypes.byref(m), m.cb):
-                a = agg.setdefault(pe.exe.lower(), [0, 0.0, 0.0]); a[0] += 1; a[1] += m.PrivateUsage / 1048576; a[2] += m.WorkingSetSize / 1048576
+                a = agg.setdefault(pe.name.lower(), [0, 0.0, 0.0]); a[0] += 1; a[1] += m.PrivateUsage / 1048576; a[2] += m.WorkingSetSize / 1048576
             k.CloseHandle(h)
-        ok = k.Process32NextW(snap, ctypes.byref(pe))
-    k.CloseHandle(snap)
     rows = [(n, v[0], round(v[1], 1), round(v[2], 1)) for n, v in agg.items() if v[1] >= 40]
     return sorted(rows, key=lambda r: -r[2])[:25]
 

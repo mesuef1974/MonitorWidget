@@ -1,13 +1,15 @@
-# -*- coding: utf-8 -*-
-"""Reliability history from the Windows event logs (read-only: wevtutil qe) plus hang records from the monitor DB.
-Used by server.py: GET /api/reliab  -> cached result, refreshed in the background (the call itself never blocks on wevtutil).
-CLI: python reliab.py --probe   (runs once, prints a summary)"""
+"""Reliability history: the single reader of the Windows event logs (read-only: wevtutil qe) for the whole app.
+The agent job `relia` (every 30 minutes) reads only what is new since its last scan and keeps it in rel_events;
+GET /api/reliab builds the panel from rel_events alone, so the server never runs wevtutil.
+Before 20/11/2026 two readers did the same job: relia.py (pwsh + relia_scan.ps1, hourly) and this module (wevtutil, 30 days every 30 min).
+CLI: python reliab.py --scan (one scan into monitor.db, prints a summary) | --selftest"""
 import calendar, json, subprocess, sys, threading, time
 import xml.etree.ElementTree as ET
 
 NS = "{http://schemas.microsoft.com/win/2004/08/events/event}"
 DAYS = 30
-TTL = 1800                 # seconds between refreshes
+OVERLAP = 86400            # each scan re-reads one day before the last one: late-written events and small clock steps
+TTL = 60                   # seconds the panel result is reused (it is a database read now)
 _CF = 0x08000000           # CREATE_NO_WINDOW
 
 KINDS = {  # kind: (Arabic label, severity weight)
@@ -29,15 +31,16 @@ QUERIES = (
     ("System", ("Display",), (4101,)),
     ("Application", ("Application Error", "Application Hang"), (1000, 1002)),
 )
+META = "rel_scan"          # meta row: {"ts": last scan, "failed": [...], "liveFrom": oldest ts the live log still covered}
 
 _lock = threading.Lock()
-_cache = {"data": None, "at": 0, "running": False}
+_cache = {"data": None, "at": 0.0}
 
 
-def _q(log, providers, ids):
+def _q(log, providers, ids, window_s=DAYS * 86400):
     prov = " or ".join("@Name='%s'" % p for p in providers)
     cond = " or ".join("EventID=%d" % i for i in ids)
-    return ["wevtutil", "qe", log, "/q:*[System[Provider[%s] and (%s) and TimeCreated[timediff(@SystemTime) <= %d]]]" % (prov, cond, DAYS * 86400 * 1000),
+    return ["wevtutil", "qe", log, "/q:*[System[Provider[%s] and (%s) and TimeCreated[timediff(@SystemTime) <= %d]]]" % (prov, cond, int(window_s) * 1000),
             "/f:xml", "/c:%d" % CAP, "/rd:true"]
 
 
@@ -104,20 +107,10 @@ def classify(eid, prov, data):
     return None, None
 
 
-def _history(db, since):
-    """rel_events (relia.py, hourly) keeps what the event log has already overwritten: on this PC the System
-    log reaches back about 13 days (19/11/2026), so the log alone can never fill a 30-day window.
-    -> ([(ts, event_id, provider, [data])], earliest ts ever stored or None)"""
-    if db is None:
-        return [], None
-    try:
-        with db._lock:
-            c = db.conn()
-            first = c.execute("SELECT MIN(ts) FROM rel_events").fetchone()[0]
-            rows = c.execute("SELECT ts, code, src, app, extra FROM rel_events WHERE ts>=?", (since,)).fetchall()
-    except Exception:
-        return [], None
-    return [(int(r[0]), int(r[1] or 0), r[2] or "", [r[4] or r[3] or ""]) for r in rows], first
+def _ensure(c):
+    c.execute("CREATE TABLE IF NOT EXISTS rel_events(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, kind TEXT NOT NULL, code INTEGER, "
+              "src TEXT, app TEXT, extra TEXT, msg TEXT, UNIQUE(ts,kind,code,src))")
+    c.execute("CREATE INDEX IF NOT EXISTS i_rel_ts ON rel_events(ts)")
 
 
 def _log_start(run):
@@ -126,44 +119,95 @@ def _log_start(run):
     return rows[0][0] if rows else None
 
 
-def collect(db=None, run=None):
+def _window(last, now):
+    """Seconds to read back: everything since the last scan plus OVERLAP, never more than DAYS (first scan, or a clock that went back)."""
+    if not last or last > now:
+        return DAYS * 86400
+    return max(OVERLAP, min(DAYS * 86400, now - int(last) + OVERLAP))
+
+
+def scan(db, run=None):
+    """Read what is new in the event logs into rel_events. -> number of new rows.
+    A row is new when no stored row has the same (ts, event id, provider): rows written by the old relia.py used other kind names."""
     run = run or _run
     now = int(time.time())
+    prev = db.get_json(META) or {}
+    window = _window(prev.get("ts"), now)
+    failed, live_from, rows = [], _log_start(run), []
+    for log, providers, ids in QUERIES:
+        text = run(_q(log, providers, ids, window), 60)
+        if text is None:
+            failed.append("%s:%s" % (log, providers[0]))
+            continue
+        got = parse(text)
+        if len(got) >= CAP:                        # newest first: this query really starts at its oldest row
+            oldest = min(r[0] for r in got)
+            live_from = oldest if live_from is None else max(live_from, oldest)
+        rows.extend(got)
+    n = 0
+    with db._lock:
+        c = db.conn()
+        _ensure(c)
+        for ts, eid, prov, data in rows:
+            k, _d = classify(eid, prov, data)
+            if not k:
+                continue
+            d0 = (data[0] if data else "")[:80]
+            cur = c.execute("INSERT OR IGNORE INTO rel_events(ts,kind,code,src,app,extra,msg) SELECT ?,?,?,?,?,?,'' "
+                            "WHERE NOT EXISTS (SELECT 1 FROM rel_events WHERE ts=? AND code=? AND src=?)",
+                            (ts, k, eid, prov[:80], d0 if k in ("hang", "crash") else "", "" if k in ("hang", "crash") else d0, ts, eid, prov[:80]))
+            n += cur.rowcount
+        c.commit()
+    if failed and len(failed) == len(QUERIES):
+        db.set_json(META, dict(prev, failed=failed, failedAt=now))    # keep the last good scan time: the next one reads the gap again
+    else:
+        db.set_json(META, {"ts": now, "failed": failed, "liveFrom": live_from})
+    with _lock:
+        _cache["at"] = 0.0                         # the panel shows the new rows on its next request
+    return n
+
+
+def job():
+    import db
+    n = scan(db)
+    st = db.get_json(META) or {}
+    return "%d new reliability events%s" % (n, " (failed: %s)" % ", ".join(st["failed"]) if st.get("failed") else "")
+
+
+def _history(db, since):
+    """-> ([(ts, event_id, provider, [data])], earliest ts ever stored or None)"""
+    with db._lock:
+        c = db.conn()
+        _ensure(c)
+        first = c.execute("SELECT MIN(ts) FROM rel_events").fetchone()[0]
+        rows = c.execute("SELECT ts, code, src, app, extra FROM rel_events WHERE ts>=?", (since,)).fetchall()
+    return [(int(r[0]), int(r[1] or 0), r[2] or "", [r[4] or r[3] or ""]) for r in rows], first
+
+
+def collect(db):
+    """The panel, from rel_events (kept by scan) and io_stalls. Never touches the event log."""
+    now = int(time.time())
     since = now - DAYS * 86400
+    st = db.get_json(META) or {}
     hist, hist_first = _history(db, since)
-    seen = {(ts, eid, prov.lower()) for ts, eid, prov, _ in hist}
-    events, failed, live_from = [], [], _log_start(run)
+    if not st.get("ts") and not hist:
+        return {"ok": False, "pending": True, "at": now} if not st.get("failed") else \
+            {"ok": False, "error": "wevtutil failed for every query", "at": now}
+    failed = st.get("failed") or []
+    events = []
     for ts, eid, prov, data in hist:
         k, d = classify(eid, prov, data)
         if k:
             events.append({"ts": ts, "k": k, "d": d})
-    for log, providers, ids in QUERIES:
-        text = run(_q(log, providers, ids), 90)
-        if text is None:
-            failed.append("%s:%s" % (log, providers[0]))
-            continue
-        rows = parse(text)
-        if len(rows) >= CAP:                       # newest first: this query really starts at its oldest row
-            oldest = min(r[0] for r in rows)
-            live_from = oldest if live_from is None else max(live_from, oldest)
-        for ts, eid, prov, data in rows:
-            if (ts, eid, prov.lower()) in seen:
-                continue
-            k, d = classify(eid, prov, data)
-            if k:
-                events.append({"ts": ts, "k": k, "d": d})
-    if len(failed) == len(QUERIES) and not hist:
-        return {"ok": False, "error": "wevtutil failed for every query", "at": now}
-    starts = [t for t in (hist_first, None if failed else live_from) if t]
+    starts = [t for t in (hist_first, None if failed else st.get("liveFrom")) if t]
     covered_from = min(starts) if starts else None
     short = covered_from is not None and covered_from > since + 2 * 86400     # two days of slack before saying so
-    if db is not None:
-        try:
-            with db._lock:
-                for r in db.conn().execute("SELECT ts_start,note FROM io_stalls WHERE ts_start>=? AND note LIKE 'monitor thread frozen%'", (since,)):
-                    events.append({"ts": r[0], "k": "freeze", "d": r[1]})
-        except Exception:
-            pass
+    try:
+        with db._lock:
+            for r in db.conn().execute("SELECT ts_start,note FROM io_stalls WHERE ts_start>=? AND note LIKE 'monitor thread frozen%'", (since,)):
+                events.append({"ts": r[0], "k": "freeze", "d": r[1]})
+    except Exception:
+        pass
     # merge duplicates: same kind within 10 minutes (41 + 6008 + 1001 describe one incident)
     events.sort(key=lambda e: e["ts"])
     incidents, lastk, lasti = [], {}, {}
@@ -192,38 +236,27 @@ def collect(db=None, run=None):
     serious7 = sum(counts[k]["d7"] for k, v in KINDS.items() if v[1] >= 3)
     serious30 = sum(counts[k]["d30"] for k, v in KINDS.items() if v[1] >= 3)
     last_serious = max([counts[k]["last"] or 0 for k, v in KINDS.items() if v[1] >= 3] + [0]) or None
-    return {"ok": True, "at": now, "days": DAYS, "counts": counts, "recent": recent, "topApps": [{"name": a, "n": n} for a, n in top_apps],
+    return {"ok": True, "at": int(st.get("ts") or now), "days": DAYS, "counts": counts, "recent": recent,
+            "topApps": [{"name": a, "n": n} for a, n in top_apps],
             "serious7": serious7, "serious30": serious30, "lastSerious": last_serious,
             "partial": bool(failed or short), "coveredFrom": covered_from if short else None, "failed": failed,
             "labels": {k: v[0] for k, v in KINDS.items()}}
 
 
-def _worker(db):
-    try:
-        d = collect(db)
-    except Exception:
-        d = None
+def snapshot(db):
+    """GET /api/reliab: a database read, reused for TTL seconds."""
     with _lock:
-        # A failed scan keeps the last good result (retried after TTL); it is shown only when nothing better exists.
-        if d and (d.get("ok") or not (_cache["data"] or {}).get("ok")):
-            _cache["data"] = d
-        _cache["at"] = time.time()
-        _cache["running"] = False
-
-
-def snapshot(db=None):
-    """Never blocks: returns the cached result (or {'ok': False, 'pending': True}) and refreshes it in the background when stale."""
+        if _cache["data"] is not None and time.time() - _cache["at"] < TTL:
+            return _cache["data"]
+    d = collect(db)
     with _lock:
-        stale = time.time() - _cache["at"] > TTL
-        if stale and not _cache["running"]:
-            _cache["running"] = True
-            threading.Thread(target=_worker, args=(db,), daemon=True).start()
-        d = _cache["data"]
-    return d if d else {"ok": False, "pending": True}
+        _cache["data"], _cache["at"] = d, time.time()
+    return d
 
 
 if __name__ == "__main__":
     if "--selftest" in sys.argv:
+        import sqlite3
         sample = ('<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-Kernel-Power" Guid="{x}"/><EventID Qualifiers="0">41</EventID>'
                   '<TimeCreated SystemTime="2026-10-20T10:00:00.123456700Z"/></System><EventData><Data Name="BugcheckCode">0</Data></EventData></Event>'
                   '<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="EventLog"/><EventID>6008</EventID><TimeCreated SystemTime="2026-10-20T10:03:00.0000000Z"/></System><EventData><Data>x</Data></EventData></Event>'
@@ -235,45 +268,75 @@ if __name__ == "__main__":
         assert ks == ["unexpected", "unexpected", "disk", "hang"], ks
         assert parse("") == [] and parse("<garbage") == []
         q = " ".join(_q("System", ("EventLog",), (6008,)))
-        assert "Provider[@Name='EventLog']" in q and "/c:%d" % CAP in q, q
-        assert collect(run=lambda cmd, t: None)["ok"] is False          # wevtutil down: not «no incidents»
-        def fake(cmd, t):
-            return sample if "Kernel-Power" in " ".join(cmd) else ""
-        class _DB:                                     # history from rel_events beyond the log's reach
-            _lock = threading.Lock()
+        assert "Provider[@Name='EventLog']" in q and "/c:%d" % CAP in q and "<= %d]" % (DAYS * 86400 * 1000) in q, q
+        now = int(time.time())
+        assert _window(None, now) == DAYS * 86400 and _window(now + 99, now) == DAYS * 86400, "first scan / clock went back: full window"
+        assert _window(now - 1800, now) == 1800 + OVERLAP and _window(now - 90 * 86400, now) == DAYS * 86400
+
+        class _DB:                                     # monitor.db stand-in: meta + rel_events + io_stalls
             def __init__(self):
-                import sqlite3
-                self.c = sqlite3.connect(":memory:")
-                self.c.execute("CREATE TABLE rel_events(ts INT, kind TEXT, code INT, src TEXT, app TEXT, extra TEXT)")
+                self._lock = threading.RLock()
+                self.c = sqlite3.connect(":memory:", check_same_thread=False)
+                self.c.execute("CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT)")
                 self.c.execute("CREATE TABLE io_stalls(ts_start INT, note TEXT)")
-                old = int(time.time()) - 25 * 86400
-                self.c.executemany("INSERT INTO rel_events VALUES(?,?,?,?,?,?)", [
-                    (old, "crash", 41, "Microsoft-Windows-Kernel-Power", "", ""), (old + 14, "unexpected", 6008, "EventLog", "", ""),
-                    (old + 14, "bsod", 1001, "Microsoft-Windows-WER-SystemErrorReporting", "", "0x9f"),
-                    (int(time.time()) - 40 * 86400, "crash", 41, "Microsoft-Windows-Kernel-Power", "", "")])
+                _ensure(self.c)
+
             def conn(self):
                 return self.c
-        r = collect(_DB(), run=lambda cmd, t: "")
-        assert r["counts"]["bsod"]["d30"] == 1 and r["counts"]["unexpected"]["d30"] == 0 and not r["partial"], (r["counts"], r["partial"])
-        r = collect(None, run=lambda cmd, t: sample if "/c:1" in cmd else "")      # log alone, starting 20/10/2026
-        assert r["partial"] == (r["coveredFrom"] is not None)
-        r = collect(run=fake)
-        assert r["ok"] and r["counts"]["unexpected"]["d30"] == 1 and not r["partial"], r["counts"]["unexpected"]
+
+            def get_json(self, k, default=None):
+                r = self.c.execute("SELECT value FROM meta WHERE key=?", (k,)).fetchone()
+                return json.loads(r[0]) if r else default
+
+            def set_json(self, k, v):
+                self.c.execute("INSERT INTO meta VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (k, json.dumps(v)))
+
+        db = _DB()
+        assert collect(db) == {"ok": False, "pending": True, "at": collect(db)["at"]}, "nothing scanned yet: pending, not «no incidents»"
+        assert scan(db, run=lambda cmd, t: None) == 0
+        assert collect(db)["ok"] is False and "error" in collect(db), "wevtutil down and no history: an error, not «no incidents»"
+        # history written by the old relia.py (other kind names, msg column) beyond the live log's reach
+        old = now - 25 * 86400
+        db.c.executemany("INSERT INTO rel_events(ts,kind,code,src,app,extra,msg) VALUES(?,?,?,?,?,?,'')", [
+            (old, "crash", 41, "Microsoft-Windows-Kernel-Power", "", "0x0"), (old + 14, "unexpected", 6008, "EventLog", "", ""),
+            (old + 14, "bsod", 1001, "Microsoft-Windows-WER-SystemErrorReporting", "", "0x9f"),
+            (now - 40 * 86400, "crash", 41, "Microsoft-Windows-Kernel-Power", "", "")])
+        iso = lambda t: time.strftime("%Y-%m-%dT%H:%M:%S.0000000Z", time.gmtime(t))
         bsod = ('<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Microsoft-Windows-WER-SystemErrorReporting"/>'
                 '<EventID>1001</EventID><TimeCreated SystemTime="%s"/></System><EventData><Data>0x0000009f</Data></EventData></Event>')
         crash = ('<Event xmlns="http://schemas.microsoft.com/win/2004/08/events/event"><System><Provider Name="Application Error"/>'
                  '<EventID>1000</EventID><TimeCreated SystemTime="%s"/></System><EventData><Data>x.exe</Data></EventData></Event>')
-        base = time.time() - 86400
-        iso = lambda s: time.strftime("%Y-%m-%dT%H:%M:%S.0000000Z", time.gmtime(base + s))
-        texts = {"Kernel-Power": sample.split("</Event>")[0].replace("2026-10-20T10:00:00.123456700Z", iso(0)) + "</Event>",
-                 "WER-SystemErrorReporting": bsod % iso(120), "Application Error": crash % iso(60)}
-        def fake2(cmd, t):
+        kp = sample.split("</Event>")[0] + "</Event>"
+        base = now - 86400
+        texts = {"Kernel-Power": kp.replace("2026-10-20T10:00:00.123456700Z", iso(base)) + kp.replace("2026-10-20T10:00:00.123456700Z", iso(old)),
+                 "WER-SystemErrorReporting": bsod % iso(base + 120), "Application Error": crash % iso(base + 60)}
+        seen = []
+
+        def fake(cmd, t):
+            seen.append(" ".join(cmd))
+            if "/c:1" in cmd:
+                return kp.replace("2026-10-20T10:00:00.123456700Z", iso(now - 13 * 86400))
             return next((v for k, v in texts.items() if k in " ".join(cmd)), "")
-        r = collect(run=fake2)
-        assert r["counts"]["bsod"]["d30"] == 1 and r["counts"]["crash"]["d30"] == 1 and r["counts"]["unexpected"]["d30"] == 0, r["counts"]
+        assert scan(db, run=fake) == 3, "the 41 already stored by relia.py (other kind name) is not stored twice"
+        assert scan(db, run=fake) == 0, "a second scan adds nothing"
+        assert "<= %d]" % (OVERLAP * 1000 + 1000) in seen[-1] or "<= %d]" % (OVERLAP * 1000) in seen[-1], seen[-1]
+        db.c.execute("INSERT INTO io_stalls VALUES(?, 'monitor thread frozen 40 s')", (now - 3600,))
+        _cache["at"] = 0.0
+        r = snapshot(db)
+        assert r["ok"] and not r["partial"] and r["failed"] == [], r
+        assert r["counts"]["bsod"]["d30"] == 2 and r["counts"]["unexpected"]["d30"] == 0, r["counts"]   # 41+6008+1001 = one incident, twice
+        assert r["counts"]["crash"]["d30"] == 1 and r["counts"]["freeze"]["d30"] == 1 and r["topApps"] == [{"name": "x.exe", "n": 1}], r
+        assert snapshot(db) is r, "reused within TTL"
+        # one query failing: data still shown, flagged partial
+        assert scan(db, run=lambda cmd, t: None if "Display" in " ".join(cmd) else fake(cmd, t)) == 0
+        _cache["at"] = 0.0
+        r = snapshot(db)
+        assert r["ok"] and r["partial"] and r["failed"] == ["System:Display"], r
         print("selftest ok")
-    else:
+    elif "--scan" in sys.argv:
+        import os
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        import db
         t0 = time.time()
-        d = collect()
-        print(json.dumps(d, ensure_ascii=False, indent=1)[:2500])
-        print("seconds: %.1f" % (time.time() - t0))
+        print(job(), "in %.1f s" % (time.time() - t0))
+        print(json.dumps(collect(db), ensure_ascii=False, indent=1)[:2500])

@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import threading
 import time
+import procsnap
 from ctypes import wintypes
 
 import alertcfg
@@ -54,13 +55,6 @@ IS_ADMIN = secure.is_admin()
 class MEMSTAT(ctypes.Structure):
     _fields_ = [("dwLength", wintypes.DWORD), ("dwMemoryLoad", wintypes.DWORD)] + [
         (n, ctypes.c_ulonglong) for n in ("tp", "ap", "tpf", "apf", "tv", "av", "aev")]
-
-
-class PE32(ctypes.Structure):
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD),
-                ("heap", ctypes.c_void_p), ("mod", wintypes.DWORD), ("thr", wintypes.DWORD),
-                ("ppid", wintypes.DWORD), ("pri", ctypes.c_long), ("flags", wintypes.DWORD),
-                ("exe", ctypes.c_wchar * 260)]
 
 
 def other_drives(system="C"):
@@ -96,22 +90,7 @@ def native_metrics():
     limit = ms.tpf / gb
     total = ms.tp / gb
     avail = ms.ap / gb
-    k = ctypes.windll.kernel32
-    k.CreateToolhelp32Snapshot.restype = ctypes.c_void_p
-    k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
-    k.Process32FirstW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.Process32NextW.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
-    k.CloseHandle.argtypes = [ctypes.c_void_p]
-    snap = k.CreateToolhelp32Snapshot(0x2, 0)
-    counts = collections.Counter()
-    if snap and snap != ctypes.c_void_p(-1).value:
-        pe = PE32()
-        pe.dwSize = ctypes.sizeof(pe)
-        ok = k.Process32FirstW(snap, ctypes.byref(pe))
-        while ok:
-            counts[pe.exe.lower()] += 1
-            ok = k.Process32NextW(snap, ctypes.byref(pe))
-        k.CloseHandle(snap)
+    counts = collections.Counter(p.name.lower() for p in procsnap.processes())
     du = shutil.disk_usage("C:\\")
     return {
         "commitPct": round(100 * commit_used / limit, 1), "commitGB": round(commit_used, 1), "limitGB": round(limit, 1),
