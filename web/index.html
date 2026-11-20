@@ -591,7 +591,7 @@ function spCtl(r, d) {
   if (res?.ok) return `<span class="tag ok">تحرّر ${fmtMB(res.mb || 0)}</span>${res.skipped ? ` <span class="note">+${Q(res.skipped)} متروك</span>` : ""}${res.emptyDirs ? ` <span class="note">أُزيل ${Q(res.emptyDirs)} مجلد فارغ</span>` : ""}`;
   if (res) return `<span class="tag bad">${esc(res.error || "تعذّر")}</span>`;
   const hasAuto = d.auto && r.kind in d.auto;
-  return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note">تلقائي</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`, `التنظيف التلقائي: ${(d.labels || {})[r.kind] || r.kind}`)}` : '<span class="tag">يدوي</span>'}${r.monthly !== undefined ? `<span class="note">شهري</span>${sw(!!r.monthly, 'data-sp="dismmonthly"', "تنظيف DISM الشهري")}` : ""}</span>`;
+  return `<span class="acts"><button class="btn" data-sp="preview" data-spk="${k}">معاينة</button>${hasAuto ? `<span class="note"${d.autoGate && d.autoGate.kinds.includes(r.kind) ? ` title="يُمسح تلقائيًا فقط حين تنزل المساحة الحرة في C عن ${Q(d.autoGate.thresholdGB, "GB")} (عتبة تحذير المساحة)"` : ""}>${d.autoGate && d.autoGate.kinds.includes(r.kind) ? `تلقائي تحت ${Q(d.autoGate.thresholdGB, "GB")}` : "تلقائي"}</span>${sw(!!d.auto[r.kind], `data-sp="auto" data-spk="${k}"`, `التنظيف التلقائي: ${(d.labels || {})[r.kind] || r.kind}`)}` : '<span class="tag">يدوي</span>'}${r.monthly !== undefined ? `<span class="note">شهري</span>${sw(!!r.monthly, 'data-sp="dismmonthly"', "تنظيف DISM الشهري")}` : ""}</span>`;
 }
 /* elevated kinds run only through their fixed scheduled task; the owner switches each one on/off here */
 function elevTag(r) {

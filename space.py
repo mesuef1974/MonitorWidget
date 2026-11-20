@@ -52,6 +52,9 @@ KIND_LABEL = {"temp": "الملفات المؤقتة", "edgecache": "ذاكرة 
 # manual-only kinds (never part of the hourly auto-clean): the update download cache, and the previous Windows after its grace period.
 EXTRA = ("swdist", "winold")
 AUTO_EXTRA = ("pipcache", "crashdumps", "wintemp")   # extras.py light kinds that may be switched on for the hourly auto-clean
+# البند 25 من المجلس 19/11: مخابئ تُعاد تنزيلها عند الحاجة؛ مسحها الساعي والقرص غير ممتلئ إعادةُ تنزيل وبطء (الخط الأحمر 7).
+# فالتلقائي لها يعمل فقط حين تنزل المساحة الحرة في C عن عتبة تحذير المساحة (alertcfg disk.freeWarnGB)؛ اليدوي متاح دائمًا.
+CACHE_KINDS = ("edgecache", "npmcache", "pipcache")
 BULK = SAFE + ("swdist",)     # what "clean all" runs; Windows.old is deliberately a separate, explicit action
 WINOLD = r"C:\Windows.old"
 WINOLD_DAYS = 14
@@ -365,10 +368,22 @@ def quarantine_purge_now(seen_mb):
     return {"ok": True, "started": True}
 
 
+def auto_gate():
+    """بوابة المخابئ (البند 25): gated=True حين المساحة الحرة في C عند عتبة التحذير أو فوقها، فلا تُمسح المخابئ تلقائيًا."""
+    import alertcfg
+    th = alertcfg.get()["disk"]["freeWarnGB"]
+    try:
+        free = shutil.disk_usage("C:\\").free / 2**30
+    except OSError:
+        return {"gated": False, "freeGB": None, "thresholdGB": th, "kinds": list(CACHE_KINDS)}   # لا قياس: لا تُمنع (سلوك ما قبل البند)
+    return {"gated": free >= th, "freeGB": round(free, 1), "thresholdGB": th, "kinds": list(CACHE_KINDS)}
+
+
 def auto_run():
-    """Hourly: run the cleanups the user switched on (each is limited to disposable data)."""
+    """Hourly: run the cleanups the user switched on (each is limited to disposable data); caches only below the free-space gate."""
+    gate = auto_gate()
     for k, on in get_auto().items():
-        if on:
+        if on and not (gate["gated"] and k in CACHE_KINDS):
             clean(k, dry=False, src="auto")
     try:
         import extras
@@ -731,7 +746,7 @@ def overview():
     grew = [x for x in items if x["delta"] and x["delta"] >= 0.3]
     return {"free": round(free[0], 1) if free else None, "hist": hist, "drops": drops, "items": items,
             "ts": (int(max(v[2] for kk, v in LV.items() if kk in TARGETS)) if any(kk in TARGETS for kk in LV) else (snaps[0] if snaps else None)), "since": oldts, "culprit": max(grew, key=lambda x: x["delta"])["key"] if grew else None,
-            "running": state["running"], "auto": get_auto(), "recoverableMB": rec, "runs": runs, "dockerMB": (LV.get("dockercache_mb") or (None,))[0], "agent": _agent_status(), "lockedMB": _rc.get("locked", {}), "winold": winold_status(), "elevated": {k: elevated_state(k) for k in ELEVATED}, "bulk": list(BULK), "extra": list(EXTRA), "labels": KIND_LABEL, "volume": volume, "extras": _extras_overview(),
+            "running": state["running"], "auto": get_auto(), "autoGate": auto_gate(), "recoverableMB": rec, "runs": runs, "dockerMB": (LV.get("dockercache_mb") or (None,))[0], "agent": _agent_status(), "lockedMB": _rc.get("locked", {}), "winold": winold_status(), "elevated": {k: elevated_state(k) for k in ELEVATED}, "bulk": list(BULK), "extra": list(EXTRA), "labels": KIND_LABEL, "volume": volume, "extras": _extras_overview(),
             "drives": drives(), "dvol": {d["letter"]: drive_overview(d["letter"]) for d in drives() if d["letter"] != "C"}}
 
 
