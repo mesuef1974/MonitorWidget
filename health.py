@@ -441,8 +441,13 @@ def score(m, tasks):
     updates_ts, updates = get_hw("updates")
     with db._lock:
         row = _c().execute("SELECT ts,temp FROM gpu ORDER BY ts DESC LIMIT 1").fetchone()
+    import infra
+    try:
+        external = infra.external_backup_state()
+    except Exception as exc:          # القرص الخارجي مفصول أو القاعدة مشغولة: يُعرض سببه لا «حديثة»
+        external = {"error": str(exc)}
     return build_score(m, tasks, ts_probe, hw, updates_ts, updates,
-                       dict(row) if row else None, time.time())
+                       dict(row) if row else None, time.time(), external)
 
 
 def save_daily(sc):

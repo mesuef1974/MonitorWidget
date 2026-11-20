@@ -91,6 +91,32 @@ class ScoreTests(unittest.TestCase):
         tasks = copy.deepcopy(self.args["tasks"]); tasks[0]["last"] = "2020-01-01T00:00:00+00:00"
         self.assertEqual(self.run_score(tasks=tasks)["score"], 90)
 
+    def backup_part(self, **changes):
+        return next(p for p in self.run_score(**changes)["parts"] if p["key"] == "backup")
+
+    def ext(self, age_h=1, size=100, local=100, name="monitor-20261119.db"):
+        return {"dir": "D:\\MWBackup", "copy": {"name": name, "ts": self.now - age_h * 3600, "bytes": size},
+                "local": None if local is None else {"name": name, "bytes": local}}
+
+    def test_external_backup_judged_by_file(self):
+        # البند 20 من المجلس 19/11: المهمة ناجحة والنسخة الخارجية متوقفة منذ أيام = ليست «حديثة»
+        self.assertEqual(self.backup_part(external=self.ext())["pts"], 10)
+        stale = self.backup_part(external=self.ext(age_h=6 * 24, name="monitor-20261231.db"))
+        self.assertEqual(stale["pts"], 5)
+        self.assertIn("monitor-20261231.db", stale["why"])
+        self.assertEqual(self.backup_part(external=self.ext(age_h=-2))["pts"], 5)          # من المستقبل: قفزة ساعة
+        self.assertEqual(self.backup_part(external=self.ext(size=0, local=None))["pts"], 5)
+        self.assertEqual(self.backup_part(external=self.ext(size=90))["pts"], 5)            # نسخة مبتورة
+        self.assertEqual(self.backup_part(external=self.ext(local=None))["pts"], 10)        # التدوير المحلي حذف نظيرها
+        missing = self.backup_part(external={"dir": "D:\\MWBackup", "copy": None, "local": None})
+        self.assertEqual(missing["pts"], 5)
+        self.assertEqual(self.backup_part(external={"error": "قرص مفصول"})["pts"], 5)
+
+    def test_external_backup_alone_is_measured(self):
+        part = self.backup_part(tasks=[], external=self.ext(age_h=48))
+        self.assertEqual((part["pts"], part["status"]), (0, "measured"))
+        self.assertEqual(self.backup_part(tasks=[], external=None)["status"], "missing")
+
     def test_future_probe_not_fresh(self):
         r = self.run_score(probe_ts=self.now + 3600)
         self.assertEqual(next(p for p in r["parts"] if p["key"] == "hw")["status"], "stale")

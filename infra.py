@@ -186,6 +186,42 @@ def backups():
         out.append({"name": os.path.basename(f), "bytes": os.path.getsize(f), "ts": int(os.path.getmtime(f))})
     return out
 
+def _newest_backup(folder):
+    files = by_age(folder) if os.path.isdir(folder) else []
+    for f in reversed(files):
+        try:
+            st = os.stat(f)
+        except OSError:
+            continue
+        return {"name": os.path.basename(f), "ts": int(st.st_mtime), "bytes": st.st_size}
+    return None
+
+
+def external_backup_state():
+    """The file in the external folder, not the copy job's result (council 19/11 item 20: the copy stopped on 14/11
+    while the score said «حديثة»). None when no external folder is configured; otherwise the newest copy by
+    modification time, and the local file of the same name to compare its size with."""
+    import json
+    import db
+    with db.ro() as r:
+        row = r.execute("SELECT value FROM settings WHERE key='backup.extra_dir'").fetchone()
+    try:
+        d = json.loads(row[0]) if row else ""
+    except (ValueError, TypeError):
+        d = ""
+    if not d or not isinstance(d, str):
+        return None
+    copy = _newest_backup(d)
+    local = None
+    if copy:
+        try:
+            src = os.path.join(BK_DIR, copy["name"])
+            local = {"name": copy["name"], "bytes": os.path.getsize(src)}
+        except OSError:
+            local = None   # التدوير المحلي حذفه؛ لا مقارنة
+    return {"dir": d, "copy": copy, "local": local}
+
+
 def _extra_backup(src):
     """Copy the verified daily backup to an owner-chosen folder (setting backup.extra_dir, ideally another disk)."""
     import json, shutil
