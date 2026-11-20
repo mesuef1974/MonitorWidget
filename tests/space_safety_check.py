@@ -5,8 +5,10 @@
 Run: python -X utf8 -B tests/space_safety_check.py
 """
 import os
+import shutil
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -381,39 +383,37 @@ class ElevatedCleanByHandle(Sandbox):
         self.assertEqual(out, "refused")
 
 
-class DismBackoff(unittest.TestCase):
-    """البند 2: DISM الشهري لا يُعاد كل ساعة ما دام يفشل؛ يوم واحد بين المحاولات الآلية."""
+class DismManualOnly(unittest.TestCase):
+    """البند 32 من المجلس 19/11: DISM يدوي فقط (ويندوز يشغّل StartComponentCleanup بمهمته)؛ لا مهمة شهرية ولا مفتاح لها."""
 
-    def setUp(self):
+    def test_no_monthly_job(self):
         import extras
-        self.ex = extras
-        self.store, self.calls = {"space.dism_monthly": True}, []
-        sp = extras.space
-        conn = types.SimpleNamespace(execute=lambda *a: types.SimpleNamespace(fetchone=lambda: (None,)))
-        for name, fake in (("_setting", lambda k, d=None: self.store.get(k, d)), ("_setting_set", self.store.__setitem__),
-                           ("elevated_gate", lambda k: None), ("_c", lambda: conn),
-                           ("clean", lambda *a, **k: self.calls.append(a))):
-            pt = mock.patch.object(sp, name, fake)
-            pt.start()
-            self.addCleanup(pt.stop)
-        extras.JOBS.pop("dism", None)
+        self.assertFalse(hasattr(extras, "dism_monthly"))
+        self.assertIn("dism", extras.KINDS)   # الزر اليدوي باقٍ
+        src = open(os.path.join(ROOT, "routes_destructive.py"), encoding="utf-8").read()
+        self.assertNotIn("dismmonthly", src)
 
-    def test_failed_run_is_not_retried_within_a_day(self):
-        now = 1_800_000_000
-        with mock.patch.object(self.ex.time, "time", return_value=now):
-            self.assertEqual(self.ex.dism_monthly(), "started")
-        for dt in (3600, 12 * 3600, 86400 - 1):   # لا صف نجاح: فشل أو مهلة
-            with mock.patch.object(self.ex.time, "time", return_value=now + dt):
-                self.assertEqual(self.ex.dism_monthly(), "backoff")
-        with mock.patch.object(self.ex.time, "time", return_value=now + 86400):
-            self.assertEqual(self.ex.dism_monthly(), "started")
-        self.assertEqual(len(self.calls), 2)
 
-    def test_clock_jump_back_does_not_block_forever(self):
-        self.store["space.dism_last_try"] = 1_900_000_000
-        with mock.patch.object(self.ex.time, "time", return_value=1_800_000_000):
-            self.assertEqual(self.ex.dism_monthly(), "started")
-        self.assertEqual(self.store["space.dism_last_try"], 1_800_000_000)
+class CrashDumpsKeepNewest(unittest.TestCase):
+    """البند 14 والبند 32: الزر اليدوي لتقارير الأعطال يبقي أحدث 3 ملفات في كل مجلد مهما كان عمرها، كقاعدة المحرّك."""
+
+    def test_newest_three_stay(self):
+        import extras
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d, True)
+        old = time.time() - 30 * 86400
+        for n in range(6):
+            p = os.path.join(d, "dump%d.dmp" % n)
+            with open(p, "wb") as f:
+                f.write(b"x" * 10)
+            os.utime(p, (old + n * 60, old + n * 60))
+        spec = dict(extras.LIGHT["crashdumps"], roots=lambda: [d])
+        with mock.patch.dict(extras.LIGHT, {"crashdumps": spec}), \
+             mock.patch.object(extras.space, "scan", lambda *a, **k: None), \
+             mock.patch.object(extras.space, "_c", lambda: types.SimpleNamespace(execute=lambda *a: None, commit=lambda: None)):
+            r = extras._light("crashdumps", False, "manual")
+        self.assertTrue(r["ok"])
+        self.assertEqual(sorted(os.listdir(d)), ["dump3.dmp", "dump4.dmp", "dump5.dmp"])
 
 
 class Diskpart(unittest.TestCase):

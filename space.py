@@ -51,7 +51,9 @@ Q_MIN_BYTES = 5 * 2**20
 KIND_LABEL = {"temp": "الملفات المؤقتة", "edgecache": "ذاكرة Edge", "npmcache": "ذاكرة npm", "swdist": "تنزيلات تحديث ويندوز", "winold": "Windows.old"}
 # manual-only kinds (never part of the hourly auto-clean): the update download cache, and the previous Windows after its grace period.
 EXTRA = ("swdist", "winold")
-AUTO_EXTRA = ("pipcache", "crashdumps", "wintemp")   # extras.py light kinds that may be switched on for the hourly auto-clean
+AUTO_EXTRA = ("pipcache",)   # extras.py light kinds that may be switched on for the hourly auto-clean
+# البند 32 من المجلس 19/11: Windows\Temp وتقارير الأعطال يملكها محرّك التنظيف (قاعدتا windows-temp وcrash-dumps يوميًّا،
+# وتبقى أحدث 3 تفريغات)، فخرجا من الساعي هنا وبقي زراهما يدويَّين؛ ودورتان على المجلدات نفسها كانت تنقض keepNewest.
 # البند 25 من المجلس 19/11: مخابئ تُعاد تنزيلها عند الحاجة؛ مسحها الساعي والقرص غير ممتلئ إعادةُ تنزيل وبطء (الخط الأحمر 7).
 # فالتلقائي لها يعمل فقط حين تنزل المساحة الحرة في C عن عتبة تحذير المساحة (alertcfg disk.freeWarnGB)؛ اليدوي متاح دائمًا.
 CACHE_KINDS = ("edgecache", "npmcache", "pipcache")
@@ -385,11 +387,6 @@ def auto_run():
     for k, on in get_auto().items():
         if on and not (gate["gated"] and k in CACHE_KINDS):
             clean(k, dry=False, src="auto")
-    try:
-        import extras
-        extras.dism_monthly()
-    except Exception:
-        errlog.swallowed()
 
 _ready = False
 _scan_lock = threading.Lock()

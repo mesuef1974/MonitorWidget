@@ -198,9 +198,6 @@ def _space(route, body):
     if act == "report":
         import extras
         return 200, {"ok": extras.report_start()}
-    if act == "dismmonthly":
-        space._setting_set("space.dism_monthly", bool(body.get("on")))
-        return 200, {"ok": True}
     if act == "elevated":
         return 200, {"ok": space.set_elevated(kind, bool(body.get("on")))}
     if act in ("cleanall", "clean"):
