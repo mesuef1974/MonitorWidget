@@ -390,16 +390,13 @@ Describe 'إتاحة الويدجت: AutomationProperties وLiveSetting (WPF م�
         $AP::GetLiveSetting($UI.cpuAlert) | Should -Be 'Assertive'
         $AP::GetLiveSetting($UI.confirmText) | Should -Be 'Assertive'
     }
-    It 'التقليص العميق يسأل في طبقة التأكيد داخل الويدجت لا في نافذة نظام' {
+    It 'زر التقليص وضع واحد بلا قائمة أعماق ولا تأكيد عميق (البند 24)، وأزرار التأكيد للتنظيف وحده' {
         $source | Should -Not -Match '\[Windows\.MessageBox\]'
+        $source | Should -Not -Match 'trimMenu'
+        $source | Should -Not -Match "trim:deep"
+        $source | Should -Match '\$UI\.trim\.Add_Click\(\{ Start-Trim \}\)'
+        $source | Should -Match "function Start-Trim \{"
         . ([scriptblock]::Create((& $section 'function Set-ConfirmButtons' 'function Start-Clean')))
-        . ([scriptblock]::Create((& $section 'function Start-Trim' '# الزر يفتح قائمة')))
-        $script:trimJob = $null; $UI.confirm.Visibility = 'Collapsed'
-        Start-Trim 'deep'
-        $UI.confirm.Visibility | Should -Be 'Visible'
-        $UI.confirmText.Text | Should -Be 'الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟'
-        $AP::GetName($UI.cfReal) | Should -Be 'متابعة'
-        $UI.cfDry.Visibility | Should -Be 'Collapsed'
         Set-ConfirmButtons 'تنفيذ فعلي' $true
         $AP::GetName($UI.cfReal) | Should -Be 'تنفيذ فعلي'
         $UI.cfDry.Visibility | Should -Be 'Visible'

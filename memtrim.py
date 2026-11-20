@@ -9,7 +9,8 @@
     auto_trim_on() / set_trim_auto(on)       مفتاح الإعداد trim.auto في جدول settings
     guard_next()                             العدّ التنازلي للتنظيف التلقائي التالي (مهمة trim في الوكيل)
     view()                                   حالة التنظيف للواجهة مدمجة مع أحدث صف في جدول trims (كانت _trim_view)
-    trim_memory(mode)                        مرور واحد: light (purge مرتفعة) / medium (بارد + standby) / deep (مجموعات العمل)
+    trim_memory()                            مرور واحد: light وحده (purge مرتفعة لصفحات الانتظار منخفضة الأولوية)؛ البند 24 من
+                                             المجلس 19/11 حذف medium وdeep والتفريغ الشامل لكل العمليات
 """
 import ctypes
 import json
@@ -17,7 +18,6 @@ import os
 import subprocess
 import threading
 import time
-from ctypes import wintypes
 
 import db
 import errlog
@@ -29,19 +29,11 @@ ROUTES = ("/api/trim-memory", "/api/trim-auto")
 AUTO_PERIOD = 600
 PURGE_TASK = "MemoryPurge-OnDemand"
 PURGE_LOCK = os.path.join(ROOT, "purge.lock")
-COLD_NAMES = {"node.exe", "pwsh.exe", "cmd.exe"}   # background shells and dev servers only; never browsers, editors, Claude
-COLD_MAX_PROCS = 20
 
 TRIM = {"running": False, "freedMB": None, "ts": None, "err": None, "before": None, "after": None, "procs": 0, "ms": 0}
 _cycle = {"done": time.time()}
 # مرور واحد في العملية: يُؤخذ القفل قبل بدء الخيط (كان علم running يُرفع داخل الخيط فتمرّ نقرتان متتاليتان معًا)
 _run_lock = threading.Lock()
-
-
-class _PE(ctypes.Structure):
-    _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD), ("heap", ctypes.c_void_p),
-                ("mod", wintypes.DWORD), ("thr", wintypes.DWORD), ("ppid", wintypes.DWORD), ("pri", wintypes.LONG),
-                ("flags", wintypes.DWORD), ("exe", ctypes.c_wchar * 260)]
 
 
 class _MS(ctypes.Structure):
@@ -106,114 +98,6 @@ def _mem_status():
     return m.ap // (1024 * 1024), m.load
 
 
-def _trim_all_working_sets():
-    """PC-Manager style: EmptyWorkingSet on every process we may open (same user; no admin). Pages move to standby = available."""
-    k32, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
-    k32.OpenProcess.restype = wintypes.HANDLE
-    snap = k32.CreateToolhelp32Snapshot(2, 0)
-    pe = _PE()
-    pe.dwSize = ctypes.sizeof(_PE)
-    n, me = 0, os.getpid()
-    ok = k32.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
-        if pe.pid > 4 and pe.pid != me:
-            h = k32.OpenProcess(0x0100 | 0x0400 | 0x1000, False, pe.pid)  # SET_QUOTA | QUERY_INFORMATION | QUERY_LIMITED
-            if h:
-                if psapi.EmptyWorkingSet(h):
-                    n += 1
-                k32.CloseHandle(h)
-        ok = k32.Process32NextW(snap, ctypes.byref(pe))
-    k32.CloseHandle(snap)
-    return n
-
-
-def _visible_pids():
-    """PIDs that own a visible top-level window (foreground or background apps with a window are never trimmed)."""
-    u32 = ctypes.windll.user32
-    pids = set()
-    CB = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-
-    def cb(hwnd, _):
-        if u32.IsWindowVisible(hwnd):
-            pid = wintypes.DWORD()
-            u32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-            pids.add(pid.value)
-        return True
-    u32.EnumWindows(CB(cb), 0)
-    return pids
-
-
-def _cpu_ms(h):
-    class FT(ctypes.Structure):
-        _fields_ = [("lo", ctypes.c_uint32), ("hi", ctypes.c_uint32)]
-    c, e, k, u = FT(), FT(), FT(), FT()
-    if not ctypes.windll.kernel32.GetProcessTimes(h, ctypes.byref(c), ctypes.byref(e), ctypes.byref(k), ctypes.byref(u)):
-        return None
-
-    def tot(f):
-        return (f.hi << 32) | f.lo
-    return (tot(k) + tot(u)) / 10000.0
-
-
-def _trim_cold():
-    """Empty the working set of background shells that have no window and used almost no CPU over a 2 s sample.
-    Their pages move to standby; nothing is purged from the standby list, so no system cache is thrown away."""
-    k32, psapi = ctypes.windll.kernel32, ctypes.windll.psapi
-    k32.OpenProcess.restype = wintypes.HANDLE
-    snap = k32.CreateToolhelp32Snapshot(2, 0)
-    pe = _PE()
-    pe.dwSize = ctypes.sizeof(_PE)
-    me, cands = os.getpid(), []
-    ok = k32.Process32FirstW(snap, ctypes.byref(pe))
-    while ok:
-        if pe.pid > 4 and pe.pid != me and pe.exe.lower() in COLD_NAMES:
-            cands.append(pe.pid)
-        ok = k32.Process32NextW(snap, ctypes.byref(pe))
-    k32.CloseHandle(snap)
-    vis = _visible_pids()
-    cands = [p for p in cands if p not in vis]
-    handles = {}
-    for p in cands:
-        h = k32.OpenProcess(0x0400 | 0x1000, False, p)   # QUERY_INFORMATION | QUERY_LIMITED
-        if h:
-            handles[p] = h
-    before = {p: _cpu_ms(h) for p, h in handles.items()}
-    time.sleep(2)
-    idle = [p for p, h in handles.items() if before[p] is not None and _cpu_ms(h) is not None and _cpu_ms(h) - before[p] < 200]
-    for h in handles.values():
-        k32.CloseHandle(h)
-    done = 0
-    for p in idle[:COLD_MAX_PROCS]:
-        h = k32.OpenProcess(0x0100 | 0x0400, False, p)   # SET_QUOTA | QUERY_INFORMATION
-        if not h:
-            continue
-        try:
-            if psapi.EmptyWorkingSet(h):
-                done += 1
-        finally:
-            k32.CloseHandle(h)
-    return done, len(cands), len(idle)
-
-
-def _trim_medium(t0):
-    b_mb, b_load = _mem_status()
-    done, cands, idle = _trim_cold()
-    try:
-        _purge_task("standby")   # elevated; purge.exe purges standby only when normal-priority standby >= 2 GB
-    except Exception:
-        errlog.swallowed()
-    time.sleep(0.5)
-    a_mb, a_load = _mem_status()
-    ms = int((time.time() - t0) * 1000)
-    ts = time.strftime("%Y-%m-%dT%H:%M:%S")
-    TRIM.update(freedMB=a_mb - b_mb, before=b_load, after=a_load, procs=done, mode="medium", ms=ms, ts=ts, err=None,
-                candidates=cands, idle=idle)
-    try:
-        db.add_trim(time.time(), b_load, a_load, a_mb - b_mb, ms, "medium")
-    except Exception:
-        errlog.swallowed()
-
-
 # ---------------------------------------------------------------- مهمة purge المرتفعة الثابتة
 def _schtasks(args, timeout=10):
     """schtasks with a hard timeout: a hung Task Scheduler must never hang the trim thread."""
@@ -243,7 +127,7 @@ def _purge_task(mode="light"):
     """Elevated on-demand purge. Returns result dict, or None if no task is installed.
     Protected install: one task per mode with the mode as a fixed argument (no file is trusted).
     Legacy fallback (before the owner runs the secure installer): the old task plus purge_mode.txt.
-    mode 'light' = low-priority standby pages only (default); 'deep' = working sets + standby (manual only)."""
+    mode 'light' only: low-priority standby pages; active working sets untouched."""
     expected = secure.protected_expected()
     secure_ok = secure.installed() and mode in secure.PURGE_TASKS
     if expected and not secure_ok:
@@ -285,30 +169,21 @@ def _purge_task(mode="light"):
 
 
 def trim_memory(mode="light", held=False):
-    """One pass only (the old extra passes re-faulted pages and froze the machine).
+    """One pass only (the old extra passes re-faulted pages and froze the machine). mode is accepted for old callers and ignored:
+    only light remains (item 24 of the 19/11 council: purging all standby pages or every working set throws away cache that
+    Windows counts as available anyway and makes it re-read from disk).
     held=True: المستدعي أخذ _run_lock بنفسه (مسار الزر). وإلا يُؤخذ هنا بلا انتظار؛ إن كان مرور جاريًا يعود False دون مسّ حالته."""
     if not held and not _run_lock.acquire(blocking=False):
         return False
-    mode = mode if mode in ("light", "medium", "deep") else "light"
+    mode = "light"
     TRIM.update(running=True, err=None, mode=mode)
     t0 = time.time()
     try:
-        if mode == "medium":
-            _trim_medium(t0)
-            return
         res = _purge_task(mode)
-        if res:
-            TRIM.update(freedMB=res.get("freedMB"), before=res.get("beforePct"), after=res.get("afterPct"), procs=0, mode=mode,
-                        ms=int((time.time() - t0) * 1000), ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
-        elif mode == "deep":
-            b_mb, b_load = _mem_status()
-            n = _trim_all_working_sets()
-            time.sleep(0.6)
-            a_mb, a_load = _mem_status()
-            TRIM.update(freedMB=a_mb - b_mb, before=b_load, after=a_load, procs=n, mode="user",
-                        ms=int((time.time() - t0) * 1000), ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
-        else:
+        if not res:
             raise RuntimeError("purge task not installed")
+        TRIM.update(freedMB=res.get("freedMB"), before=res.get("beforePct"), after=res.get("afterPct"), procs=0, mode=mode,
+                    ms=int((time.time() - t0) * 1000), ts=time.strftime("%Y-%m-%dT%H:%M:%S"))
     except Exception as e:
         TRIM.update(err=str(e)[:200])
     finally:
@@ -340,9 +215,8 @@ def post(route, body, invalidate=lambda: None):
         if TRIM["running"] or not _run_lock.acquire(blocking=False):
             return 409, {"error": "trim already running"}
         TRIM["running"] = True   # يُرفع قبل بدء الخيط فتراه الحالة فورًا
-        mode = body.get("mode") if isinstance(body, dict) else None
-        try:
-            threading.Thread(target=trim_memory, args=(mode or "light", True), daemon=True).start()
+        try:   # mode في الطلب يُتجاهل: light وحده (البند 24)
+            threading.Thread(target=trim_memory, args=("light", True), daemon=True).start()
         except BaseException:
             TRIM["running"] = False
             _run_lock.release()

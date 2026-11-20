@@ -75,10 +75,13 @@ if ($reaperHash) {{
 $user = "$env:USERDOMAIN\$env:USERNAME"
 $pr = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Highest
 $set = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 3) -MultipleInstances IgnoreNew -Hidden
-foreach ($m in 'light','standby','deep') {{
+foreach ($m in @('light')) {{   # item 24: standby and deep were removed
   $name = 'MemoryPurge-' + (Get-Culture).TextInfo.ToTitleCase($m)
   $act = New-ScheduledTaskAction -Execute "$bin\purge.exe" -Argument "$m `"$out\purge_result.json`"" -WorkingDirectory $bin
   Register-ScheduledTask -TaskName $name -Action $act -Principal $pr -Settings $set -Description "On-demand RAM purge, mode=$m (protected install)" -Force | Out-Null
+}}
+foreach ($n in 'MemoryPurge-Standby','MemoryPurge-Deep') {{
+  if (Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue) {{ Unregister-ScheduledTask -TaskName $n -Confirm:$false }}
 }}
 $cmd = "& '$bin\healthprobe.ps1' -SkipUpdates | Set-Content -LiteralPath '$out\admin_probe.json' -Encoding UTF8"
 $a  = New-ScheduledTaskAction -Execute $pwsh -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy RemoteSigned -Command `"$cmd`"" -WorkingDirectory $bin

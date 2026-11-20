@@ -1095,14 +1095,10 @@ function Start-Clean([bool]$dry) {
 }
 # trim runs in a background runspace: the UI thread never waits on the server
 $script:trimJob = $null
-function Start-Trim([string]$mode, [bool]$confirmed = $false) {
+# البند 24 من المجلس 19/11: وضع واحد (light)؛ حُذف المتوسط والعميق وقائمتهما
+function Start-Trim {
     if ($script:trimJob) { return }
-    # deep trim asks inside the widget (themed overlay), never through a system dialog
-    if ($mode -eq 'deep' -and -not $confirmed) {
-        Set-ConfirmButtons 'متابعة' $false
-        $script:pending = 'trim:deep'; $UI.confirmText.Text = 'الوضع العميق قد يجمّد الجهاز لدقائق. متابعة؟'; $UI.confirm.Visibility = 'Visible'; $UI.cfNo.Focus() | Out-Null
-        return
-    }
+    $mode = 'light'
     $script:trimPendingAt = Get-Date
     $UI.trimText.Text = '… جارٍ تنظيف الذاكرة'; $script:lastStamp = -1
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -1112,19 +1108,7 @@ function Start-Trim([string]$mode, [bool]$confirmed = $false) {
     $trimTimer.Start()
     Log ('trim: pressed ' + $mode)
 }
-# الزر يفتح قائمة بالأعماق الثلاثة بدل أن ينفّذ مباشرة
-$trimMenu = New-Object Windows.Controls.ContextMenu; $trimMenu.FlowDirection = 'RightToLeft'; $trimMenu.FontFamily = $FONTS.list
-foreach ($m in @(@('light', 'بسيط (آمن)'), @('medium', 'متوسط (العمليات الخاملة)'), @('deep', 'عميق (بتأكيد)'))) {
-    $mi = New-Object Windows.Controls.MenuItem; $mi.Header = $m[1]; $mi.Tag = $m[0]
-    $mi.Add_Click({ param($sender, $e) Start-Trim ([string]$sender.Tag) }.GetNewClosure())
-    [void]$trimMenu.Items.Add($mi)
-}
-$UI.trim.Add_Click({
-    if ($script:trimJob) { return }
-    $r = New-WidgetMenuStyles
-    $trimMenu.Style = $r['WidgetContextMenu']; $trimMenu.Resources[[Windows.Controls.MenuItem]] = $r['WidgetMenuItem']; Set-WidgetMenuItems $trimMenu.Items $r
-    $trimMenu.PlacementTarget = $UI.trim; $trimMenu.Placement = 'Top'; $trimMenu.IsOpen = $true
-})
+$UI.trim.Add_Click({ Start-Trim })
 $trimTimer = New-Object Windows.Threading.DispatcherTimer; $trimTimer.Interval = [TimeSpan]::FromMilliseconds(200)
 $trimTimer.Add_Tick({
     $j = $script:trimJob; if (-not $j) { $this.Stop(); return }; if (-not $j.ar.IsCompleted) { return }
@@ -1138,7 +1122,7 @@ $trimTimer.Add_Tick({
         Show-Toast ('تعذّر: ' + $_.Exception.Message)
     } finally { $j.ps.Dispose() }
 })
-$UI.cfReal.Add_Click({ if ($script:pending -eq 'trim:deep') { $script:pending = $null; $UI.confirm.Visibility = 'Collapsed'; Start-Trim 'deep' $true } else { Start-Clean $false } })
+$UI.cfReal.Add_Click({ Start-Clean $false })
 $UI.cfDry.Add_Click({ Start-Clean $true })
 $UI.cfNo.Add_Click({ $script:pending = $null; $UI.confirm.Visibility = 'Collapsed' })
 Add-Type -TypeDefinition @'
