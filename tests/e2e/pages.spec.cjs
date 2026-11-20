@@ -113,3 +113,11 @@ test('المظهر في مكان واحد: لا صفحة «المظهر المو
   expect(await page.locator('#main [data-mode]').count()).toBe(3);
   expect(await page.evaluate(() => typeof PAGES.appearance)).toBe('undefined');
 });
+
+// البند 27 من المجلس 19/11: تنظيف الذاكرة من مدخل واحد في الواجهة (زر الشريط) مع الويدجت
+test('تنظيف الذاكرة من زر الشريط وحده: لا زر تنظيف في صفحة التحكم', async ({ page }) => {
+  await page.goto('/#/ctrl');
+  await page.waitForFunction(() => document.querySelectorAll('#main .swatch[data-palette]').length === 4);
+  expect(await page.locator('#main [data-trim]').count()).toBe(0);
+  expect(await page.locator('#boost').count()).toBe(1);
+});
