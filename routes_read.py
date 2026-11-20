@@ -35,6 +35,7 @@ import shellwin
 import widgetwatch
 import snapshot
 import space
+import updwatch
 import startup_mgr
 import widgetctl
 import askstore
@@ -149,7 +150,7 @@ _TABLE = {
     "/api/db": (lambda q: dbview.overview(), None),
     "/api/db/rows": (_db_rows, None),   # ValueError/sqlite3.Error → 400 bad params (أدناه)
     "/api/jobs": (lambda q: {"jobs": sched.listing(), "agent": space._agent_status(), "quarantine": space.quarantine_list()}, None),
-    "/api/startup": (lambda q: startup_mgr.list_items(), None),
+    "/api/startup": (lambda q: dict(startup_mgr.list_items(), updaters=updwatch.payload()), None),   # البند 23: حالة مهام التحديث بجانب العناصر
     "/api/actions": (_actions, None),
     "/api/space": (_space, None),
     "/api/space-preview": (lambda q: space.preview_status(q.get("kind", "")), None),   # تقدّم المعاينة الخلفية ونتيجتها

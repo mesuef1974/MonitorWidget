@@ -613,7 +613,7 @@ def power_payload(rng="24h"):
 
 # ------------------------------------------------------------------ alerts page
 # مصادر التنبيهات في db.add_event؛ تسمياتها العربية في SRC بالواجهة (web/index.html)
-ALERT_SOURCES = ("cpu", "health", "guard", "fix", "commit", "disk", "boot", "localai", "net", "audit")
+ALERT_SOURCES = ("cpu", "health", "guard", "fix", "commit", "disk", "boot", "localai", "net", "audit", "updates")
 
 
 def alerts_payload():

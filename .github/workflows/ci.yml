@@ -38,6 +38,7 @@ jobs:
           python -X utf8 -B tests/window_security_check.py
           python -X utf8 -B tests/commit_check.py
           python -X utf8 -B tests/bootaudit_check.py
+          python -X utf8 -B tests/updwatch_check.py
           python -X utf8 -B tests/procclose_check.py
           python -X utf8 -B tests/winguard_check.py
           python -X utf8 -B tests/localai_check.py

@@ -1,6 +1,6 @@
 """Startup manager: lists what starts with Windows and switches each item on or off (the same switch Task Manager uses)."""
 import json, os, subprocess, threading, time, winreg
-import bootaudit, db, health
+import bootaudit, db, health, updwatch
 
 CNW = 0x08000000
 RUN = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -117,6 +117,7 @@ def _items():
         it["path"] = path
         it["runLevel"] = t.get("runLevel", "")
         it["elevatedUnsafe"] = t.get("runLevel") == "Highest" and bool(t.get("userWritable", True))
+        it["updater"] = updwatch.is_updater(path + name)   # البند 23: مهمة تحديث؛ تعطيلها مرفوض (الخط الأحمر 6)
         out.append(it)
     return out
 
@@ -178,6 +179,8 @@ def toggle(body):
     elif it["source"] == "folder":
         _set_enabled(winreg.HKEY_CURRENT_USER, "StartupFolder", it["name"], en)
     elif it["source"] == "task":
+        if not en and updwatch.is_updater(it["path"] + it["name"]):
+            return 400, {"error": "update task"}
         if en and _elevated_unsafe(it):
             return 403, {"error": "مهمة بصلاحية مسؤول ملفها يكتبه المستخدم؛ لا تُفعَّل من هنا"}
         # values travel as environment variables, never interpolated into the command text; the verb comes from a fixed pair
